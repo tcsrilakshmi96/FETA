@@ -21,11 +21,15 @@ export async function userIdFor(db: SupabaseClient, token: string) {
 // What Feta knows about the user: answers, swipes and profile lines.
 // Trip-only lines are included only for that trip.
 export async function loadTaste(db: SupabaseClient, trip?: string | null): Promise<Taste> {
-  const [answersRes, linesRes, swipesRes] = await Promise.all([
+  const [answersRes, linesRes, swipesRes, actionsRes] = await Promise.all([
     db.from("answers").select("*").maybeSingle(),
     db.from("profile_lines").select("text, trip").is("removed_at", null),
     db.from("swipes").select("card_id, verdict"),
+    db.from("pick_actions").select("action, reason, because").order("created_at", { ascending: false }).limit(20),
   ]);
+  // The "because" column arrives with a later migration; without it this
+  // query fails and Feta simply goes without these hints.
+  const actions = actionsRes.error ? [] : (actionsRes.data ?? []);
   const a = answersRes.data;
   const answers: Answers = a
     ? {
@@ -45,5 +49,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
     lines: (linesRes.data ?? []).filter((l) => !l.trip || (trip && l.trip === trip)).map((l) => l.text),
     yes: swipes.filter((s) => s.verdict === "yes").map((s) => s.card_id),
     no: swipes.filter((s) => s.verdict === "no").map((s) => s.card_id),
+    saved: actions.filter((a) => a.action === "saved" && a.because).slice(0, 5).map((a) => a.because as string),
+    skipped: actions.filter((a) => a.action === "skipped" && a.reason).slice(0, 8).map((a) => a.reason as string),
   };
 }

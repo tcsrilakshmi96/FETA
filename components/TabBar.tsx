@@ -2,20 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
-import { useToast } from "@/components/Toast";
 import styles from "./TabBar.module.css";
 
 const TABS = [
   { id: "picks", label: "Picks", href: "/picks" },
   { id: "lists", label: "Lists", href: "/lists" },
-  { id: "ask", label: "Ask", href: null },
-  { id: "style", label: "Style", href: null },
+  { id: "ask", label: "Ask", href: "/ask" },
+  { id: "style", label: "Style", href: "/style" },
   { id: "you", label: "You", href: "/you" },
 ] as const;
 
-// Floating glass tab bar. Tabs not built yet say so.
+// Floating glass tab bar.
 export default function TabBar({ active }: { active: (typeof TABS)[number]["id"] }) {
-  const toast = useToast();
   const router = useRouter();
   return (
     <>
@@ -37,9 +35,7 @@ export default function TabBar({ active }: { active: (typeof TABS)[number]["id"]
               className={`${styles.item} ${tab.id === active ? styles.active : ""}`}
               aria-current={tab.id === active ? "page" : undefined}
               onClick={() => {
-                if (tab.id === active) return;
-                if (tab.href) router.push(tab.href);
-                else toast(`${tab.label} is coming soon.`);
+                if (tab.id !== active && tab.href) router.push(tab.href);
               }}
             >
               <span className={styles.label}>{tab.label}</span>

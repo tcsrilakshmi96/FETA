@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
+import PickDetails from "@/components/PickDetails";
+import { useToast } from "@/components/Toast";
+import { savePickAction } from "@/lib/db";
 import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
+import type { Pick } from "@/lib/picks-client";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { setLinesTrip, undoLines } from "@/lib/profile-client";
 import styles from "./Ask.module.css";
@@ -24,6 +28,8 @@ export default function Ask() {
   const [thinking, setThinking] = useState(false);
   const [trip, setTrip] = useState<string | null>(null);
   const [origin, setOrigin] = useState<Origin | null>(null);
+  const [detail, setDetail] = useState<Pick | null>(null);
+  const toast = useToast();
   const listRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
 
@@ -91,7 +97,7 @@ export default function Ask() {
               <>
                 <div className={styles.minis}>
                   {m.reply.picks.slice(0, 3).map((p) => (
-                    <a key={p.placeId} className={styles.mini} href={p.event ? p.event.url : p.mapsUri} target="_blank" rel="noopener noreferrer">
+                    <button key={p.placeId} type="button" className={styles.mini} onClick={() => setDetail(p)}>
                       {p.photo && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={p.photo.uri} alt="" referrerPolicy="no-referrer" />
@@ -102,7 +108,7 @@ export default function Ask() {
                         <span className={styles.miniName}>{p.name}</span>
                         <span className={styles.miniArea} style={{ display: "block" }}>{p.area}</span>
                       </span>
-                    </a>
+                    </button>
                   ))}
                 </div>
                 {m.reply.picks.some((p) => !p.event) && (
@@ -187,6 +193,21 @@ export default function Ask() {
           ↑
         </button>
       </form>
+
+      {detail && (
+        <PickDetails
+          pick={detail}
+          onClose={() => setDetail(null)}
+          onSave={() => {
+            savePickAction(detail.placeId, "saved", {
+              category: detail.kind === "DO" || detail.kind === "EVENT" ? "experiences" : "food_drinks",
+              cityId: origin?.cityId ?? "",
+              because: detail.because,
+            });
+            toast("Saved to Want to try");
+          }}
+        />
+      )}
     </main>
   );
 }

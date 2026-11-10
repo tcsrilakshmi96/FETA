@@ -91,8 +91,33 @@ function spendLine(answers: Answers, currency: Currency): ProfileLine | null {
   return { id: "spend", text: `Usually ${label.replace(/^Under/, "under")} a head`, source: "answers" };
 }
 
-// "Here's what I picked up": up to 4 plain lines, no labels or types.
-// Two from "Yes, me" swipes first, then distance and spend, then any other yeses.
+// Plain words for the answers, for profile lines.
+function listOf(words: string[]) {
+  return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+function labelsFor(questionId: string, ids: string[]) {
+  const q = QUESTIONS.find((x) => x.id === questionId);
+  return ids.map((id) => q?.options.find((o) => o.id === id)?.label.toLowerCase()).filter(Boolean) as string[];
+}
+
+const DRINK_LINES: Record<string, string> = {
+  love_bars: "Enjoys a good bar",
+  sometimes: "Drinks now and then",
+  no_alcohol: "Doesn't drink alcohol",
+};
+
+const DIET_LINES: Record<string, string> = {
+  vegetarian: "Eats vegetarian",
+  vegetarian_eggs: "Eats vegetarian, and eggs",
+  jain: "Eats Jain food",
+  vegan: "Eats vegan",
+  pescatarian: "Eats fish but not meat",
+};
+
+// Everything Feta picked up from the answers and swipes, as plain lines
+// (no labels or types). "Here's what I picked up" shows the first few;
+// all of them are saved to the profile, where they can be removed.
 export function pickedUpLines(answers: Answers, swipes: Swipe[], currency: Currency): ProfileLine[] {
   const cards = swipeCards(answers);
   const yesLines: ProfileLine[] = swipes
@@ -100,17 +125,20 @@ export function pickedUpLines(answers: Answers, swipes: Swipe[], currency: Curre
     .map((s) => cards.find((c) => c.id === s.cardId))
     .filter((c): c is SwipeCard => !!c)
     .map((c) => ({ id: c.id, text: c.line, source: "swipes" }));
-  const distance: ProfileLine | null = answers.distance
-    ? { id: "distance", text: DISTANCE_LINES[answers.distance], source: "answers" }
-    : null;
+  const who = labelsFor("who", answers.who);
+  const into = labelsFor("interests", answers.interests);
+  const line = (id: string, text: string | undefined | null): ProfileLine | null =>
+    text ? { id, text, source: "answers" } : null;
   return [
     ...yesLines.slice(0, 2),
-    distance,
+    line("distance", answers.distance ? DISTANCE_LINES[answers.distance] : null),
     spendLine(answers, currency),
+    line("who", who.length ? `Usually out ${who.includes("solo") && who.length === 1 ? "solo" : `with ${listOf(who.filter((w) => w !== "solo").map((w) => w.replace("partner or date", "a partner or date").replace(/^work$/, "colleagues")))}`}` : null),
+    line("interests", into.length ? `Into ${listOf(into)}` : null),
     ...yesLines.slice(2),
-  ]
-    .filter((line): line is ProfileLine => !!line)
-    .slice(0, 4);
+    line("drinks", answers.drinks ? DRINK_LINES[answers.drinks] : null),
+    line("diet", answers.diet && answers.diet !== "everything" ? `${DIET_LINES[answers.diet]}${answers.halal ? ", halal only" : ""}` : answers.halal ? "Halal only" : null),
+  ].filter((l): l is ProfileLine => !!l);
 }
 
 // Kept on this phone until the database is connected.

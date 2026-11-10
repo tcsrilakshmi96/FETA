@@ -130,16 +130,22 @@ export function saveProfileLinesToDb(kept: ProfileLine[], removed: ProfileLine[]
 export function savePickAction(
   placeId: string,
   action: "saved" | "skipped" | "been",
-  extra: { reason?: string; category: string; cityId: string },
+  extra: { reason?: string; because?: string; category: string; cityId: string },
 ) {
-  return run("pick action", (userId) =>
-    supabase()
-      .from("pick_actions")
-      .upsert(
-        { user_id: userId, place_id: placeId, action, reason: extra.reason ?? null, category: extra.category, city_id: extra.cityId },
-        { onConflict: "user_id,place_id,action" },
-      ),
-  );
+  return run("pick action", async (userId) => {
+    const row = {
+      user_id: userId,
+      place_id: placeId,
+      action,
+      reason: extra.reason ?? null,
+      category: extra.category,
+      city_id: extra.cityId,
+    };
+    const upsert = (r: object) => supabase().from("pick_actions").upsert(r, { onConflict: "user_id,place_id,action" });
+    const result = await upsert(extra.because ? { ...row, because: extra.because } : row);
+    // Before the "because" column exists, save without it.
+    return result.error?.message.includes("because") ? upsert(row) : result;
+  });
 }
 
 // ---------- Lists ----------
@@ -181,4 +187,29 @@ export async function loadWhatsApp(): Promise<string | null> {
   if (!userId) return null;
   const { data } = await supabase().from("profiles").select("whatsapp_number").eq("id", userId).maybeSingle();
   return data?.whatsapp_number ?? null;
+}
+
+// Tweaks teach Feta: "Somewhere quieter" becomes "Likes quieter places" in
+// the profile (removable in You).
+const TWEAK_LINES: Record<string, string> = {
+  quieter: "Likes quieter places",
+  cheaper: "Keeping spend down lately",
+  closer: "Prefers places close by",
+  outdoors: "Likes being outdoors",
+  open_later: "Often out late",
+  groups: "Often out in a group",
+  kids: "Often out with kids",
+};
+
+export function saveTweakLines(tweaks: string[]) {
+  const rows = tweaks.filter((t) => TWEAK_LINES[t]);
+  if (rows.length === 0) return Promise.resolve();
+  return run("tweak lines", (userId) =>
+    supabase()
+      .from("profile_lines")
+      .upsert(
+        rows.map((t) => ({ user_id: userId, line_key: `tweak:${t}`, text: TWEAK_LINES[t], source: "tweaks", removed_at: null })),
+        { onConflict: "user_id,line_key" },
+      ),
+  );
 }

@@ -142,6 +142,9 @@
 
 .mini {
   position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
   height: 150px;
   border-radius: 16px;
   overflow: hidden;

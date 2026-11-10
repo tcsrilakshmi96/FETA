@@ -17,6 +17,8 @@ export type Taste = {
   yes: string[]; // swipe card ids the user said "Yes, me" to
   no: string[];
   openLate?: boolean; // the "Open later" tweak
+  saved?: string[]; // Feta's reasons for places they saved lately
+  skipped?: string[]; // why they skipped places lately ("Too pricey")
 };
 
 // ---------- Tweaks ----------
@@ -185,6 +187,9 @@ function isMainlyFoodOrDrink(place: Place) {
 
 export const POPULAR_REVIEWS = 3000;
 
+// Shops, not places to go out to.
+const NEVER_PICKS = ["liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall"];
+
 export type Candidate = { place: Place; km: number; far: boolean };
 
 // How many places each hard filter removed, to explain an empty result.
@@ -217,7 +222,8 @@ export function applyHardFilters(
       opts.exclude.has(place.id) ||
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
-      (opts.category === "experiences" && isMainlyFoodOrDrink(place))
+      (opts.category === "experiences" && isMainlyFoodOrDrink(place)) ||
+      NEVER_PICKS.includes(place.primaryType ?? "")
     ) {
       drop("other");
       continue;
@@ -333,6 +339,8 @@ export function tasteSummary(taste: Taste, city: City) {
     a.drinks && `Drinks: ${label("drinks", a.drinks, city)}`,
     a.interests.length > 0 && `Into: ${multi("interests", a.interests)}`,
     taste.lines.length > 0 && `What they like: ${taste.lines.join("; ")}`,
+    taste.saved?.length && `Places they saved lately, and why: ${taste.saved.join(" | ")}`,
+    taste.skipped?.length && `Why they skipped places lately: ${taste.skipped.join(", ")}`,
   ]
     .filter(Boolean)
     .join("\n");

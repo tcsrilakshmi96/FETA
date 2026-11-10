@@ -25,6 +25,8 @@ export default function PickedUp() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [lines, setLines] = useState<ProfileLine[]>([]);
   const [removed, setRemoved] = useState<ProfileLine[]>([]);
+  // The screen shows the first few; the rest are saved too, and live in You.
+  const SHOWN = 5;
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export default function PickedUp() {
           Not a label, just a starting point. Remove anything that&apos;s wrong; it changes with every outing.
         </p>
         <ul className={`${styles.fade} ${styles.lines}`}>
-          {lines.map((line) => (
+          {lines.slice(0, SHOWN).map((line) => (
             <li key={line.id} className={styles.line}>
               {line.text}
               <button

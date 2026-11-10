@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import PickDetails, { GoogleLine, SearchChip } from "@/components/PickDetails";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
-import { savePickAction } from "@/lib/db";
+import { savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
 import { cityById, loadOrigin, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
@@ -84,6 +85,7 @@ export default function Picks() {
   );
 
   function tweak(tweaks: string[], label: string, note?: string) {
+    saveTweakLines(tweaks);
     setSheet(null);
     setTweakNote("");
     load(when, category, false, { tweaks, note, label });
@@ -129,7 +131,7 @@ export default function Picks() {
   }
 
   function save(pick: Pick) {
-    savePickAction(pick.placeId, "saved", { category, cityId: city!.id });
+    savePickAction(pick.placeId, "saved", { category, cityId: city!.id, because: pick.because });
     toast("Saved to Want to try");
   }
 
@@ -188,7 +190,7 @@ export default function Picks() {
         <button type="button" className={`${styles.cat} ${category === "experiences" ? styles.catOn : ""}`} onClick={() => chooseCategory("experiences")}>
           Experiences
         </button>
-        <button type="button" className={`${styles.cat} ${styles.catSoon}`} onClick={() => toast("Style is coming soon.")}>
+        <button type="button" className={`${styles.cat} ${styles.catSoon}`} onClick={() => router.push("/style")}>
           Style · soon
         </button>
       </div>
@@ -349,13 +351,15 @@ export default function Picks() {
 
       <TabBar active="picks" />
 
-      {sheet && (
+      {sheet?.type === "details" && <PickDetails pick={sheet.pick} onClose={() => setSheet(null)} onSave={() => save(sheet.pick)} />}
+
+      {sheet && sheet.type !== "details" && (
         <>
           <div className={styles.dim} onClick={() => setSheet(null)} />
           <div
             className={styles.sheet}
             role="dialog"
-            aria-label={sheet.type === "details" ? sheet.pick.name : sheet.type === "tweak" ? "Tweak these" : "Why not?"}
+            aria-label={sheet.type === "tweak" ? "Tweak these" : "Why not?"}
           >
             {sheet.type === "tweak" ? (
               <>
@@ -389,8 +393,6 @@ export default function Picks() {
                   </button>
                 </form>
               </>
-            ) : sheet.type === "details" ? (
-              <Details pick={sheet.pick} onSave={() => save(sheet.pick)} />
             ) : (
               <>
                 <h2 className={styles.sheetTitle}>
@@ -413,76 +415,5 @@ export default function Picks() {
         </>
       )}
     </main>
-  );
-}
-
-// Google's "Search Suggestions" chip for an event found by web search.
-// Google requires it shown unaltered, next to and as wide as the result.
-function SearchChip({ html }: { html: string }) {
-  return (
-    <div className={styles.searchWrap}>
-      <span className={styles.searchLabel}>Found on the web. See more on Google:</span>
-      <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />
-    </div>
-  );
-}
-
-// "Open now · closes 23:30 · checked just now · Google Maps", with the
-// words "Google Maps" linked to the place and never translated.
-function GoogleLine({ pick }: { pick: Pick }) {
-  const text = pick.googleLine.replace(/ · Google Maps$/, "");
-  return (
-    <>
-      {text} ·{" "}
-      <a href={pick.mapsUri} target="_blank" rel="noopener noreferrer" translate="no">
-        Google Maps
-      </a>
-    </>
-  );
-}
-
-function Details({ pick, onSave }: { pick: Pick; onSave: () => void }) {
-  // Shareable text never includes diet or chips.
-  const share = `https://wa.me/?text=${encodeURIComponent(`${pick.name}, ${pick.area}. Picked for me by Feta.\n${pick.mapsUri}`)}`;
-  return (
-    <>
-      <h2 className={styles.sheetTitle}>{pick.name}</h2>
-      <p className={styles.sheetSub}>
-        {pick.kind} · {pick.area} · {pick.distanceKm} km
-      </p>
-      {pick.event && (
-        <p className={styles.sheetSub}>
-          {pick.chips[0]} · {pick.event.priceText}
-        </p>
-      )}
-      <p className={styles.sheetBecause}>{pick.because}</p>
-      {pick.event ? (
-        <SearchChip html={pick.event.searchHtml} />
-      ) : (
-        <div className={`${styles.google} ${styles.sheetGoogle}`}>
-          <GoogleLine pick={pick} />
-        </div>
-      )}
-      <div className={styles.sheetActions}>
-        {pick.book ? (
-          <a className={styles.primaryAction} href={pick.book.url} target="_blank" rel="noopener noreferrer">
-            {pick.book.label}
-          </a>
-        ) : (
-          <a className={styles.primaryAction} href={pick.mapsUri} target="_blank" rel="noopener noreferrer">
-            Open in Google Maps
-          </a>
-        )}
-        <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer">
-          Directions
-        </a>
-        <button type="button" onClick={onSave}>
-          ♥ Save
-        </button>
-        <a href={share} target="_blank" rel="noopener noreferrer" style={{ gridColumn: "1 / -1" }}>
-          Share to WhatsApp
-        </a>
-      </div>
-    </>
   );
 }

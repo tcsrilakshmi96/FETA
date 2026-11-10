@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import Feedback from "@/components/Feedback";
@@ -39,7 +40,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="haze haze-turquoise" />
           <div className="haze haze-rose" />
           <ToastProvider>{children}</ToastProvider>
-          <Feedback />
+          {/* Feedback reads the page address, so it waits inside Suspense. */}
+          <Suspense>
+            <Feedback />
+          </Suspense>
         </div>
       </body>
     </html>
