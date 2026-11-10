@@ -1,0 +1,164 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 56px 24px 28px;
+  animation: fa-in 0.4s ease-out;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  margin-top: 26px;
+  animation: fa-up 0.4s ease-out;
+}
+
+.title {
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.sub {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.search {
+  flex: none;
+  margin-top: 18px;
+  height: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 99px;
+  outline: none;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.search::placeholder {
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.list {
+  margin-top: 10px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 48px;
+  padding: 13px 2px;
+  border-top: 1px solid rgba(var(--inkRGB), 0.08);
+  text-align: left;
+  font-size: 15.5px;
+}
+
+.region {
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.note {
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.45);
+}
+
+.current {
+  color: var(--roseText);
+}
+
+.empty {
+  padding: 14px 2px;
+  border-top: 1px solid rgba(var(--inkRGB), 0.08);
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+/* Not covered: pulsing pin, honest message, nearest covered cities. */
+.pin {
+  position: relative;
+  flex: none;
+  width: 120px;
+  height: 120px;
+  margin: 14px 0 28px;
+}
+
+.pin span {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.pin span:nth-child(1) {
+  inset: 0;
+  background: rgba(255, 79, 123, 0.16);
+  animation: fa-pulse 2.4s ease-in-out infinite;
+}
+
+.pin span:nth-child(2) {
+  inset: 22px;
+  background: rgba(255, 79, 123, 0.28);
+  animation: fa-pulse 2.4s ease-in-out 0.3s infinite;
+}
+
+.pin span:nth-child(3) {
+  inset: 44px;
+  background: var(--rose);
+}
+
+.nearby {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.nearbyChip {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.25s, color 0.25s;
+}
+
+.nearbyOn {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.secondary {
+  height: 56px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin span {
+    animation: none !important;
+  }
+}

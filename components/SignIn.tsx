@@ -25,17 +25,17 @@ export default function SignIn() {
 
   function finish() {
     // Consent is saved with the account once the database is connected.
-    router.push("/questions");
+    router.push("/city");
   }
 
   function notNow() {
-    router.push("/questions");
+    router.push("/city");
     toast("No problem. Sign in later from You.");
   }
 
   return (
     <main className={styles.screen}>
-      <button type="button" className={styles.back} onClick={goBack} aria-label="Back">
+      <button type="button" className="back-btn" onClick={goBack} aria-label="Back">
         ‹
       </button>
 
@@ -86,7 +86,7 @@ export default function SignIn() {
           </>
         )}
         {step === "consent" && (
-          <button type="button" className={styles.primary} onClick={finish}>
+          <button type="button" className="btn-primary" onClick={finish}>
             Continue
           </button>
         )}
@@ -108,7 +108,7 @@ function ConsentToggle(props: { title: string; sub: string; on: boolean; onToggl
         <span className={styles.toggleTitle}>{props.title}</span>
         <span className={styles.toggleSub}>{props.sub}</span>
       </span>
-      <span className={`${styles.switch} ${props.on ? styles.switchOn : ""}`} />
+      <span className={`switch ${props.on ? "on" : ""}`} />
     </button>
   );
 }

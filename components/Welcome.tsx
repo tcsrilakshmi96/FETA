@@ -48,7 +48,7 @@ export default function Welcome() {
         </button>
         <button
           type="button"
-          className={`${styles.go} ${isAdult ? styles.goOn : ""}`}
+          className="btn-primary"
           disabled={!isAdult}
           onClick={() => router.push("/sign-in")}
         >
