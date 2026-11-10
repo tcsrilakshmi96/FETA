@@ -43,6 +43,7 @@ export default function Privacy() {
           </li>
           <li>Your taste swipes, and the plain lines Feta writes about what you like.</li>
           <li>Cities you asked us to tell you about.</li>
+          <li>Your chats with Ask Feta, and the lines it adds to your profile (you can undo or remove them).</li>
           <li>If you sign in with Google: your name and email address from Google.</li>
         </ul>
       </section>
@@ -75,6 +76,12 @@ export default function Privacy() {
             Google Maps finds places near you, and Google&apos;s Gemini AI chooses your 3 picks, searches Google for
             events this week, and writes why. Gemini gets a short summary of your answers and likes and the name of
             your area, never your name, email or exact location.
+          </li>
+        </ul>
+        <ul>
+          <li>
+            Venice AI reads your chats with Ask Feta, with a short summary of what you like, to reply and suggest
+            what to remember. It never gets place details from Google.
           </li>
         </ul>
         <p>When we add another service, we will update this page first.</p>

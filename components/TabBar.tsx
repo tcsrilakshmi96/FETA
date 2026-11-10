@@ -23,7 +23,7 @@ export default function TabBar({ active }: { active: (typeof TABS)[number]["id"]
       <nav className={styles.bar} aria-label="Main">
         {TABS.map((tab) =>
           tab.id === "ask" ? (
-            <button key={tab.id} type="button" className={styles.item} aria-label="Ask Feta" onClick={() => toast("Ask Feta is coming soon.")}>
+            <button key={tab.id} type="button" className={styles.item} aria-label="Ask Feta" onClick={() => router.push("/ask")}>
               <span className={styles.askTile}>
                 <span className={styles.pop}>
                   <Cheese />

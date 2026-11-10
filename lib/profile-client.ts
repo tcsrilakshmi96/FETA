@@ -91,3 +91,14 @@ export function setAppearance(a: Appearance) {
   if (a === "auto") document.documentElement.removeAttribute("data-theme");
   else document.documentElement.setAttribute("data-theme", a);
 }
+
+// Ask Feta's "ADDED TO YOUR PROFILE" card: Undo, and "Only for this trip".
+export async function undoLines(ids: string[]) {
+  const { error } = await supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).in("id", ids);
+  if (error) console.error("Undo failed", error.message);
+}
+
+export async function setLinesTrip(ids: string[], trip: string | null) {
+  const { error } = await supabase().from("profile_lines").update({ trip }).in("id", ids);
+  if (error) console.error("Saving trip lines failed", error.message);
+}

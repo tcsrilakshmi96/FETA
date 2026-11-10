@@ -18,7 +18,7 @@ export type Place = {
   regularOpeningHours?: { periods?: { open: { day: number } }[] };
   businessStatus?: string;
   servesVegetarianFood?: boolean;
-  addressComponents?: { longText: string; types?: string[] }[];
+  addressComponents?: { longText: string; shortText?: string; types?: string[] }[];
   googleMapsUri?: string;
   websiteUri?: string;
   photos?: { name: string; authorAttributions?: { displayName: string; uri?: string }[] }[];
@@ -145,4 +145,18 @@ export async function photoUri(photoName: string): Promise<string | null> {
   if (!res.ok) return null;
   const data = (await res.json()) as { photoUri?: string };
   return data.photoUri ?? null;
+}
+
+// Where a trip destination is ("Goa", "Tokyo"): location and country code.
+export async function findDestination(name: string): Promise<{ name: string; lat: number; lng: number; country: string } | null> {
+  const res = await fetch(`${BASE}/places:searchText`, {
+    method: "POST",
+    headers: headers("places.displayName,places.location,places.addressComponents"),
+    body: JSON.stringify({ textQuery: name, pageSize: 1, languageCode: "en" }),
+  });
+  if (!res.ok) return null;
+  const place = ((await res.json()) as { places?: Place[] }).places?.[0];
+  if (!place?.location) return null;
+  const country = place.addressComponents?.find((c) => c.types?.includes("country"))?.shortText ?? "";
+  return { name: place.displayName?.text ?? name, lat: place.location.latitude, lng: place.location.longitude, country };
 }

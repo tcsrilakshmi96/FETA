@@ -442,7 +442,8 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
 
 function areaName(place: Place, city: City) {
   const parts = place.addressComponents ?? [];
-  const pick = (type: string) => parts.find((p) => p.types?.includes(type))?.longText;
+  // Skip number-only names (block numbers in, say, Tokyo addresses).
+  const pick = (type: string) => parts.find((p) => p.types?.includes(type) && !/^[\d\s-]+$/.test(p.longText))?.longText;
   return pick("sublocality_level_1") ?? pick("neighborhood") ?? pick("sublocality") ?? pick("locality") ?? city.name;
 }
 
@@ -454,7 +455,8 @@ function timeIn(iso: string, timeZone: string) {
 function googleLine(place: Place, when: When, city: City) {
   if (when === "tonight") {
     const close = place.currentOpeningHours?.nextCloseTime;
-    return `Open now${close ? ` · closes ${timeIn(close, city.timeZone)}` : ""} · checked just now · Google Maps`;
+    const known = close && city.timeZone !== "UTC";
+    return `Open now${known ? ` · closes ${timeIn(close, city.timeZone)}` : ""} · checked just now · Google Maps`;
   }
   const days = new Set(place.regularOpeningHours?.periods?.map((p) => p.open.day) ?? []);
   const open = days.has(6) && days.has(0) ? "Open Sat and Sun" : days.has(6) ? "Open Saturday" : "Open Sunday";
