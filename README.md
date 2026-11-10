@@ -1,0 +1,2 @@
+# FETA
+Lifestyle AI ASSISTANT
