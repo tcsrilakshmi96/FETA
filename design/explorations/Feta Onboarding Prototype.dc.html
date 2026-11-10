@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E8E3DB;color:#161513;font-family:Outfit,sans-serif}a{color:#161513}a:hover{color:#D9622E}</style>
+</helmet>
+<div style="max-width:1240px;margin:0 auto;padding:48px 24px 80px;display:flex;flex-direction:column;gap:56px">
+
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;color:rgba(22,21,19,.55)">ROUND 9 · ONBOARDING, AFTER DARK COLOURS</div>
+<div style="font:300 46px/1 Outfit,sans-serif;letter-spacing:-.04em">Welcome to <span style="font-weight:500">your first 3 picks</span></div>
+<div style="font:400 14.5px/1.55 Outfit,sans-serif;color:rgba(22,21,19,.7);max-width:700px;text-wrap:pretty">The full flow, in dark and light: welcome and 18+ check, six questions, ten swipe cards, your taste type, then picks. Each question has a "why we ask" line, a progress bar and Skip. Swipe the taste cards or use ✕ / Not sure / ♥. Feedback sits top-right on every screen. <a href="Feta Design Index.dc.html">All rounds</a></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px">
+<div style="font:500 13px Outfit,sans-serif">9a · 9b · Full flow</div>
+<button onClick="{{ replayFlow }}" style="padding:8px 14px;border-radius:99px;border:none;background:rgba(0,0,0,.08);font:500 12px Outfit,sans-serif;cursor:pointer">↺ Start both again</button>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:48px">
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(22,21,19,.6)">9A · DARK</div><dc-import name="Feta Onboarding Phone" theme="{{ dark }}" reveal-style="{{ revealStyle }}" replay-key="{{ flowKey }}" hint-size="360px,760px"></dc-import></div>
+<div style="display:flex;flex-direction:column;gap:10px"><div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(22,21,19,.6)">9B · LIGHT</div><dc-import name="Feta Onboarding Phone" theme="{{ light }}" reveal-style="{{ revealStyle }}" replay-key="{{ flowKey }}" hint-size="360px,760px"></dc-import></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px">
+<div><div style="font:500 13px Outfit,sans-serif">Taste reveal · 3 styles to choose from</div><div style="font:400 13px Outfit,sans-serif;color:rgba(22,21,19,.6);margin-top:4px">Pick one and it becomes the reveal in the full flow above. You can also switch it in Tweaks.</div></div>
+<button onClick="{{ replayReveal }}" style="padding:8px 14px;border-radius:99px;border:none;background:rgba(0,0,0,.08);font:500 12px Outfit,sans-serif;cursor:pointer">↺ Replay reveals</button>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:40px">
+<div style="display:flex;flex-direction:column;gap:10px;width:360px"><div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(22,21,19,.6)">9C · PHOTO STACK</div><dc-import name="Feta Onboarding Phone" theme="{{ dark }}" reveal-style="collage" start-at="reveal" preset-yes="{{ yesA }}" replay-key="{{ revKey }}" hint-size="360px,760px"></dc-import><div style="font:400 12.5px/1.5 Outfit,sans-serif;color:rgba(22,21,19,.65)">The cards you said yes to fly in from the edges and land in a loose pile. The name fades in once they settle.</div></div>
+<div style="display:flex;flex-direction:column;gap:10px;width:360px"><div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(22,21,19,.6)">9D · FULL PHOTO</div><dc-import name="Feta Onboarding Phone" theme="{{ dark }}" reveal-style="type" start-at="reveal" preset-yes="{{ yesB }}" replay-key="{{ revKey }}" hint-size="360px,760px"></dc-import><div style="font:400 12.5px/1.5 Outfit,sans-serif;color:rgba(22,21,19,.65)">Your top yes fills the screen and slowly zooms out. Then the name and profile fade in over it.</div></div>
+<div style="display:flex;flex-direction:column;gap:10px;width:360px"><div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(22,21,19,.6)">9E · COLOUR WASH</div><dc-import name="Feta Onboarding Phone" theme="{{ dark }}" reveal-style="wash" start-at="reveal" preset-yes="{{ yesC }}" replay-key="{{ revKey }}" hint-size="360px,760px"></dc-import><div style="font:400 12.5px/1.5 Outfit,sans-serif;color:rgba(22,21,19,.65)">Each type has its own two-colour wash, which blooms in behind three of your photos as they rise up.</div></div>
+</div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:20px">
+<div><div style="font:500 13px Outfit,sans-serif">The 8 taste types · simple names</div><div style="font:400 13px Outfit,sans-serif;color:rgba(22,21,19,.6);margin-top:4px">Each one gets its own colour wash, used in 9E and on the share card.</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px">
+<sc-for list="{{ types }}" as="ty" hint-placeholder-count="8">
+<div style="position:relative;overflow:hidden;border-radius:24px;padding:20px;min-height:150px;display:flex;flex-direction:column;justify-content:flex-end;background:#0D0D0C;color:#F1EBE1">
+<div style="position:absolute;inset:-40px;opacity:.85;background:{{ ty.wash }}"></div>
+<div style="position:relative;font:500 10.5px 'JetBrains Mono',monospace;opacity:.7">{{ ty.n }}</div>
+<div style="position:relative;font:300 26px/1 Outfit,sans-serif;letter-spacing:-.035em;margin-top:6px">{{ ty.first }} <span style="font-weight:500">{{ ty.last }}</span></div>
+<div style="position:relative;font:400 13px/1.45 Outfit,sans-serif;opacity:.85;margin-top:8px">{{ ty.desc }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;revealStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;collage&quot;,&quot;type&quot;,&quot;wash&quot;],&quot;default&quot;:&quot;collage&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Taste reveal&quot;}}">
+class Component extends DCLogic {
+  state = { flowKey: 0, revKey: 0 };
+  dark = { bg: '#0D0D0C', ink: '#F1EBE1', photoInk: '#F1EBE1', tabInk: '#0D0D0C', sheet: '#F1EBE1', sheetInk: '#0D0D0C', accent: '#FF9466', accentInk: '#0D0D0C', glow1: '#FF7A45', glow2: '#6EA0D2', scrim: 'rgba(13,13,12,.9)', scrimTop: 'rgba(13,13,12,.5)', track: 'rgba(241,235,225,.15)', btnBg: 'rgba(241,235,225,.09)', frame: '0 0 0 8px #000,0 40px 80px rgba(0,0,0,.3)', tints: ['#2A2622', '#3A2A22', '#1F2A36', '#33291F', '#2E2620', '#26303A'] };
+  light = { bg: '#F4EFE7', ink: '#161513', photoInk: '#F7F2EA', tabInk: '#161513', sheet: '#FFFFFF', sheetInk: '#161513', accent: '#FF9466', accentInk: '#161513', glow1: '#FF9466', glow2: '#9CC0E2', scrim: 'rgba(22,21,19,.86)', scrimTop: 'rgba(22,21,19,.35)', track: 'rgba(22,21,19,.12)', btnBg: 'rgba(22,21,19,.07)', frame: '0 0 0 8px #161513,0 40px 80px rgba(40,30,20,.2)', tints: ['#6E5E50', '#7E6250', '#56687A', '#7A6A56', '#86705A', '#5E6E80'] };
+  T = [
+    ['The Café', 'Regular', 'Slow mornings, good coffee, and wandering a new neighbourhood with no plan.', ['#C89B6D', '#6EA0D2']],
+    ['The Night', 'Owl', 'Sunsets, a view and a good drink. The evening matters as much as the menu.', ['#FF7A45', '#E85D75']],
+    ['The Heat', 'Seeker', 'You chase heat and big flavours wherever you land. Mild is never the point.', ['#E2483D', '#FFB547']],
+    ['The', 'Local', 'Hole-in-the-wall legends over hype. A queue of locals is your favourite review.', ['#D9A441', '#7A8B4F']],
+    ['The Social', 'One', 'Buzzy rooms, shared plates, a show after. You are the one who gathers the table.', ['#E86A5C', '#C9A27E']],
+    ['The Culture', 'Fan', 'Art, design and a good museum shop. You travel for the things worth looking at.', ['#6EA0D2', '#E8D8BC']],
+    ['The', 'Maker', 'Workshops and markets over sitting still. You would rather make something than watch.', ['#C8794A', '#9AB0A0']],
+    ['The Early', 'Bird', 'Early trails and day trips. Breakfast always tastes better after a climb.', ['#FFB36B', '#8CC6E8']]
+  ];
+  renderVals() {
+    return {
+      dark: this.dark, light: this.light, flowKey: this.state.flowKey, revKey: this.state.revKey,
+      revealStyle: this.props.revealStyle || 'collage',
+      yesA: [0, 5, 8, 6, 9], yesB: [6, 3, 1, 7], yesC: [9, 8, 0, 5],
+      replayFlow: () => this.setState(s => ({ flowKey: s.flowKey + 1 })),
+      replayReveal: () => this.setState(s => ({ revKey: s.revKey + 1 })),
+      types: this.T.map((x, i) => ({ n: '0' + (i + 1), first: x[0], last: x[1], desc: x[2], wash: `radial-gradient(circle at 15% 10%, ${x[3][0]}, transparent 60%), radial-gradient(circle at 95% 30%, ${x[3][1]}cc, transparent 55%)` }))
+    };
+  }
+}
+</script>
+</body>
+</html>

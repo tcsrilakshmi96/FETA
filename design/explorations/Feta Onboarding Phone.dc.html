@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@keyframes ob-d1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,50px) scale(1.15)}}
+@keyframes ob-d2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,-30px) scale(.9)}}
+@keyframes ob-kb{0%{transform:scale(1.04)}100%{transform:scale(1.2) translate(-3%,-2%)}}
+@keyframes ob-up{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+@keyframes ob-in{0%{opacity:0}100%{opacity:1}}
+@keyframes ob-bar{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+</style>
+</helmet>
+<div style="width:360px;height:760px;border-radius:48px;overflow:hidden;position:relative;font-family:Outfit,sans-serif;user-select:none;-webkit-user-select:none;box-shadow:{{ t.frame }};background:{{ t.bg }};color:{{ t.ink }}">
+
+<div style="position:absolute;width:340px;height:340px;right:-140px;top:-80px;border-radius:50%;filter:blur(90px);opacity:.35;animation:ob-d2 14s ease-in-out infinite;background:{{ t.glow1 }}"></div>
+<div style="position:absolute;width:320px;height:320px;left:-150px;bottom:40px;border-radius:50%;filter:blur(90px);opacity:.28;animation:ob-d1 16s ease-in-out infinite;background:{{ t.glow2 }}"></div>
+
+<sc-if value="{{ isWelcome }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;color:{{ t.photoInk }}">
+<div style="position:absolute;inset:8px 8px 230px 8px;border-radius:40px;overflow:hidden;background:#3A2C24">
+<div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 12px,transparent 12px 24px);animation:ob-kb 14s ease-in-out infinite alternate"></div>
+<img src="{{ welcomeImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:ob-kb 14s ease-in-out infinite alternate">
+<div style="position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(rgba(0,0,0,0),{{ t.scrim }})"></div>
+<div style="position:absolute;left:24px;right:24px;bottom:26px;animation:ob-up .9s cubic-bezier(.2,.9,.2,1) .2s both">
+<div style="font:500 30px/1 Outfit,sans-serif;letter-spacing:-.04em">feta</div>
+<div style="font:300 38px/1.02 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">Three picks for tonight, <span style="font-weight:500">chosen for your taste.</span></div>
+</div>
+</div>
+<div style="position:absolute;left:24px;right:24px;bottom:28px;display:flex;flex-direction:column;gap:14px;animation:ob-up .9s cubic-bezier(.2,.9,.2,1) .45s both;color:{{ t.ink }}">
+<div style="font:400 14px/1.45 Outfit,sans-serif;opacity:.7">A few quick questions, ten swipes, then your picks. No sign-up.</div>
+<div onClick="{{ toggleAge }}" style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:4px 0">
+<span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font:600 13px Outfit,sans-serif;transition:background .25s,transform .3s cubic-bezier(.3,1.8,.5,1);background:{{ ageBg }};color:{{ ageFg }};transform:{{ ageTf }}">{{ ageTick }}</span>
+<span style="font:400 14px Outfit,sans-serif">I'm 18 or older</span>
+</div>
+<button onClick="{{ start }}" style="height:56px;border:none;border-radius:99px;font:500 16px Outfit,sans-serif;cursor:pointer;transition:background .3s,opacity .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ goBg }};color:{{ goFg }};opacity:{{ goOp }}" style-active="transform:scale(.96)">Let's go</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isQ }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:22px;right:22px;top:56px;display:flex;align-items:center;gap:14px;z-index:5;animation:ob-in .4s ease-out">
+<span onClick="{{ back }}" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:400 18px Outfit,sans-serif;cursor:pointer;background:{{ t.btnBg }}">‹</span>
+<div style="flex:1;display:flex;gap:4px">
+<sc-for list="{{ qbars }}" as="b" hint-placeholder-count="6"><span style="flex:1;height:3px;border-radius:2px;overflow:hidden;background:{{ t.track }}"><span style="display:block;height:100%;transition:width .5s cubic-bezier(.2,.9,.2,1);width:{{ b.w }};background:{{ t.ink }}"></span></span></sc-for>
+</div>
+<span onClick="{{ skipQ }}" style="font:400 14px Outfit,sans-serif;opacity:.6;cursor:pointer">Skip</span>
+</div>
+<sc-for list="{{ qs }}" as="q" hint-placeholder-count="6">
+<div style="position:absolute;left:0;right:0;top:110px;bottom:100px;padding:0 24px;transition:transform .6s cubic-bezier(.2,.9,.2,1),opacity .45s;transform:{{ q.tf }};opacity:{{ q.op }};pointer-events:{{ q.pe }}">
+<div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;opacity:.5;transition:opacity .5s ease .15s,transform .6s cubic-bezier(.2,.9,.2,1) .15s;transform:{{ q.txtTf }}">{{ q.num }} / 06</div>
+<div style="font:300 34px/1.05 Outfit,sans-serif;letter-spacing:-.04em;margin-top:12px;text-wrap:pretty;transition:transform .6s cubic-bezier(.2,.9,.2,1) .2s;transform:{{ q.txtTf }}">{{ q.title }}</div>
+<div style="font:400 13.5px/1.45 Outfit,sans-serif;opacity:.6;margin-top:10px;text-wrap:pretty;transition:transform .6s cubic-bezier(.2,.9,.2,1) .25s;transform:{{ q.txtTf }}">{{ q.why }}</div>
+<sc-if value="{{ q.isLoc }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:22px">
+<button onClick="{{ useLoc }}" style="height:54px;border:none;border-radius:18px;font:500 15px Outfit,sans-serif;cursor:pointer;text-align:left;padding:0 18px;transition:background .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ locBg }};color:{{ locFg }}" style-active="transform:scale(.97)">{{ locLabel }}</button>
+<button onClick="{{ pickCity }}" style="height:54px;border:none;border-radius:18px;font:400 15px Outfit,sans-serif;cursor:pointer;text-align:left;padding:0 18px;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.btnBg }};color:{{ t.ink }}" style-active="transform:scale(.97)">{{ cityLabel }}</button>
+<div style="font:400 13px Outfit,sans-serif;opacity:.6;margin-top:10px">How far will you go?</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:18px">
+<sc-for list="{{ q.chips }}" as="c" hint-placeholder-count="5">
+<button onClick="{{ c.toggle }}" style="display:flex;align-items:center;height:50px;padding:0 18px;border:none;border-radius:99px;font:400 15px Outfit,sans-serif;cursor:pointer;transition:background .25s,color .25s,transform .25s cubic-bezier(.3,1.6,.5,1);background:{{ c.bg }};color:{{ c.fg }}" style-active="transform:scale(.93)"><span style="display:inline-block;overflow:hidden;white-space:nowrap;transition:width .3s cubic-bezier(.3,1.6,.5,1),margin .3s;width:{{ c.chkW }};margin-right:{{ c.chkM }}">✓</span>{{ c.label }}</button>
+</sc-for>
+</div>
+<sc-if value="{{ q.hasHalal }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleHalal }}" style="display:flex;justify-content:space-between;align-items:center;margin-top:22px;padding:14px 16px;border-radius:18px;cursor:pointer;background:{{ t.btnBg }}">
+<span style="font:400 15px Outfit,sans-serif">Halal only</span>
+<span style="width:46px;height:28px;border-radius:99px;position:relative;transition:background .3s;background:{{ halalBg }}"><span style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .35s cubic-bezier(.3,1.5,.5,1);transform:{{ halalTf }}"></span></span>
+</div>
+</sc-if>
+<div style="font:400 12.5px Outfit,sans-serif;opacity:.55;margin-top:14px">{{ q.hint }}</div>
+</div>
+</sc-for>
+<div style="position:absolute;left:22px;right:22px;bottom:28px">
+<button onClick="{{ next }}" style="width:100%;height:56px;border:none;border-radius:99px;font:500 16px Outfit,sans-serif;cursor:pointer;transition:background .3s,color .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ nextBg }};color:{{ nextFg }}" style-active="transform:scale(.96)">{{ nextLabel }}</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isSwipe }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:24px;right:24px;top:56px;display:flex;justify-content:space-between;align-items:baseline;animation:ob-in .4s ease-out">
+<span style="font:300 26px/1 Outfit,sans-serif;letter-spacing:-.035em">Yes, me <span style="opacity:.45">or not me?</span></span>
+<span style="font:500 12px 'JetBrains Mono',monospace;opacity:.6">{{ sNum }} / 10</span>
+</div>
+<div style="position:absolute;left:24px;right:24px;top:98px;height:3px;border-radius:2px;overflow:hidden;background:{{ t.track }}"><span style="display:block;height:100%;transition:width .5s cubic-bezier(.2,.9,.2,1);width:{{ sProg }};background:{{ t.accent }}"></span></div>
+<div style="position:absolute;left:14px;right:14px;top:118px;bottom:112px;color:{{ t.photoInk }}">
+<sc-for list="{{ scards }}" as="c" hint-placeholder-count="3">
+<div onPointerDown="{{ c.down }}" onPointerMove="{{ c.move }}" onPointerUp="{{ c.up }}" onPointerCancel="{{ c.cancel }}" style="position:absolute;inset:0;touch-action:none;cursor:grab;transform:{{ c.tf }};opacity:{{ c.op }};z-index:{{ c.z }};transition:{{ c.tr }}">
+<div style="position:absolute;inset:0;border-radius:32px;overflow:hidden;background:{{ c.tint }}">
+<div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 12px,transparent 12px 24px);animation:ob-kb 16s ease-in-out infinite alternate"></div>
+<img src="{{ c.img }}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;animation:ob-kb 16s ease-in-out infinite alternate">
+<div style="position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(rgba(0,0,0,0),{{ t.scrim }})"></div>
+<span style="position:absolute;left:18px;top:18px;padding:9px 16px;border-radius:14px;font:500 17px Outfit,sans-serif;background:{{ t.accent }};color:{{ t.accentInk }};opacity:{{ c.yesOp }};transform:{{ c.yesTf }}">Yes, me</span>
+<span style="position:absolute;right:18px;top:18px;padding:9px 16px;border-radius:14px;font:500 17px Outfit,sans-serif;background:#F1EBE1;color:#161513;opacity:{{ c.noOp }};transform:{{ c.noTf }}">Not me</span>
+<div style="position:absolute;left:22px;right:22px;bottom:22px;font:300 32px/1.05 Outfit,sans-serif;letter-spacing:-.035em;text-wrap:pretty">{{ c.label }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="position:absolute;left:20px;right:20px;bottom:28px;display:flex;gap:10px;align-items:center">
+<button aria-label="Not me" onClick="{{ sNo }}" style="flex:none;width:58px;height:58px;border-radius:50%;border:none;font:300 22px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.btnBg }};color:{{ t.ink }}" style-active="transform:scale(.88)">✕</button>
+<button onClick="{{ sUnsure }}" style="flex:1;height:58px;border:none;border-radius:99px;font:400 15px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.btnBg }};color:{{ t.ink }}" style-active="transform:scale(.96)">Not sure</button>
+<button aria-label="Yes, me" onClick="{{ sYes }}" style="flex:none;width:58px;height:58px;border-radius:50%;border:none;font:400 22px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.accent }};color:{{ t.accentInk }}" style-active="transform:scale(.88)">♥</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReading }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:28px;right:28px;bottom:140px;display:flex;flex-direction:column;gap:16px;animation:ob-up .5s ease-out">
+<div style="height:3px;border-radius:2px;overflow:hidden;background:{{ t.track }}"><span style="display:block;height:100%;transform-origin:left;animation:ob-bar 1.4s ease-in-out forwards;background:{{ t.ink }}"></span></div>
+<div style="font:300 40px/1.02 Outfit,sans-serif;letter-spacing:-.04em">Reading <span style="font-weight:500">your taste</span>…</div>
+<div style="font:400 14px Outfit,sans-serif;opacity:.6">{{ yesCount }} yeses, {{ noCount }} nos. That's plenty.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isReveal }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;color:{{ revealInk }}">
+<sc-if value="{{ rsType }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow:hidden">
+<div style="position:absolute;inset:0;transition:transform 4.5s cubic-bezier(.15,.7,.2,1);transform:{{ bigTf }};background:{{ bigTint }}"><div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 12px,transparent 12px 24px)"></div><img src="{{ bigImg }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,0) 30%,{{ t.scrim }} 62%)"></div>
+</div>
+</sc-if>
+<sc-if value="{{ rsWash }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow:hidden">
+<div style="position:absolute;inset:-60px;transition:opacity 1.6s ease,transform 2.4s cubic-bezier(.2,.8,.2,1);opacity:{{ washOp }};transform:{{ washTf }};background:{{ washBg }}"></div>
+<div style="position:absolute;left:0;right:0;top:86px;height:170px">
+<sc-for list="{{ thumbs }}" as="p" hint-placeholder-count="3"><div style="position:absolute;top:0;width:96px;height:130px;border-radius:18px;overflow:hidden;box-shadow:0 18px 36px rgba(0,0,0,.3);transition:transform 1s cubic-bezier(.2,.9,.25,1),opacity .6s;left:{{ p.left }};transform:{{ p.tf }};opacity:{{ p.op }};transition-delay:{{ p.dl }};background:{{ p.tint }}"><img src="{{ p.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ rsCollage }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;left:0;right:0;top:64px;height:270px">
+<sc-for list="{{ collage }}" as="p" hint-placeholder-count="4"><div style="position:absolute;left:105px;top:20px;width:150px;height:196px;border-radius:20px;overflow:hidden;box-shadow:0 22px 44px rgba(0,0,0,.32);transition:transform 1.1s cubic-bezier(.2,.9,.25,1),opacity .6s;transform:{{ p.tf }};opacity:{{ p.op }};transition-delay:{{ p.dl }};z-index:{{ p.z }};background:{{ p.tint }}"><img src="{{ p.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:auto 0 0 0;height:50%;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.6))"></div><div style="position:absolute;left:10px;right:10px;bottom:10px;font:400 11px/1.2 Outfit,sans-serif;color:#F7F2EA">{{ p.label }}</div></div></sc-for>
+</div>
+</sc-if>
+<div style="position:absolute;left:24px;right:24px;bottom:26px;display:flex;flex-direction:column">
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.2em;opacity:.65;transition:opacity .7s ease 1s;opacity:{{ txtOp }}">YOUR TASTE TYPE</div>
+<div style="font:300 42px/1 Outfit,sans-serif;letter-spacing:-.045em;margin-top:10px;transition:opacity .8s ease 1.15s,transform .9s cubic-bezier(.2,.9,.2,1) 1.15s;opacity:{{ txtOp }};transform:{{ txtTf }}">{{ type.first }} <span style="font-weight:500">{{ type.last }}</span></div>
+<div style="font:400 14px/1.45 Outfit,sans-serif;opacity:.75;margin-top:10px;text-wrap:pretty;transition:opacity .8s ease 1.35s;opacity:{{ txtOp }}">{{ type.desc }}</div>
+<div style="margin-top:14px;transition:opacity .8s ease 1.55s;opacity:{{ txtOp }}">
+<sc-for list="{{ lines }}" as="l" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid {{ ruleCol }};font:400 14px Outfit,sans-serif"><span>{{ l.text }}</span><span onClick="{{ l.remove }}" style="width:28px;height:28px;margin:-4px -6px -4px 0;display:flex;align-items:center;justify-content:center;opacity:.5;cursor:pointer;font:300 16px Outfit,sans-serif">×</span></div></sc-for>
+</div>
+<sc-if value="{{ edited }}" hint-placeholder-val="{{ false }}"><div style="font:400 12.5px Outfit,sans-serif;margin-top:6px;animation:ob-up .4s ease-out;color:{{ t.accent }}">Got it. Your picks will reflect that.</div></sc-if>
+<div style="display:flex;gap:10px;margin-top:14px;transition:opacity .8s ease 1.75s;opacity:{{ txtOp }}">
+<button onClick="{{ toPicks }}" style="flex:1;height:54px;border:none;border-radius:99px;font:500 15px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.accent }};color:{{ t.accentInk }}" style-active="transform:scale(.96)">Show my picks</button>
+<button aria-label="Share" onClick="{{ share }}" style="flex:none;width:54px;height:54px;border-radius:50%;border:none;font:400 17px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ shareBg }};color:{{ revealInk }}" style-active="transform:scale(.9)">↗</button>
+</div>
+<div style="font:400 11.5px Outfit,sans-serif;opacity:.5;margin-top:10px;text-align:center;transition:opacity .8s ease 1.9s;opacity:{{ noteOp }}">{{ shareNote }}</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPicks }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;animation:ob-in .5s ease-out">
+<dc-import name="Feta Pick Phone v2" theme="{{ pickTheme }}" delay="{{ zero }}" hint-size="360px,760px"></dc-import>
+</div>
+</sc-if>
+
+<div style="position:absolute;left:0;right:0;top:0;padding:16px 30px 0;display:flex;justify-content:space-between;align-items:center;z-index:70;pointer-events:none;color:{{ barInk }}">
+<span style="font:500 13px Outfit,sans-serif;opacity:{{ timeOp }}">9:41</span>
+<span onClick="{{ openFb }}" style="pointer-events:auto;cursor:pointer;padding:5px 10px;border-radius:99px;background:rgba(0,0,0,.28);backdrop-filter:blur(10px);font:500 11px Outfit,sans-serif;color:#F7F2EA">Feedback</span>
+</div>
+
+<div style="position:absolute;inset:0;z-index:80;transition:background .35s;pointer-events:{{ fbPe }};background:{{ fbDim }}" onClick="{{ closeFb }}"></div>
+<div style="position:absolute;left:8px;right:8px;bottom:8px;z-index:81;border-radius:36px;padding:22px 22px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;transition:transform .55s cubic-bezier(.2,.9,.2,1);transform:{{ fbTf }};background:{{ t.sheet }};color:{{ t.sheetInk }}">
+<sc-if value="{{ fbSent }}" hint-placeholder-val="{{ false }}">
+<div style="padding:30px 0 20px;text-align:center;animation:ob-up .4s ease-out"><div style="font:300 28px Outfit,sans-serif;letter-spacing:-.03em">Thanks. <span style="font-weight:500">We read every one.</span></div></div>
+</sc-if>
+<sc-if value="{{ fbForm }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:300 26px Outfit,sans-serif;letter-spacing:-.03em">What's off?</span><span onClick="{{ closeFb }}" style="font:400 14px Outfit,sans-serif;opacity:.6;cursor:pointer">Close</span></div>
+<div style="height:96px;border-radius:16px;padding:12px 14px;box-sizing:border-box;background:rgba(0,0,0,.05);font:400 14px Outfit,sans-serif;opacity:.6">Tell us what felt wrong, or what you wish it did…</div>
+<div onClick="{{ toggleShot }}" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;font:400 14px Outfit,sans-serif"><span>Attach a screenshot of this screen</span><span style="width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font:600 12px Outfit,sans-serif;transition:background .25s;background:{{ shotBg }};color:{{ shotFg }}">{{ shotTick }}</span></div>
+<button onClick="{{ sendFb }}" style="height:52px;border:none;border-radius:99px;font:500 15px Outfit,sans-serif;cursor:pointer;background:{{ t.sheetInk }};color:{{ t.sheet }}">Send</button>
+</sc-if>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:376,&quot;height&quot;:776},&quot;theme&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;revealStyle&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;collage&quot;,&quot;type&quot;,&quot;wash&quot;],&quot;default&quot;:&quot;collage&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;startAt&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;welcome&quot;,&quot;reveal&quot;],&quot;default&quot;:&quot;welcome&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;presetYes&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number[]&quot;},&quot;replayKey&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  TYPES = {
+    cafe: { first: 'The Café', last: 'Regular', desc: 'Slow mornings, good coffee, and wandering a new neighbourhood with no plan.', wash: ['#C89B6D', '#6EA0D2'] },
+    rooftop: { first: 'The Night', last: 'Owl', desc: 'Sunsets, a view and a good drink. The evening matters as much as the menu.', wash: ['#FF7A45', '#E85D75'] },
+    spice: { first: 'The Heat', last: 'Seeker', desc: 'You chase heat and big flavours wherever you land. Mild is never the point.', wash: ['#E2483D', '#FFB547'] },
+    gem: { first: 'The', last: 'Local', desc: 'Hole-in-the-wall legends over hype. A queue of locals is your favourite review.', wash: ['#D9A441', '#7A8B4F'] },
+    supper: { first: 'The Social', last: 'One', desc: 'Buzzy rooms, shared plates, a show after. You are the one who gathers the table.', wash: ['#E86A5C', '#C9A27E'] },
+    gallery: { first: 'The Culture', last: 'Fan', desc: 'Art, design and a good museum shop. You travel for the things worth looking at.', wash: ['#6EA0D2', '#E8D8BC'] },
+    artisan: { first: 'The', last: 'Maker', desc: 'Workshops and markets over sitting still. You would rather make something than watch.', wash: ['#C8794A', '#9AB0A0'] },
+    sunrise: { first: 'The Early', last: 'Bird', desc: 'Early trails and day trips. Breakfast always tastes better after a climb.', wash: ['#FFB36B', '#8CC6E8'] }
+  };
+  S = [
+    ['Specialty coffee and a pastry', 'cafe', '#5A4636', 'photo · flat white, croissant, window light', 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&h=900&fit=crop'],
+    ['Wood-fired pizza and a glass of wine', 'supper', '#5B3A2A', 'photo · pizza oven glow', 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&h=900&fit=crop'],
+    ['Fiery, spicy food', 'spice', '#6A2A20', 'photo · chilli-red dish, steam', 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=600&h=900&fit=crop'],
+    ['Small plates in a buzzy room', 'supper', '#4A3A30', 'photo · shared plates, busy bar', 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&h=900&fit=crop'],
+    ['Hole-in-the-wall street food', 'gem', '#5A4A2A', 'photo · street stall at night', 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=900&fit=crop'],
+    ['Quiet café with books and good light', 'cafe', '#4E4A40', 'photo · bookshelf, sunlit table', 'https://images.unsplash.com/photo-1521017432531-fbd92d768814?w=600&h=900&fit=crop'],
+    ['Rooftop bar with a DJ', 'rooftop', '#3A2C24', 'photo · rooftop crowd at dusk', 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=600&h=900&fit=crop'],
+    ['Stand-up comedy night', 'supper', '#2A2A30', 'photo · mic under a spotlight', 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?w=600&h=900&fit=crop'],
+    ['Pottery or art workshop', 'artisan', '#5E4A3A', 'photo · hands on clay', 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600&h=900&fit=crop'],
+    ['Sunrise hike or day trip', 'sunrise', '#2C3A48', 'photo · ridge at sunrise', 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=600&h=900&fit=crop']
+  ];
+  Q = [
+    { id: 'diet', title: 'What do you eat?', why: 'Why we ask: so we never send you somewhere you can’t eat.', opts: ['Everything', 'Vegetarian', 'Vegetarian + eggs', 'Vegan', 'Pescatarian'], halal: true },
+    { id: 'dist', title: 'Where are you, and how far will you go?', why: 'Why we ask: picks should be worth the trip.', opts: ['Walking distance · 2 km', 'Short ride · 5 km', 'Anywhere in the city'], loc: true },
+    { id: 'spend', title: 'Spend per person?', why: 'Why we ask: so a pick never feels like a stretch.', opts: ['Under $20', '$20–60', '$60–120', '$120+', 'Depends on the day'] },
+    { id: 'who', title: 'Who do you usually go out with?', why: 'Why we ask: a date and a team dinner need different rooms.', opts: ['Solo', 'Partner or date', 'Friends', 'Family', 'Work'], multi: true },
+    { id: 'drinks', title: 'Drinks?', why: 'Why we ask: so bars show up only if you want them.', opts: ['Yes, I love a good bar', 'Sometimes', 'No alcohol'] },
+    { id: 'into', title: 'What are you into?', why: 'Why we ask: this shapes your Do and Event picks.', opts: ['Live music', 'Comedy', 'Art and culture', 'Outdoors', 'Workshops', 'Nightlife', 'Markets', 'Games and sports'], multi: true, max: 4 }
+  ];
+  INTO = { 'Live music': 'rooftop', 'Comedy': 'supper', 'Art and culture': 'gallery', 'Outdoors': 'sunrise', 'Workshops': 'artisan', 'Nightlife': 'rooftop', 'Markets': 'artisan', 'Games and sports': 'supper' };
+  fresh() { return { step: 'welcome', age: false, qi: 0, ans: { diet: null, halal: false, loc: null, dist: null, spend: null, who: [], drinks: null, into: [] }, si: 0, sdx: 0, sout: {}, yes: [], no: [], revealIn: false, removed: {}, edited: false, fb: false, fbSent: false, shot: true, shared: false }; }
+  state = this.fresh();
+  d = {};
+  imgErr = e => { const el = e.target; if (!el.dataset.f) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } };
+  componentDidMount() { if (!window.__fetaImgFallback) { window.__fetaImgFallback = true; document.addEventListener('error', e => { const el = e.target; if (el && el.tagName === 'IMG' && !el.dataset.f && el.src.indexOf('unsplash') > -1) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } }, true); } if (this.props.startAt === 'reveal') this.presetReveal(); }
+  componentDidUpdate(pp) { if (pp.replayKey !== this.props.replayKey) { if (this.props.startAt === 'reveal') this.presetReveal(); else this.setState(this.fresh()); } }
+  componentWillUnmount() { clearTimeout(this.t1); clearTimeout(this.t2); }
+  presetReveal() {
+    const yes = this.props.presetYes || [0, 5, 8, 6, 9];
+    this.setState({ ...this.fresh(), step: 'reveal', yes, ans: { diet: 'Vegetarian', halal: false, loc: 'Lisbon · Alfama', dist: 'Walking distance · 2 km', spend: '$20–60', who: ['Partner or date', 'Friends'], drinks: 'Sometimes', into: ['Art and culture', 'Markets'] } });
+    clearTimeout(this.t1); this.t1 = setTimeout(() => this.setState({ revealIn: true }), 120);
+  }
+  goReveal() {
+    this.setState({ step: 'reading' });
+    clearTimeout(this.t1); this.t1 = setTimeout(() => { this.setState({ step: 'reveal', revealIn: false }); this.t2 = setTimeout(() => this.setState({ revealIn: true }), 80); }, 1600);
+  }
+  answered(q, a) { const v = a[q.id]; return Array.isArray(v) ? v.length > 0 : v != null; }
+  swipe(dir) {
+    const si = this.state.si; if (si > 9 || this.busy) return;
+    this.busy = true; this.d.on = false;
+    this.setState(s => ({ sout: { ...s.sout, [si]: dir }, sdx: 0, yes: dir > 0 ? [...s.yes, si] : s.yes, no: dir < 0 ? [...s.no, si] : s.no }));
+    setTimeout(() => { this.busy = false; this.setState(s => ({ si: s.si + 1 })); if (si === 9) setTimeout(() => this.goReveal(), 350); }, 50);
+  }
+  typeKey() {
+    const sc = {}; const add = (k, n = 1) => sc[k] = (sc[k] || 0) + n;
+    this.state.yes.forEach(i => add(this.S[i][1], 2));
+    this.state.ans.into.forEach(x => add(this.INTO[x]));
+    if (this.state.ans.drinks === 'Yes, I love a good bar') add('rooftop');
+    const order = ['cafe', 'gem', 'rooftop', 'supper', 'spice', 'artisan', 'gallery', 'sunrise'];
+    let best = 'cafe', bv = -1; order.forEach(k => { if ((sc[k] || 0) > bv) { bv = sc[k] || 0; best = k; } });
+    return best;
+  }
+  renderVals() {
+    const t = this.props.theme || {}, st = this.state, a = st.ans, d = this.d;
+    const rs = this.props.revealStyle || 'collage';
+    const q = this.Q[st.qi], ok = q ? this.answered(q, a) : false;
+    const setAns = (id, v) => this.setState(s => ({ ans: { ...s.ans, [id]: v } }));
+    const qs = this.Q.map((qq, i) => {
+      const pos = i - st.qi, v = a[qq.id];
+      return {
+        num: '0' + (i + 1), title: qq.title, why: qq.why, isLoc: !!qq.loc, hasHalal: !!qq.halal,
+        tf: `translateX(${pos * 100}%)`, op: pos === 0 ? 1 : 0, pe: pos === 0 ? 'auto' : 'none', txtTf: pos === 0 ? 'none' : `translateX(${pos * 30}px)`,
+        hint: qq.max ? `${(v || []).length} of ${qq.max} picked` : qq.multi ? 'Pick as many as you like.' : '',
+        chips: qq.opts.map(o => {
+          const on = Array.isArray(v) ? v.includes(o) : v === o;
+          return { label: o, chkW: on ? '14px' : '0px', chkM: on ? '6px' : '0px', bg: on ? t.ink : t.btnBg, fg: on ? t.bg : t.ink,
+            toggle: () => {
+              if (!qq.multi) return setAns(qq.id, on ? null : o);
+              const cur = a[qq.id] || [];
+              if (on) setAns(qq.id, cur.filter(x => x !== o)); else if (!qq.max || cur.length < qq.max) setAns(qq.id, [...cur, o]);
+            } };
+        })
+      };
+    });
+    const live = (i, pos) => pos === 0 && st.step === 'swipe';
+    const prog = Math.max(-1, Math.min(1, st.sdx / 100));
+    const scards = this.S.map((c, i) => {
+      const pos = i - st.si, o = st.sout[i]; let tf, op = 1, tr;
+      if (o === 0) { tf = 'translateY(60px) scale(.88)'; op = 0; tr = 'transform .5s cubic-bezier(.4,0,.2,1), opacity .4s'; }
+      else if (o !== undefined) { tf = `translateX(${o * 130}%) rotate(${o * 14}deg)`; op = 0; tr = 'transform .55s cubic-bezier(.4,0,.2,1), opacity .45s .1s'; }
+      else if (pos === 0) { tf = `translateX(${st.sdx}px) rotate(${st.sdx / 18}deg)`; tr = d.on ? 'none' : 'transform .8s cubic-bezier(.2,1.3,.35,1)'; }
+      else if (pos > 0 && pos < 3) { tf = `translateY(${-12 * pos}px) scale(${1 - .05 * pos})`; op = pos === 1 ? .6 : .3; tr = 'transform .6s cubic-bezier(.2,.9,.2,1), opacity .4s'; }
+      else { tf = 'scale(.85)'; op = 0; tr = 'none'; }
+      const act = pos === 0;
+      return { label: c[0], tint: c[2], photo: c[3], img: c[4], tf, op, tr, z: 20 - Math.max(pos, -5),
+        yesOp: act ? Math.max(0, prog) : 0, noOp: act ? Math.max(0, -prog) : 0,
+        yesTf: `rotate(-8deg) scale(${.75 + .25 * (act ? Math.max(0, prog) : 0)})`, noTf: `rotate(8deg) scale(${.75 + .25 * (act ? Math.max(0, -prog) : 0)})`,
+        down: e => { e.stopPropagation(); if (pos !== 0 || this.busy) return; d.on = true; d.x0 = e.clientX; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+        move: e => { if (!d.on) return; e.stopPropagation(); this.setState({ sdx: e.clientX - d.x0 }); },
+        up: e => { if (!d.on) return; d.on = false; const dx = this.state.sdx; if (Math.abs(dx) > 80) this.swipe(Math.sign(dx)); else this.setState({ sdx: 0 }); },
+        cancel: () => { d.on = false; this.setState({ sdx: 0 }); }
+      };
+    });
+    const tk = this.typeKey(), type = this.TYPES[tk];
+    const yesList = st.yes.length ? st.yes : [0, 5, 9];
+    const rawLines = [
+      a.spend && a.spend !== 'Depends on the day' ? `Usually ${a.spend} a head` : null,
+      a.who.length ? `Out with ${a.who.slice(0, 2).map(x => x.toLowerCase()).join(' and ')}` : null,
+      a.into.length ? `Into ${a.into.slice(0, 2).map(x => x.toLowerCase()).join(' and ')}` : null,
+      st.yes.length ? `Said yes to ${this.S[st.yes[0]][0].toLowerCase()}` : null,
+      a.dist ? `Happy to go ${a.dist.split(' · ')[0].toLowerCase()}` : null
+    ].filter(Boolean);
+    const lines = rawLines.filter(l => !st.removed[l]).slice(0, 3).map(l => ({ text: l, remove: e => { e.stopPropagation(); this.setState(s => ({ removed: { ...s.removed, [l]: true }, edited: true })); } }));
+    const fin = [[-62, -8, -9], [58, 4, 8], [-14, 22, -3], [28, -14, 5], [0, 12, 1]];
+    const from = [[-420, -260, -40], [420, -200, 35], [-380, 320, 25], [400, 300, -30], [0, -500, 10]];
+    const collage = yesList.slice(0, 5).map((i, j) => {
+      const f = st.revealIn ? fin[j] : from[j];
+      return { tint: this.S[i][2], img: this.S[i][4], label: this.S[i][0], z: j, op: st.revealIn ? 1 : 0, dl: `${j * .12}s`, tf: `translate(${f[0]}px,${f[1]}px) rotate(${f[2]}deg)` };
+    });
+    const thumbs = yesList.slice(0, 3).map((i, j) => ({ tint: this.S[i][2], img: this.S[i][4], left: `${36 + j * 100}px`, op: st.revealIn ? 1 : 0, dl: `${.3 + j * .14}s`, tf: st.revealIn ? `translateY(${j === 1 ? -14 : 0}px) rotate(${(j - 1) * 5}deg)` : `translateY(140px) rotate(${(j - 1) * 20}deg)` }));
+    const step = st.step, wk = this.props.startAt === 'reveal';
+    const revealInk = rs === 'type' ? t.photoInk : t.ink;
+    return {
+      imgErr: this.imgErr, t, isWelcome: step === 'welcome', isQ: step === 'q', isSwipe: step === 'swipe', isReading: step === 'reading', isReveal: step === 'reveal', isPicks: step === 'picks',
+      barInk: step === 'welcome' || step === 'picks' || (step === 'reveal' && rs === 'type') ? t.photoInk : t.ink,
+      ageBg: st.age ? t.accent : t.btnBg, ageFg: st.age ? t.accentInk : t.ink, ageTick: st.age ? '✓' : '', ageTf: st.age ? 'scale(1.08)' : 'scale(1)',
+      goBg: st.age ? t.accent : t.btnBg, goFg: st.age ? t.accentInk : t.ink, goOp: st.age ? 1 : .55,
+      toggleAge: () => this.setState(s => ({ age: !s.age })),
+      start: () => { if (st.age) this.setState({ step: 'q', qi: 0 }); },
+      qs, qbars: this.Q.map((_, i) => ({ w: i < st.qi ? '100%' : i === st.qi ? (ok ? '100%' : '35%') : '0%' })),
+      back: () => st.qi > 0 ? this.setState({ qi: st.qi - 1 }) : this.setState({ step: 'welcome' }),
+      skipQ: () => st.qi < 5 ? this.setState({ qi: st.qi + 1 }) : this.setState({ step: 'swipe', si: 0 }),
+      next: () => { if (!ok) return; st.qi < 5 ? this.setState({ qi: st.qi + 1 }) : this.setState({ step: 'swipe', si: 0 }); },
+      nextLabel: st.qi === 5 ? 'Start swiping' : 'Continue', nextBg: ok ? t.accent : t.btnBg, nextFg: ok ? t.accentInk : t.ink,
+      toggleHalal: () => setAns('halal', !a.halal), halalBg: a.halal ? t.accent : t.track, halalTf: a.halal ? 'translateX(18px)' : 'none',
+      useLoc: () => setAns('loc', 'Lisbon · Alfama'), pickCity: () => setAns('loc', 'Lisbon'),
+      locLabel: a.loc === 'Lisbon · Alfama' ? '✓  Lisbon · Alfama' : 'Use my location', locBg: a.loc === 'Lisbon · Alfama' ? t.ink : t.accent, locFg: a.loc === 'Lisbon · Alfama' ? t.bg : t.accentInk,
+      cityLabel: a.loc === 'Lisbon' ? '✓  Lisbon (picked)' : 'Pick a city',
+      scards, sNum: Math.min(st.si + 1, 10), sProg: `${Math.min(st.si, 10) * 10}%`,
+      sNo: () => this.swipe(-1), sYes: () => this.swipe(1), sUnsure: () => this.swipe(0),
+      yesCount: st.yes.length, noCount: st.no.length,
+      rsType: rs === 'type', rsWash: rs === 'wash', rsCollage: rs === 'collage', revealInk,
+      bigTint: this.S[yesList[0]][2], bigImg: this.S[yesList[0]][4], welcomeImg: 'https://images.unsplash.com/photo-1585208798174-6cedd86e019a?w=600&h=900&fit=crop', bigPhoto: 'photo · ' + this.S[yesList[0]][0].toLowerCase(), bigTf: st.revealIn ? 'scale(1)' : 'scale(1.35)',
+      washBg: `radial-gradient(circle at 25% 20%, ${type.wash[0]}cc, transparent 55%), radial-gradient(circle at 85% 45%, ${type.wash[1]}aa, transparent 55%)`, washOp: st.revealIn ? 1 : 0, washTf: st.revealIn ? 'scale(1)' : 'scale(1.3)',
+      collage, thumbs, type, lines, edited: st.edited,
+      txtOp: st.revealIn ? 1 : 0, txtTf: st.revealIn ? 'none' : 'translateY(16px)', noteOp: st.revealIn ? .5 : 0,
+      ruleCol: rs === 'type' ? 'rgba(255,255,255,.16)' : t.track,
+      shareBg: rs === 'type' ? 'rgba(255,255,255,.14)' : t.btnBg,
+      shareNote: st.shared ? 'Share card ready. It never shows what you eat.' : 'Shared cards never show what you eat.',
+      share: () => this.setState({ shared: true }),
+      toPicks: () => { if (!wk) this.setState({ step: 'picks' }); else this.setState({ shared: false }); },
+      pickTheme: { ...t, frame: 'none' }, zero: 0, timeOp: step === 'picks' ? 0 : 1,
+      fbPe: st.fb ? 'auto' : 'none', fbDim: st.fb ? 'rgba(0,0,0,.45)' : 'rgba(0,0,0,0)', fbTf: st.fb ? 'translateY(0)' : 'translateY(110%)',
+      fbSent: st.fbSent, fbForm: !st.fbSent,
+      openFb: e => { e.stopPropagation(); this.setState({ fb: true, fbSent: false }); },
+      closeFb: () => this.setState({ fb: false }),
+      toggleShot: () => this.setState(s => ({ shot: !s.shot })), shotBg: st.shot ? t.sheetInk : 'rgba(0,0,0,.08)', shotFg: t.sheet, shotTick: st.shot ? '✓' : '',
+      sendFb: () => { this.setState({ fbSent: true }); clearTimeout(this.t2); this.t2 = setTimeout(() => this.setState({ fb: false }), 1400); }
+    };
+  }
+}
+</script>
+</body>
+</html>

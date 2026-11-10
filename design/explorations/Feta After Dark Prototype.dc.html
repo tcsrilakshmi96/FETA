@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#E8E3DB;color:#161513;font-family:Outfit,sans-serif}a{color:#1E2210}a:hover{color:#6B7A2E}</style>
+</helmet>
+<div style="max-width:1000px;margin:0 auto;padding:48px 24px 70px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;color:rgba(30,34,16,.55)">ROUND 8 · AFTER DARK COLOURS FROM 3B</div>
+<div style="font:300 46px/1 Outfit,sans-serif;letter-spacing:-.04em">After Dark · <span style="font-weight:500">dark and light</span></div>
+<div style="font:400 14.5px/1.55 Outfit,sans-serif;color:rgba(30,34,16,.7);max-width:660px;text-wrap:pretty">Swipe a card right to save or left to skip, or use ♥ and ✕. Tap a card for details. "Tonight" and "This weekend" now switch between two sets of picks. All type is now Outfit; the italic serif is gone, and reviews show as a small quote with the person's name. <a href="Feta Design Index.dc.html">All rounds</a></div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:48px;justify-content:center">
+<div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+<div style="font:500 12px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(30,34,16,.6)">8A · DARK</div>
+<dc-import name="Feta Pick Phone v2" theme="{{ dark }}" delay="{{ d0 }}" hint-size="360px,760px"></dc-import>
+<div style="display:flex;gap:5px"><span style="width:22px;height:22px;border-radius:6px;background:#0D0D0C"></span><span style="width:22px;height:22px;border-radius:6px;background:#F1EBE1"></span><span style="width:22px;height:22px;border-radius:6px;background:#FF9466"></span><span style="width:22px;height:22px;border-radius:6px;background:#6EA0D2"></span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start">
+<div style="font:500 12px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(30,34,16,.6)">8B · LIGHT</div>
+<dc-import name="Feta Pick Phone v2" theme="{{ light }}" delay="{{ d1 }}" hint-size="360px,760px"></dc-import>
+<div style="display:flex;gap:5px"><span style="width:22px;height:22px;border-radius:6px;background:#F4EFE7;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)"></span><span style="width:22px;height:22px;border-radius:6px;background:#161513"></span><span style="width:22px;height:22px;border-radius:6px;background:#FF9466"></span><span style="width:22px;height:22px;border-radius:6px;background:#9CC0E2"></span></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  dark = { bg: '#0D0D0C', ink: '#F1EBE1', photoInk: '#F1EBE1', tabInk: '#0D0D0C', sheet: '#F1EBE1', sheetInk: '#0D0D0C', accent: '#FF9466', accentInk: '#0D0D0C', glow1: '#FF7A45', glow2: '#6EA0D2', scrim: 'rgba(13,13,12,.9)', scrimTop: 'rgba(13,13,12,.5)', track: 'rgba(241,235,225,.15)', btnBg: 'rgba(241,235,225,.09)', frame: '0 0 0 8px #000,0 40px 80px rgba(0,0,0,.3)', tints: ['#2A2622', '#3A2A22', '#1F2A36', '#33291F', '#2E2620', '#26303A'] };
+  light = { bg: '#F4EFE7', ink: '#161513', photoInk: '#F7F2EA', tabInk: '#161513', sheet: '#FFFFFF', sheetInk: '#161513', accent: '#FF9466', accentInk: '#161513', glow1: '#FF9466', glow2: '#9CC0E2', scrim: 'rgba(22,21,19,.86)', scrimTop: 'rgba(22,21,19,.35)', track: 'rgba(22,21,19,.12)', btnBg: 'rgba(22,21,19,.07)', frame: '0 0 0 8px #161513,0 40px 80px rgba(40,30,20,.2)', tints: ['#6E5E50', '#7E6250', '#56687A', '#7A6A56', '#86705A', '#5E6E80'] };
+  renderVals() { return { dark: this.dark, light: this.light, d0: 0, d1: 300 }; }
+}
+</script>
+</body>
+</html>

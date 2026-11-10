@@ -2,7 +2,9 @@
 
 Feta (working name: Fashion, Experience, Travel, All in one) is a personal AI lifestyle companion that learns a user's taste and decides for them: 3 confident picks for food, drinks and experiences, each with a reason.
 
-The full v1 spec (features, screens, onboarding questions, two end-to-end journeys) lives in the founder's doc "Feta v1 Feature List". Ask the founder to paste a section when you need detail. The approved designs come from Claude Design.
+The full v1 spec (features, screens, onboarding questions, two end-to-end journeys) lives in the founder's doc "Feta v1 Feature List". Ask the founder to paste a section when you need detail.
+
+The approved designs are in `design/`. Start with `design/README.md` (screens, rules, tokens, motion) and `design/DATA_CONTRACT.md` (data shapes). `design/prototype/Feta App v2.dc.html` is the visual source of truth; `design/explorations/` is earlier rounds for context only (they include dropped ideas such as taste types). Prototype content (Lisbon, Tokyo, $ prices, Unsplash photos) is placeholder: use Indian cities and ₹ for the friends test. Where the design and this file disagree, ask the founder which to follow before building that part.
 
 ## Who you're working with
 - The founder, Srilakshmi, is non-technical and builds with Claude Code. Explain choices in plain English, one short paragraph at a time.

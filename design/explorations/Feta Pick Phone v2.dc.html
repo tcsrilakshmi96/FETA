@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+@keyframes p2-drift1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,50px) scale(1.15)}}
+@keyframes p2-drift2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,-30px) scale(.9)}}
+@keyframes p2-kb{0%{transform:scale(1.04)}100%{transform:scale(1.18) translate(-3%,-2%)}}
+@keyframes p2-bar{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+@keyframes p2-up{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+@keyframes p2-nudge{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-22px) rotate(-2deg)}60%{transform:translateX(22px) rotate(2deg)}}
+@keyframes p2-l{0%,100%{transform:translateX(0)}50%{transform:translateX(-5px)}}
+@keyframes p2-r{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
+</style>
+</helmet>
+<div style="width:360px;height:760px;border-radius:48px;overflow:hidden;position:relative;font-family:Outfit,sans-serif;user-select:none;-webkit-user-select:none;box-shadow:{{ t.frame }};background:{{ t.bg }};color:{{ t.ink }}">
+
+<div style="position:absolute;left:8px;right:8px;top:8px;bottom:100px;border-radius:40px;overflow:hidden;transition:transform .7s cubic-bezier(.2,.9,.2,1),filter .5s;transform:{{ stageTf }};filter:{{ stageFilter }};color:{{ t.photoInk }}">
+<sc-for list="{{ cards }}" as="c" hint-placeholder-count="3">
+<div onPointerDown="{{ c.down }}" onPointerMove="{{ c.move }}" onPointerUp="{{ c.up }}" onPointerCancel="{{ c.cancel }}" style="position:absolute;inset:0;touch-action:none;cursor:grab;transform:{{ c.tf }};opacity:{{ c.op }};z-index:{{ c.z }};transition:{{ c.tr }}">
+<div style="position:absolute;inset:0;border-radius:40px;overflow:hidden;background:{{ c.tint }};animation:{{ c.nudge }}">
+<div style="position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 12px,transparent 12px 24px);animation:p2-kb 16s ease-in-out infinite alternate"></div>
+<img src="{{ c.img }}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;animation:p2-kb 16s ease-in-out infinite alternate">
+<div style="position:absolute;inset:0 0 auto 0;height:170px;background:linear-gradient({{ t.scrimTop }},rgba(0,0,0,0))"></div>
+<div style="position:absolute;inset:auto 0 0 0;height:66%;background:linear-gradient(rgba(0,0,0,0),{{ t.scrim }} 70%)"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(270deg,{{ t.accent }},rgba(0,0,0,0) 55%);opacity:{{ c.saveOp }}"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,255,255,.3),rgba(255,255,255,0) 55%);opacity:{{ c.skipOp }}"></div>
+<div style="position:absolute;left:22px;right:22px;bottom:20px">
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.2em;transition:opacity .6s ease .2s,transform .7s cubic-bezier(.2,.9,.2,1) .2s;opacity:{{ c.txtOp }};transform:{{ c.txtTf }}">{{ c.kind }} · {{ c.area }}</div>
+<div style="font:300 42px/1 Outfit,sans-serif;letter-spacing:-.035em;margin-top:10px;transition:opacity .6s ease .3s,transform .7s cubic-bezier(.2,.9,.2,1) .3s;opacity:{{ c.txtOp }};transform:{{ c.txtTf }}">{{ c.name }}</div>
+<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:10px;transition:opacity .6s ease .4s,transform .7s cubic-bezier(.2,.9,.2,1) .4s;opacity:{{ c.txtOp }};transform:{{ c.txtTf }}"><span style="flex:none;white-space:nowrap;font:400 13px Outfit,sans-serif;opacity:.78">{{ c.dist }} · {{ c.spend }}</span><span style="font:500 14px Outfit,sans-serif;color:{{ t.accent }}">{{ c.verdict }}</span></div>
+<div style="font:400 14px/1.45 Outfit,sans-serif;margin-top:12px;text-wrap:pretty;transition:opacity .6s ease .5s,transform .7s cubic-bezier(.2,.9,.2,1) .5s;opacity:{{ c.txtOp }};transform:{{ c.txtTf }}">{{ c.because }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;transition:opacity .6s ease .6s;opacity:{{ c.txtOp }}">
+<sc-for list="{{ c.chips }}" as="ch" hint-placeholder-count="3"><span style="padding:6px 11px;border-radius:99px;background:rgba(255,255,255,.14);backdrop-filter:blur(10px);font:400 11.5px Outfit,sans-serif">{{ ch }}</span></sc-for>
+</div>
+<div style="margin-top:14px;padding:7px 10px;border-radius:8px;background:#202124;font:400 11px Roboto,Arial,sans-serif;color:#E8EAED;transition:opacity .6s ease .7s;opacity:{{ c.txtOp }}">{{ c.gline }}</div>
+</div>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;border-radius:40px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:0 26px 34px;animation:p2-up .6s ease-out;background:{{ t.bg }};color:{{ t.ink }}">
+<div style="position:absolute;width:320px;height:320px;left:-60px;top:80px;border-radius:50%;filter:blur(80px);opacity:.5;animation:p2-drift1 12s ease-in-out infinite;background:{{ t.glow1 }}"></div>
+<div style="position:relative;font:300 40px/1 Outfit,sans-serif;letter-spacing:-.04em">That's <span style="font-weight:500">your 3.</span></div>
+<div style="position:relative;font:400 14px/1.45 Outfit,sans-serif;opacity:.75">{{ savedLine }}</div>
+<button onClick="{{ reset }}" style="position:relative;align-self:flex-start;height:50px;padding:0 22px;border-radius:99px;border:none;font:500 14px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.accent }};color:{{ t.accentInk }}" style-active="transform:scale(.94)">Want different ones?</button>
+</div>
+</sc-if>
+</div>
+
+<div style="position:absolute;left:0;right:0;top:0;z-index:30;pointer-events:none;color:{{ t.photoInk }};transition:opacity .4s;opacity:{{ headOp }}">
+<div style="padding:18px 32px 0;display:flex;justify-content:space-between;font:500 13px Outfit,sans-serif"><span>9:41</span><span>●●● ▮</span></div>
+<div style="margin:16px 22px 0;display:flex;justify-content:space-between;align-items:center">
+<div style="position:relative;display:flex;padding:4px;border-radius:99px;background:rgba(0,0,0,.3);backdrop-filter:blur(14px);pointer-events:auto">
+<span style="position:absolute;top:4px;bottom:4px;left:4px;border-radius:99px;transition:transform .45s cubic-bezier(.3,1.3,.5,1),width .45s cubic-bezier(.3,1.3,.5,1);width:{{ tabW }};transform:{{ tabTf }};background:{{ t.photoInk }}"></span>
+<span onClick="{{ toTonight }}" style="position:relative;width:74px;text-align:center;padding:7px 0;font:500 12.5px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ tab1Col }}">Tonight</span>
+<span onClick="{{ toWeekend }}" style="position:relative;width:104px;text-align:center;padding:7px 0;font:500 12.5px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ tab2Col }}">This weekend</span>
+</div>
+<span style="padding:9px 13px;border-radius:99px;background:rgba(0,0,0,.3);backdrop-filter:blur(14px);font:400 12.5px Outfit,sans-serif">Lisbon ▾</span>
+</div>
+<div style="margin:16px 30px 0;display:flex;gap:5px;transition:opacity .3s;opacity:{{ chromeOp }}">
+<sc-for list="{{ segs }}" as="s" hint-placeholder-count="3"><span style="flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.28);overflow:hidden"><span style="display:block;height:100%;transition:width .6s cubic-bezier(.2,.9,.2,1);width:{{ s.w }};background:{{ t.photoInk }}"></span></span></sc-for>
+</div>
+</div>
+
+<div style="position:absolute;left:18px;top:300px;z-index:26;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;color:{{ t.photoInk }};transition:opacity .25s,transform .3s cubic-bezier(.3,1.6,.5,1);opacity:{{ hintLOp }};transform:{{ hintLTf }}"><span style="width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.35);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;font:400 17px Outfit,sans-serif;animation:p2-l 2.4s ease-in-out infinite">←</span><span style="font:500 9.5px Outfit,sans-serif;letter-spacing:.18em">SKIP</span></div>
+<div style="position:absolute;right:18px;top:300px;z-index:26;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .25s,transform .3s cubic-bezier(.3,1.6,.5,1);opacity:{{ hintROp }};transform:{{ hintRTf }}"><span style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 17px Outfit,sans-serif;animation:p2-r 2.4s ease-in-out infinite;background:{{ t.accent }};color:{{ t.accentInk }}">→</span><span style="font:500 9.5px Outfit,sans-serif;letter-spacing:.18em;color:{{ t.accent }}">SAVE</span></div>
+
+<div style="position:absolute;left:20px;right:20px;bottom:26px;height:56px;display:flex;gap:10px;align-items:center;z-index:45;transition:opacity .4s;opacity:{{ chromeOp }};pointer-events:{{ chromePe }}">
+<button aria-label="Not for me" onClick="{{ skip }}" style="flex:none;width:56px;height:56px;border-radius:50%;border:none;font:300 22px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.btnBg }};color:{{ t.ink }}" style-active="transform:scale(.88)">✕</button>
+<button onClick="{{ toggle }}" style="flex:1;height:56px;border:none;border-radius:99px;font:400 14px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ t.btnBg }};color:{{ t.ink }}" style-active="transform:scale(.96)">{{ detailsLabel }}</button>
+<button aria-label="Save" onClick="{{ save }}" style="flex:none;width:56px;height:56px;border-radius:50%;border:none;font:400 22px Outfit,sans-serif;cursor:pointer;transition:transform .25s cubic-bezier(.3,1.8,.5,1);background:{{ t.accent }};color:{{ t.accentInk }};transform:{{ heartTf }}" style-active="transform:scale(.88)">♥</button>
+</div>
+
+<div style="position:absolute;left:8px;right:8px;top:214px;height:450px;overflow:hidden;z-index:40;border-radius:36px;padding:14px 24px 20px;box-sizing:border-box;display:flex;flex-direction:column;transition:transform .75s cubic-bezier(.2,.9,.2,1),opacity .4s;transform:{{ sheetTf }};opacity:{{ sheetOp }};pointer-events:{{ sheetPe }};background:{{ t.sheet }};color:{{ t.sheetInk }}">
+<div onClick="{{ toggle }}" style="display:flex;justify-content:center;padding:4px 0 12px;cursor:pointer"><span style="width:40px;height:4px;border-radius:2px;background:currentColor;opacity:.25"></span></div>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.2em;opacity:.55">WHY IT'S YOURS</div>
+<div style="font:300 30px/1.05 Outfit,sans-serif;letter-spacing:-.03em;margin-top:8px">{{ cur.name }}</div>
+<div style="font:400 14px/1.5 Outfit,sans-serif;margin-top:8px;opacity:.82;text-wrap:pretty">{{ cur.reason }}</div>
+<div style="margin-top:12px">
+<sc-for list="{{ hl }}" as="h" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:30px 1fr auto;padding:9px 0;border-top:1px solid rgba(0,0,0,.1);font:400 14px Outfit,sans-serif"><span style="font:400 11px 'JetBrains Mono',monospace;opacity:.45;padding-top:2px">{{ h.n }}</span><span>{{ h.t }}</span><span style="opacity:.6">{{ h.v }}</span></div></sc-for>
+</div>
+<div style="display:flex;gap:10px;margin-top:10px;padding:10px 12px;border-radius:14px;background:rgba(0,0,0,.05)">
+<span style="flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:500 12px Outfit,sans-serif;background:{{ t.accent }};color:{{ t.accentInk }}">{{ cur.initial }}</span>
+<div><div style="font:400 13.5px/1.4 Outfit,sans-serif">{{ cur.quote }}</div><div style="font:400 11.5px Outfit,sans-serif;opacity:.55;margin-top:2px">{{ cur.who }}</div></div>
+</div>
+<div style="margin-top:auto;padding:7px 10px;border-radius:8px;background:#FFFFFF;font:400 11px Roboto,Arial,sans-serif;color:#3C4043;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)">{{ cur.gline }}</div>
+<div style="display:flex;gap:8px;margin-top:10px">
+<span style="flex:1;height:46px;border-radius:99px;display:flex;align-items:center;justify-content:center;font:500 14px Outfit,sans-serif;background:{{ t.sheetInk }};color:{{ t.sheet }}">{{ cur.cta }}</span>
+<span style="padding:0 18px;height:46px;border-radius:99px;background:rgba(0,0,0,.07);display:flex;align-items:center;font:400 14px Outfit,sans-serif">Directions</span>
+</div>
+</div>
+
+<sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;z-index:50;overflow:hidden;animation:p2-up .3s ease-out;background:{{ t.bg }};color:{{ t.ink }}">
+<div style="position:absolute;width:360px;height:360px;left:-120px;top:60px;border-radius:50%;filter:blur(90px);opacity:.55;animation:p2-drift1 6s ease-in-out infinite;background:{{ t.glow1 }}"></div>
+<div style="position:absolute;width:320px;height:320px;right:-120px;top:300px;border-radius:50%;filter:blur(90px);opacity:.5;animation:p2-drift2 7s ease-in-out infinite;background:{{ t.glow2 }}"></div>
+<div style="position:absolute;left:28px;right:28px;bottom:120px;display:flex;flex-direction:column;gap:16px">
+<div style="display:flex;gap:5px"><span style="flex:1;height:3px;border-radius:2px;background:{{ t.track }};overflow:hidden"><span style="display:block;height:100%;transform-origin:left;animation:p2-bar .6s ease-out forwards;background:{{ t.ink }}"></span></span><span style="flex:1;height:3px;border-radius:2px;background:{{ t.track }};overflow:hidden"><span style="display:block;height:100%;transform-origin:left;transform:scaleX(0);animation:p2-bar .6s ease-out .55s forwards;background:{{ t.ink }}"></span></span><span style="flex:1;height:3px;border-radius:2px;background:{{ t.track }};overflow:hidden"><span style="display:block;height:100%;transform-origin:left;transform:scaleX(0);animation:p2-bar .6s ease-out 1.1s forwards;background:{{ t.ink }}"></span></span></div>
+<div style="font:300 40px/1.02 Outfit,sans-serif;letter-spacing:-.04em">Finding <span style="font-weight:500">{{ loadTitle }}</span>…</div>
+<div style="font:400 14px Outfit,sans-serif;opacity:.65">{{ loadLine }}</div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:376,&quot;height&quot;:776},&quot;theme&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;},&quot;delay&quot;:{&quot;editor&quot;:null,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  state = { tab: 'tonight', k: 0, dx: 0, out: {}, open: false, load: true, entered: false, saved: {}, touched: false, li: 0, pop: false };
+  d = {};
+  imgErr = e => { const el = e.target; if (!el.dataset.f) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } };
+  lines = ['Reading your taste…', "Checking what's open…", 'Skipping the overhyped ones…'];
+  G = 'Open now · checked just now · Google Maps';
+  SETS = {
+    tonight: [
+      { kind: 'EAT', area: 'Alfama', dist: '1.2 km', spend: '$$', name: 'Taberna do Mar', verdict: 'Worth a detour', photo: 'photo · grilled octopus, warm light', img: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&h=900&fit=crop',
+        because: 'Because you liked small, loud rooms with one great dish.', chips: ['Veg-friendly ✓', 'Under $40 ✓', 'Walkable ✓'],
+        reason: 'You said yes to hole-in-the-wall places and no to fine dining. Twelve tables, a short menu, and the grill does the work.',
+        hl: [['Octopus, olive oil', 'order this'], ['Grilled sardines', 'in season'], ['House white', '$4']], quote: 'Ask what came in this morning.', who: 'Marta · The Hidden-Gem Hunter', initial: 'M', cta: 'Book a table', gline: 'Open now · closes 23:00 · checked just now · Google Maps' },
+      { kind: 'DRINK', area: 'Chiado', dist: '0.9 km', spend: '$$', name: 'Topo Terrace', verdict: 'Worth a detour', photo: 'photo · rooftop at dusk, river view', img: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187?w=600&h=900&fit=crop',
+        because: 'Because you said yes to rooftops and go out with friends.', chips: ['Under $30 ✓', 'Walkable ✓', 'Groups ✓'],
+        reason: 'Your swipes leaned towards views and music. Go before 19:00 to get the river-side tables at sunset.',
+        hl: [['Sunset', '19:42'], ['Negroni on tap', '$11'], ['DJ from', '21:00']], quote: 'Best at golden hour, loud after ten.', who: 'Jon · The Rooftop Romantic', initial: 'J', cta: 'Book a table', gline: 'Open now · closes 01:00 · checked just now · Google Maps' },
+      { kind: 'EVENT', area: 'Mouraria', dist: '1.8 km', spend: '$', name: 'Fado, late set', verdict: "Good if you're nearby", photo: 'photo · candlelit room, guitarist', img: 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=600&h=900&fit=crop',
+        because: 'Because you picked live music and like a quiet room.', chips: ['Under $20 ✓', 'Tickets left ✓', 'Short ride ✓'],
+        reason: 'Small and seated, no phones during the set. Live music without the crowd you said you dislike.',
+        hl: [['Doors', '22:00'], ['Set length', '50 min'], ['Seats left', '8']], quote: 'No reviews yet. Be the first after you go.', who: 'Feta', initial: 'F', cta: 'Get tickets', gline: 'Open now · checked just now · Google Maps' }
+    ],
+    weekend: [
+      { kind: 'DO', area: 'Marvila', dist: '4.5 km', spend: '$$', name: 'Clay & Coffee', verdict: 'Worth a detour', photo: 'photo · hands on a pottery wheel', img: 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=600&h=900&fit=crop',
+        because: 'Because you said yes to pottery and picked workshops.', chips: ['Sat 10:00 ✓', 'Beginners ✓', 'Under $45 ✓'],
+        reason: 'A two-hour wheel class in a sunny warehouse studio. You keep what you make; it is fired and posted to you.',
+        hl: [['Class length', '2 h'], ['Group size', 'max 8'], ['Coffee', 'included']], quote: 'Messy, calm, and the teacher is great.', who: 'Inês · The Weekend Maker', initial: 'I', cta: 'Book a spot', gline: 'Open Sat 09:00–18:00 · checked just now · Google Maps' },
+      { kind: 'EAT', area: 'Campo de Ourique', dist: '2.6 km', spend: '$', name: 'Market brunch', verdict: 'Worth a detour', photo: 'photo · market stalls, pastries', img: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&h=900&fit=crop',
+        because: 'Because you liked slow mornings and good coffee.', chips: ['Veg-friendly ✓', 'Under $20 ✓', 'No booking ✓'],
+        reason: 'A covered food market that is quiet before 11. Pastries, fresh juice, and a long table in the sun.',
+        hl: [['Custard tart', 'start here'], ['Fresh orange juice', '$3'], ['Go before', '11:00']], quote: 'Get there early, it fills by noon.', who: 'Sam · The Cosy Explorer', initial: 'S', cta: 'Get directions', gline: 'Opens Sat 08:00 · checked just now · Google Maps' },
+      { kind: 'DO', area: 'Sintra', dist: '28 km', spend: '$', name: 'Sintra ridge walk', verdict: 'Worth a detour', photo: 'photo · misty hills, palace in distance', img: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=600&h=900&fit=crop',
+        because: 'Because you liked sunrise hikes and day trips.', chips: ['Day trip ✓', 'Under $15 ✓', '40 min by train ✓'],
+        reason: 'Take the 08:11 train, walk the ridge before the crowds, and be at the palace for opening.',
+        hl: [['Train from Rossio', '08:11'], ['Walk', '3 h · moderate'], ['Palace opens', '09:30']], quote: 'Go early. By 11 the paths are full.', who: 'Ravi · The Sunrise Wanderer', initial: 'R', cta: 'Plan the day', gline: 'Palace opens 09:30 · checked just now · Google Maps' }
+    ]
+  };
+  componentDidMount() { if (!window.__fetaImgFallback) { window.__fetaImgFallback = true; document.addEventListener('error', e => { const el = e.target; if (el && el.tagName === 'IMG' && !el.dataset.f && el.src.indexOf('unsplash') > -1) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } }, true); } this.lt = setInterval(() => this.setState(s => ({ li: (s.li + 1) % 3 })), 900); this.start(this.props.delay || 0, 2300); }
+  componentWillUnmount() { clearInterval(this.lt); [this.t1, this.t2, this.t3, this.t4].forEach(clearTimeout); }
+  start(delay = 0, dur = 1700, tab) {
+    [this.t1, this.t2, this.t3].forEach(clearTimeout); this.d = {}; this.busy = false;
+    this.setState(s => ({ tab: tab || s.tab, k: 0, dx: 0, out: {}, open: false, load: true, entered: false, saved: {}, touched: tab ? true : false }));
+    this.t1 = setTimeout(() => { this.setState({ load: false }); this.t2 = setTimeout(() => this.setState({ entered: true }), 60); }, dur + delay);
+  }
+  throwCard(dir) {
+    const k = this.state.k; if (k > 2 || this.busy) return;
+    this.busy = true; this.d.on = false;
+    this.setState(s => ({ out: { ...s.out, [k]: dir }, dx: 0, open: false, touched: true, saved: dir > 0 ? { ...s.saved, [k]: true } : s.saved }));
+    this.t3 = setTimeout(() => { this.busy = false; this.setState(s => ({ k: s.k + 1, open: false })); }, 50);
+  }
+  renderVals() {
+    const t = this.props.theme || {};
+    const st = this.state, d = this.d, P = this.SETS[st.tab];
+    const prog = Math.max(-1, Math.min(1, st.dx / 100)), saveP = Math.max(0, prog), skipP = Math.max(0, -prog);
+    const cur = P[Math.min(st.k, 2)], n = Object.keys(st.saved).length, live = !st.load && st.k <= 2;
+    const cards = P.map((p, i) => {
+      const pos = i - st.k, o = st.out[i]; let tf, op = 1, tr;
+      if (st.load || !st.entered) { tf = 'scale(1.18)'; op = 0; tr = 'transform 1.4s cubic-bezier(.2,.8,.2,1), opacity 1s'; }
+      else if (o !== undefined) { tf = `translateX(${o * 125}%) rotate(${o * 9}deg)`; op = 0; tr = 'transform .6s cubic-bezier(.4,0,.2,1), opacity .5s .1s'; }
+      else if (pos === 0) { tf = `translateX(${st.dx}px) rotate(${st.dx / 24}deg)`; tr = d.on ? 'none' : 'transform 1s cubic-bezier(.2,1.25,.35,1), opacity .8s'; }
+      else { tf = 'scale(1.1)'; tr = 'transform 1s cubic-bezier(.2,.8,.2,1)'; }
+      const act = pos === 0 && !st.load && st.entered;
+      return { ...p, tf, op, tr, z: 10 - Math.max(pos, -5), tint: (t.tints || [])[i + (st.tab === 'weekend' ? 3 : 0)] || '#444',
+        txtOp: act ? 1 : 0, txtTf: act ? 'none' : 'translateY(18px)',
+        saveOp: act ? saveP * .6 : 0, skipOp: act ? skipP : 0,
+        nudge: act && i === 0 && !st.touched ? 'p2-nudge 1.5s ease-in-out 1.6s 1' : 'none',
+        down: e => { e.stopPropagation(); if (pos !== 0 || this.state.load || this.busy || this.state.open) return; d.on = true; d.moved = false; d.x0 = e.clientX; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+        move: e => { if (!d.on) return; e.stopPropagation(); const dx = e.clientX - d.x0; if (Math.abs(dx) > 6) d.moved = true; if (d.moved) this.setState({ dx, touched: true }); },
+        up: e => { if (!d.on) { if (this.state.open && pos === 0) this.setState({ open: false }); return; } e.stopPropagation(); d.on = false;
+          if (!d.moved) { this.setState({ open: true, dx: 0, touched: true }); return; }
+          const dx = this.state.dx; if (Math.abs(dx) > 80) this.throwCard(Math.sign(dx)); else this.setState({ dx: 0 }); },
+        cancel: () => { d.on = false; this.setState({ dx: 0 }); }
+      };
+    });
+    const open = st.open && live, wk = st.tab === 'weekend';
+    return {
+      imgErr: this.imgErr, t, cards, cur,
+      loading: st.load, done: !st.load && st.k > 2,
+      loadTitle: wk ? 'your weekend 3' : 'your 3',
+      hl: cur.hl.map((h, i) => ({ n: '0' + (i + 1), t: h[0], v: h[1] })),
+      segs: P.map((_, i) => ({ w: !st.load && st.entered && i <= st.k ? '100%' : '0%' })),
+      stageTf: open ? 'scale(.94) translateY(-20px)' : 'none', stageFilter: open ? 'brightness(.45)' : 'none',
+      sheetTf: open ? 'translateY(0)' : 'translateY(40px)', sheetOp: open ? 1 : 0, sheetPe: open ? 'auto' : 'none',
+      headOp: st.load ? 0 : 1, chromeOp: live ? 1 : 0, chromePe: live ? 'auto' : 'none',
+      tabW: wk ? '104px' : '74px', tabTf: wk ? 'translateX(74px)' : 'translateX(0)',
+      tab1Col: wk ? (t.photoInk || '#fff') : (t.tabInk || '#000'), tab2Col: wk ? (t.tabInk || '#000') : (t.photoInk || '#fff'),
+      toTonight: e => { e.stopPropagation(); if (st.tab !== 'tonight') this.start(0, 1700, 'tonight'); },
+      toWeekend: e => { e.stopPropagation(); if (st.tab !== 'weekend') this.start(0, 1700, 'weekend'); },
+      hintLOp: !live || open ? 0 : .55 + .45 * skipP, hintROp: !live || open ? 0 : .55 + .45 * saveP,
+      hintLTf: `scale(${1 + .25 * skipP})`, hintRTf: `scale(${1 + .25 * saveP})`,
+      detailsLabel: open ? 'Close ↓' : 'Details ↑',
+      heartTf: st.pop ? 'scale(1.18)' : 'scale(1)',
+      skip: e => { e && e.stopPropagation(); this.throwCard(-1); },
+      save: e => { e && e.stopPropagation(); if (this.busy || this.state.k > 2) return;
+        this.setState(s => ({ pop: true, saved: { ...s.saved, [s.k]: true }, open: false }));
+        this.t4 = setTimeout(() => this.setState({ pop: false }), 260);
+        setTimeout(() => this.throwCard(1), 300); },
+      toggle: e => { e && e.stopPropagation(); this.setState(s => ({ open: !s.open, touched: true })); },
+      reset: () => this.start(0, 1700),
+      loadLine: this.lines[st.li],
+      savedLine: n ? `You saved ${n}. ${n > 1 ? "They're" : "It's"} in Want to try.` : "Nothing saved this time. Tell me what to change and I'll find 3 more."
+    };
+  }
+}
+</script>
+</body>
+</html>

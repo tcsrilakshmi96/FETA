@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F3E6E0;color:#1A1616;font-family:Outfit,sans-serif}
+a{color:#C81E52}a:hover{color:#1A1616}
+input,textarea{font-family:Outfit,sans-serif}
+@keyframes fa-d1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,50px) scale(1.15)}}
+@keyframes fa-d2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,-30px) scale(.9)}}
+@keyframes fa-kb{0%{transform:scale(1.04)}100%{transform:scale(1.18) translate(-3%,-2%)}}
+@keyframes fa-up{0%{opacity:0;transform:translateY(14px)}100%{opacity:1;transform:none}}
+@keyframes fa-in{0%{opacity:0}100%{opacity:1}}
+@keyframes fa-bar{0%{transform:scaleX(0)}100%{transform:scaleX(1)}}
+@keyframes fa-dot{0%,80%,100%{transform:translateY(0);opacity:.35}40%{transform:translateY(-4px);opacity:1}}
+@keyframes fa-pulse{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.15);opacity:1}}
+@keyframes fa-fill{0%{width:0}100%{width:100%}}
+</style>
+</helmet>
+<div style="max-width:1180px;margin:0 auto;padding:40px 24px 70px;display:flex;flex-direction:column;gap:28px">
+<div style="display:flex;flex-direction:column;gap:8px">
+<div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.12em;color:rgba(26,22,22,.55)">ROUND 10 · FULL APP · BLUSH, ROSE, SAFFRON, TURQUOISE</div>
+<div style="font:300 44px/1 Outfit,sans-serif;letter-spacing:-.04em">Every screen, <span style="font-weight:500">one prototype</span></div>
+<div style="font:400 14.5px/1.55 Outfit,sans-serif;color:rgba(26,22,22,.7);max-width:720px;text-wrap:pretty">Taste types are gone; the app just shows what it picked up, in plain lines you can edit. The new <b>Ask</b> tab is a chat: tell it where you're going or who you're with, and it suggests picks and adds what it learned to your profile. Use the list on the left to jump to any screen or state, or tap through from Welcome. <a href="Feta Design Index.dc.html">All rounds</a></div>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start">
+
+<div style="width:250px;flex:none;display:flex;flex-direction:column;gap:18px">
+<sc-for list="{{ rail }}" as="g" hint-placeholder-count="3">
+<div style="display:flex;flex-direction:column;gap:6px">
+<div style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:rgba(26,22,22,.5)">{{ g.title }}</div>
+<sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:4px">
+<button onClick="{{ it.go }}" style="text-align:left;padding:7px 10px;border:none;border-radius:10px;cursor:pointer;font:500 13.5px Outfit,sans-serif;transition:background .2s;background:{{ it.bg }};color:{{ it.fg }}">{{ it.label }}</button>
+<div style="display:flex;flex-wrap:wrap;gap:4px;padding-left:10px">
+<sc-for list="{{ it.states }}" as="s" hint-placeholder-count="0"><button onClick="{{ s.go }}" style="padding:4px 8px;border:none;border-radius:99px;cursor:pointer;font:400 11.5px Outfit,sans-serif;background:{{ s.bg }};color:{{ s.fg }}">{{ s.label }}</button></sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+
+<div style="flex:none;width:360px;height:760px;border-radius:48px;overflow:hidden;position:relative;background:#FFF3EE;color:#1A1616;box-shadow:0 0 0 8px #1A1616,0 40px 80px rgba(120,30,50,.18);user-select:none;-webkit-user-select:none">
+<div style="position:absolute;width:320px;height:320px;right:-130px;top:-70px;border-radius:50%;background:#FFB020;filter:blur(80px);opacity:.45;animation:fa-d2 14s ease-in-out infinite"></div>
+<div style="position:absolute;width:320px;height:320px;left:-150px;bottom:60px;border-radius:50%;background:#2BC4C9;filter:blur(85px);opacity:.32;animation:fa-d1 16s ease-in-out infinite"></div>
+<div style="position:absolute;width:240px;height:240px;left:-60px;top:260px;border-radius:50%;background:#FF4F7B;filter:blur(80px);opacity:.18;animation:fa-d1 18s ease-in-out infinite"></div>
+
+<sc-if value="{{ is.welcome }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;animation:fa-in .4s ease-out">
+<div style="position:absolute;inset:8px 8px 236px 8px;border-radius:40px;overflow:hidden;background:#5A3A30">
+<img src="{{ img.welcome }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:fa-kb 14s ease-in-out infinite alternate">
+<div style="position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(rgba(26,22,22,0),rgba(26,22,22,.85))"></div>
+<div style="position:absolute;left:24px;right:24px;bottom:26px;color:#FFF3EE;animation:fa-up .9s cubic-bezier(.2,.9,.2,1) .2s both">
+<div style="font:600 30px/1 Outfit,sans-serif;letter-spacing:-.04em">feta</div>
+<div style="font:300 36px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:16px">Three picks for tonight, <span style="font-weight:500">chosen for your taste.</span></div>
+</div>
+</div>
+<div style="position:absolute;left:24px;right:24px;bottom:28px;display:flex;flex-direction:column;gap:14px;animation:fa-up .9s cubic-bezier(.2,.9,.2,1) .45s both">
+<div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.7)">A few quick questions, ten swipes, then your picks. No sign-up.</div>
+<div onClick="{{ toggleAge }}" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+<span style="width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;font:600 13px Outfit,sans-serif;transition:background .25s,transform .3s cubic-bezier(.3,1.8,.5,1);background:{{ ui.ageBg }};color:{{ ui.ageFg }};transform:{{ ui.ageTf }}">{{ ui.ageTick }}</span>
+<span style="font:400 14.5px Outfit,sans-serif">I'm 18 or older</span>
+</div>
+<button onClick="{{ startFlow }}" style="height:56px;border:none;border-radius:99px;font:500 16px Outfit,sans-serif;cursor:pointer;transition:background .3s,opacity .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ ui.goBg }};color:{{ ui.goFg }};opacity:{{ ui.goOp }}" style-active="transform:scale(.96)">Let's go</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.q }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:22px;right:22px;top:54px;display:flex;align-items:center;gap:14px;z-index:5">
+<span onClick="{{ qBack }}" style="width:38px;height:38px;border-radius:50%;background:rgba(26,22,22,.06);display:flex;align-items:center;justify-content:center;font:400 18px Outfit,sans-serif;cursor:pointer">‹</span>
+<div style="flex:1;display:flex;gap:4px"><sc-for list="{{ qbars }}" as="b" hint-placeholder-count="6"><span style="flex:1;height:3px;border-radius:2px;background:rgba(26,22,22,.1);overflow:hidden"><span style="display:block;height:100%;background:#1A1616;transition:width .5s cubic-bezier(.2,.9,.2,1);width:{{ b.w }}"></span></span></sc-for></div>
+<span onClick="{{ qSkip }}" style="font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.6);cursor:pointer">Skip</span>
+</div>
+<sc-for list="{{ qs }}" as="q" hint-placeholder-count="6">
+<div style="position:absolute;left:0;right:0;top:112px;bottom:100px;padding:0 24px;transition:transform .6s cubic-bezier(.2,.9,.2,1),opacity .45s;transform:{{ q.tf }};opacity:{{ q.op }};pointer-events:{{ q.pe }}">
+<div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;color:rgba(26,22,22,.5)">{{ q.num }} / 06</div>
+<div style="font:300 34px/1.05 Outfit,sans-serif;letter-spacing:-.04em;margin-top:12px;text-wrap:pretty">{{ q.title }}</div>
+<div style="font:400 13.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:10px">{{ q.why }}</div>
+<sc-if value="{{ q.isLoc }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">
+<button onClick="{{ toLocation }}" style="height:54px;border:none;border-radius:18px;font:500 15px Outfit,sans-serif;text-align:left;padding:0 18px;cursor:pointer;transition:background .3s;background:{{ ui.locBg }};color:{{ ui.locFg }}">{{ ui.locLabel }}</button>
+<div style="font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:8px">How far will you go?</div>
+</div>
+</sc-if>
+<div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:16px">
+<sc-for list="{{ q.chips }}" as="c" hint-placeholder-count="5"><button onClick="{{ c.toggle }}" style="display:flex;align-items:center;height:50px;padding:0 18px;border:none;border-radius:99px;font:400 15px Outfit,sans-serif;cursor:pointer;transition:background .25s,color .25s,transform .25s cubic-bezier(.3,1.6,.5,1);background:{{ c.bg }};color:{{ c.fg }}" style-active="transform:scale(.93)"><span style="display:inline-block;overflow:hidden;white-space:nowrap;transition:width .3s cubic-bezier(.3,1.6,.5,1),margin .3s;width:{{ c.chkW }};margin-right:{{ c.chkM }}">✓</span>{{ c.label }}</button></sc-for>
+</div>
+<sc-if value="{{ q.hasHalal }}" hint-placeholder-val="{{ false }}">
+<div onClick="{{ toggleHalal }}" style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.6);cursor:pointer"><span style="font:400 15px Outfit,sans-serif">Halal only</span><span style="width:46px;height:28px;border-radius:99px;position:relative;transition:background .3s;background:{{ ui.halalBg }}"><span style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .35s cubic-bezier(.3,1.5,.5,1);transform:{{ ui.halalTf }}"></span></span></div>
+</sc-if>
+<div style="font:400 12.5px Outfit,sans-serif;color:rgba(26,22,22,.55);margin-top:14px">{{ q.hint }}</div>
+</div>
+</sc-for>
+<button onClick="{{ qNext }}" style="position:absolute;left:22px;right:22px;bottom:28px;height:56px;border:none;border-radius:99px;font:500 16px Outfit,sans-serif;cursor:pointer;transition:background .3s,color .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ ui.nextBg }};color:{{ ui.nextFg }}" style-active="transform:scale(.96)">{{ ui.nextLabel }}</button>
+</sc-if>
+
+<sc-if value="{{ is.swipe }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:24px;right:24px;top:56px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:300 26px/1 Outfit,sans-serif;letter-spacing:-.035em">Yes, me <span style="color:rgba(26,22,22,.4)">or not me?</span></span><span style="font:500 12px 'JetBrains Mono',monospace;color:rgba(26,22,22,.6)">{{ sw.num }} / 10</span></div>
+<div style="position:absolute;left:24px;right:24px;top:98px;height:3px;border-radius:2px;background:rgba(26,22,22,.1);overflow:hidden"><span style="display:block;height:100%;background:#FF4F7B;transition:width .5s cubic-bezier(.2,.9,.2,1);width:{{ sw.prog }}"></span></div>
+<div style="position:absolute;left:14px;right:14px;top:118px;bottom:112px">
+<sc-for list="{{ sw.cards }}" as="c" hint-placeholder-count="3">
+<div onPointerDown="{{ c.down }}" onPointerMove="{{ c.move }}" onPointerUp="{{ c.up }}" onPointerCancel="{{ c.cancel }}" style="position:absolute;inset:0;touch-action:none;cursor:grab;transform:{{ c.tf }};opacity:{{ c.op }};z-index:{{ c.z }};transition:{{ c.tr }}">
+<div style="position:absolute;inset:0;border-radius:32px;overflow:hidden;background:#6A4A40;box-shadow:0 20px 40px rgba(120,30,50,.18)">
+<img src="{{ c.img }}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;animation:fa-kb 16s ease-in-out infinite alternate">
+<div style="position:absolute;inset:auto 0 0 0;height:55%;background:linear-gradient(rgba(26,22,22,0),rgba(26,22,22,.85))"></div>
+<span style="position:absolute;left:18px;top:18px;padding:9px 16px;border-radius:14px;background:#FF4F7B;color:#1A1616;font:500 17px Outfit,sans-serif;opacity:{{ c.yesOp }};transform:{{ c.yesTf }}">Yes, me</span>
+<span style="position:absolute;right:18px;top:18px;padding:9px 16px;border-radius:14px;background:#FFF3EE;color:#1A1616;font:500 17px Outfit,sans-serif;opacity:{{ c.noOp }};transform:{{ c.noTf }}">Not me</span>
+<div style="position:absolute;left:22px;right:22px;bottom:22px;font:300 32px/1.05 Outfit,sans-serif;letter-spacing:-.035em;color:#FFF3EE;text-wrap:pretty">{{ c.label }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="position:absolute;left:20px;right:20px;bottom:28px;display:flex;gap:10px">
+<button aria-label="Not me" onClick="{{ swNo }}" style="flex:none;width:58px;height:58px;border-radius:50%;border:none;background:rgba(26,22,22,.07);color:#1A1616;font:300 22px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.88)">✕</button>
+<button onClick="{{ swUnsure }}" style="flex:1;height:58px;border:none;border-radius:99px;background:rgba(26,22,22,.07);color:#1A1616;font:400 15px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.96)">Not sure</button>
+<button aria-label="Yes, me" onClick="{{ swYes }}" style="flex:none;width:58px;height:58px;border-radius:50%;border:none;background:#FF4F7B;color:#1A1616;font:400 22px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.88)">♥</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.summary }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;top:60px;height:260px">
+<sc-for list="{{ collage }}" as="p" hint-placeholder-count="4"><div style="position:absolute;left:105px;top:16px;width:150px;height:196px;border-radius:20px;overflow:hidden;background:#6A4A40;box-shadow:0 22px 44px rgba(120,30,50,.25);transition:transform 1.1s cubic-bezier(.2,.9,.25,1),opacity .6s;transform:{{ p.tf }};opacity:{{ p.op }};transition-delay:{{ p.dl }};z-index:{{ p.z }}"><img src="{{ p.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div></sc-for>
+</div>
+<div style="position:absolute;left:24px;right:24px;bottom:28px;display:flex;flex-direction:column">
+<div style="font:300 36px/1.02 Outfit,sans-serif;letter-spacing:-.04em;transition:opacity .8s ease 1s,transform .9s cubic-bezier(.2,.9,.2,1) 1s;opacity:{{ ui.sumOp }};transform:{{ ui.sumTf }}">Here's what <span style="font-weight:500">I picked up.</span></div>
+<div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65);margin-top:10px;transition:opacity .8s ease 1.2s;opacity:{{ ui.sumOp }}">Not a label, just a starting point. Remove anything that's wrong; it changes with every outing.</div>
+<div style="margin-top:14px;transition:opacity .8s ease 1.4s;opacity:{{ ui.sumOp }}">
+<sc-for list="{{ sumLines }}" as="l" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid rgba(26,22,22,.1);font:400 14.5px Outfit,sans-serif"><span>{{ l.text }}</span><span onClick="{{ l.remove }}" style="width:30px;height:30px;margin:-6px -8px -6px 0;display:flex;align-items:center;justify-content:center;color:rgba(26,22,22,.45);cursor:pointer;font:300 18px Outfit,sans-serif">×</span></div></sc-for>
+</div>
+<button onClick="{{ toLocation }}" style="margin-top:16px;height:56px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 16px Outfit,sans-serif;cursor:pointer;transition:opacity .8s ease 1.6s,transform .2s cubic-bezier(.3,1.6,.5,1);opacity:{{ ui.sumOp }}" style-active="transform:scale(.96)">Show my picks</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.location }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;display:flex;flex-direction:column;padding:96px 24px 28px;box-sizing:border-box;animation:fa-in .4s ease-out">
+<div style="position:relative;width:120px;height:120px;margin-bottom:28px"><span style="position:absolute;inset:0;border-radius:50%;background:#2BC4C9;opacity:.3;animation:fa-pulse 2.4s ease-in-out infinite"></span><span style="position:absolute;inset:34px;border-radius:50%;background:#FF4F7B;animation:fa-pulse 2.4s ease-in-out .4s infinite"></span></div>
+<sc-if value="{{ loc.ask }}" hint-placeholder-val="{{ true }}">
+<div style="animation:fa-up .5s ease-out">
+<div style="font:300 34px/1.05 Outfit,sans-serif;letter-spacing:-.04em">Picks work best when I know <span style="font-weight:500">where you are.</span></div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;font:400 14.5px/1.4 Outfit,sans-serif;color:rgba(26,22,22,.75)"><div>Only used to find places near you.</div><div>Never shown to anyone, never sold.</div><div>Turn it off any time in You → Privacy.</div></div>
+</div>
+</sc-if>
+<sc-if value="{{ loc.denied }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .5s ease-out">
+<div style="font:300 34px/1.05 Outfit,sans-serif;letter-spacing:-.04em">Location is off. <span style="font-weight:500">That's fine.</span></div>
+<div style="font:400 14.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.75);margin-top:14px">Pick a city and area instead. You can turn location on later in your phone's settings.</div>
+</div>
+</sc-if>
+<sc-if value="{{ loc.notCovered }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .5s ease-out">
+<div style="font:300 34px/1.05 Outfit,sans-serif;letter-spacing:-.04em">We're not in <span style="font-weight:500">Évora yet.</span></div>
+<div style="font:400 14.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.75);margin-top:14px">I'd rather say so than guess. Closest cities we cover:</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><span style="padding:10px 16px;border-radius:99px;background:#1A1616;color:#FFF3EE;font:400 14px Outfit,sans-serif">Lisbon · 1 h 30</span><span style="padding:10px 16px;border-radius:99px;background:rgba(26,22,22,.07);font:400 14px Outfit,sans-serif">Porto · 3 h</span></div>
+</div>
+</sc-if>
+<div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+<button onClick="{{ locUse }}" style="height:56px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 16px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.96)">{{ loc.primary }}</button>
+<button onClick="{{ locCity }}" style="height:56px;border:none;border-radius:99px;background:rgba(26,22,22,.07);color:#1A1616;font:400 15px Outfit,sans-serif;cursor:pointer">{{ loc.secondary }}</button>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.picks }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding:52px 0 110px;box-sizing:border-box">
+<div style="padding:0 18px;display:flex;justify-content:space-between;align-items:center">
+<div style="position:relative;display:flex;padding:4px;border-radius:99px;background:rgba(26,22,22,.06)">
+<span style="position:absolute;top:4px;bottom:4px;left:4px;border-radius:99px;background:#1A1616;transition:transform .45s cubic-bezier(.3,1.3,.5,1),width .45s cubic-bezier(.3,1.3,.5,1);width:{{ pk.tabW }};transform:{{ pk.tabTf }}"></span>
+<span onClick="{{ toTonight }}" style="position:relative;width:76px;text-align:center;padding:8px 0;font:500 13px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ pk.t1 }}">Tonight</span>
+<span onClick="{{ toWeekend }}" style="position:relative;width:106px;text-align:center;padding:8px 0;font:500 13px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ pk.t2 }}">This weekend</span>
+</div>
+<span onClick="{{ cycleCity }}" style="padding:9px 13px;border-radius:99px;background:rgba(26,22,22,.06);font:400 13px Outfit,sans-serif;cursor:pointer">{{ pk.city }} ▾</span>
+</div>
+<div style="padding:16px 22px 0;font:300 30px/1 Outfit,sans-serif;letter-spacing:-.04em">{{ pk.title1 }} <span style="font-weight:500">{{ pk.title2 }}</span></div>
+<sc-if value="{{ pk.banner }}" hint-placeholder-val="{{ false }}"><div style="margin:12px 18px 0;padding:10px 14px;border-radius:14px;background:rgba(43,196,201,.18);font:400 13px/1.4 Outfit,sans-serif;animation:fa-up .4s ease-out">{{ pk.bannerText }}</div></sc-if>
+
+<div style="position:relative;margin:14px 14px 0;height:420px">
+<sc-if value="{{ pk.loading }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;border-radius:30px;background:rgba(255,255,255,.55);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:fa-in .3s ease-out">
+<div style="display:flex;gap:5px"><span style="flex:1;height:3px;border-radius:2px;background:rgba(26,22,22,.1);overflow:hidden"><span style="display:block;height:100%;background:#1A1616;transform-origin:left;animation:fa-bar .5s ease-out forwards"></span></span><span style="flex:1;height:3px;border-radius:2px;background:rgba(26,22,22,.1);overflow:hidden"><span style="display:block;height:100%;background:#1A1616;transform-origin:left;transform:scaleX(0);animation:fa-bar .5s ease-out .45s forwards"></span></span><span style="flex:1;height:3px;border-radius:2px;background:rgba(26,22,22,.1);overflow:hidden"><span style="display:block;height:100%;background:#1A1616;transform-origin:left;transform:scaleX(0);animation:fa-bar .5s ease-out .9s forwards"></span></span></div>
+<div style="font:300 34px/1.02 Outfit,sans-serif;letter-spacing:-.04em">Finding <span style="font-weight:500">your 3</span>…</div>
+<div style="font:400 13.5px Outfit,sans-serif;color:rgba(26,22,22,.6)">{{ pk.loadLine }}</div>
+</div>
+</sc-if>
+<sc-for list="{{ pk.cards }}" as="c" hint-placeholder-count="3">
+<div onPointerDown="{{ c.down }}" onPointerMove="{{ c.move }}" onPointerUp="{{ c.up }}" onPointerCancel="{{ c.cancel }}" style="position:absolute;inset:0;touch-action:pan-y;cursor:grab;transform:{{ c.tf }};opacity:{{ c.op }};z-index:{{ c.z }};transition:{{ c.tr }}">
+<div style="position:absolute;inset:0;border-radius:30px;overflow:hidden;background:#6A4A40;box-shadow:0 20px 44px rgba(120,30,50,.2)">
+<img src="{{ c.img }}" alt="" draggable="false" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;animation:fa-kb 16s ease-in-out infinite alternate">
+<div style="position:absolute;inset:auto 0 0 0;height:68%;background:linear-gradient(rgba(26,22,22,0),rgba(26,22,22,.9) 72%)"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(270deg,rgba(255,79,123,.7),rgba(255,79,123,0) 55%);opacity:{{ c.saveOp }}"></div>
+<div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(255,243,238,.55),rgba(255,243,238,0) 55%);opacity:{{ c.skipOp }}"></div>
+<span style="position:absolute;left:14px;top:14px;padding:6px 11px;border-radius:99px;background:#FFF3EE;font:600 10.5px Outfit,sans-serif;letter-spacing:.12em">{{ c.kind }}</span>
+<span style="position:absolute;right:14px;top:14px;padding:6px 11px;border-radius:99px;background:rgba(26,22,22,.5);color:#FFF3EE;font:500 11px Outfit,sans-serif">{{ c.pos }}</span>
+<div style="position:absolute;left:20px;right:20px;bottom:18px;color:#FFF3EE;transition:opacity .6s ease .2s,transform .7s cubic-bezier(.2,.9,.2,1) .2s;opacity:{{ c.txtOp }};transform:{{ c.txtTf }}">
+<div style="font:300 34px/1 Outfit,sans-serif;letter-spacing:-.035em">{{ c.name }}</div>
+<div style="display:flex;justify-content:space-between;gap:10px;margin-top:8px"><span style="flex:none;white-space:nowrap;font:400 13px Outfit,sans-serif;opacity:.8">{{ c.area }} · {{ c.dist }}</span><span style="font:500 13.5px Outfit,sans-serif;color:#FFB020">{{ c.verdict }}</span></div>
+<div style="font:400 13.5px/1.4 Outfit,sans-serif;margin-top:10px;text-wrap:pretty">{{ c.because }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px"><sc-for list="{{ c.chips }}" as="ch" hint-placeholder-count="3"><span style="padding:5px 10px;border-radius:99px;background:rgba(255,243,238,.16);backdrop-filter:blur(10px);font:400 11px Outfit,sans-serif">{{ ch }}</span></sc-for></div>
+</div>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ pk.done }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;border-radius:30px;background:rgba(255,255,255,.6);display:flex;flex-direction:column;justify-content:flex-end;gap:14px;padding:26px;animation:fa-up .5s ease-out">
+<div style="font:300 36px/1.02 Outfit,sans-serif;letter-spacing:-.04em">That's <span style="font-weight:500">your 3.</span></div>
+<div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65)">Want different ones? Tweak below, or ask me in chat.</div>
+<button onClick="{{ morePicks }}" style="align-self:flex-start;height:50px;padding:0 22px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 14px Outfit,sans-serif;cursor:pointer">Show me 3 more</button>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{ pk.live }}" hint-placeholder-val="{{ true }}">
+<div style="margin:10px 18px 0;padding:8px 12px;border-radius:10px;background:#FFFFFF;font:400 11px Roboto,Arial,sans-serif;color:#3C4043">{{ pk.gline }}</div>
+<div style="margin:12px 18px 0;display:flex;gap:10px">
+<button aria-label="Not for me" onClick="{{ pSkip }}" style="flex:none;width:54px;height:54px;border-radius:50%;border:none;background:rgba(26,22,22,.07);color:#1A1616;font:300 21px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.88)">✕</button>
+<button onClick="{{ openDetails }}" style="flex:1;height:54px;border:none;border-radius:99px;background:rgba(26,22,22,.07);color:#1A1616;font:400 14.5px Outfit,sans-serif;cursor:pointer">Details</button>
+<button aria-label="Save" onClick="{{ pSave }}" style="flex:none;width:54px;height:54px;border-radius:50%;border:none;background:#FF4F7B;color:#1A1616;font:400 21px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.88)">♥</button>
+</div>
+</sc-if>
+<div style="margin:18px 18px 0;padding:14px;border-radius:22px;background:rgba(255,255,255,.65)">
+<div style="font:500 13px Outfit,sans-serif">Tweak these</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"><sc-for list="{{ tweaks }}" as="tw" hint-placeholder-count="4"><button onClick="{{ tw.go }}" style="padding:8px 13px;border:none;border-radius:99px;background:rgba(26,22,22,.06);font:400 13px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.93)">{{ tw.label }}</button></sc-for></div>
+</div>
+<div onClick="{{ toStyle }}" style="margin:12px 18px 0;height:110px;border-radius:22px;overflow:hidden;position:relative;cursor:pointer;background:#1A1616">
+<img src="{{ img.style1 }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.6;filter:blur(1px)">
+<div style="position:absolute;left:16px;bottom:14px;color:#FFF3EE"><div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;opacity:.85">COMING SOON</div><div style="font:300 24px Outfit,sans-serif;letter-spacing:-.03em;margin-top:4px">Style picks <span style="font-weight:500">→</span></div></div>
+</div>
+<div style="text-align:center;font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.45);margin-top:16px">That's everything for tonight.</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.details }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding-bottom:96px;box-sizing:border-box;background:#FFF3EE;animation:fa-up .45s cubic-bezier(.2,.9,.2,1)">
+<div style="position:relative;height:330px;overflow:hidden;background:#6A4A40">
+<img src="{{ det.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:fa-kb 16s ease-in-out infinite alternate">
+<div style="position:absolute;inset:0;background:linear-gradient(rgba(26,22,22,.4),rgba(26,22,22,0) 35%)"></div>
+<span onClick="{{ toPicks }}" style="position:absolute;left:16px;top:48px;width:40px;height:40px;border-radius:50%;background:rgba(255,243,238,.85);display:flex;align-items:center;justify-content:center;font:400 18px Outfit,sans-serif;cursor:pointer">‹</span>
+<div style="position:absolute;left:0;right:0;bottom:12px;display:flex;justify-content:center;gap:5px"><span style="width:18px;height:4px;border-radius:2px;background:#FFF3EE"></span><span style="width:6px;height:4px;border-radius:2px;background:rgba(255,243,238,.5)"></span><span style="width:6px;height:4px;border-radius:2px;background:rgba(255,243,238,.5)"></span></div>
+</div>
+<div style="padding:18px 22px 0">
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55)">{{ det.kind }} · {{ det.area }} · {{ det.dist }}</div>
+<div style="font:300 34px/1 Outfit,sans-serif;letter-spacing:-.04em;margin-top:8px">{{ det.name }}</div>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px">
+<span style="font:500 14px Outfit,sans-serif;color:#C81E52">{{ det.verdict }}</span>
+<sc-if value="{{ det.fav }}" hint-placeholder-val="{{ false }}"><span style="padding:5px 10px;border-radius:99px;background:#FFB020;font:500 11.5px Outfit,sans-serif">★ Feta Favourite · {{ det.favText }}</span></sc-if>
+</div>
+<div style="margin-top:12px;padding:8px 12px;border-radius:10px;background:#FFFFFF;font:400 11px Roboto,Arial,sans-serif;color:#3C4043">{{ det.gline }}</div>
+<sc-if value="{{ det.closed }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,176,32,.22);font:400 13.5px/1.4 Outfit,sans-serif">Closed right now. It opens tomorrow at 12:00. Save it for later?</div></sc-if>
+<sc-if value="{{ det.soldOut }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;padding:12px 14px;border-radius:14px;background:rgba(255,79,123,.18);font:400 13.5px/1.4 Outfit,sans-serif">Sold out for tonight. There's another set on Friday at 22:00.</div></sc-if>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55);margin-top:22px">WHY IT'S YOURS</div>
+<div style="font:400 15px/1.5 Outfit,sans-serif;margin-top:8px;text-wrap:pretty">{{ det.reason }}</div>
+<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><sc-for list="{{ det.chips }}" as="ch" hint-placeholder-count="3"><span style="padding:6px 11px;border-radius:99px;background:rgba(43,196,201,.18);font:400 12px Outfit,sans-serif">{{ ch }}</span></sc-for></div>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55);margin-top:22px">{{ det.orderTitle }}</div>
+<div style="margin-top:6px"><sc-for list="{{ det.order }}" as="o" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:28px 1fr auto;padding:10px 0;border-top:1px solid rgba(26,22,22,.1);font:400 14.5px Outfit,sans-serif"><span style="font:400 11px 'JetBrains Mono',monospace;color:rgba(26,22,22,.45);padding-top:3px">{{ o.n }}</span><span>{{ o.t }}</span><span style="color:rgba(26,22,22,.55)">{{ o.v }}</span></div></sc-for></div>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55);margin-top:22px">WHAT FETA USERS SAID</div>
+<sc-if value="{{ det.hasReviews }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+<sc-for list="{{ det.reviews }}" as="r" hint-placeholder-count="2"><div style="display:flex;gap:10px;padding:12px;border-radius:16px;background:rgba(255,255,255,.7)"><span style="flex:none;width:30px;height:30px;border-radius:50%;background:#2BC4C9;display:flex;align-items:center;justify-content:center;font:500 12px Outfit,sans-serif">{{ r.i }}</span><div><div style="font:400 14px/1.4 Outfit,sans-serif">{{ r.text }}</div><div style="font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.55);margin-top:3px">{{ r.who }}</div></div></div></sc-for>
+<div style="display:flex;gap:6px"><sc-for list="{{ det.photos }}" as="ph" hint-placeholder-count="2"><div style="width:84px;height:84px;border-radius:14px;overflow:hidden;background:#6A4A40"><img src="{{ ph.img }}" alt="" style="width:100%;height:100%;object-fit:cover"></div></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{ det.noReviews }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;padding:14px;border-radius:16px;background:rgba(255,255,255,.7);font:400 14px/1.4 Outfit,sans-serif;color:rgba(26,22,22,.7)">No reviews yet. Go, then tell us how it was.</div></sc-if>
+</div>
+</div>
+<div style="position:absolute;left:12px;right:12px;bottom:16px;display:flex;gap:8px;padding:8px;border-radius:99px;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);box-shadow:0 10px 30px rgba(120,30,50,.14);z-index:20">
+<button onClick="{{ detCta }}" style="flex:1;height:48px;border:none;border-radius:99px;font:500 14px Outfit,sans-serif;cursor:pointer;background:{{ det.ctaBg }};color:{{ det.ctaFg }}">{{ det.cta }}</button>
+<span style="height:48px;padding:0 14px;border-radius:99px;background:rgba(26,22,22,.06);display:flex;align-items:center;font:400 13.5px Outfit,sans-serif">Directions</span>
+<span onClick="{{ pSaveDet }}" style="width:48px;height:48px;border-radius:50%;background:#FF4F7B;display:flex;align-items:center;justify-content:center;font:400 18px Outfit,sans-serif;cursor:pointer">♥</span>
+<span style="width:48px;height:48px;border-radius:50%;background:rgba(26,22,22,.06);display:flex;align-items:center;justify-content:center;font:400 16px Outfit,sans-serif">↗</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.chat }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:0;right:0;top:48px;padding:0 20px;display:flex;justify-content:space-between;align-items:center;z-index:5">
+<div style="font:300 28px Outfit,sans-serif;letter-spacing:-.04em">Ask <span style="font-weight:500">Feta</span></div>
+<span style="padding:7px 12px;border-radius:99px;background:rgba(43,196,201,.2);font:500 12px Outfit,sans-serif;transition:background .4s">{{ chat.dest }}</span>
+</div>
+<div id="fa-chat" style="position:absolute;left:0;right:0;top:96px;bottom:200px;overflow-y:auto;padding:4px 16px 12px;display:flex;flex-direction:column;gap:10px">
+<sc-for list="{{ chat.msgs }}" as="m" hint-placeholder-count="2">
+<div style="display:flex;flex-direction:column;gap:8px;animation:fa-up .4s cubic-bezier(.2,.9,.2,1);align-items:{{ m.align }}">
+<div style="max-width:84%;padding:11px 14px;font:400 14.5px/1.42 Outfit,sans-serif;text-wrap:pretty;border-radius:{{ m.radius }};background:{{ m.bg }};color:{{ m.fg }}">{{ m.text }}</div>
+<sc-if value="{{ m.hasPicks }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:8px;overflow-x:auto;width:100%;padding-bottom:4px">
+<sc-for list="{{ m.picks }}" as="mp" hint-placeholder-count="3"><div style="flex:none;width:140px;height:176px;border-radius:18px;overflow:hidden;position:relative;background:#6A4A40"><img src="{{ mp.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:auto 0 0 0;height:60%;background:linear-gradient(rgba(26,22,22,0),rgba(26,22,22,.85))"></div><div style="position:absolute;left:10px;right:10px;bottom:10px;color:#FFF3EE"><div style="font:600 9.5px Outfit,sans-serif;letter-spacing:.12em;opacity:.85">{{ mp.kind }}</div><div style="font:500 14px/1.15 Outfit,sans-serif;margin-top:3px">{{ mp.name }}</div><div style="font:400 11px Outfit,sans-serif;opacity:.75;margin-top:2px">{{ mp.area }}</div></div></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{ m.hasAdded }}" hint-placeholder-val="{{ false }}">
+<div style="width:84%;padding:12px 14px;border-radius:18px;background:rgba(43,196,201,.16)">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:500 11px Outfit,sans-serif;letter-spacing:.12em">ADDED TO YOUR PROFILE</span><span onClick="{{ m.undo }}" style="font:500 12.5px Outfit,sans-serif;color:#C81E52;cursor:pointer">{{ m.undoLabel }}</span></div>
+<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;transition:opacity .3s;opacity:{{ m.addedOp }}"><sc-for list="{{ m.added }}" as="ad" hint-placeholder-count="2"><div style="font:400 13.5px Outfit,sans-serif">＋ {{ ad }}</div></sc-for></div>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<sc-if value="{{ chat.typing }}" hint-placeholder-val="{{ false }}"><div style="align-self:flex-start;padding:14px 16px;border-radius:18px 18px 18px 6px;background:#FFFFFF;display:flex;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:#1A1616;animation:fa-dot 1s infinite"></span><span style="width:7px;height:7px;border-radius:50%;background:#1A1616;animation:fa-dot 1s .15s infinite"></span><span style="width:7px;height:7px;border-radius:50%;background:#1A1616;animation:fa-dot 1s .3s infinite"></span></div></sc-if>
+</div>
+<div style="position:absolute;left:0;right:0;bottom:150px;padding:0 16px;display:flex;gap:6px;overflow-x:auto">
+<sc-for list="{{ chat.prompts }}" as="cp" hint-placeholder-count="3"><button onClick="{{ cp.go }}" style="flex:none;padding:9px 13px;border:none;border-radius:99px;background:rgba(255,255,255,.8);font:400 13px Outfit,sans-serif;cursor:pointer;white-space:nowrap;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.94)">{{ cp.label }}</button></sc-for>
+</div>
+<div style="position:absolute;left:14px;right:14px;bottom:92px;height:50px;border-radius:99px;background:#FFFFFF;display:flex;align-items:center;padding:0 6px 0 16px;box-shadow:0 6px 20px rgba(120,30,50,.08)">
+<input value="{{ chat.input }}" onChange="{{ chatType }}" onKeyDown="{{ chatKey }}" placeholder="Where are you going? Who with?" style="flex:1;border:none;outline:none;background:transparent;font:400 14.5px Outfit,sans-serif;color:#1A1616;min-width:0">
+<button onClick="{{ chatSend }}" style="flex:none;width:38px;height:38px;border-radius:50%;border:none;background:#FF4F7B;color:#1A1616;font:500 16px Outfit,sans-serif;cursor:pointer">↑</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.lists }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:52px 18px 110px;box-sizing:border-box;animation:fa-in .35s ease-out">
+<div style="font:300 30px Outfit,sans-serif;letter-spacing:-.04em;padding:0 4px">My <span style="font-weight:500">lists</span></div>
+<div style="position:relative;display:flex;padding:4px;border-radius:99px;background:rgba(26,22,22,.06);margin-top:14px;width:fit-content">
+<span style="position:absolute;top:4px;bottom:4px;left:4px;width:110px;border-radius:99px;background:#1A1616;transition:transform .45s cubic-bezier(.3,1.3,.5,1);transform:{{ ls.tabTf }}"></span>
+<span onClick="{{ lsWant }}" style="position:relative;width:110px;text-align:center;padding:8px 0;font:500 13px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ ls.t1 }}">Want to try</span>
+<span onClick="{{ lsBeen }}" style="position:relative;width:110px;text-align:center;padding:8px 0;font:500 13px Outfit,sans-serif;cursor:pointer;transition:color .3s;color:{{ ls.t2 }}">Been</span>
+</div>
+<div style="font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.5);margin:12px 4px 0">Private. Only you can see these.</div>
+<sc-if value="{{ ls.empty }}" hint-placeholder-val="{{ false }}">
+<div style="margin-top:40px;padding:0 4px;animation:fa-up .4s ease-out"><div style="font:300 28px/1.05 Outfit,sans-serif;letter-spacing:-.035em">Nothing here <span style="font-weight:500">yet.</span></div><div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65);margin-top:10px">Swipe right on a pick, or tap ♥, and it lands here with room for a note.</div><button onClick="{{ toPicks }}" style="margin-top:18px;height:48px;padding:0 20px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 14px Outfit,sans-serif;cursor:pointer">See tonight's picks</button></div>
+</sc-if>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+<sc-for list="{{ ls.rows }}" as="r" hint-placeholder-count="3">
+<div style="display:flex;gap:12px;padding:10px;border-radius:20px;background:rgba(255,255,255,.7);animation:fa-up .4s ease-out">
+<div style="flex:none;width:72px;height:72px;border-radius:14px;overflow:hidden;background:#6A4A40"><img src="{{ r.img }}" alt="" style="width:100%;height:100%;object-fit:cover"></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;padding-top:2px">
+<div style="display:flex;justify-content:space-between;gap:6px"><span style="font:500 15px Outfit,sans-serif">{{ r.name }}</span><span style="font:400 12px Outfit,sans-serif;color:#C81E52">{{ r.tag }}</span></div>
+<div style="font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.55)">{{ r.area }}</div>
+<div style="font:400 13px/1.35 Outfit,sans-serif;color:rgba(26,22,22,.8)">{{ r.note }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ ls.notEmpty }}" hint-placeholder-val="{{ true }}"><div style="text-align:center;font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.45);margin-top:16px">That's everything.</div></sc-if>
+<sc-if value="{{ ls.showCheckin }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toCheckin }}" style="margin-top:14px;width:100%;height:50px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 14px Outfit,sans-serif;cursor:pointer">Been to Taberna do Mar? Tell me how it was</button></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.profile }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:52px 22px 110px;box-sizing:border-box;animation:fa-in .35s ease-out">
+<div style="font:300 30px/1.04 Outfit,sans-serif;letter-spacing:-.04em">What I think <span style="font-weight:500">you like</span></div>
+<div style="font:400 13.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:8px">Built from your answers, swipes, outings and chats. Change anything.</div>
+<div style="margin-top:14px">
+<sc-for list="{{ pf.lines }}" as="l" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-top:1px solid rgba(26,22,22,.1);animation:fa-up .35s ease-out"><div style="min-width:0"><div style="font:400 14.5px Outfit,sans-serif">{{ l.text }}</div><sc-if value="{{ l.hasSrc }}" hint-placeholder-val="{{ false }}"><div style="font:400 11.5px Outfit,sans-serif;color:#C81E52;margin-top:2px">{{ l.src }}</div></sc-if></div><span onClick="{{ l.remove }}" style="flex:none;font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.5);cursor:pointer">Remove</span></div></sc-for>
+</div>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55);margin-top:24px">MY REVIEWS</div>
+<div style="margin-top:8px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.7);display:flex;justify-content:space-between;gap:10px"><div><div style="font:500 14.5px Outfit,sans-serif">Taberna do Mar</div><div style="font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.65);margin-top:2px">Loved it · "The octopus, every time."</div></div><span style="flex:none;font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.55)">Private</span></div>
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:rgba(26,22,22,.55);margin-top:24px">PRIVACY</div>
+<div style="margin-top:4px;font:400 14.5px Outfit,sans-serif">
+<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(26,22,22,.1)"><span>Use my location</span><span style="color:rgba(26,22,22,.55)">On</span></div>
+<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(26,22,22,.1)"><span>Show my reviews to others</span><span style="color:rgba(26,22,22,.55)">Off</span></div>
+<div style="display:flex;justify-content:space-between;padding:12px 0;border-top:1px solid rgba(26,22,22,.1)"><span>Privacy policy</span><span style="color:rgba(26,22,22,.55)">›</span></div>
+<div onClick="{{ askDelete }}" style="padding:12px 0;border-top:1px solid rgba(26,22,22,.1);color:#C81E52;cursor:pointer">Delete my data</div>
+</div>
+<sc-if value="{{ pf.confirm }}" hint-placeholder-val="{{ false }}"><div style="padding:14px;border-radius:16px;background:rgba(255,79,123,.14);animation:fa-up .3s ease-out"><div style="font:400 14px/1.45 Outfit,sans-serif">This deletes your lists, reviews and everything above. It can't be undone.</div><div style="display:flex;gap:8px;margin-top:12px"><span style="padding:10px 16px;border-radius:99px;background:#C81E52;color:#FFF3EE;font:500 13.5px Outfit,sans-serif">Delete everything</span><span onClick="{{ cancelDelete }}" style="padding:10px 16px;border-radius:99px;background:rgba(26,22,22,.07);font:400 13.5px Outfit,sans-serif;cursor:pointer">Cancel</span></div></div></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.checkin }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:52px 22px 30px;box-sizing:border-box;animation:fa-in .35s ease-out">
+<div style="display:flex;gap:12px;align-items:center"><span onClick="{{ toLists }}" style="width:38px;height:38px;border-radius:50%;background:rgba(26,22,22,.06);display:flex;align-items:center;justify-content:center;font:400 18px Outfit,sans-serif;cursor:pointer">‹</span><span style="font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.6)">Last night · Taberna do Mar</span></div>
+<div style="margin-top:16px;height:150px;border-radius:24px;overflow:hidden;background:#6A4A40"><img src="{{ img.taberna }}" alt="" style="width:100%;height:100%;object-fit:cover"></div>
+<sc-if value="{{ ci.ask }}" hint-placeholder-val="{{ true }}">
+<div style="animation:fa-up .4s ease-out">
+<div style="font:300 32px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">Did you go? <span style="font-weight:500">How was it?</span></div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+<sc-for list="{{ ci.options }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.go }}" style="height:56px;border:none;border-radius:18px;text-align:left;padding:0 18px;font:400 16px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ o.bg }};color:#1A1616" style-active="transform:scale(.97)">{{ o.label }}</button></sc-for>
+<button onClick="{{ ciDidnt }}" style="height:46px;border:none;background:transparent;font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.6);cursor:pointer">I didn't go</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{ ci.reason }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .4s ease-out">
+<div style="font:300 30px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">{{ ci.choice }}. <span style="font-weight:500">What made it?</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:16px"><sc-for list="{{ ci.reasons }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.go }}" style="height:48px;padding:0 18px;border:none;border-radius:99px;background:rgba(26,22,22,.07);font:400 15px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.93)">{{ r.label }}</button></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{ ci.review }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .4s ease-out">
+<div style="font:300 28px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">Thanks. <span style="font-weight:500">Anything to add?</span></div>
+<div style="font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:6px">Optional. Your picks are already better.</div>
+<div style="margin-top:12px;height:84px;border-radius:16px;background:rgba(255,255,255,.75);padding:12px 14px;box-sizing:border-box;font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.5)">A short review…</div>
+<div style="display:flex;gap:8px;margin-top:10px">
+<sc-for list="{{ ci.slots }}" as="sl" hint-placeholder-count="3"><div onClick="{{ sl.go }}" style="position:relative;width:84px;height:84px;border-radius:16px;overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;font:300 24px Outfit,sans-serif;background:rgba(26,22,22,.06)"><sc-if value="{{ sl.has }}" hint-placeholder-val="{{ false }}"><img src="{{ sl.img }}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></sc-if><sc-if value="{{ sl.up }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;background:rgba(26,22,22,.45);display:flex;align-items:flex-end;padding:8px;box-sizing:border-box"><span style="height:3px;border-radius:2px;background:#FFF3EE;animation:fa-fill 1.4s ease-out forwards"></span></div></sc-if><sc-if value="{{ sl.empty }}" hint-placeholder-val="{{ true }}">＋</sc-if></div></sc-for>
+</div>
+<div onClick="{{ ciTogglePublic }}" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;cursor:pointer"><span style="font:400 14.5px Outfit,sans-serif">Show my review to others</span><span style="width:46px;height:28px;border-radius:99px;position:relative;transition:background .3s;background:{{ ci.pubBg }}"><span style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .35s cubic-bezier(.3,1.5,.5,1);transform:{{ ci.pubTf }}"></span></span></div>
+<button onClick="{{ ciSubmit }}" style="margin-top:16px;width:100%;height:54px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 15px Outfit,sans-serif;cursor:pointer">Done</button>
+</div>
+</sc-if>
+<sc-if value="{{ ci.pending }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .4s ease-out"><div style="font:300 30px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">Saved. <span style="font-weight:500">Waiting for a quick check.</span></div><div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65);margin-top:10px">Your review shows to others once it's approved, usually within a day. It's in your Been list already.</div><button onClick="{{ toPicks }}" style="margin-top:18px;height:50px;padding:0 20px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 14px Outfit,sans-serif;cursor:pointer">Back to picks</button></div>
+</sc-if>
+<sc-if value="{{ ci.didnt }}" hint-placeholder-val="{{ false }}">
+<div style="animation:fa-up .4s ease-out"><div style="font:300 30px/1.04 Outfit,sans-serif;letter-spacing:-.04em;margin-top:18px">No worries.</div><div style="font:400 14px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65);margin-top:10px">Keep it in Want to try, or let it go?</div><div style="display:flex;gap:8px;margin-top:16px"><button onClick="{{ toLists }}" style="height:50px;padding:0 20px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 14px Outfit,sans-serif;cursor:pointer">Keep it</button><button onClick="{{ toPicks }}" style="height:50px;padding:0 20px;border:none;border-radius:99px;background:rgba(26,22,22,.07);font:400 14px Outfit,sans-serif;cursor:pointer">Let it go</button></div></div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.style }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;padding:52px 22px 110px;box-sizing:border-box;display:flex;flex-direction:column;animation:fa-in .35s ease-out">
+<div style="font:500 10.5px Outfit,sans-serif;letter-spacing:.16em;color:#C81E52">COMING SOON</div>
+<div style="font:300 40px/1 Outfit,sans-serif;letter-spacing:-.045em;margin-top:10px">Style, <span style="font-weight:500">picked the same way.</span></div>
+<div style="font:400 14.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.7);margin-top:12px;text-wrap:pretty">Three outfit and shop picks for where you're going and what you're doing. Honest, no ads.</div>
+<div style="display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:130px 130px;gap:8px;margin-top:22px">
+<div style="grid-row:span 2;border-radius:22px;overflow:hidden;background:#6A4A40"><img src="{{ img.style1 }}" alt="" style="width:100%;height:100%;object-fit:cover;filter:blur(2px) saturate(1.1);transform:scale(1.05)"></div>
+<div style="border-radius:22px;overflow:hidden;background:#6A4A40"><img src="{{ img.style2 }}" alt="" style="width:100%;height:100%;object-fit:cover;filter:blur(2px)"></div>
+<div style="border-radius:22px;overflow:hidden;background:#6A4A40"><img src="{{ img.style3 }}" alt="" style="width:100%;height:100%;object-fit:cover;filter:blur(2px)"></div>
+</div>
+<div style="margin-top:auto">
+<sc-if value="{{ st.notOn }}" hint-placeholder-val="{{ true }}"><button onClick="{{ joinStyle }}" style="width:100%;height:56px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 16px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.96)">Tell me when it's ready</button></sc-if>
+<sc-if value="{{ st.on }}" hint-placeholder-val="{{ false }}"><div style="height:56px;border-radius:99px;background:#2BC4C9;display:flex;align-items:center;justify-content:center;font:500 16px Outfit,sans-serif;animation:fa-up .4s cubic-bezier(.3,1.6,.5,1)">✓ You're on the list</div></sc-if>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ is.admin }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;inset:0;overflow-y:auto;padding:52px 16px 30px;box-sizing:border-box;background:#FFFFFF;animation:fa-in .35s ease-out">
+<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 6px"><span style="font:500 22px Outfit,sans-serif;letter-spacing:-.03em">Reviews to check</span><span style="font:500 12px 'JetBrains Mono',monospace;color:rgba(26,22,22,.55)">{{ adm.left }} LEFT</span></div>
+<div style="font:400 12.5px Outfit,sans-serif;color:rgba(26,22,22,.55);padding:4px 6px 0">Admin · only you see this</div>
+<div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+<sc-for list="{{ adm.rows }}" as="r" hint-placeholder-count="3">
+<div style="padding:14px;border-radius:18px;background:#F7F4F2;transition:opacity .3s;opacity:{{ r.op }}">
+<div style="display:flex;justify-content:space-between;font:400 12.5px Outfit,sans-serif;color:rgba(26,22,22,.6)"><span>{{ r.who }} · {{ r.place }}</span><span>{{ r.when }}</span></div>
+<div style="font:400 14.5px/1.4 Outfit,sans-serif;margin-top:6px">{{ r.text }}</div>
+<sc-if value="{{ r.hasPhoto }}" hint-placeholder-val="{{ false }}"><div style="width:76px;height:76px;border-radius:12px;overflow:hidden;margin-top:8px;background:#6A4A40"><img src="{{ r.img }}" alt="" style="width:100%;height:100%;object-fit:cover"></div></sc-if>
+<sc-if value="{{ r.open }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px;margin-top:10px"><button onClick="{{ r.approve }}" style="flex:1;height:42px;border:none;border-radius:12px;background:#1A1616;color:#FFF3EE;font:500 14px Outfit,sans-serif;cursor:pointer">Approve</button><button onClick="{{ r.hide }}" style="flex:1;height:42px;border:none;border-radius:12px;background:rgba(26,22,22,.07);font:400 14px Outfit,sans-serif;cursor:pointer">Hide</button></div></sc-if>
+<sc-if value="{{ r.decided }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font:500 13px Outfit,sans-serif;color:{{ r.decCol }}">{{ r.decision }}</div></sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ nav.show }}" hint-placeholder-val="{{ false }}">
+<div style="position:absolute;left:14px;right:14px;bottom:18px;height:62px;border-radius:99px;background:rgba(255,255,255,.88);backdrop-filter:blur(18px);box-shadow:0 10px 30px rgba(120,30,50,.14);display:flex;align-items:center;justify-content:space-around;padding:0 6px;z-index:40">
+<sc-for list="{{ nav.items }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.go }}" style="height:46px;padding:0 16px;border:none;border-radius:99px;font:500 13.5px Outfit,sans-serif;cursor:pointer;transition:background .3s,color .3s;background:{{ n.bg }};color:{{ n.fg }}">{{ n.label }}</button></sc-for>
+</div>
+</sc-if>
+
+<div style="position:absolute;inset:0;z-index:60;transition:background .35s;pointer-events:{{ sh.pe }};background:{{ sh.dim }}" onClick="{{ closeSheets }}"></div>
+
+<div style="position:absolute;left:8px;right:8px;bottom:8px;z-index:61;border-radius:36px;background:#FFFFFF;padding:22px 22px 20px;box-sizing:border-box;transition:transform .55s cubic-bezier(.2,.9,.2,1);transform:{{ sh.reasonTf }}">
+<div style="font:300 26px Outfit,sans-serif;letter-spacing:-.03em">Not for me <span style="font-weight:500">because…</span></div>
+<div style="font:400 13px Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:6px">Optional. One tap helps the next three.</div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px"><sc-for list="{{ reasons }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.go }}" style="height:46px;padding:0 16px;border:none;border-radius:99px;background:rgba(26,22,22,.07);font:400 14.5px Outfit,sans-serif;cursor:pointer;transition:transform .2s cubic-bezier(.3,1.6,.5,1)" style-active="transform:scale(.93)">{{ r.label }}</button></sc-for></div>
+<button onClick="{{ closeSheets }}" style="margin-top:14px;width:100%;height:46px;border:none;background:transparent;font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.6);cursor:pointer">Skip</button>
+</div>
+
+<div style="position:absolute;left:8px;right:8px;bottom:8px;z-index:62;border-radius:36px;background:#FFFFFF;padding:24px 22px 20px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;transition:transform .55s cubic-bezier(.2,.9,.2,1);transform:{{ sh.signTf }}">
+<sc-if value="{{ sg.phone }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;flex-direction:column;gap:12px;animation:fa-up .35s ease-out">
+<div style="font:300 28px/1.05 Outfit,sans-serif;letter-spacing:-.035em">Keep your saves <span style="font-weight:500">on any phone.</span></div>
+<div style="font:400 13.5px/1.45 Outfit,sans-serif;color:rgba(26,22,22,.65)">Just your number. No password, no spam.</div>
+<div style="height:56px;border-radius:16px;background:#F7F4F2;display:flex;align-items:center;padding:0 16px;gap:10px;font:400 16px Outfit,sans-serif"><span style="color:rgba(26,22,22,.55)">+351</span><span>912 345 678</span></div>
+<button onClick="{{ sgSend }}" style="height:54px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 15px Outfit,sans-serif;cursor:pointer">Send code</button>
+<button onClick="{{ sgDecline }}" style="height:40px;border:none;background:transparent;font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.6);cursor:pointer">Not now</button>
+</div>
+</sc-if>
+<sc-if value="{{ sg.code }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:12px;animation:fa-up .35s ease-out">
+<div style="font:300 28px/1.05 Outfit,sans-serif;letter-spacing:-.035em">Enter the <span style="font-weight:500">6-digit code</span></div>
+<div style="font:400 13.5px Outfit,sans-serif;color:rgba(26,22,22,.65)">Sent to +351 912 345 678</div>
+<div style="display:flex;gap:6px"><sc-for list="{{ sg.boxes }}" as="b" hint-placeholder-count="6"><span style="flex:1;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font:500 20px Outfit,sans-serif;transition:background .3s;background:{{ b.bg }}">{{ b.d }}</span></sc-for></div>
+<sc-if value="{{ sg.wrong }}" hint-placeholder-val="{{ false }}"><div style="font:400 13.5px Outfit,sans-serif;color:#C81E52;animation:fa-up .3s ease-out">That code didn't match. Check it and try again.</div></sc-if>
+<div style="display:flex;justify-content:space-between;align-items:center"><span onClick="{{ sgResend }}" style="font:400 13.5px Outfit,sans-serif;cursor:pointer;color:{{ sg.resendCol }}">{{ sg.resendLabel }}</span><span onClick="{{ sgWrong }}" style="font:400 12px Outfit,sans-serif;color:rgba(26,22,22,.4);cursor:pointer">try a wrong code</span></div>
+<button onClick="{{ sgVerify }}" style="height:54px;border:none;border-radius:99px;background:#FF4F7B;color:#1A1616;font:500 15px Outfit,sans-serif;cursor:pointer">Verify</button>
+</div>
+</sc-if>
+<sc-if value="{{ sg.consent }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:10px;animation:fa-up .35s ease-out">
+<div style="font:300 28px/1.05 Outfit,sans-serif;letter-spacing:-.035em">You're in. <span style="font-weight:500">Your choices:</span></div>
+<sc-for list="{{ sg.toggles }}" as="tg" hint-placeholder-count="2"><div onClick="{{ tg.go }}" style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;border-radius:16px;background:#F7F4F2;cursor:pointer"><div><div style="font:500 14.5px Outfit,sans-serif">{{ tg.title }}</div><div style="font:400 12.5px/1.4 Outfit,sans-serif;color:rgba(26,22,22,.6);margin-top:2px">{{ tg.sub }}</div></div><span style="flex:none;width:46px;height:28px;border-radius:99px;position:relative;transition:background .3s;background:{{ tg.bg }}"><span style="position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .35s cubic-bezier(.3,1.5,.5,1);transform:{{ tg.tf }}"></span></span></div></sc-for>
+<div style="font:400 12.5px Outfit,sans-serif;color:rgba(26,22,22,.55)">Nothing is public unless you turn it on. Change these any time in You.</div>
+<button onClick="{{ sgDone }}" style="height:54px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 15px Outfit,sans-serif;cursor:pointer">Save and continue</button>
+</div>
+</sc-if>
+</div>
+
+<div style="position:absolute;left:8px;right:8px;bottom:8px;z-index:91;border-radius:36px;background:#FFFFFF;padding:22px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;transition:transform .55s cubic-bezier(.2,.9,.2,1);transform:{{ sh.fbTf }}">
+<sc-if value="{{ fb.sent }}" hint-placeholder-val="{{ false }}"><div style="padding:30px 0 20px;text-align:center;font:300 26px Outfit,sans-serif;letter-spacing:-.03em;animation:fa-up .4s ease-out">Thanks. <span style="font-weight:500">We read every one.</span></div></sc-if>
+<sc-if value="{{ fb.form }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:300 26px Outfit,sans-serif;letter-spacing:-.03em">What's <span style="font-weight:500">off?</span></span><span onClick="{{ closeSheets }}" style="font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.6);cursor:pointer">Close</span></div>
+<div style="height:96px;border-radius:16px;padding:12px 14px;box-sizing:border-box;background:#F7F4F2;font:400 14px Outfit,sans-serif;color:rgba(26,22,22,.5)">Tell us what felt wrong, or what you wish it did…</div>
+<div onClick="{{ fbShot }}" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;font:400 14px Outfit,sans-serif"><span>Attach a screenshot of this screen</span><span style="width:26px;height:26px;border-radius:9px;display:flex;align-items:center;justify-content:center;font:600 12px Outfit,sans-serif;transition:background .25s;background:{{ fb.shotBg }};color:#FFF3EE">{{ fb.shotTick }}</span></div>
+<button onClick="{{ fbSend }}" style="height:52px;border:none;border-radius:99px;background:#1A1616;color:#FFF3EE;font:500 15px Outfit,sans-serif;cursor:pointer">Send</button>
+</sc-if>
+</div>
+
+<sc-if value="{{ toast.show }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:50%;top:92px;transform:translateX(-50%);z-index:95;padding:10px 16px;border-radius:99px;background:#1A1616;color:#FFF3EE;font:400 13px Outfit,sans-serif;white-space:nowrap;animation:fa-up .35s cubic-bezier(.3,1.6,.5,1)">{{ toast.text }}</div></sc-if>
+
+<div style="position:absolute;left:0;right:0;top:0;padding:16px 28px 0;display:flex;justify-content:space-between;align-items:center;z-index:96;pointer-events:none;color:{{ barInk }}">
+<span style="font:500 13px Outfit,sans-serif">9:41</span>
+<span onClick="{{ openFb }}" style="pointer-events:auto;cursor:pointer;padding:5px 11px;border-radius:99px;background:rgba(26,22,22,.55);backdrop-filter:blur(10px);color:#FFF3EE;font:500 11px Outfit,sans-serif">Feedback</span>
+</div>
+</div>
+
+<div style="flex:1;min-width:240px;max-width:300px;display:flex;flex-direction:column;gap:14px;padding-top:6px">
+<div style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:rgba(26,22,22,.5)">NOW SHOWING</div>
+<div style="font:300 28px/1.05 Outfit,sans-serif;letter-spacing:-.035em">{{ note.title }}</div>
+<div style="font:400 13.5px/1.55 Outfit,sans-serif;color:rgba(26,22,22,.7);text-wrap:pretty">{{ note.body }}</div>
+<div style="display:flex;gap:6px;margin-top:8px"><span style="width:26px;height:26px;border-radius:8px;background:#FFF3EE;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)"></span><span style="width:26px;height:26px;border-radius:8px;background:#1A1616"></span><span style="width:26px;height:26px;border-radius:8px;background:#FF4F7B"></span><span style="width:26px;height:26px;border-radius:8px;background:#FFB020"></span><span style="width:26px;height:26px;border-radius:8px;background:#2BC4C9"></span><span style="width:26px;height:26px;border-radius:8px;background:#C81E52"></span></div>
+<div style="font:400 12px/1.5 Outfit,sans-serif;color:rgba(26,22,22,.55)">Rose fills buttons, text rose is for text, saffron and turquoise stay in the haze and small highlights. The Google Maps line always sits on its own white band.</div>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  IMG = id => `https://images.unsplash.com/photo-${id}?w=600&h=900&fit=crop`;
+  imgErr = e => { const el = e.target; if (!el.dataset.f) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } };
+  SW = [['Specialty coffee and a pastry', '1509042239860-f550ce710b93'], ['Wood-fired pizza and a glass of wine', '1513104890138-7c749659a591'], ['Fiery, spicy food', '1565557623262-b51c2513a641'], ['Small plates in a buzzy room', '1414235077428-338989a2e8c0'], ['Hole-in-the-wall street food', '1555939594-58d7cb561ad1'], ['Quiet café with books and good light', '1521017432531-fbd92d768814'], ['Rooftop bar with a DJ', '1514933651103-005eec06c04b'], ['Stand-up comedy night', '1516280440614-37939bbacd81'], ['Pottery or art workshop', '1565193566173-7a0ee3dbe261'], ['Sunrise hike or day trip', '1501785888041-af3ef285b470']];
+  PICKS = {
+    tonight: [
+      { kind: 'EAT', name: 'Taberna do Mar', area: 'Alfama', dist: '1.2 km', verdict: 'Worth a detour', img: '1559339352-11d035aa65de', because: 'Because you liked small, loud rooms with one great dish.', chips: ['Veg-friendly ✓', 'Under $40 ✓', '1.2 km ✓'],
+        reason: 'You said yes to hole-in-the-wall places and no to fine dining. Twelve tables, a short menu, and the grill does the work.', orderTitle: 'WHAT TO ORDER', order: [['Octopus with olive oil', 'the one'], ['Grilled sardines', 'in season'], ['House white', '$4']],
+        reviews: [['M', 'Ask what came in this morning. The octopus is the reason to go.', 'Marta · went in October'], ['L', 'Loud and cramped, worth it.', 'Leo · went last week']], photos: ['1555939594-58d7cb561ad1', '1414235077428-338989a2e8c0'], fav: '18 of 22 loved it', gline: 'Open now · closes 23:00 · checked just now · Google Maps', cta: 'Book a table' },
+      { kind: 'DRINK', name: 'Topo Terrace', area: 'Chiado', dist: '0.9 km', verdict: 'Worth a detour', img: '1470337458703-46ad1756a187', because: 'Because you said yes to rooftops and go out with friends.', chips: ['Under $30 ✓', 'Walkable ✓', 'Groups ✓'],
+        reason: 'Your swipes leaned towards views and music. Go before 19:00 for the river-side tables at sunset.', orderTitle: 'GOOD TO KNOW', order: [['Sunset', '19:42'], ['Negroni on tap', '$11'], ['DJ from', '21:00']],
+        reviews: [['J', 'Best at golden hour, loud after ten.', 'Jon · went in September']], photos: ['1514933651103-005eec06c04b'], fav: null, gline: 'Open now · closes 01:00 · checked just now · Google Maps', cta: 'Book a table' },
+      { kind: 'EVENT', name: 'Fado, late set', area: 'Mouraria', dist: '1.8 km', verdict: "Good if you're nearby", img: '1510915361894-db8b60106cb1', because: 'Because you picked live music and like a quiet room.', chips: ['Under $20 ✓', 'Tickets left ✓', 'Short ride ✓'],
+        reason: 'Small and seated, no phones during the set. Live music without the crowd you said you dislike.', orderTitle: 'HIGHLIGHTS', order: [['Doors', '22:00'], ['Set length', '50 min'], ['Seats left', '8']],
+        reviews: [], photos: [], fav: null, gline: 'Open now · checked just now · Google Maps', cta: 'Get tickets', event: true }
+    ],
+    weekend: [
+      { kind: 'DO', name: 'Clay & Coffee', area: 'Marvila', dist: '4.5 km', verdict: 'Worth a detour', img: '1565193566173-7a0ee3dbe261', because: 'Because you said yes to pottery and picked workshops.', chips: ['Sat 10:00 ✓', 'Beginners ✓', 'Under $45 ✓'],
+        reason: 'A two-hour wheel class in a sunny warehouse studio. You keep what you make.', orderTitle: 'HIGHLIGHTS', order: [['Class length', '2 h'], ['Group size', 'max 8'], ['Coffee', 'included']],
+        reviews: [['I', 'Messy, calm, and the teacher is great.', 'Inês · went in August']], photos: ['1565193566173-7a0ee3dbe261'], fav: '9 of 11 loved it', gline: 'Open Sat 09:00–18:00 · checked just now · Google Maps', cta: 'Book a spot' },
+      { kind: 'EAT', name: 'Market brunch', area: 'Campo de Ourique', dist: '2.6 km', verdict: 'Worth a detour', img: '1488459716781-31db52582fe9', because: 'Because you liked slow mornings and good coffee.', chips: ['Veg-friendly ✓', 'Under $20 ✓', 'No booking ✓'],
+        reason: 'A covered food market that is quiet before 11. Pastries, juice and a long table in the sun.', orderTitle: 'WHAT TO ORDER', order: [['Custard tart', 'start here'], ['Fresh orange juice', '$3'], ['Go before', '11:00']],
+        reviews: [['S', 'Get there early, it fills by noon.', 'Sam · went in July']], photos: ['1509042239860-f550ce710b93'], fav: null, gline: 'Opens Sat 08:00 · checked just now · Google Maps', cta: 'Directions' },
+      { kind: 'DO', name: 'Sintra ridge walk', area: 'Sintra', dist: '28 km', verdict: 'Worth a detour', img: '1501785888041-af3ef285b470', because: 'Because you liked sunrise hikes and day trips.', chips: ['Day trip ✓', 'Under $15 ✓', '40 min by train ✓'],
+        reason: 'Take the 08:11 train, walk the ridge before the crowds, and be at the palace for opening.', orderTitle: 'PLAN', order: [['Train from Rossio', '08:11'], ['Walk', '3 h'], ['Palace opens', '09:30']],
+        reviews: [], photos: [], fav: null, gline: 'Palace opens 09:30 · checked just now · Google Maps', cta: 'Plan the day' }
+    ]
+  };
+  Q = [
+    { id: 'diet', title: 'What do you eat?', why: 'Why we ask: so we never send you somewhere you can’t eat.', opts: ['Everything', 'Vegetarian', 'Vegetarian + eggs', 'Vegan', 'Pescatarian'], halal: true },
+    { id: 'dist', title: 'Where are you, and how far will you go?', why: 'Why we ask: picks should be worth the trip.', opts: ['Walking distance · 2 km', 'Short ride · 5 km', 'Anywhere in the city'], loc: true },
+    { id: 'spend', title: 'Spend per person?', why: 'Why we ask: so a pick never feels like a stretch.', opts: ['Under $20', '$20–60', '$60–120', '$120+', 'Depends on the day'] },
+    { id: 'who', title: 'Who do you usually go out with?', why: 'Why we ask: a date and a team dinner need different rooms.', opts: ['Solo', 'Partner or date', 'Friends', 'Family', 'Work'], multi: true },
+    { id: 'drinks', title: 'Drinks?', why: 'Why we ask: so bars show up only if you want them.', opts: ['Yes, I love a good bar', 'Sometimes', 'No alcohol'] },
+    { id: 'into', title: 'What are you into?', why: 'Why we ask: this shapes your Do and Event picks.', opts: ['Live music', 'Comedy', 'Art and culture', 'Outdoors', 'Workshops', 'Nightlife', 'Markets', 'Games and sports'], multi: true, max: 4 }
+  ];
+  CHAT = {
+    tokyo: { label: "I'm in Tokyo 14–18 Dec, solo", reply: "Nice. In Tokyo I'll lean on small counters and late food, since you like hole-in-the-wall places. Three to start:", dest: 'Planning: Tokyo · 14–18 Dec',
+      picks: [['EAT', 'Ramen counter', 'Shinjuku', '1569718212165-3a8278d5f624'], ['DRINK', 'Bars under the tracks', 'Yurakucho', '1554797589-7241bb691973'], ['DO', 'Shibuya after dark', 'Shibuya', '1542051841857-5f90071e7989']],
+      added: ['Trip: Tokyo, 14–18 Dec', 'Travelling solo on this trip', 'Counter seats are fine'] },
+    date: { label: 'Somewhere for a date tonight', reply: 'Somewhere quieter with good light, then. Both are close and take bookings:', dest: 'Planning: Lisbon · tonight',
+      picks: [['EAT', 'Taberna do Mar', 'Alfama', '1559339352-11d035aa65de'], ['DRINK', 'Topo Terrace', 'Chiado', '1470337458703-46ad1756a187']],
+      added: ['Date nights: quieter rooms, good light'] },
+    parents: { label: 'My parents visit this weekend', reply: 'Then earlier tables, easy walking and no loud music. Here are three that work for everyone:', dest: 'Planning: Lisbon · weekend',
+      picks: [['EAT', 'Market brunch', 'Campo de Ourique', '1488459716781-31db52582fe9'], ['DO', 'Clay & Coffee', 'Marvila', '1565193566173-7a0ee3dbe261'], ['DO', 'Sintra ridge walk', 'Sintra', '1501785888041-af3ef285b470']],
+      added: ['Family weekends: early, easy, calm'] }
+  };
+  BASE_LINES = ['Small, loud places with one great dish', 'Coffee and slow mornings', 'Rooftops with friends', 'Walking distance over long rides', 'Usually $20–60 a head'];
+  fresh() {
+    return { screen: 'welcome', age: false, qi: 0, ans: { diet: null, halal: false, dist: null, spend: null, who: [], drinks: null, into: [] }, locSet: false,
+      si: 0, sdx: 0, sout: {}, yes: [], sumIn: false, removed: {},
+      loc: 'ask', tab: 'tonight', city: 'Lisbon', k: 0, pdx: 0, pout: {}, pstate: 'ready', banner: null, saved: {}, signedIn: false, sheet: null, sign: 'phone', codeWrong: false, resent: false, consent: { loc: true, pub: false },
+      det: 'normal', detIdx: 0, ltab: 'want', lEmpty: false, chatMsgs: [], typing: false, dest: 'Planning: Lisbon', input: '', chatAdded: [], usedPrompts: {},
+      confirmDel: false, ci: 'ask', ciChoice: null, slots: [0, 0, 0], pub: false, styleOn: false, adm: {}, fbSent: false, shot: true, toast: null };
+  }
+  state = this.fresh();
+  d = {}; pd = {};
+  lines = ['Reading your taste…', "Checking what's open now…", 'Skipping the overhyped ones…'];
+  componentDidMount() { if (!window.__fetaImgFallback) { window.__fetaImgFallback = true; document.addEventListener('error', e => { const el = e.target; if (el && el.tagName === 'IMG' && !el.dataset.f && el.src.indexOf('unsplash') > -1) { el.dataset.f = '1'; el.src = 'https://picsum.photos/seed/feta' + Math.floor(Math.random() * 999) + '/480/720'; } }, true); } this.lt = setInterval(() => this.setState(s => ({ li: ((s.li || 0) + 1) % 3 })), 1000); }
+  componentWillUnmount() { clearInterval(this.lt); [this.t1, this.t2, this.t3, this.tt].forEach(clearTimeout); }
+  componentDidUpdate() { const el = document.getElementById('fa-chat'); if (el && this.state.screen === 'chat' && this._lastLen !== this.state.chatMsgs.length + (this.state.typing ? 1 : 0)) { this._lastLen = this.state.chatMsgs.length + (this.state.typing ? 1 : 0); el.scrollTop = el.scrollHeight; } }
+  toastMsg(text) { clearTimeout(this.tt); this.setState({ toast: text }); this.tt = setTimeout(() => this.setState({ toast: null }), 1800); }
+  go(screen, patch = {}) { this.d = {}; this.pd = {}; this.busy = false; this.setState({ screen, sheet: null, ...patch }); }
+  loadPicks(patch = {}, dur = 1500) {
+    clearTimeout(this.t1); this.pd = {}; this.busy = false;
+    this.setState({ screen: 'picks', pstate: 'loading', k: 0, pdx: 0, pout: {}, sheet: null, ...patch });
+    this.t1 = setTimeout(() => this.setState(s => ({ pstate: s.banner === 'nearby' ? 'nearby' : 'ready' })), dur);
+  }
+  toSummary() { this.setState({ screen: 'summary', sumIn: false }); clearTimeout(this.t2); this.t2 = setTimeout(() => this.setState({ sumIn: true }), 80); }
+  swipeTaste(dir) {
+    const si = this.state.si; if (si > 9 || this.busy) return; this.busy = true; this.d.on = false;
+    this.setState(s => ({ sout: { ...s.sout, [si]: dir }, sdx: 0, yes: dir > 0 ? [...s.yes, si] : s.yes }));
+    setTimeout(() => { this.busy = false; this.setState(s => ({ si: s.si + 1 })); if (si === 9) setTimeout(() => this.toSummary(), 400); }, 50);
+  }
+  throwPick(dir) {
+    const k = this.state.k, n = this.deck().length; if (k >= n || this.busy) return; this.busy = true; this.pd.on = false;
+    this.setState(s => ({ pout: { ...s.pout, [k]: dir }, pdx: 0, saved: dir > 0 ? { ...s.saved, [s.tab + k]: true } : s.saved }));
+    setTimeout(() => {
+      this.busy = false;
+      this.setState(s => ({ k: s.k + 1, sheet: dir < 0 ? 'reason' : (!s.signedIn ? 'sign' : null), sign: 'phone', codeWrong: false, resent: false }));
+      if (dir > 0 && this.state.signedIn) this.toastMsg('Saved to Want to try');
+    }, 420);
+  }
+  deck() { const all = this.PICKS[this.state.tab]; return this.state.pstate === 'nearby' ? all.slice(0, 2) : all; }
+  sendChat(key, text) {
+    if (this.state.typing) return;
+    const c = key ? this.CHAT[key] : null;
+    const userText = c ? c.label : text; if (!userText || !userText.trim()) return;
+    this.setState(s => ({ chatMsgs: [...s.chatMsgs, { me: true, text: userText }], typing: true, input: '', usedPrompts: key ? { ...s.usedPrompts, [key]: true } : s.usedPrompts }));
+    clearTimeout(this.t3);
+    this.t3 = setTimeout(() => {
+      const added = c ? c.added : [`"${userText.trim().slice(0, 48)}"`];
+      const id = Date.now();
+      this.setState(s => ({ typing: false, dest: c ? c.dest : s.dest,
+        chatMsgs: [...s.chatMsgs, { me: false, id, text: c ? c.reply : "Got it. I'll keep that in mind for your next picks.", picks: c ? c.picks : null, added }],
+        chatAdded: [...s.chatAdded, ...added.map(a => ({ text: a, id, src: c && key === 'tokyo' ? 'From chat · Tokyo trip' : 'From chat' }))] }));
+    }, 1300);
+  }
+  renderVals() {
+    const st = this.state, a = st.ans, d = this.d, pd = this.pd, IMG = this.IMG, scr = st.screen;
+    const setAns = (id, v) => this.setState(s => ({ ans: { ...s.ans, [id]: v } }));
+    const q = this.Q[st.qi], qok = q ? (Array.isArray(a[q.id]) ? a[q.id].length > 0 : a[q.id] != null) : false;
+    const R = (label, fn, active) => ({ label, go: fn, bg: active ? '#1A1616' : 'rgba(26,22,22,.06)', fg: active ? '#FFF3EE' : '#1A1616' });
+    const Sx = (label, fn, active) => ({ label, go: fn, bg: active ? '#FF4F7B' : 'rgba(255,255,255,.7)', fg: '#1A1616' });
+    const picksTo = (p, dur) => () => this.loadPicks(p, dur);
+    const rail = [
+      { title: 'ONBOARDING', items: [
+        { ...R('1 · Welcome', () => this.go('welcome', { age: false }), scr === 'welcome'), states: [] },
+        { ...R('2 · Questions', () => this.go('q', { qi: 0 }), scr === 'q'), states: [Sx('Nothing picked', () => this.go('q', { qi: 2, ans: { ...a, spend: null } }), false), Sx('Multi-select', () => this.go('q', { qi: 3, ans: { ...a, who: ['Partner or date', 'Friends'] } }), false)] },
+        { ...R('3 · Taste swipes', () => this.go('swipe', { si: 0, sout: {}, yes: [] }), scr === 'swipe'), states: [Sx('Last card', () => { const so = {}; for (let i = 0; i < 9; i++) so[i] = i % 3 ? 1 : -1; this.go('swipe', { si: 9, sout: so, yes: [1, 2, 4, 5, 7, 8] }); }, false)] },
+        { ...R('4 · What I picked up', () => { this.go('summary', { yes: st.yes.length ? st.yes : [0, 5, 6, 9] }); this.toSummary(); }, scr === 'summary'), states: [] },
+        { ...R('5 · Location', () => this.go('location', { loc: 'ask' }), scr === 'location'), states: [Sx('Denied', () => this.go('location', { loc: 'denied' }), st.loc === 'denied' && scr === 'location'), Sx('Not covered', () => this.go('location', { loc: 'notcovered' }), st.loc === 'notcovered' && scr === 'location')] }
+      ] },
+      { title: 'PICKS', items: [
+        { ...R('6 · Picks home', picksTo({ banner: null }, 1300), scr === 'picks'), states: [Sx('Loading', picksTo({ banner: null }, 4000), false), Sx('Nothing nearby', picksTo({ banner: 'nearby' }, 900), false), Sx('All swiped', () => this.go('picks', { pstate: 'ready', banner: null, k: 3, pout: { 0: 1, 1: -1, 2: 1 } }), false)] },
+        { ...R('7 · Pick details', () => this.go('details', { det: 'normal', detIdx: 0, tab: 'tonight' }), scr === 'details'), states: [Sx('Closed now', () => this.go('details', { det: 'closed', detIdx: 0, tab: 'tonight' }), false), Sx('Sold out', () => this.go('details', { det: 'sold', detIdx: 2, tab: 'tonight' }), false), Sx('No reviews', () => this.go('details', { det: 'normal', detIdx: 2, tab: 'tonight' }), false)] },
+        { ...R('8 · Sign-in + consent', () => this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: 'sign', sign: 'phone', codeWrong: false, resent: false }), st.sheet === 'sign'), states: [Sx('Code', () => this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: 'sign', sign: 'code', codeWrong: false, resent: false }), false), Sx('Wrong code', () => this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: 'sign', sign: 'code', codeWrong: true }), false), Sx('Resend', () => this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: 'sign', sign: 'code', resent: true, codeWrong: false }), false), Sx('Consent', () => this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: 'sign', sign: 'consent' }), false), Sx('Declined', () => { this.go('picks', { pstate: 'ready', k: 1, pout: { 0: 1 }, sheet: null }); this.toastMsg('Saved on this phone only, for now'); }, false)] }
+      ] },
+      { title: 'YOU', items: [
+        { ...R('Ask Feta · chat', () => this.go('chat'), scr === 'chat'), states: [Sx('Travel example', () => { this.go('chat'); setTimeout(() => this.sendChat('tokyo'), 100); }, false)] },
+        { ...R('9 · My lists', () => this.go('lists', { lEmpty: false, ltab: 'want' }), scr === 'lists'), states: [Sx('Been', () => this.go('lists', { lEmpty: false, ltab: 'been' }), false), Sx('Empty', () => this.go('lists', { lEmpty: true, ltab: 'want' }), false)] },
+        { ...R('10 · My profile', () => this.go('profile', { confirmDel: false }), scr === 'profile'), states: [Sx('Picks updated', () => { this.go('profile'); this.toastMsg('Picks updated'); }, false), Sx('Delete my data', () => this.go('profile', { confirmDel: true }), false)] },
+        { ...R('11 · Check-in + review', () => this.go('checkin', { ci: 'ask' }), scr === 'checkin'), states: [Sx('Reason', () => this.go('checkin', { ci: 'reason', ciChoice: 'Loved it' }), false), Sx('Review', () => this.go('checkin', { ci: 'review', slots: [2, 0, 0], pub: false }), false), Sx('Uploading', () => this.go('checkin', { ci: 'review', slots: [2, 1, 0] }), false), Sx("Didn't go", () => this.go('checkin', { ci: 'didnt' }), false), Sx('Waiting approval', () => this.go('checkin', { ci: 'pending' }), false)] },
+        { ...R('12 · Style, coming soon', () => this.go('style', { styleOn: false }), scr === 'style'), states: [Sx('On the list', () => this.go('style', { styleOn: true }), false)] },
+        { ...R('13 · Feedback sheet', () => this.setState({ sheet: 'fb', fbSent: false }), st.sheet === 'fb'), states: [] },
+        { ...R('14 · Review approval (admin)', () => this.go('admin', { adm: {} }), scr === 'admin'), states: [] }
+      ] }
+    ];
+    const qs = this.Q.map((qq, i) => {
+      const pos = i - st.qi, v = a[qq.id];
+      return { num: '0' + (i + 1), title: qq.title, why: qq.why, isLoc: !!qq.loc, hasHalal: !!qq.halal,
+        tf: `translateX(${pos * 100}%)`, op: pos === 0 ? 1 : 0, pe: pos === 0 ? 'auto' : 'none',
+        hint: qq.max ? `${(v || []).length} of ${qq.max} picked` : qq.multi ? 'Pick as many as you like.' : '',
+        chips: qq.opts.map(o => { const on = Array.isArray(v) ? v.includes(o) : v === o;
+          return { label: o, chkW: on ? '14px' : '0px', chkM: on ? '6px' : '0px', bg: on ? '#1A1616' : 'rgba(255,255,255,.7)', fg: on ? '#FFF3EE' : '#1A1616',
+            toggle: () => { if (!qq.multi) return setAns(qq.id, on ? null : o); const cur = a[qq.id] || []; if (on) setAns(qq.id, cur.filter(x => x !== o)); else if (!qq.max || cur.length < qq.max) setAns(qq.id, [...cur, o]); } }; }) };
+    });
+    const sprog = Math.max(-1, Math.min(1, st.sdx / 100));
+    const swCards = this.SW.map((c, i) => {
+      const pos = i - st.si, o = st.sout[i]; let tf, op = 1, tr;
+      if (o === 0) { tf = 'translateY(60px) scale(.88)'; op = 0; tr = 'transform .5s, opacity .4s'; }
+      else if (o !== undefined) { tf = `translateX(${o * 130}%) rotate(${o * 14}deg)`; op = 0; tr = 'transform .55s cubic-bezier(.4,0,.2,1), opacity .45s .1s'; }
+      else if (pos === 0) { tf = `translateX(${st.sdx}px) rotate(${st.sdx / 18}deg)`; tr = d.on ? 'none' : 'transform .8s cubic-bezier(.2,1.3,.35,1)'; }
+      else if (pos > 0 && pos < 3) { tf = `translateY(${-12 * pos}px) scale(${1 - .05 * pos})`; op = pos === 1 ? .6 : .3; tr = 'transform .6s cubic-bezier(.2,.9,.2,1), opacity .4s'; }
+      else { tf = 'scale(.85)'; op = 0; tr = 'none'; }
+      const act = pos === 0;
+      return { label: c[0], img: IMG(c[1]), tf, op, tr, z: 20 - Math.max(pos, -5),
+        yesOp: act ? Math.max(0, sprog) : 0, noOp: act ? Math.max(0, -sprog) : 0,
+        yesTf: `rotate(-8deg) scale(${.75 + .25 * (act ? Math.max(0, sprog) : 0)})`, noTf: `rotate(8deg) scale(${.75 + .25 * (act ? Math.max(0, -sprog) : 0)})`,
+        down: e => { if (pos !== 0 || this.busy) return; d.on = true; d.x0 = e.clientX; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+        move: e => { if (!d.on) return; this.setState({ sdx: e.clientX - d.x0 }); },
+        up: () => { if (!d.on) return; d.on = false; const dx = this.state.sdx; if (Math.abs(dx) > 80) this.swipeTaste(Math.sign(dx)); else this.setState({ sdx: 0 }); },
+        cancel: () => { d.on = false; this.setState({ sdx: 0 }); } };
+    });
+    const yesList = (st.yes.length ? st.yes : [0, 5, 6, 9]).slice(0, 5);
+    const fin = [[-62, -8, -9], [58, 4, 8], [-14, 22, -3], [28, -14, 5], [0, 12, 1]], from = [[-420, -260, -40], [420, -200, 35], [-380, 320, 25], [400, 300, -30], [0, -500, 10]];
+    const collage = yesList.map((i, j) => { const f = st.sumIn ? fin[j] : from[j]; return { img: IMG(this.SW[i][1]), z: j, op: st.sumIn ? 1 : 0, dl: `${j * .12}s`, tf: `translate(${f[0]}px,${f[1]}px) rotate(${f[2]}deg)` }; });
+    const sumLines = this.BASE_LINES.filter(l => !st.removed[l]).slice(0, 4).map(l => ({ text: l, remove: () => this.setState(s => ({ removed: { ...s.removed, [l]: true } })) }));
+    const deck = this.deck(), wk = st.tab === 'weekend';
+    const pprog = Math.max(-1, Math.min(1, st.pdx / 100));
+    const pLive = st.pstate !== 'loading' && st.k < deck.length;
+    const pcards = deck.map((p, i) => {
+      const pos = i - st.k, o = st.pout[i]; let tf, op = 1, tr;
+      if (st.pstate === 'loading') { tf = 'scale(1.12)'; op = 0; tr = 'none'; }
+      else if (o !== undefined) { tf = `translateX(${o * 125}%) rotate(${o * 9}deg)`; op = 0; tr = 'transform .6s cubic-bezier(.4,0,.2,1), opacity .5s .1s'; }
+      else if (pos === 0) { tf = `translateX(${st.pdx}px) rotate(${st.pdx / 24}deg)`; tr = pd.on ? 'none' : 'transform 1s cubic-bezier(.2,1.25,.35,1), opacity .8s'; }
+      else { tf = 'scale(1.08)'; tr = 'transform 1s cubic-bezier(.2,.8,.2,1), opacity .6s'; }
+      const act = pos === 0 && st.pstate !== 'loading';
+      return { ...p, img: IMG(p.img), pos: `${i + 1} of ${deck.length}`, tf, op, tr, z: 10 - Math.max(pos, -5),
+        txtOp: act ? 1 : 0, txtTf: act ? 'none' : 'translateY(16px)', saveOp: act ? Math.max(0, pprog) * .8 : 0, skipOp: act ? Math.max(0, -pprog) : 0,
+        down: e => { if (pos !== 0 || this.busy) return; pd.on = true; pd.moved = false; pd.x0 = e.clientX; pd.y0 = e.clientY; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
+        move: e => { if (!pd.on) return; const dx = e.clientX - pd.x0; if (Math.abs(dx) > 6) pd.moved = true; if (pd.moved) this.setState({ pdx: dx }); },
+        up: () => { if (!pd.on) return; pd.on = false; if (!pd.moved) { this.go('details', { det: 'normal', detIdx: i }); return; } const dx = this.state.pdx; if (Math.abs(dx) > 80) this.throwPick(Math.sign(dx)); else this.setState({ pdx: 0 }); },
+        cancel: () => { pd.on = false; this.setState({ pdx: 0 }); } };
+    });
+    const cur = deck[Math.min(st.k, deck.length - 1)] || deck[0];
+    const dp = this.PICKS[st.tab][st.detIdx] || this.PICKS.tonight[0];
+    const closed = st.det === 'closed', sold = st.det === 'sold';
+    const savedRows = [{ name: 'Taberna do Mar', area: 'Alfama · 1.2 km', note: 'Note: get the octopus, sit at the bar.', tag: 'Saved Tue', img: IMG('1559339352-11d035aa65de') }, { name: 'Clay & Coffee', area: 'Marvila · 4.5 km', note: 'Note: book for Mum’s birthday.', tag: 'Saved Sun', img: IMG('1565193566173-7a0ee3dbe261') }, { name: 'Ramen counter', area: 'Shinjuku, Tokyo', note: 'Note: from chat, for the December trip.', tag: 'From chat', img: IMG('1569718212165-3a8278d5f624') }];
+    const beenRows = [{ name: 'Topo Terrace', area: 'Chiado · 0.9 km', note: 'Loved it · great vibe', tag: 'Loved it', img: IMG('1470337458703-46ad1756a187') }, { name: 'Market brunch', area: 'Campo de Ourique', note: 'It was fine · too busy', tag: 'It was fine', img: IMG('1488459716781-31db52582fe9') }];
+    const profLines = [...this.BASE_LINES.filter(l => !st.removed[l]).map(l => ({ text: l, src: '' })), ...st.chatAdded.filter(x => !st.removed['c:' + x.text]).map(x => ({ text: x.text.replace(/^"|"$/g, ''), src: x.src, key: 'c:' + x.text }))]
+      .map(l => ({ text: l.text, src: l.src, hasSrc: !!l.src, remove: () => { this.setState(s => ({ removed: { ...s.removed, [l.key || l.text]: true } })); this.toastMsg('Picks updated'); } }));
+    const ciOpts = ['Loved it', 'It was fine', 'Not for me'];
+    const ciReasons = { 'Loved it': ['Great food', 'Great vibe', 'Worth the price', 'Lovely staff'], 'It was fine': ['A bit pricey', 'Too busy', 'Slow service', 'Just okay'], 'Not for me': ['Not my vibe', 'Too loud', 'Overpriced', 'Food was off'] };
+    const admRows = [
+      { id: 'a', who: 'Marta', place: 'Taberna do Mar', when: '2 h ago', text: 'Ask what came in this morning. The octopus is the reason to go.', img: IMG('1559339352-11d035aa65de') },
+      { id: 'b', who: 'Leo', place: 'Topo Terrace', when: '5 h ago', text: 'Great sunset, music too loud after ten.', img: null },
+      { id: 'c', who: 'Sam', place: 'Market brunch', when: 'Yesterday', text: 'Get there early, it fills by noon.', img: IMG('1488459716781-31db52582fe9') }
+    ];
+    const navOn = ['picks', 'chat', 'lists', 'profile', 'style'].includes(scr);
+    const NAV = [['Picks', 'picks'], ['Lists', 'lists'], ['Ask', 'chat'], ['You', 'profile']];
+    const notes = {
+      welcome: ['Welcome', 'One promise, an 18+ check, and Let’s go. The button stays dim until the box is ticked. No sign-up.'],
+      q: ['Six quick questions', 'Big tap chips, a progress bar, Skip, and one line on why we ask. Selected chips fill ink and a tick pops in. Diet is asked, but never shown anywhere shareable.'],
+      swipe: ['Ten swipes', 'Drag right for yes, left for not me, or use ✕ / Not sure / ♥. After the last card you go straight to what it picked up.'],
+      summary: ['What I picked up', 'No taste type or label. Your yes photos fly in and stack, then plain lines you can remove. It is a starting point that changes with every outing and chat.'],
+      location: ['Location', 'Why we need it, in three lines. States: permission denied, and a city we don’t cover yet, with honest nearest options.'],
+      picks: ['Picks home', 'Exactly three. Swipe right to save, left for not-for-me with optional reasons; tap for details. Tonight / This weekend switch, city switcher, Tweak chips, and the Style teaser. The Google Maps line sits on its own white band under the card.'],
+      details: ['Pick details', 'Full reason, matched chips, what to order, Feta Favourite badge when earned, short reviews with first names, approved photos, and an action row. States: closed now, sold out, no reviews.'],
+      chat: ['Ask Feta', 'Tell it where you’re going, when, or who you’re with. It replies with a few picks and shows exactly what it added to your profile, with Undo. Try the prompts or type your own.'],
+      lists: ['My lists', 'Want to try and Been, each with a personal note. Private by default, with a clear end and an empty state.'],
+      profile: ['What I think you like', 'Plain lines from answers, swipes and chats. Chat additions are marked. Remove any line and picks update. Privacy and Delete my data are one tap away.'],
+      checkin: ['Check-in', 'Did you go? One tap for how it was, one for why. Review text, photos and the public toggle are optional, and the toggle is off by default.'],
+      style: ['Style, coming soon', 'A blurred teaser of fashion picks and one button. Then: you’re on the list.'],
+      admin: ['Review approval', 'Founder only. New reviews and photos with Approve or Hide. Plain and functional.']
+    };
+    const nt = st.sheet === 'fb' ? ['Feedback', 'Reachable from the pill at the top of every screen. Text, optional screenshot, send, confirmation.'] : st.sheet === 'sign' ? ['Sign-in + consent', 'Shown only when you first save. Phone, one-time code, then separate toggles for location and public reviews. Wrong code and resend states included; Not now keeps the save on this phone.'] : (notes[scr] || ['', '']);
+    const codeDigits = st.codeWrong ? ['4', '8', '1', '9', '0', '2'] : ['4', '8', '2', '1', '', ''];
+    return {
+      imgErr: this.imgErr, rail,
+      img: { welcome: IMG('1585208798174-6cedd86e019a'), style1: IMG('1490481651871-ab68de25d43d'), style2: IMG('1445205170230-053b83016050'), style3: IMG('1483985988355-763728e1935b'), taberna: IMG('1559339352-11d035aa65de') },
+      is: { welcome: scr === 'welcome', q: scr === 'q', swipe: scr === 'swipe', summary: scr === 'summary', location: scr === 'location', picks: scr === 'picks', details: scr === 'details', chat: scr === 'chat', lists: scr === 'lists', profile: scr === 'profile', checkin: scr === 'checkin', style: scr === 'style', admin: scr === 'admin' },
+      barInk: scr === 'welcome' ? '#FFF3EE' : scr === 'details' ? '#FFF3EE' : '#1A1616',
+      ui: { ageBg: st.age ? '#FF4F7B' : 'rgba(26,22,22,.08)', ageFg: '#1A1616', ageTick: st.age ? '✓' : '', ageTf: st.age ? 'scale(1.08)' : 'scale(1)', goBg: st.age ? '#FF4F7B' : 'rgba(26,22,22,.08)', goFg: '#1A1616', goOp: st.age ? 1 : .6,
+        nextLabel: st.qi === 5 ? 'Start swiping' : 'Continue', nextBg: qok ? '#FF4F7B' : 'rgba(26,22,22,.08)', nextFg: '#1A1616',
+        halalBg: a.halal ? '#FF4F7B' : 'rgba(26,22,22,.15)', halalTf: a.halal ? 'translateX(18px)' : 'none',
+        locLabel: st.locSet ? '✓  Lisbon · Alfama' : 'Use my location', locBg: st.locSet ? '#1A1616' : '#FF4F7B', locFg: st.locSet ? '#FFF3EE' : '#1A1616',
+        sumOp: st.sumIn ? 1 : 0, sumTf: st.sumIn ? 'none' : 'translateY(16px)' },
+      toggleAge: () => this.setState(s => ({ age: !s.age })),
+      startFlow: () => { if (st.age) this.go('q', { qi: 0 }); },
+      qs, qbars: this.Q.map((_, i) => ({ w: i < st.qi ? '100%' : i === st.qi ? (qok ? '100%' : '30%') : '0%' })),
+      qBack: () => st.qi > 0 ? this.setState({ qi: st.qi - 1 }) : this.go('welcome'),
+      qSkip: () => st.qi < 5 ? this.setState({ qi: st.qi + 1 }) : this.go('swipe', { si: 0 }),
+      qNext: () => { if (!qok) return; st.qi < 5 ? this.setState({ qi: st.qi + 1 }) : this.go('swipe', { si: 0 }); },
+      toggleHalal: () => setAns('halal', !a.halal),
+      toLocation: () => { if (scr === 'q') this.setState({ locSet: true }); else this.go('location', { loc: 'ask' }); },
+      sw: { cards: swCards, num: Math.min(st.si + 1, 10), prog: `${Math.min(st.si, 10) * 10}%` },
+      swNo: () => this.swipeTaste(-1), swYes: () => this.swipeTaste(1), swUnsure: () => this.swipeTaste(0),
+      collage, sumLines,
+      loc: { ask: st.loc === 'ask', denied: st.loc === 'denied', notCovered: st.loc === 'notcovered', primary: st.loc === 'notcovered' ? 'Show me Lisbon' : st.loc === 'denied' ? 'Pick a city' : 'Use my location', secondary: st.loc === 'notcovered' ? 'Tell me when you’re in Évora' : st.loc === 'denied' ? 'Try location again' : 'Pick a city instead' },
+      locUse: () => this.loadPicks({ banner: null, tab: 'tonight' }, 1600), locCity: () => st.loc === 'notcovered' ? this.toastMsg('We’ll let you know') : this.loadPicks({ banner: null, tab: 'tonight' }, 1600),
+      pk: { cards: pcards, loading: st.pstate === 'loading', done: st.pstate !== 'loading' && st.k >= deck.length, live: pLive, gline: cur ? cur.gline : '',
+        tabW: wk ? '106px' : '76px', tabTf: wk ? 'translateX(76px)' : 'none', t1: wk ? '#1A1616' : '#FFF3EE', t2: wk ? '#FFF3EE' : '#1A1616', city: st.city,
+        title1: 'Your 3 for', title2: wk ? 'this weekend' : 'tonight', banner: st.pstate !== 'loading' && !!st.banner, bannerText: st.banner === 'nearby' ? 'Nothing great right around you tonight. Here are 2 worth a short ride.' : `Updated: ${st.banner}.`, loadLine: this.lines[st.li || 0] },
+      toTonight: () => st.tab !== 'tonight' && this.loadPicks({ tab: 'tonight', banner: null }, 1100), toWeekend: () => st.tab !== 'weekend' && this.loadPicks({ tab: 'weekend', banner: null }, 1100),
+      cycleCity: () => { const c = ['Lisbon', 'Porto', 'Tokyo']; this.loadPicks({ city: c[(c.indexOf(st.city) + 1) % 3], banner: null }, 1100); },
+      pSkip: () => this.throwPick(-1), pSave: () => this.throwPick(1), openDetails: () => this.go('details', { det: 'normal', detIdx: Math.min(st.k, deck.length - 1) }),
+      morePicks: () => this.loadPicks({ banner: 'three new ones, nothing you’ve seen' }, 1300),
+      tweaks: ['Somewhere quieter', 'Cheaper', 'Outdoors', 'Closer'].map(l => ({ label: l, go: () => this.loadPicks({ banner: l.toLowerCase() }, 1300) })),
+      toStyle: () => this.go('style'), toPicks: () => this.go('picks', { pstate: 'ready' }), toLists: () => this.go('lists', { lEmpty: false }), toCheckin: () => this.go('checkin', { ci: 'ask' }),
+      reasons: ['Too far', 'Too pricey', 'Not my vibe', 'Been there'].map(l => ({ label: l, go: () => { this.setState({ sheet: null }); this.toastMsg('Noted. Fewer like this.'); } })),
+      det: { ...dp, img: IMG(dp.img), fav: !!dp.fav && !closed && !sold, favText: dp.fav, closed, soldOut: sold && dp.event,
+        gline: closed ? 'Closed now · opens 12:00 · checked just now · Google Maps' : dp.gline,
+        order: dp.order.map((o, i) => ({ n: '0' + (i + 1), t: o[0], v: o[1] })),
+        reviews: dp.reviews.map(r => ({ i: r[0], text: r[1], who: r[2] })), photos: dp.photos.map(p => ({ img: IMG(p) })),
+        hasReviews: dp.reviews.length > 0, noReviews: dp.reviews.length === 0,
+        cta: sold && dp.event ? 'Join the waitlist' : closed ? 'Save for later' : dp.cta, ctaBg: '#1A1616', ctaFg: '#FFF3EE' },
+      detCta: () => this.toastMsg(sold ? 'You’re on the waitlist' : closed ? 'Saved for later' : 'Opening booking…'),
+      pSaveDet: () => { if (!st.signedIn) this.setState({ sheet: 'sign', sign: 'phone' }); else this.toastMsg('Saved to Want to try'); },
+      chat: { dest: st.dest, typing: st.typing, input: st.input,
+        msgs: [{ me: false, text: 'Going somewhere, or out with someone new? Tell me and I’ll adjust your picks. Anything I learn shows up in You, where you can change it.' }, ...st.chatMsgs].map(m => ({
+          text: m.text, align: m.me ? 'flex-end' : 'flex-start', bg: m.me ? '#1A1616' : '#FFFFFF', fg: m.me ? '#FFF3EE' : '#1A1616', radius: m.me ? '20px 20px 6px 20px' : '20px 20px 20px 6px',
+          hasPicks: !!(m.picks && m.picks.length), picks: (m.picks || []).map(p => ({ kind: p[0], name: p[1], area: p[2], img: IMG(p[3]) })),
+          hasAdded: !!(m.added && m.added.length), added: m.added || [],
+          addedOp: m.id && st.chatAdded.some(x => x.id === m.id) ? 1 : .35, undoLabel: m.id && st.chatAdded.some(x => x.id === m.id) ? 'Undo' : 'Undone',
+          undo: () => this.setState(s => ({ chatAdded: s.chatAdded.filter(x => x.id !== m.id) })) })),
+        prompts: Object.keys(this.CHAT).filter(k => !st.usedPrompts[k]).map(k => ({ label: this.CHAT[k].label, go: () => this.sendChat(k) })) },
+      chatType: e => this.setState({ input: e.target.value }), chatKey: e => { if (e.key === 'Enter') this.sendChat(null, this.state.input); }, chatSend: () => this.sendChat(null, this.state.input),
+      ls: { tabTf: st.ltab === 'been' ? 'translateX(110px)' : 'none', t1: st.ltab === 'want' ? '#FFF3EE' : '#1A1616', t2: st.ltab === 'been' ? '#FFF3EE' : '#1A1616',
+        empty: st.lEmpty, notEmpty: !st.lEmpty, rows: st.lEmpty ? [] : st.ltab === 'want' ? savedRows : beenRows, showCheckin: !st.lEmpty && st.ltab === 'want' },
+      lsWant: () => this.setState({ ltab: 'want' }), lsBeen: () => this.setState({ ltab: 'been' }),
+      pf: { lines: profLines, confirm: st.confirmDel }, askDelete: () => this.setState({ confirmDel: true }), cancelDelete: () => this.setState({ confirmDel: false }),
+      ci: { ask: st.ci === 'ask', reason: st.ci === 'reason', review: st.ci === 'review', pending: st.ci === 'pending', didnt: st.ci === 'didnt', choice: st.ciChoice,
+        options: ciOpts.map((o, i) => ({ label: o, bg: i === 0 ? '#FF4F7B' : i === 1 ? '#FFB020' : 'rgba(26,22,22,.07)', go: () => this.setState({ ci: 'reason', ciChoice: o }) })),
+        reasons: (ciReasons[st.ciChoice] || ciReasons['Loved it']).map(r => ({ label: r, go: () => this.setState({ ci: 'review', slots: [0, 0, 0], pub: false }) })),
+        slots: st.slots.map((v, i) => ({ has: v === 2, up: v === 1, empty: v === 0, img: IMG(['1559339352-11d035aa65de', '1414235077428-338989a2e8c0', '1555939594-58d7cb561ad1'][i]),
+          go: () => { if (v) return; this.setState(s => { const n = [...s.slots]; n[i] = 1; return { slots: n }; }); setTimeout(() => this.setState(s => { const n = [...s.slots]; n[i] = 2; return { slots: n }; }), 1500); } })),
+        pubBg: st.pub ? '#FF4F7B' : 'rgba(26,22,22,.15)', pubTf: st.pub ? 'translateX(18px)' : 'none' },
+      ciDidnt: () => this.setState({ ci: 'didnt' }), ciTogglePublic: () => this.setState(s => ({ pub: !s.pub })), ciSubmit: () => this.setState({ ci: 'pending' }),
+      st: { on: st.styleOn, notOn: !st.styleOn }, joinStyle: () => this.setState({ styleOn: true }),
+      adm: { left: admRows.filter(r => !st.adm[r.id]).length, rows: admRows.map(r => ({ ...r, hasPhoto: !!r.img, open: !st.adm[r.id], decided: !!st.adm[r.id], decision: st.adm[r.id] === 'ok' ? '✓ Approved, now public' : 'Hidden', decCol: st.adm[r.id] === 'ok' ? '#1A1616' : '#C81E52', op: st.adm[r.id] ? .6 : 1,
+        approve: () => this.setState(s => ({ adm: { ...s.adm, [r.id]: 'ok' } })), hide: () => this.setState(s => ({ adm: { ...s.adm, [r.id]: 'hide' } })) })) },
+      nav: { show: navOn, items: NAV.map(([l, k]) => ({ label: l, go: () => this.go(k, k === 'picks' ? { pstate: st.pstate === 'loading' ? 'ready' : st.pstate } : k === 'lists' ? { lEmpty: false } : {}), bg: scr === k ? (k === 'chat' ? '#FF4F7B' : '#1A1616') : k === 'chat' ? 'rgba(255,79,123,.18)' : 'transparent', fg: scr === k && k !== 'chat' ? '#FFF3EE' : '#1A1616' })) },
+      sh: { pe: st.sheet ? 'auto' : 'none', dim: st.sheet ? 'rgba(26,22,22,.4)' : 'rgba(26,22,22,0)', reasonTf: st.sheet === 'reason' ? 'none' : 'translateY(110%)', signTf: st.sheet === 'sign' ? 'none' : 'translateY(110%)', fbTf: st.sheet === 'fb' ? 'none' : 'translateY(110%)' },
+      closeSheets: () => { const was = st.sheet; this.setState({ sheet: null }); if (was === 'sign') this.toastMsg('Saved on this phone only, for now'); },
+      sg: { phone: st.sign === 'phone', code: st.sign === 'code', consent: st.sign === 'consent', wrong: st.codeWrong,
+        boxes: codeDigits.map(x => ({ d: x, bg: st.codeWrong ? 'rgba(255,79,123,.18)' : '#F7F4F2' })),
+        resendLabel: st.resent ? 'Code sent again · resend in 0:30' : 'Resend code', resendCol: st.resent ? 'rgba(26,22,22,.45)' : '#C81E52',
+        toggles: [['loc', 'Use my location', 'To find places near you. Never shown to anyone.'], ['pub', 'Show my reviews to others', 'Off by default. Only your first name is shown.']].map(([k, t, s]) => ({ title: t, sub: s, bg: st.consent[k] ? '#FF4F7B' : 'rgba(26,22,22,.15)', tf: st.consent[k] ? 'translateX(18px)' : 'none', go: () => this.setState(x => ({ consent: { ...x.consent, [k]: !x.consent[k] } })) })) },
+      sgSend: () => this.setState({ sign: 'code', codeWrong: false }), sgDecline: () => { this.setState({ sheet: null }); this.toastMsg('Saved on this phone only, for now'); },
+      sgResend: () => this.setState({ resent: true, codeWrong: false }), sgWrong: () => this.setState({ codeWrong: true }),
+      sgVerify: () => st.codeWrong ? this.setState({ codeWrong: false }) : this.setState({ sign: 'consent' }),
+      sgDone: () => { this.setState({ sheet: null, signedIn: true }); this.toastMsg('Saved to Want to try'); },
+      fb: { sent: st.fbSent, form: !st.fbSent, shotBg: st.shot ? '#1A1616' : 'rgba(26,22,22,.12)', shotTick: st.shot ? '✓' : '' },
+      openFb: () => this.setState({ sheet: 'fb', fbSent: false }), fbShot: () => this.setState(s => ({ shot: !s.shot })),
+      fbSend: () => { this.setState({ fbSent: true }); setTimeout(() => this.setState({ sheet: null }), 1400); },
+      toast: { show: !!st.toast, text: st.toast || '' },
+      note: { title: nt[0], body: nt[1] }
+    };
+  }
+}
+</script>
+</body>
+</html>
