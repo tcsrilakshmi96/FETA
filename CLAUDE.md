@@ -10,6 +10,7 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - The founder, Srilakshmi, is non-technical and builds with Claude Code. Explain choices in plain English, one short paragraph at a time.
 - Work in small steps she can test on her phone. After each step, say what changed and how to check it.
 - Ask before adding any paid service, creating accounts, or deleting anything.
+- She is also learning automation tools through this project. Whenever a step could be automated (deploys, tester invites and follow-ups, feedback tagging, usage and cost reports, weekly digests), say so in one or two lines: what it would do, which tool fits (for example Vercel, Zapier, n8n, PostHog, a Claude scheduled task), and whether it is rule-based, AI-assisted or agentic. Suggest it; don't set it up without her go-ahead. Remind her to note it in her automation journal.
 - Never put API keys or secrets in code or commits. Keep them in `.env.local` (git-ignored) and list required keys in `.env.example`.
 
 ## v1 scope (friends test, India, Nov–Dec 2026)
