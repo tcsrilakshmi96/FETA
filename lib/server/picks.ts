@@ -229,13 +229,15 @@ export function applyHardFilters(
       drop("far");
       continue;
     }
+    // Google's actual price range (per person) beats its rough price label.
     const level = PRICE_LEVELS[place.priceLevel ?? ""];
-    const start = Number(place.priceRange?.startPrice?.units);
-    if (
-      (level !== undefined && level > maxPrice) ||
-      (level === undefined && !place.priceRange && !UNKNOWN_PRICE_OK.has(answers.spend ?? "")) ||
-      (maxSpend !== null && place.priceRange?.startPrice?.currencyCode === opts.city.currency && start > maxSpend)
-    ) {
+    const range = place.priceRange?.startPrice?.currencyCode === opts.city.currency ? Number(place.priceRange.startPrice.units) : NaN;
+    const overBudget = Number.isFinite(range)
+      ? maxSpend !== null && range > maxSpend
+      : level !== undefined
+        ? level > maxPrice
+        : !UNKNOWN_PRICE_OK.has(answers.spend ?? "");
+    if (overBudget) {
       drop("price");
       continue;
     }
