@@ -15,9 +15,9 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 
 ## v1 scope (friends test, India, Nov–Dec 2026)
 - Mobile web app opened from a link. Phone-first, works on slow connections. Light and dark mode: Auto follows the phone, and the user can choose Auto / Light / Dark in You (tokens in `design/README.md`).
-- Flow: Welcome (18+ check) → Google sign-in and consent → city → 6 question screens (diet, distance, spend per person, company, drinks, interests) → 10 swipe cards → "Here's what I picked up" → location → picks. Aim for first picks in about 90 seconds.
+- Flow: Welcome (18+ check) → Google sign-in and consent → city → 6 question screens (diet, distance, spend per person, company, drinks, interests) → 6 swipe cards → "Here's what I picked up" → location → picks. Aim for first picks in about 90 seconds.
 - Sign-in comes right after Welcome (founder's decision): "Continue with Google", then consent toggles. "Not now" skips it and the user can sign in later from You. The Welcome screen must not say "No sign-up".
-- Consent toggles: "Use my location" is on by default and "Show my reviews to others" is off by default (founder's decision, as designed). Both can be changed any time in You. The browser's own location prompt still appears only when the user taps "Use my location".
+- Consent toggles: "Use my location" and "Show my reviews to others" are both off by default (founder's decision, 10 Nov 2026; this overrides the design, where location is on). Tapping "Use my location" on the Location screen turns the location toggle on. Both can be changed any time in You. The browser's own location prompt still appears only when the user taps "Use my location".
 - Diet options: Everything, Vegetarian, Vegetarian + eggs, Jain, Vegan, Pescatarian, plus a Halal only toggle (Jain added by founder's decision).
 - Spend per person is shown in the local currency (founder's decision). It comes from the chosen city; if none is chosen yet, it is guessed from the phone's time zone (no permission, not stored; unknown zones fall back to USD). The answer is stored as a level (1–4 or "depends") plus its currency code, so it can be matched to price ranges in another city. Bands live in `lib/currency.ts`; India: under ₹500, ₹500–1,500, ₹1,500–3,000, ₹3,000+.
 - No taste types or labels on users. The profile is plain, editable lines, and can hold notes tied to an occasion or a trip.
@@ -32,6 +32,15 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - Weekend plan: drafted by the app, sent by the founder on WhatsApp. No web push in v1. The WhatsApp number is optional and asked separately, not at sign-in: a "Want your weekend plan on WhatsApp?" prompt with a number field, on My lists (founder's decision). It is stored only after the user adds it, used only for the weekend plan, and removable in You.
 - A small feedback button on every screen.
 - Not in v1: group mode, full travel mode, native app, background location, in-app booking, allergy filter.
+
+## Changes after the design (founder's decisions, 10 Nov 2026)
+These came from a 12-persona test of the flow. They override `design/` wherever the two differ. Keep the design's look and components; change only what is listed.
+- Taste swipes: 6 cards, not 10. Counter and progress read "n / 6". Add a visible "Skip" that goes straight to "Here's what I picked up". Keep one card each for: a classic local breakfast, a spicy regional meal, hole-in-the-wall street food, a quiet cafe, a lively night out (swap for a non-alcohol option when the user chose "No alcohol"), and a hands-on or outdoor experience. Welcome copy becomes "A few quick questions, six swipes, then your picks."
+- "New to you" rule for picks: the first set of 3 in each category should feel like a find, not the place everyone already knows. At most 1 of the 3 may be a widely known, very popular place. Never show a place the user has saved, marked Been, or skipped. Tell the AI this in the picks prompt; keep diet, budget, distance, alcohol and opening hours as hard filters in code.
+- Spend question: add "Under ₹300" as the lowest option (then ₹300–500, ₹500–1,500, ₹1,500–3,000, ₹3,000+, Depends on the day).
+- Company question: add "Family with kids". When chosen, picks prefer family-friendly places and the Tweak sheet gains "Good with kids".
+- Check-in: users whose diet is Jain, vegan or halal-only see one extra optional tick after "Loved it" or "It was fine": "It worked for my diet (Jain / vegan / halal)". On pick details, show the count as "3 Feta users who eat Jain said it worked for them. Still check with staff." Show it only at 2 or more confirmations. This never replaces the "not confirmed, check with staff" rule and must never say or imply the food is safe.
+- Not changed: sign-in still comes right after Welcome with "Not now". The founder is rethinking this separately; do not move it without her say-so.
 
 ## Proposed stack (confirm with the founder before installing)
 - Next.js web app, hosted on Vercel.
@@ -53,4 +62,4 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - Every place, event and user record carries city, country, time zone and currency, so new cities are a data job, not a rebuild.
 
 ## Metrics to build in
-Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved" rate, share of picks with a logged outcome, use of Food & drinks versus Experiences, "Tell me when" taps on Style, and feedback-button use.
+Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved" rate, share of picks with a logged outcome, share of users who tap "Not now" at sign-in, swipe "Skip" use, diet confirmations per review, use of Food & drinks versus Experiences, "Tell me when" taps on Style, and feedback-button use.
