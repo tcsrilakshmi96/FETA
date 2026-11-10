@@ -1,0 +1,116 @@
+.screen {
+  position: absolute;
+  inset: 0;
+}
+
+/* Yes-photos fly in from off screen and settle in a loose pile. */
+.collage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60px;
+  height: 260px;
+}
+
+.tile {
+  position: absolute;
+  left: calc(50% - 75px);
+  top: 16px;
+  width: 150px;
+  height: 196px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #6a4a40;
+  box-shadow: 0 22px 44px rgba(120, 30, 50, 0.25);
+  transition: transform 1.1s cubic-bezier(0.2, 0.9, 0.25, 1), opacity 0.6s;
+}
+
+.tile img {
+  object-fit: cover;
+}
+
+.bottom {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.fade {
+  opacity: 0;
+  transition: opacity 0.8s ease, transform 0.9s var(--ease-enter);
+}
+
+.in .fade {
+  opacity: 1;
+}
+
+.title {
+  font-size: 36px;
+  font-weight: 300;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  transform: translateY(14px);
+  transition-delay: 1s;
+}
+
+.in .title {
+  transform: none;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.sub {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(var(--inkRGB), 0.65);
+  transition-delay: 1.2s;
+}
+
+.lines {
+  margin-top: 14px;
+  list-style: none;
+  transition-delay: 1.4s;
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 44px;
+  border-top: 1px solid rgba(var(--inkRGB), 0.1);
+  font-size: 14.5px;
+}
+
+.remove {
+  width: 44px;
+  height: 44px;
+  margin-right: -14px;
+  font-size: 18px;
+  font-weight: 300;
+  color: rgba(var(--inkRGB), 0.45);
+}
+
+.empty {
+  padding: 12px 0;
+  border-top: 1px solid rgba(var(--inkRGB), 0.1);
+  font-size: 14.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.go {
+  margin-top: 16px;
+  transition-delay: 1.6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .fade {
+    transition: none !important;
+  }
+}
