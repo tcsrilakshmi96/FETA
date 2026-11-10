@@ -56,98 +56,6 @@
   color: rgba(var(--inkRGB), 0.65);
 }
 
-.phoneField {
-  height: 58px;
-  margin-top: 8px;
-  padding: 0 16px;
-  border-radius: 18px;
-  background: rgba(var(--surf), 0.75);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-}
-
-.prefix {
-  color: rgba(var(--inkRGB), 0.55);
-}
-
-.phoneField input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: none;
-  outline: none;
-  background: none;
-  font: inherit;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.phoneField input::placeholder {
-  color: rgba(var(--inkRGB), 0.3);
-}
-
-/* Six boxes drawn over one real input, so paste and SMS autofill work. */
-.codeWrap {
-  position: relative;
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.codeWrap input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  opacity: 0;
-  border: none;
-  font-size: 16px;
-  caret-color: transparent;
-}
-
-.box {
-  flex: 1;
-  height: 58px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 21px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  background: var(--field);
-  transition: background 0.3s, box-shadow 0.2s;
-}
-
-.boxActive {
-  box-shadow: inset 0 0 0 1.5px rgba(var(--inkRGB), 0.35);
-}
-
-.boxWrong {
-  background: rgba(255, 79, 123, 0.18);
-}
-
-.error {
-  font-size: 13.5px;
-  color: var(--roseText);
-  animation: fa-up 0.3s ease-out;
-}
-
-.resend {
-  align-self: flex-start;
-  min-height: 44px;
-  margin: -12px 0;
-  font-size: 14px;
-  color: var(--roseText);
-  font-variant-numeric: tabular-nums;
-}
-
-.resend:disabled {
-  color: rgba(var(--inkRGB), 0.45);
-  cursor: default;
-}
-
 .consentStep {
   gap: 10px;
 }
@@ -237,6 +145,42 @@
   color: var(--ink);
   opacity: 0.6;
   cursor: default;
+}
+
+/* Google's sign-in button colours (light and dark), pill-shaped to sit with
+   the rest of the screen. */
+.google {
+  height: 56px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #ffffff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  font-family: Roboto, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  transition: transform 0.2s var(--ease-press);
+}
+
+.google:active {
+  transform: scale(0.96);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .google {
+    background: #131314;
+    color: #e3e3e3;
+    border-color: #8e918f;
+  }
+}
+
+:root[data-theme="dark"] .google {
+  background: #131314;
+  color: #e3e3e3;
+  border-color: #8e918f;
 }
 
 .secondary {

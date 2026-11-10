@@ -15,8 +15,8 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 
 ## v1 scope (friends test, India, Nov–Dec 2026)
 - Mobile web app opened from a link. Phone-first, works on slow connections. Light and dark mode: Auto follows the phone, and the user can choose Auto / Light / Dark in You (tokens in `design/README.md`).
-- Flow: Welcome (18+ check) → phone sign-in and consent → 6 question screens (diet, distance, spend per person, company, drinks, interests) → 10 swipe cards → "Here's what I picked up" → location → picks. Aim for first picks in about 90 seconds.
-- Sign-in comes right after Welcome (founder's decision): phone number, 6-digit code, then consent toggles. "Not now" skips it and the user can sign in later from You. The Welcome screen must not say "No sign-up".
+- Flow: Welcome (18+ check) → Google sign-in and consent → 6 question screens (diet, distance, spend per person, company, drinks, interests) → 10 swipe cards → "Here's what I picked up" → location → picks. Aim for first picks in about 90 seconds.
+- Sign-in comes right after Welcome (founder's decision): "Continue with Google", then consent toggles. "Not now" skips it and the user can sign in later from You. The Welcome screen must not say "No sign-up".
 - Consent toggles: "Use my location" is on by default and "Show my reviews to others" is off by default (founder's decision, as designed). Both can be changed any time in You. The browser's own location prompt still appears only when the user taps "Use my location".
 - No taste types or labels on users. The profile is plain, editable lines, and can hold notes tied to an occasion or a trip.
 - Picks home: "Tonight" and "This weekend" tabs, a city pill, and a category switch: "Food & drinks" (EAT and DRINK cards) and "Experiences" (DO and EVENT cards), plus a muted "Style · soon" that opens the Style teaser. Each category has exactly 3 picks, shown one card at a time, and the two are never mixed on this screen (founder's decision). The title follows both switches ("Your 3 to eat tonight", "Your 3 to do this weekend"). The last category is remembered, each category keeps its own progress and states, and "Tweak these" applies to the category in view. Chat replies may still mix categories. There is no "Who's with you?" chip (founder's decision): company comes from the onboarding answer, the Tweak sheet ("Better for groups") and chat.
@@ -26,14 +26,14 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - After an outing: Loved it / It was fine / Not for me, optional review and up to 3 photos, with a "Show my review to others" toggle off by default. Photos and public reviews need founder approval on an admin screen.
 - Feta Favourite badge: at least 3 ratings and at least 70% loved.
 - Style and shopping: a "coming soon" card and tab with a "Tell me when" button that counts interest. No workflow.
-- Phone sign-in provider: Firebase Phone Auth, because it already handles India's SMS (DLT) registration.
-- Weekend plan: drafted by the app, sent by the founder on WhatsApp. No web push in v1.
+- Sign-in provider for the friends test: Google sign-in through Supabase Auth (founder's decision, 10 Nov 2026: free, one tap for most Indian users). This replaces the design's phone number and 6-digit code. Phone codes (Firebase Phone Auth, which handles India's SMS DLT registration) may come back after the trial.
+- Weekend plan: drafted by the app, sent by the founder on WhatsApp. No web push in v1. The WhatsApp number is optional and asked separately, not at sign-in: a "Want your weekend plan on WhatsApp?" prompt with a number field, on My lists (founder's decision). It is stored only after the user adds it, used only for the weekend plan, and removable in You.
 - A small feedback button on every screen.
 - Not in v1: group mode, full travel mode, native app, background location, in-app booking, allergy filter.
 
 ## Proposed stack (confirm with the founder before installing)
 - Next.js web app, hosted on Vercel.
-- Supabase for the database, file storage (review photos) and row-level security.
+- Supabase for the database, Google sign-in, file storage (review photos) and row-level security.
 - Venice AI (OpenAI-compatible API, founder's credits) for chat, profile updates, choosing the 3 picks per category, writing reasons, and turning reviews into tags. Use a mainstream model, not an "uncensored" one.
 - Gemini API with Grounding with Google Maps as the place-finder tool only.
 - Google Places API for live open-now status on the picks shown.

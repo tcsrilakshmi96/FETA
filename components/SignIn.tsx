@@ -1,74 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import styles from "./SignIn.module.css";
 
-type Step = "phone" | "code" | "consent";
-
-const RESEND_SECONDS = 30;
-
-// Pretend sign-in until a real provider is connected: no text is sent,
-// 000000 shows the wrong-code state, and any other 6 digits gets through.
-const WRONG_CODE_FOR_TESTING = "000000";
-
-function formatPhone(digits: string) {
-  return digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
-}
-
-// Accepts typing or pasting with +91 or a leading 0.
-function toTenDigits(value: string) {
-  const digits = value.replace(/\D/g, "");
-  const local = digits.length > 10 ? digits.replace(/^(91|0)/, "") : digits;
-  return local.slice(0, 10);
-}
+type Step = "google" | "consent";
 
 export default function SignIn() {
   const router = useRouter();
   const toast = useToast();
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [codeWrong, setCodeWrong] = useState(false);
-  const [resendIn, setResendIn] = useState(0);
-  const [codeFocused, setCodeFocused] = useState(false);
+  const [step, setStep] = useState<Step>("google");
   const [consent, setConsent] = useState({ location: true, publicReviews: false });
-  const codeInput = useRef<HTMLInputElement>(null);
-
-  const phoneValid = /^[6-9]\d{9}$/.test(phone);
-
-  useEffect(() => {
-    if (resendIn <= 0) return;
-    const t = setTimeout(() => setResendIn(resendIn - 1), 1000);
-    return () => clearTimeout(t);
-  }, [resendIn]);
 
   function goBack() {
-    if (step === "phone") router.push("/");
-    else setStep(step === "consent" ? "code" : "phone");
+    if (step === "google") router.push("/");
+    else setStep("google");
   }
 
-  function sendCode() {
-    setCode("");
-    setCodeWrong(false);
-    setStep("code");
-  }
-
-  function verify() {
-    if (code === WRONG_CODE_FOR_TESTING) {
-      setCodeWrong(true);
-      setCode("");
-      codeInput.current?.focus();
-      return;
-    }
+  function continueWithGoogle() {
+    // Pretend for now: real Google sign-in arrives with Supabase.
     setStep("consent");
-  }
-
-  function resend() {
-    setCodeWrong(false);
-    setCode("");
-    setResendIn(RESEND_SECONDS);
   }
 
   function finish() {
@@ -87,79 +39,14 @@ export default function SignIn() {
         ‹
       </button>
 
-      {step === "phone" && (
+      {step === "google" && (
         <div className={styles.step}>
           <h1 className={styles.title}>
-            First, <strong>your number.</strong>
+            First, <strong>sign in.</strong>
           </h1>
           <p className={styles.sub}>
             So your saves and lists follow you to any phone. No password, no spam.
           </p>
-          <label className={styles.phoneField}>
-            <span className={styles.prefix}>+91</span>
-            <input
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              placeholder="98765 43210"
-              aria-label="Mobile number"
-              value={formatPhone(phone)}
-              onChange={(e) => setPhone(toTenDigits(e.target.value))}
-              onKeyDown={(e) => e.key === "Enter" && phoneValid && sendCode()}
-            />
-          </label>
-        </div>
-      )}
-
-      {step === "code" && (
-        <div className={styles.step}>
-          <h1 className={styles.title}>
-            Enter the <strong>6-digit code</strong>
-          </h1>
-          <p className={styles.sub}>Sent to +91 {formatPhone(phone)}</p>
-          <div className={styles.codeWrap}>
-            {Array.from({ length: 6 }, (_, i) => (
-              <span
-                key={i}
-                className={[
-                  styles.box,
-                  codeWrong ? styles.boxWrong : "",
-                  codeFocused && i === Math.min(code.length, 5) ? styles.boxActive : "",
-                ].join(" ")}
-              >
-                {code[i] ?? ""}
-              </span>
-            ))}
-            <input
-              ref={codeInput}
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              aria-label="6-digit code"
-              autoFocus
-              value={code}
-              onFocus={() => setCodeFocused(true)}
-              onBlur={() => setCodeFocused(false)}
-              onChange={(e) => {
-                setCode(e.target.value.replace(/\D/g, "").slice(0, 6));
-                setCodeWrong(false);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && code.length === 6 && verify()}
-            />
-          </div>
-          {codeWrong && (
-            <p className={styles.error}>That code didn&apos;t match. Check it and try again.</p>
-          )}
-          <button
-            type="button"
-            className={styles.resend}
-            disabled={resendIn > 0}
-            onClick={resend}
-          >
-            {resendIn > 0
-              ? `Code sent again · resend in 0:${String(resendIn).padStart(2, "0")}`
-              : "Resend code"}
-          </button>
         </div>
       )}
 
@@ -187,20 +74,16 @@ export default function SignIn() {
       )}
 
       <div className={styles.actions}>
-        {step === "phone" && (
+        {step === "google" && (
           <>
-            <button type="button" className={styles.primary} disabled={!phoneValid} onClick={sendCode}>
-              Send code
+            <button type="button" className={styles.google} onClick={continueWithGoogle}>
+              <GoogleLogo />
+              Continue with Google
             </button>
             <button type="button" className={styles.secondary} onClick={notNow}>
               Not now
             </button>
           </>
-        )}
-        {step === "code" && (
-          <button type="button" className={styles.primary} disabled={code.length < 6} onClick={verify}>
-            Verify
-          </button>
         )}
         {step === "consent" && (
           <button type="button" className={styles.primary} onClick={finish}>
@@ -227,5 +110,17 @@ function ConsentToggle(props: { title: string; sub: string; on: boolean; onToggl
       </span>
       <span className={`${styles.switch} ${props.on ? styles.switchOn : ""}`} />
     </button>
+  );
+}
+
+// Google's standard "G" mark, unchanged as its branding rules require.
+function GoogleLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
   );
 }
