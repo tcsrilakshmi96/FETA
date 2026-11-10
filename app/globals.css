@@ -23,6 +23,14 @@
   --ease-spring: cubic-bezier(0.2, 1.25, 0.35, 1);
   --ease-press: cubic-bezier(0.3, 1.6, 0.5, 1);
 
+  /* Shared animation names. Screen style files refer to these through the
+     variables, because Next.js renames animation names inside them. */
+  --kf-in: fa-in;
+  --kf-up: fa-up;
+  --kf-kb: fa-kb;
+  --kf-pop: fa-pop;
+  --kf-bar: fa-bar;
+
   color-scheme: light;
 }
 

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   padding: 50px 18px 96px;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 /* Header: Tonight / This weekend and the city pill. */
@@ -165,7 +165,7 @@
   height: 100%;
   object-fit: cover;
   pointer-events: none;
-  animation: fa-kb 16s ease-in-out infinite alternate;
+  animation: var(--kf-kb) 16s ease-in-out infinite alternate;
 }
 
 .scrim {
@@ -237,7 +237,7 @@
   right: 20px;
   bottom: 18px;
   color: var(--onPhoto);
-  animation: fa-up 0.7s var(--ease-enter) 0.2s both;
+  animation: var(--kf-up) 0.7s var(--ease-enter) 0.2s both;
 }
 
 .name {
@@ -306,7 +306,7 @@
   color: var(--inkFixed);
   font-size: 12.5px;
   line-height: 1.35;
-  animation: fa-up 0.4s ease-out;
+  animation: var(--kf-up) 0.4s ease-out;
 }
 
 /* Loading, all swiped, and "nothing found" panels share one look. */
@@ -320,7 +320,7 @@
   justify-content: flex-end;
   gap: 14px;
   padding: 26px;
-  animation: fa-in 0.3s ease-out;
+  animation: var(--kf-in) 0.3s ease-out;
 }
 
 .loadBars {
@@ -343,7 +343,7 @@
   background: var(--ink);
   transform: scaleX(0);
   transform-origin: left;
-  animation: fa-bar 0.5s ease-out forwards;
+  animation: var(--kf-bar) 0.5s ease-out forwards;
 }
 
 .loadBars span:nth-child(2)::after {
@@ -466,7 +466,7 @@
   inset: 0;
   z-index: 60;
   background: rgba(26, 22, 22, 0.4);
-  animation: fa-in 0.3s ease-out;
+  animation: var(--kf-in) 0.3s ease-out;
 }
 
 .sheet {

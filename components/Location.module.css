@@ -4,11 +4,11 @@
   display: flex;
   flex-direction: column;
   padding: 96px 24px 28px;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 .body {
-  animation: fa-up 0.5s ease-out;
+  animation: var(--kf-up) 0.5s ease-out;
 }
 
 .title {
@@ -78,7 +78,7 @@
   inset: 0;
   z-index: 60;
   background: rgba(26, 22, 22, 0.4);
-  animation: fa-in 0.3s ease-out;
+  animation: var(--kf-in) 0.3s ease-out;
 }
 
 .sheet {

@@ -44,6 +44,7 @@ export default function Privacy() {
           <li>Your taste swipes, and the plain lines Feta writes about what you like.</li>
           <li>Cities you asked us to tell you about.</li>
           <li>Your chats with Ask Feta, and the lines it adds to your profile (you can undo or remove them).</li>
+          <li>Feedback you send, and a screenshot of that screen if you leave the box ticked.</li>
           <li>If you sign in with Google: your name and email address from Google.</li>
         </ul>
       </section>

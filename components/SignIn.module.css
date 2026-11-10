@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   padding: 56px 24px 28px;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 .step {
@@ -12,7 +12,7 @@
   flex-direction: column;
   gap: 12px;
   margin-top: 26px;
-  animation: fa-up 0.4s ease-out;
+  animation: var(--kf-up) 0.4s ease-out;
 }
 
 .title {

@@ -1,7 +1,7 @@
 .screen {
   position: absolute;
   inset: 0;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 .header {

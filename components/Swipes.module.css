@@ -1,7 +1,7 @@
 .screen {
   position: absolute;
   inset: 0;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 .header {
@@ -91,7 +91,7 @@
 .photo img {
   object-fit: cover;
   pointer-events: none;
-  animation: fa-kb 16s ease-in-out infinite alternate;
+  animation: var(--kf-kb) 16s ease-in-out infinite alternate;
 }
 
 .scrim {

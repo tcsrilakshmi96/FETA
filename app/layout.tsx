@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
+import Feedback from "@/components/Feedback";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
@@ -38,10 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="haze haze-turquoise" />
           <div className="haze haze-rose" />
           <ToastProvider>{children}</ToastProvider>
-          {/* The feedback sheet comes in a later step. */}
-          <button type="button" className="feedback-pill">
-            Feedback
-          </button>
+          <Feedback />
         </div>
       </body>
     </html>

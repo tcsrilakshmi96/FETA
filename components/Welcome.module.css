@@ -1,7 +1,7 @@
 .screen {
   position: absolute;
   inset: 0;
-  animation: fa-in 0.4s ease-out;
+  animation: var(--kf-in) 0.4s ease-out;
 }
 
 /* Photo: inset 8 px, radius 40, bottom 236 px left free for the controls. */
@@ -15,7 +15,7 @@
 
 .photo img {
   object-fit: cover;
-  animation: fa-kb 14s ease-in-out infinite alternate;
+  animation: var(--kf-kb) 14s ease-in-out infinite alternate;
 }
 
 .scrim {
@@ -31,7 +31,7 @@
   right: 24px;
   bottom: 26px;
   color: var(--onPhoto);
-  animation: fa-up 0.9s var(--ease-enter) 0.2s both;
+  animation: var(--kf-up) 0.9s var(--ease-enter) 0.2s both;
 }
 
 .wordmark {
@@ -61,7 +61,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  animation: fa-up 0.9s var(--ease-enter) 0.45s both;
+  animation: var(--kf-up) 0.9s var(--ease-enter) 0.45s both;
 }
 
 .intro {

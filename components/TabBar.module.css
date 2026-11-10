@@ -78,7 +78,7 @@
 .pop {
   display: block;
   transform-origin: 50% 70%;
-  animation: fa-pop 3.2s ease-in-out infinite;
+  animation: var(--kf-pop) 3.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
