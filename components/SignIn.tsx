@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
+import { saveConsent } from "@/lib/db";
 import styles from "./SignIn.module.css";
 
 type Step = "google" | "consent";
@@ -24,7 +25,7 @@ export default function SignIn() {
   }
 
   function finish() {
-    // Consent is saved with the account once the database is connected.
+    saveConsent(consent);
     router.push("/city");
   }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { saveAgeConfirmed } from "@/lib/db";
 import styles from "./Welcome.module.css";
 
 export default function Welcome() {
@@ -50,7 +51,10 @@ export default function Welcome() {
           type="button"
           className="btn-primary"
           disabled={!isAdult}
-          onClick={() => router.push("/sign-in")}
+          onClick={() => {
+            saveAgeConfirmed();
+            router.push("/sign-in");
+          }}
         >
           Let&apos;s go
         </button>

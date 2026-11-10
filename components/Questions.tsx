@@ -13,6 +13,7 @@ import {
 } from "@/lib/onboarding";
 import { loadCity } from "@/lib/cities";
 import { detectCurrency, type Currency } from "@/lib/currency";
+import { saveAnswersToDb } from "@/lib/db";
 import styles from "./Questions.module.css";
 
 function isAnswered(q: Question, answers: Answers) {
@@ -62,6 +63,7 @@ export default function Questions() {
   }
 
   function goNext() {
+    saveAnswersToDb(answers);
     if (isLast) router.push("/swipes");
     else setIndex(index + 1);
   }

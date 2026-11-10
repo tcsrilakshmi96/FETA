@@ -13,6 +13,7 @@ import {
   swipeCards,
   type ProfileLine,
 } from "@/lib/swipes";
+import { saveProfileLinesToDb } from "@/lib/db";
 import styles from "./PickedUp.module.css";
 
 // Where each yes-photo comes from and where it lands: [x, y, rotation].
@@ -23,6 +24,7 @@ export default function PickedUp() {
   const router = useRouter();
   const [photos, setPhotos] = useState<string[]>([]);
   const [lines, setLines] = useState<ProfileLine[]>([]);
+  const [removed, setRemoved] = useState<ProfileLine[]>([]);
   const [settled, setSettled] = useState(false);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export default function PickedUp() {
 
   function showPicks() {
     saveProfileLines(lines);
+    saveProfileLinesToDb(lines, removed);
     router.push("/location");
   }
 
@@ -86,7 +89,10 @@ export default function PickedUp() {
                 type="button"
                 className={styles.remove}
                 aria-label={`Remove "${line.text}"`}
-                onClick={() => setLines(lines.filter((l) => l.id !== line.id))}
+                onClick={() => {
+                  setLines(lines.filter((l) => l.id !== line.id));
+                  setRemoved([...removed, line]);
+                }}
               >
                 ×
               </button>

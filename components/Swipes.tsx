@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { EMPTY_ANSWERS, loadAnswers } from "@/lib/onboarding";
 import { saveSwipes, swipeCards, type Swipe, type Verdict } from "@/lib/swipes";
+import { saveSwipesToDb } from "@/lib/db";
 import styles from "./Swipes.module.css";
 
 const THROW_PX = 80;
@@ -36,12 +37,16 @@ export default function Swipes() {
     setIndex(index + 1);
     setTimeout(() => {
       busy.current = false;
-      if (index + 1 >= cards.length) router.push("/picked-up");
+      if (index + 1 >= cards.length) {
+        saveSwipesToDb(next);
+        router.push("/picked-up");
+      }
     }, index + 1 >= cards.length ? 450 : 50);
   }
 
   function skip() {
     saveSwipes(swipes);
+    saveSwipesToDb(swipes);
     router.push("/picked-up");
   }
 

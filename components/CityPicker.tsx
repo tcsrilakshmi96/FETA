@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { loadCity, nearestCovered, saveCity, searchCities, type City } from "@/lib/cities";
+import { saveCityInterest, saveCityToDb } from "@/lib/db";
 import styles from "./CityPicker.module.css";
 
 // Right after sign-in: which city the user is in. No location popup here;
@@ -30,6 +31,7 @@ export default function CityPicker() {
       return;
     }
     saveCity(city);
+    saveCityToDb(city);
     router.push("/questions");
   }
 
@@ -75,8 +77,10 @@ export default function CityPicker() {
           <button
             type="button"
             className={styles.secondary}
-            // Interest is counted once the database is connected.
-            onClick={() => toast(`Noted. We'll tell you when we're in ${notCovered.name}.`)}
+            onClick={() => {
+              saveCityInterest(notCovered);
+              toast(`Noted. We'll tell you when we're in ${notCovered.name}.`);
+            }}
           >
             Tell me when you&apos;re in {notCovered.name}
           </button>
