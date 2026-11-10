@@ -16,10 +16,13 @@ export default function CityPicker() {
   const [current, setCurrent] = useState<City | null>(null);
   const [notCovered, setNotCovered] = useState<City | null>(null);
   const [suggestion, setSuggestion] = useState<City | null>(null);
+  const [fromYou, setFromYou] = useState(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- storage is only readable in the browser
+    /* eslint-disable react-hooks/set-state-in-effect -- storage is only readable in the browser */
     setCurrent(loadCity());
+    setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const results = searchCities(query);
@@ -32,12 +35,18 @@ export default function CityPicker() {
     }
     saveCity(city);
     saveCityToDb(city);
-    router.push("/questions");
+    try {
+      // A new city means distances start from that city, not an old area.
+      sessionStorage.removeItem("feta.origin");
+    } catch {
+      // Nothing to clear.
+    }
+    router.push(fromYou ? "/you" : "/questions");
   }
 
   function goBack() {
     if (notCovered) setNotCovered(null);
-    else router.push("/sign-in");
+    else router.push(fromYou ? "/you" : "/sign-in");
   }
 
   if (notCovered && suggestion) {

@@ -25,8 +25,14 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={outfit.variable}>
+    <html lang="en" className={outfit.variable} suppressHydrationWarning>
       <body>
+        {/* Applies a chosen Light/Dark appearance before the page paints. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem("feta.theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`,
+          }}
+        />
         <div className="app">
           <div className="haze haze-saffron" />
           <div className="haze haze-turquoise" />

@@ -141,3 +141,44 @@ export function savePickAction(
       ),
   );
 }
+
+// ---------- Lists ----------
+
+export function saveListNote(placeId: string, action: "saved" | "been", note: string) {
+  return run("note", (userId) =>
+    supabase().from("pick_actions").update({ note: note.trim() || null }).eq("user_id", userId).eq("place_id", placeId).eq("action", action),
+  );
+}
+
+// "I've been": moves a place from Want to try to Been, keeping its note.
+export function markBeen(placeId: string, note: string) {
+  return run("been", (userId) =>
+    supabase()
+      .from("pick_actions")
+      .upsert({ user_id: userId, place_id: placeId, action: "been", note: note.trim() || null }, { onConflict: "user_id,place_id,action" }),
+  );
+}
+
+export function removeFromList(placeId: string, action: "saved" | "been") {
+  return run("remove", (userId) =>
+    supabase().from("pick_actions").delete().eq("user_id", userId).eq("place_id", placeId).eq("action", action),
+  );
+}
+
+// Optional WhatsApp number, only for the weekend plan. null removes it.
+export function saveWhatsApp(number: string | null) {
+  return run("WhatsApp number", async (userId) => {
+    const { error } = await supabase()
+      .from("profiles")
+      .update({ whatsapp_number: number, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    return error ? { error } : logConsent(userId, "whatsapp", number !== null);
+  });
+}
+
+export async function loadWhatsApp(): Promise<string | null> {
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const { data } = await supabase().from("profiles").select("whatsapp_number").eq("id", userId).maybeSingle();
+  return data?.whatsapp_number ?? null;
+}

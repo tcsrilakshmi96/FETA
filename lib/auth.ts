@@ -2,9 +2,12 @@
 
 import { currentUserId, supabase } from "@/lib/supabase";
 
-// After Google, people come back to the consent step of sign-in.
-function returnUrl() {
-  return `${window.location.origin}/sign-in?step=consent`;
+// After Google, people come back to the consent step of sign-in, unless
+// they signed in from somewhere else (like You).
+const SIGN_IN_RETURN = "/sign-in?step=consent";
+
+function returnUrl(path = SIGN_IN_RETURN) {
+  return `${window.location.origin}${path}`;
 }
 
 const RECONFIRM_AGE_KEY = "feta.reconfirmAge";
@@ -12,19 +15,19 @@ const RECONFIRM_AGE_KEY = "feta.reconfirmAge";
 // Attach Google to this phone's anonymous account, so everything already
 // answered stays. Leaves the page for Google; returns an error message if
 // it could not start.
-export async function startGoogleSignIn(): Promise<string | null> {
+export async function startGoogleSignIn(returnPath = SIGN_IN_RETURN): Promise<string | null> {
   await currentUserId();
   const { data } = await supabase().auth.getSession();
   if (data.session?.user.is_anonymous) {
     const { error } = await supabase().auth.linkIdentity({
       provider: "google",
-      options: { redirectTo: returnUrl() },
+      options: { redirectTo: returnUrl(returnPath) },
     });
     if (!error) return null;
   }
   const { error } = await supabase().auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: returnUrl() },
+    options: { redirectTo: returnUrl(returnPath) },
   });
   return error?.message ?? null;
 }
@@ -68,4 +71,11 @@ export function readGoogleReturn() {
 export async function isSignedIn() {
   const { data } = await supabase().auth.getSession();
   return !!data.session && !data.session.user.is_anonymous;
+}
+
+// From You: the anonymous account may already hold answers and lists, so it
+// is kept (not deleted); the phone simply signs in to the existing account.
+export async function signInToExistingAccount(returnPath: string) {
+  await supabase().auth.signOut({ scope: "local" });
+  await supabase().auth.signInWithOAuth({ provider: "google", options: { redirectTo: returnUrl(returnPath) } });
 }

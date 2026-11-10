@@ -1,0 +1,353 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 52px 18px 120px;
+  animation: fa-in 0.35s ease-out;
+}
+
+.title {
+  padding: 0 4px;
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.segment {
+  position: relative;
+  display: flex;
+  width: fit-content;
+  margin-top: 14px;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.06);
+}
+
+.thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: 110px;
+  border-radius: 99px;
+  background: var(--ink);
+  transition: transform 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+
+.segBtn {
+  position: relative;
+  width: 110px;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+
+.segOn {
+  color: var(--bg);
+}
+
+.private {
+  margin: 12px 4px 0;
+  font-size: 12px;
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  list-style: none;
+}
+
+.item {
+  width: 100%;
+  display: flex;
+  gap: 14px;
+  padding: 10px;
+  border-radius: 22px;
+  background: rgba(var(--surf), 0.75);
+  text-align: left;
+  animation: fa-up 0.4s ease-out both;
+}
+
+.pic {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #6a4a40;
+}
+
+.pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 500;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.when {
+  flex: none;
+  font-size: 12px;
+  color: var(--roseText);
+}
+
+.area {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.note {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.noteEmpty {
+  color: rgba(var(--inkRGB), 0.45);
+}
+
+.end {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.empty {
+  margin-top: 40px;
+  padding: 0 4px;
+  animation: fa-up 0.4s ease-out;
+}
+
+.emptyTitle {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+
+.emptyTitle strong {
+  font-weight: 500;
+}
+
+.emptyText {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.emptyBtn {
+  margin-top: 18px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 99px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.loading {
+  margin-top: 30px;
+  padding: 0 4px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+/* Weekend plan on WhatsApp (optional number). */
+.whatsapp {
+  margin-top: 26px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(43, 196, 201, 0.14);
+}
+
+.waTitle {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.waText {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.waForm {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.waField {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: rgba(var(--surf), 0.85);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.waField span {
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.waField input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+}
+
+.waBtn {
+  flex: none;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.waBtn:disabled {
+  opacity: 0.5;
+}
+
+.waRemove {
+  min-height: 44px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--roseText);
+}
+
+/* Item sheet */
+.dim {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(26, 22, 22, 0.4);
+  animation: fa-in 0.3s ease-out;
+}
+
+.sheet {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 62;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  padding: 22px;
+  border-radius: 36px;
+  background: var(--sheet);
+  animation: fa-sheet 0.55s var(--ease-enter);
+}
+
+@keyframes fa-sheet {
+  0% { transform: translateY(110%); }
+  100% { transform: none; }
+}
+
+.sheetTitle {
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.sheetSub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.noteBox {
+  width: 100%;
+  height: 90px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 16px;
+  outline: none;
+  resize: none;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.sheetActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sheetActions a,
+.sheetActions button {
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--inkRGB), 0.07);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.sheetActions .primary {
+  grid-column: 1 / -1;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-weight: 500;
+}
+
+.sheetActions .danger {
+  color: var(--roseText);
+}
+
+.close {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}

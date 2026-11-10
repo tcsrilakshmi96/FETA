@@ -26,6 +26,7 @@ export default function Questions() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [currency, setCurrency] = useState<Currency>("INR");
+  const [fromYou, setFromYou] = useState(false);
 
   // Bring back answers from an earlier visit on this phone, and use the
   // chosen city's currency (or a guess from the time zone if none yet).
@@ -34,6 +35,7 @@ export default function Questions() {
     /* eslint-disable react-hooks/set-state-in-effect */
     setAnswers(loadAnswers());
     setCurrency(loadCity()?.currency ?? detectCurrency());
+    setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -64,12 +66,12 @@ export default function Questions() {
 
   function goNext() {
     saveAnswersToDb(answers);
-    if (isLast) router.push("/swipes");
+    if (isLast) router.push(fromYou ? "/you" : "/swipes");
     else setIndex(index + 1);
   }
 
   function goBack() {
-    if (index === 0) router.push("/city");
+    if (index === 0) router.push(fromYou ? "/you" : "/city");
     else setIndex(index - 1);
   }
 
@@ -163,7 +165,7 @@ export default function Questions() {
         disabled={!answered}
         onClick={goNext}
       >
-        {isLast ? "Start swiping" : "Continue"}
+        {isLast ? (fromYou ? "Save my answers" : "Start swiping") : "Continue"}
       </button>
     </main>
   );
