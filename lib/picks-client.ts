@@ -10,7 +10,13 @@ export type PicksReply = { picks: Pick[]; banner?: string; notice?: string; erro
 
 // Asks Feta's server for 3 picks. The server reads the user's answers and
 // swipes from the database itself.
-export async function fetchPicks(category: Category, when: When, origin: Origin, more = false): Promise<PicksReply> {
+export async function fetchPicks(
+  category: Category,
+  when: When,
+  origin: Origin,
+  more = false,
+  tweak?: { tweaks: string[]; note?: string },
+): Promise<PicksReply> {
   await currentUserId();
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
@@ -19,7 +25,7 @@ export async function fetchPicks(category: Category, when: When, origin: Origin,
     const res = await fetch("/api/picks", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ category, when, origin, more }),
+      body: JSON.stringify({ category, when, origin, more, ...tweak }),
     });
     return (await res.json()) as PicksReply;
   } catch {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import { savePickAction } from "@/lib/db";
+import { loadAnswers } from "@/lib/onboarding";
 import { cityById, loadOrigin, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
 import styles from "./Picks.module.css";
@@ -19,7 +20,18 @@ const CATEGORY_KEY = "feta.category";
 const THROW_PX = 80;
 const SKIP_REASONS = ["Too far", "Too pricey", "Not my vibe", "Been there"];
 
-type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | null;
+// The Tweak sheet. Ids match TWEAKS on the server.
+const TWEAK_OPTIONS = [
+  { id: "quieter", label: "Somewhere quieter" },
+  { id: "cheaper", label: "Cheaper" },
+  { id: "closer", label: "Closer" },
+  { id: "outdoors", label: "Outdoors" },
+  { id: "open_later", label: "Open later" },
+  { id: "groups", label: "Better for groups" },
+  { id: "kids", label: "Good with kids" },
+];
+
+type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | null;
 
 export default function Picks() {
   const router = useRouter();
@@ -31,6 +43,8 @@ export default function Picks() {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [tweakNote, setTweakNote] = useState("");
+  const [withKids, setWithKids] = useState(false);
   const startX = useRef(0);
 
   useEffect(() => {
@@ -41,6 +55,7 @@ export default function Picks() {
     }
     /* eslint-disable react-hooks/set-state-in-effect -- origin and category are only readable in the browser */
     setOrigin(saved);
+    setWithKids(loadAnswers().who.includes("family_kids"));
     try {
       if (localStorage.getItem(CATEGORY_KEY) === "experiences") setCategory("experiences");
     } catch {
@@ -54,18 +69,25 @@ export default function Picks() {
   const slot = slots[key];
 
   const load = useCallback(
-    async (w: When, c: Category, more = false) => {
+    async (w: When, c: Category, more = false, tweak?: { tweaks: string[]; note?: string; label: string }) => {
       if (!origin) return;
       const k = `${originKey(origin)}|${w}:${c}`;
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], index: 0 } }));
-      const reply = await fetchPicks(c, w, origin, more);
+      const reply = await fetchPicks(c, w, origin, more, tweak && { tweaks: tweak.tweaks, note: tweak.note });
+      const tweakBanner = tweak && reply.picks?.length ? `${tweak.label}: here are ${reply.picks.length} new ones.` : undefined;
       setSlots((s) => ({
         ...s,
-        [k]: { loading: false, picks: reply.picks ?? [], index: 0, banner: reply.banner, notice: reply.notice ?? reply.error },
+        [k]: { loading: false, picks: reply.picks ?? [], index: 0, banner: reply.banner ?? tweakBanner, notice: reply.notice ?? reply.error },
       }));
     },
     [origin],
   );
+
+  function tweak(tweaks: string[], label: string, note?: string) {
+    setSheet(null);
+    setTweakNote("");
+    load(when, category, false, { tweaks, note, label });
+  }
 
   // Each tab and category loads once and then keeps its own progress.
   useEffect(() => {
@@ -311,7 +333,7 @@ export default function Picks() {
         </button>
       </div>
 
-      <button type="button" className={styles.tweak} onClick={() => toast("Tweaks are coming next.")}>
+      <button type="button" className={styles.tweak} onClick={() => setSheet({ type: "tweak" })}>
         <strong>Tweak these</strong>
         <span>quieter, cheaper…</span>
       </button>
@@ -321,8 +343,44 @@ export default function Picks() {
       {sheet && (
         <>
           <div className={styles.dim} onClick={() => setSheet(null)} />
-          <div className={styles.sheet} role="dialog" aria-label={sheet.type === "details" ? sheet.pick.name : "Why not?"}>
-            {sheet.type === "details" ? (
+          <div
+            className={styles.sheet}
+            role="dialog"
+            aria-label={sheet.type === "details" ? sheet.pick.name : sheet.type === "tweak" ? "Tweak these" : "Why not?"}
+          >
+            {sheet.type === "tweak" ? (
+              <>
+                <h2 className={styles.sheetTitle}>
+                  Tweak <strong>these</strong>
+                </h2>
+                <p className={styles.sheetSub}>Pick one and I&apos;ll find 3 new ones.</p>
+                <div className={styles.reasons}>
+                  {TWEAK_OPTIONS.filter((t) => t.id !== "kids" || withKids).map((t) => (
+                    <button key={t.id} type="button" onClick={() => tweak([t.id], t.label)}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <form
+                  className={styles.sayIt}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (tweakNote.trim()) tweak([], `"${tweakNote.trim()}"`, tweakNote.trim());
+                  }}
+                >
+                  <input
+                    value={tweakNote}
+                    onChange={(e) => setTweakNote(e.target.value)}
+                    placeholder='Or say it, e.g. "rooftop with a view"'
+                    aria-label="Say what you want"
+                    maxLength={200}
+                  />
+                  <button type="submit" aria-label="Find 3 new ones" disabled={!tweakNote.trim()}>
+                    ↑
+                  </button>
+                </form>
+              </>
+            ) : sheet.type === "details" ? (
               <Details pick={sheet.pick} onSave={() => save(sheet.pick)} />
             ) : (
               <>
