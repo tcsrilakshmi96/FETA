@@ -1,20 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
-import { CITIES } from "@/lib/cities";
+import { CITIES, distanceKm, type City } from "@/lib/cities";
 import { EMPTY_ANSWERS, type Answers } from "@/lib/onboarding";
 import { placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
+import { cityCalendar, eventPasses, findEvents, findVenue, siteName } from "@/lib/server/events";
 import {
   applyHardFilters,
   FOOD_DRINK_TYPES,
   emptyDrops,
   whyNothing,
+  buildEventPick,
   buildPick,
   chooseWithGemini,
   distanceLimitKm,
   kindOf,
   needsDietCheck,
   searchPhrases,
+  spendUpperBound,
+  tasteSummary,
+  unknownPriceOk,
   takeThree,
   type Candidate,
+  type EventInfo,
   type Category,
   type Pick,
   type StoredPick,
@@ -127,9 +133,18 @@ export async function POST(request: Request) {
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
   const phrase = phrases[todaysSets % phrases.length];
 
-  // Food & drinks: everything near you, alternating most popular and
-  // closest. Experiences: a search phrase from your interests and swipes.
-  let places: Place[];
+  // Experiences also look for this week's events, at the same time.
+  const eventsSearch =
+    body.category === "experiences"
+      ? eventPicks({ taste, body, city, origin, exclude }).catch((error) => {
+          console.error(error);
+          return [] as EventPick[];
+        })
+      : Promise.resolve([] as EventPick[]);
+
+  // Food & drinks: everything near you, most popular first ("Show me 3 more"
+  // skips what was already shown). Experiences: a phrase from your interests.
+  let places: Place[] = [];
   try {
     places =
       body.category === "food_drinks"
@@ -138,7 +153,7 @@ export async function POST(request: Request) {
             lat: origin.lat,
             lng: origin.lng,
             radiusKm: distanceLimitKm(answers),
-            rank: todaysSets % 2 === 0 ? "POPULARITY" : "DISTANCE",
+            rank: "POPULARITY",
             needsDiet,
             regionCode: city.country,
           })
@@ -153,34 +168,41 @@ export async function POST(request: Request) {
           });
   } catch (error) {
     console.error(error);
-    return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
+    if (body.category === "food_drinks") {
+      return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
+    }
   }
-
   const drops = emptyDrops();
   const passed = applyHardFilters(places, { taste, category: body.category, when: body.when, origin, exclude, city }, drops);
   const near = passed.filter((c) => !c.far);
   const pool = (near.length >= 3 ? near : passed).slice(0, 15);
-  if (pool.length === 0) {
+
+  // Rank places while the event search is still running.
+  const ranking =
+    pool.length > 0
+      ? chooseWithGemini({ candidates: pool, taste, city, category: body.category, when: body.when }).catch((error) => {
+          console.error(error);
+          return [] as Awaited<ReturnType<typeof chooseWithGemini>>;
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof chooseWithGemini>>);
+  const [events, ranked] = await Promise.all([eventsSearch, ranking]);
+  if (pool.length === 0 && events.length === 0) {
     console.log("No picks", { category: body.category, when: body.when, phrase, drops });
     return json({ picks: [], notice: whyNothing(drops, answers, body.when) });
   }
 
-  let ranked: Awaited<ReturnType<typeof chooseWithGemini>> = [];
-  try {
-    ranked = await chooseWithGemini({ candidates: pool, taste, city, category: body.category, when: body.when });
-  } catch (error) {
-    console.error(error);
-  }
-  const chosen = takeThree(ranked, pool);
-  if (chosen.length === 0) return json({ picks: [], notice: "Couldn't choose picks just now. Try again in a minute." }, 502);
+  // Up to 2 events first, then places to make 3.
+  const chosen = takeThree(ranked, pool, 3 - events.length);
+  if (chosen.length === 0 && events.length === 0) return json({ picks: [], notice: "Couldn't choose picks just now. Try again in a minute." }, 502);
 
-  const stored: StoredPick[] = chosen.map(({ candidate, ranked: r }) => ({
+  const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }) => ({
     placeId: candidate.place.id,
     kind: kindOf(candidate.place, body.category),
     verdict: r?.verdict ?? "Good if you're nearby",
     ...(r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
     because: r?.because ?? fallbackBecause(taste),
   }));
+  const stored: StoredPick[] = [...events.map((e) => e.stored), ...placeStored];
   const farCount = chosen.filter((c) => c.candidate.far).length;
   const banner = farCount > 0
     ? `Nothing great right around you ${body.when === "tonight" ? "tonight" : "this weekend"}. ${farCount === 1 ? "Here's 1" : `Here are ${farCount}`} worth a short ride.`
@@ -201,11 +223,13 @@ export async function POST(request: Request) {
   });
 
   try {
-    const picks = await Promise.all(
-      chosen.map(async ({ candidate }, i) =>
-        buildPick(candidate, stored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
+    const today = cityCalendar(city.timeZone).today;
+    const picks = await Promise.all([
+      ...events.map(async (e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue, photo: e.venue ? await firstPhoto(e.venue) : null })),
+      ...chosen.map(async ({ candidate }, i) =>
+        buildPick(candidate, placeStored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
       ),
-    );
+    ]);
     return json({ picks, ...(banner ? { banner } : {}) });
   } catch (error) {
     console.error(error);
@@ -237,17 +261,95 @@ async function showStored(
     needsDiet: boolean;
   },
 ): Promise<Reply> {
-  const live = await Promise.all(stored.map((s) => placeDetails(s.placeId, ctx.needsDiet)));
+  const today = cityCalendar(ctx.city.timeZone).today;
+  const eventStored = stored.filter((s): s is StoredPick & { event: EventInfo } => !!s.event);
+  const placeStored = stored.filter((s) => !s.event);
+  // Events stay while their date is still ahead and they weren't skipped.
+  const eventPicksShown = await Promise.all(
+    eventStored
+      .filter((s) => !ctx.exclude.has(s.placeId) && eventStillOn(s.event, ctx.body.when, ctx.city))
+      .map(async (s) => {
+        const venue = s.event.venuePlaceId ? await placeDetails(s.event.venuePlaceId, false, true) : null;
+        return buildEventPick(s, { taste: ctx.taste, city: ctx.city, today, venue, photo: venue ? await firstPhoto(venue) : null });
+      }),
+  );
+  const live = await Promise.all(placeStored.map((s) => placeDetails(s.placeId, ctx.needsDiet)));
   const places = live.filter((p): p is Place => !!p);
   const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
-  const picks = await Promise.all(
-    stored
+  const placePicks = await Promise.all(
+    placeStored
       .filter((s) => byId.has(s.placeId))
       .map(async (s) => {
         const c = byId.get(s.placeId)!;
         return buildPick(c, s, { taste: ctx.taste, when: ctx.body.when, city: ctx.city, photo: await firstPhoto(c.place) });
       }),
   );
-  return { picks, ...(banner && picks.some((p) => p.distanceKm > distanceLimitKm(ctx.taste.answers)) ? { banner } : {}) };
+  const picks = [...eventPicksShown, ...placePicks];
+  return { picks, ...(banner && placePicks.some((p) => p.distanceKm > distanceLimitKm(ctx.taste.answers)) ? { banner } : {}) };
+}
+
+function eventStillOn(e: EventInfo, when: When, city: City) {
+  return eventPasses({ ...e, minPrice: null, because: "", verdict: "Good if you're nearby" }, { when, timeZone: city.timeZone, maxSpend: null, unknownPriceOk: true });
+}
+
+type EventPick = { stored: StoredPick & { event: EventInfo }; venue: Place | null };
+
+// This week's events near you that pass the hard filters (date, budget,
+// distance via the venue on Google Maps). At most 2 per set.
+async function eventPicks(ctx: {
+  taste: Taste;
+  body: Body;
+  city: City;
+  origin: { lat: number; lng: number };
+  exclude: Set<string>;
+}): Promise<EventPick[]> {
+  const { taste, body, city, origin } = ctx;
+  const limit = distanceLimitKm(taste.answers);
+  const { events, searchHtml } = await findEvents({
+    city,
+    near: nearName(city, body.origin),
+    when: body.when,
+    tasteSummary: tasteSummary(taste, city),
+    distanceKm: limit,
+  });
+  if (!searchHtml) return []; // Google's chip must be shown; without it, no events.
+  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city), unknownPriceOk: unknownPriceOk(taste.answers) };
+  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 4);
+  const withVenues = await Promise.all(fresh.map(async (e) => ({ e, venue: await findVenue(e, city, origin) })));
+  return withVenues
+    .filter(({ venue }) => venue && venue.km <= Math.max(limit * 2, 8))
+    .slice(0, 2)
+    .map(({ e, venue }) => ({
+      venue: venue!.place,
+      stored: {
+        placeId: `event:${e.url}`,
+        kind: "EVENT" as const,
+        verdict: ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(e.verdict) ? e.verdict : "Good if you're nearby",
+        ...(e.verdict === "Skip unless" && e.skipUnless ? { skipUnless: e.skipUnless } : {}),
+        because: e.because?.startsWith("Because you") ? e.because : fallbackBecause(taste),
+        event: {
+          title: e.title,
+          venueName: e.venueName,
+          date: e.date,
+          time: e.time ?? "",
+          priceText: e.priceText ?? "",
+          url: e.url,
+          site: siteName(e.url),
+          searchHtml,
+          venuePlaceId: venue!.place.id,
+          distanceKm: Math.round(venue!.km * 10) / 10,
+        },
+      },
+    }));
+}
+
+// The area name sent to the event search: the chosen area, or the nearest
+// listed neighbourhood. Coordinates are never sent.
+function nearName(city: City, o: Body["origin"]) {
+  if (o.source === "area") return `${o.label}, ${city.name}`;
+  const nearest = (city.areas ?? [])
+    .map((a) => ({ a, km: distanceKm(o, a) }))
+    .sort((x, y) => x.km - y.km)[0];
+  return nearest && nearest.km <= 4 ? `${nearest.a.name}, ${city.name}` : city.name;
 }

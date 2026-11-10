@@ -7,7 +7,7 @@ import type { Place } from "@/lib/server/places";
 
 export type Category = "food_drinks" | "experiences";
 export type When = "tonight" | "weekend";
-export type Kind = "EAT" | "DRINK" | "DO";
+export type Kind = "EAT" | "DRINK" | "DO" | "EVENT";
 export type Verdict = "Worth a detour" | "Good if you're nearby" | "Skip unless";
 
 // What Feta knows about the user, read from the database.
@@ -18,8 +18,24 @@ export type Taste = {
   no: string[];
 };
 
-// Saved per set: place IDs and Feta's own words only.
-export type StoredPick = { placeId: string; kind: Kind; verdict: Verdict; skipUnless?: string; because: string };
+// An event found on the web. Its details come from the event's own listing
+// (not Google Maps), so they can be kept with the set.
+export type EventInfo = {
+  title: string;
+  venueName: string;
+  date: string;
+  time: string;
+  priceText: string;
+  url: string;
+  site: string;
+  searchHtml: string; // Google's Search Suggestions chip, shown unaltered
+  venuePlaceId?: string;
+  distanceKm?: number;
+};
+
+// Saved per set: place IDs and Feta's own words only (plus event listings).
+// For an event, placeId is "event:<its page address>".
+export type StoredPick = { placeId: string; kind: Kind; verdict: Verdict; skipUnless?: string; because: string; event?: EventInfo };
 
 // Sent to the phone for one card.
 export type Pick = StoredPick & {
@@ -27,7 +43,7 @@ export type Pick = StoredPick & {
   area: string;
   distanceKm: number;
   chips: string[];
-  googleLine: string;
+  googleLine: string; // empty for events, which show the Search chip instead
   mapsUri: string;
   directionsUri: string;
   book: { label: string; url: string } | null;
@@ -184,7 +200,11 @@ export function applyHardFilters(
   return out;
 }
 
-function spendUpperBound(answers: Answers, city: City): number | null {
+export function unknownPriceOk(answers: Answers) {
+  return UNKNOWN_PRICE_OK.has(answers.spend ?? "");
+}
+
+export function spendUpperBound(answers: Answers, city: City): number | null {
   const match = /^level_(\d)$/.exec(answers.spend ?? "");
   if (!match || answers.spendCurrency !== city.currency) return null;
   const level = Number(match[1]);
@@ -329,11 +349,11 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
 // Picks 3 in Gemini's order with at most 1 very popular place. Rather than
 // show fewer than 3, it then fills from the rest: Gemini's other choices,
 // then unranked places, and extra popular ones only as a last resort.
-export function takeThree(ranked: Ranked[], candidates: Candidate[]): { candidate: Candidate; ranked: Ranked | null }[] {
+export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean) => {
-    if (chosen.length >= 3 || chosen.some((c) => c.candidate === candidate)) return;
+    if (chosen.length >= count || chosen.some((c) => c.candidate === candidate)) return;
     if (!allowExtraPopular && isPopular(candidate) && chosen.some((c) => isPopular(c.candidate))) return;
     chosen.push({ candidate, ranked: r });
   };
@@ -412,6 +432,42 @@ export function buildPick(
     mapsUri: p.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${p.id}`,
     directionsUri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name)}&destination_place_id=${p.id}`,
     book: booking(stored.kind, p, opts.city),
+    photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
+  };
+}
+
+// ---------- Event cards ----------
+
+function eventWhen(e: EventInfo, today: string) {
+  const day = e.date === today ? "Tonight" : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
+  if (!e.time) return day;
+  const [h, m] = e.time.split(":").map(Number);
+  return `${day} · ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
+}
+
+export function buildEventPick(
+  stored: StoredPick & { event: EventInfo },
+  opts: { taste: Taste; city: City; today: string; venue: Place | null; photo: string | null },
+): Pick {
+  const e = stored.event;
+  const limit = distanceLimitKm(opts.taste.answers);
+  const km = e.distanceKm;
+  const maxSpend = spendUpperBound(opts.taste.answers, opts.city);
+  const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${Math.round(km * 10) / 10} km${km <= limit ? " ✓" : ""}`].filter(Boolean) as string[];
+  const destination = e.venuePlaceId
+    ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
+    : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;
+  const credit = opts.venue?.photos?.[0]?.authorAttributions?.[0];
+  return {
+    ...stored,
+    name: e.title,
+    area: e.venueName,
+    distanceKm: km !== undefined ? Math.round(km * 10) / 10 : 0,
+    chips,
+    googleLine: "",
+    mapsUri: opts.venue?.googleMapsUri ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`,
+    directionsUri: `https://www.google.com/maps/dir/?api=1&${destination}`,
+    book: { label: `Tickets on ${e.site}`, url: e.url },
     photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
   };
 }

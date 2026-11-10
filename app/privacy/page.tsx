@@ -72,8 +72,9 @@ export default function Privacy() {
           <li>Vercel hosts the app.</li>
           <li>Google handles sign-in if you choose it.</li>
           <li>
-            Google Maps finds places near you, and Google&apos;s Gemini AI chooses your 3 picks and writes why. Gemini
-            gets a short summary of your answers and likes, never your name, email or exact location history.
+            Google Maps finds places near you, and Google&apos;s Gemini AI chooses your 3 picks, searches Google for
+            events this week, and writes why. Gemini gets a short summary of your answers and likes and the name of
+            your area, never your name, email or exact location.
           </li>
         </ul>
         <p>When we add another service, we will update this page first.</p>

@@ -293,9 +293,11 @@ export default function Picks() {
         )}
       </div>
 
-      <div className={`${styles.google} ${current ? "" : styles.hidden}`}>
-        {current && <GoogleLine pick={current} />}
-      </div>
+      {current?.event ? (
+        <SearchChip html={current.event.searchHtml} />
+      ) : (
+        <div className={`${styles.google} ${current ? "" : styles.hidden}`}>{current && <GoogleLine pick={current} />}</div>
+      )}
 
       <div className={`${styles.actions} ${current ? "" : styles.hidden}`}>
         <button type="button" aria-label="Not for me" className={`${styles.round} ${styles.skip}`} onClick={() => decide(-1)}>
@@ -347,6 +349,12 @@ export default function Picks() {
   );
 }
 
+// Google's "Search Suggestions" chip for an event found by web search.
+// Google requires it shown unaltered, next to and as wide as the result.
+function SearchChip({ html }: { html: string }) {
+  return <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
 // "Open now · closes 23:30 · checked just now · Google Maps", with the
 // words "Google Maps" linked to the place and never translated.
 function GoogleLine({ pick }: { pick: Pick }) {
@@ -370,10 +378,19 @@ function Details({ pick, onSave }: { pick: Pick; onSave: () => void }) {
       <p className={styles.sheetSub}>
         {pick.kind} · {pick.area} · {pick.distanceKm} km
       </p>
+      {pick.event && (
+        <p className={styles.sheetSub}>
+          {pick.chips[0]} · {pick.event.priceText}
+        </p>
+      )}
       <p className={styles.sheetBecause}>{pick.because}</p>
-      <div className={`${styles.google} ${styles.sheetGoogle}`}>
-        <GoogleLine pick={pick} />
-      </div>
+      {pick.event ? (
+        <SearchChip html={pick.event.searchHtml} />
+      ) : (
+        <div className={`${styles.google} ${styles.sheetGoogle}`}>
+          <GoogleLine pick={pick} />
+        </div>
+      )}
       <div className={styles.sheetActions}>
         {pick.book ? (
           <a className={styles.primaryAction} href={pick.book.url} target="_blank" rel="noopener noreferrer">

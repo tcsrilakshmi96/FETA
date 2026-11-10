@@ -48,8 +48,12 @@ const FIELDS = [
   "photos",
 ];
 
-function fieldMask(prefix: string, needsDiet: boolean) {
-  return [...FIELDS, ...(needsDiet ? ["servesVegetarianFood"] : [])].map((f) => prefix + f).join(",");
+// Cheaper "Pro" fields, enough to find an event's venue.
+const LITE_FIELDS = ["id", "displayName", "location", "addressComponents", "googleMapsUri", "photos"];
+
+function fieldMask(prefix: string, needsDiet: boolean, lite = false) {
+  const fields = lite ? LITE_FIELDS : [...FIELDS, ...(needsDiet ? ["servesVegetarianFood"] : [])];
+  return fields.map((f) => prefix + f).join(",");
 }
 
 function headers(mask: string) {
@@ -68,13 +72,14 @@ export async function searchPlaces(opts: {
   openNow: boolean;
   needsDiet: boolean;
   regionCode: string;
+  lite?: boolean; // just the top match, cheaper fields
 }): Promise<Place[]> {
   const res = await fetch(`${BASE}/places:searchText`, {
     method: "POST",
-    headers: headers(fieldMask("places.", opts.needsDiet)),
+    headers: headers(fieldMask("places.", opts.needsDiet, opts.lite)),
     body: JSON.stringify({
       textQuery: opts.query,
-      pageSize: 20,
+      pageSize: opts.lite ? 1 : 20,
       languageCode: "en",
       regionCode: opts.regionCode,
       openNow: opts.openNow || undefined,
@@ -124,9 +129,9 @@ export async function searchNearby(opts: {
   return data.places ?? [];
 }
 
-export async function placeDetails(id: string, needsDiet: boolean): Promise<Place | null> {
+export async function placeDetails(id: string, needsDiet: boolean, lite = false): Promise<Place | null> {
   const res = await fetch(`${BASE}/places/${encodeURIComponent(id)}?languageCode=en`, {
-    headers: headers(fieldMask("", needsDiet)),
+    headers: headers(fieldMask("", needsDiet, lite)),
   });
   if (!res.ok) return null;
   return (await res.json()) as Place;

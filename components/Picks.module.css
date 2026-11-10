@@ -564,3 +564,10 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+/* Google's Search Suggestions chip (its own styles; full width). */
+.searchChip {
+  margin-top: 8px;
+  width: 100%;
+  overflow-x: auto;
+}
