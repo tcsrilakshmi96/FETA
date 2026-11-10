@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SendToGroup from "@/components/SendToGroup";
 import { fetchNotes, type Pick, type PlaceNotes } from "@/lib/picks-client";
 import styles from "./PickDetails.module.css";
 
@@ -20,9 +21,6 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
     };
   }, [pick]);
 
-  // The shared link opens Feta's page for the place (never diet or chips).
-  const link = pick.event ? pick.event.url : `${window.location.origin}/p/${encodeURIComponent(pick.placeId)}`;
-  const share = `https://wa.me/?text=${encodeURIComponent(`${pick.name}, ${pick.area}. Picked for me by Feta.\n${link}`)}`;
   const verdict = pick.verdict === "Skip unless" ? `Skip unless ${pick.skipUnless ?? "you're curious"}` : pick.verdict;
 
   return (
@@ -35,6 +33,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
             <img src={pick.photo.uri} alt="" referrerPolicy="no-referrer" />
           )}
           <span className={styles.kind}>{pick.kind}</span>
+          {pick.fetaNote && <span className={styles.fetaBadge}>★ FETA PICK</span>}
           {pick.photo && (
             <span className={styles.credit}>
               Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>
@@ -50,6 +49,12 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
 
         {pick.event ? <SearchChip html={pick.event.searchHtml} /> : <div className={styles.google}><GoogleLine pick={pick} /></div>}
 
+        {pick.fetaNote && (
+          <>
+            <p className={styles.label}>FETA PICK</p>
+            <p className={styles.fetaNote}>“{pick.fetaNote}”</p>
+          </>
+        )}
         <p className={styles.label}>WHY IT&apos;S YOURS</p>
         <p className={styles.because}>{pick.because}</p>
         <div className={styles.chips}>
@@ -115,9 +120,26 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
           <button type="button" onClick={onSave}>
             ♥ Save
           </button>
-          <a href={share} target="_blank" rel="noopener noreferrer" className={styles.wide}>
-            Share to WhatsApp
-          </a>
+        </div>
+        <div className={styles.group}>
+          {/* Shares never include the personal reason (it can mention diet). */}
+          <SendToGroup
+            kind="pick"
+            message={`${pick.name}, ${pick.area}. Picked by Feta.`}
+            payload={{
+              title: pick.event ? pick.chips[0] ?? "Soon" : "A pick",
+              stops: [
+                {
+                  placeId: pick.placeId,
+                  kind: pick.kind,
+                  ...(pick.fetaNote ? { fetaNote: pick.fetaNote } : {}),
+                  ...(pick.event
+                    ? { event: { title: pick.event.title, venueName: pick.event.venueName, date: pick.event.date, time: pick.event.time, url: pick.event.url, site: pick.event.site } }
+                    : {}),
+                },
+              ],
+            }}
+          />
         </div>
         <button type="button" className={styles.close} onClick={onClose}>
           Close

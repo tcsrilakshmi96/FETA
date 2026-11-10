@@ -74,7 +74,15 @@ export type EventInfo = {
 
 // Saved per set: place IDs and Feta's own words only (plus event listings).
 // For an event, placeId is "event:<its page address>".
-export type StoredPick = { placeId: string; kind: Kind; verdict: Verdict; skipUnless?: string; because: string; event?: EventInfo };
+export type StoredPick = {
+  placeId: string;
+  kind: Kind;
+  verdict: Verdict;
+  skipUnless?: string;
+  because: string;
+  event?: EventInfo;
+  fetaNote?: string; // the founder's own words, for a Feta pick
+};
 
 // Sent to the phone for one card.
 export type Pick = StoredPick & {
@@ -87,6 +95,12 @@ export type Pick = StoredPick & {
   directionsUri: string;
   book: { label: string; url: string } | null;
   photo: { uri: string; credit: string; creditUri?: string } | null;
+  // For Plan my evening: where it is and when it next closes (live, not stored).
+  lat?: number;
+  lng?: number;
+  closesAt?: string;
+  // Weekly hours in the place's local time: [day 0–6, open minutes, close minutes].
+  hours?: [number, number, number][];
 };
 
 // ---------- What to search for ----------
@@ -190,7 +204,8 @@ export const POPULAR_REVIEWS = 3000;
 // Shops, not places to go out to.
 const NEVER_PICKS = ["liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall"];
 
-export type Candidate = { place: Place; km: number; far: boolean };
+// fetaNote: set when this is one of the founder's own places ("Feta pick").
+export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -356,6 +371,7 @@ function describe(c: Candidate, i: number, category: Category) {
     p.priceLevel && `price ${p.priceLevel.replace("PRICE_LEVEL_", "").toLowerCase()}`,
     p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews`,
     (p.userRatingCount ?? 0) >= POPULAR_REVIEWS && "VERY POPULAR",
+    c.fetaNote && `FETA PICK, the founder's own favourite: "${c.fetaNote}"`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -385,13 +401,15 @@ Every place below already fits their diet, budget, distance, drinks and opening 
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
+Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
+
 Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
 - Prefer finds over the obvious: at most 1 place marked VERY POPULAR in the top 3.
 - "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
   - "Worth a detour" is rare: only for an exceptional match to what they told you. At most one place in a set.
-  - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
+  - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence in at most 7 words (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
 - No hype words.`;
 
   const res = await fetch(
@@ -458,7 +476,7 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
 
 // ---------- Building a card ----------
 
-function areaName(place: Place, city: City) {
+export function areaName(place: Place, city: City) {
   const parts = place.addressComponents ?? [];
   // Skip number-only names (block numbers in, say, Tokyo addresses).
   const pick = (type: string) => parts.find((p) => p.types?.includes(type) && !/^[\d\s-]+$/.test(p.longText))?.longText;
@@ -526,7 +544,25 @@ export function buildPick(
     directionsUri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name)}&destination_place_id=${p.id}`,
     book: booking(stored.kind, p, opts.city),
     photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
+    lat: p.location?.latitude,
+    lng: p.location?.longitude,
+    closesAt: p.currentOpeningHours?.nextCloseTime,
+    hours: weeklyHours(p),
   };
+}
+
+// Opening periods as [day, open minute, close minute] (a close after
+// midnight counts as 24:00 + minutes), for checking a planned time.
+function weeklyHours(p: Place): [number, number, number][] | undefined {
+  const periods = p.regularOpeningHours?.periods;
+  if (!periods?.length) return undefined;
+  return periods.map((pe) => {
+    const open = (pe.open.hour ?? 0) * 60 + (pe.open.minute ?? 0);
+    if (!pe.close) return [pe.open.day, 0, 24 * 60 * 7] as [number, number, number]; // open all the time
+    let close = (pe.close.hour ?? 0) * 60 + (pe.close.minute ?? 0);
+    if (pe.close.day !== pe.open.day) close += 24 * 60;
+    return [pe.open.day, open, close] as [number, number, number];
+  });
 }
 
 // ---------- Event cards ----------
@@ -562,5 +598,20 @@ export function buildEventPick(
     directionsUri: `https://www.google.com/maps/dir/?api=1&${destination}`,
     book: { label: `Tickets on ${e.site}`, url: e.url },
     photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
+    lat: opts.venue?.location?.latitude,
+    lng: opts.venue?.location?.longitude,
   };
+}
+
+// ---------- Honest verdicts ----------
+
+// The weakest pick in a set gets "Skip unless…" when there is a real,
+// checkable compromise, worded from facts rather than left to the AI.
+export function compromiseFor(c: Candidate, taste: Taste, when: When, city: City): string | null {
+  const limit = distanceLimitKm(taste.answers);
+  const close = c.place.currentOpeningHours?.nextCloseTime;
+  if (when === "tonight" && close && new Date(close).getTime() - Date.now() < 75 * 60000) return "you can get there in the next hour";
+  if (c.far || c.km > limit * 0.7) return `you're already near ${areaName(c.place, city)}`;
+  if ((c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS) return "you don't mind a crowd";
+  return null;
 }

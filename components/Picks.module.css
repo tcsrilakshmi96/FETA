@@ -436,9 +436,29 @@
   font-size: 14.5px;
 }
 
+.bottomRow {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.planBtn {
+  height: 42px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: transform 0.2s var(--ease-press);
+}
+
+.planBtn:active {
+  transform: scale(0.96);
+}
+
 .tweak {
   height: 42px;
-  margin-top: 10px;
   border-radius: 99px;
   background: rgba(var(--surf), 0.75);
   display: flex;
@@ -627,4 +647,26 @@
 
 .sayIt button:disabled {
   opacity: 0.5;
+}
+
+/* The founder's own places. */
+.fetaBadge {
+  position: absolute;
+  left: 14px;
+  top: 48px;
+  padding: 6px 11px;
+  border-radius: 99px;
+  background: var(--saffron);
+  color: var(--inkFixed);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.fetaNote {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.35;
+  font-style: italic;
+  color: #ffe2a3;
 }

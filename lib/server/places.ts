@@ -15,7 +15,9 @@ export type Place = {
   rating?: number;
   userRatingCount?: number;
   currentOpeningHours?: { openNow?: boolean; nextCloseTime?: string; nextOpenTime?: string };
-  regularOpeningHours?: { periods?: { open: { day: number } }[] };
+  regularOpeningHours?: {
+    periods?: { open: { day: number; hour?: number; minute?: number }; close?: { day: number; hour?: number; minute?: number } }[];
+  };
   businessStatus?: string;
   servesVegetarianFood?: boolean;
   addressComponents?: { longText: string; shortText?: string; types?: string[] }[];
@@ -72,14 +74,15 @@ export async function searchPlaces(opts: {
   openNow: boolean;
   needsDiet: boolean;
   regionCode: string;
-  lite?: boolean; // just the top match, cheaper fields
+  lite?: boolean; // cheaper fields, top match only unless count is given
+  count?: number;
 }): Promise<Place[]> {
   const res = await fetch(`${BASE}/places:searchText`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet, opts.lite)),
     body: JSON.stringify({
       textQuery: opts.query,
-      pageSize: opts.lite ? 1 : 20,
+      pageSize: opts.count ?? (opts.lite ? 1 : 20),
       languageCode: "en",
       regionCode: opts.regionCode,
       openNow: opts.openNow || undefined,

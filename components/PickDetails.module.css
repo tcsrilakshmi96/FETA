@@ -225,3 +225,30 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+.fetaBadge {
+  position: absolute;
+  left: 14px;
+  top: 48px;
+  padding: 6px 11px;
+  border-radius: 99px;
+  background: var(--saffron);
+  color: var(--inkFixed);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.fetaNote {
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 176, 32, 0.16);
+  font-size: 14.5px;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+.group {
+  margin-top: 8px;
+}

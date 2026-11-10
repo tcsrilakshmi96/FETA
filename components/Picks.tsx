@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PickDetails, { GoogleLine, SearchChip } from "@/components/PickDetails";
+import PlanSheet from "@/components/PlanSheet";
+import { planEvening } from "@/lib/plan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import { savePickAction, saveTweakLines } from "@/lib/db";
@@ -32,7 +34,7 @@ const TWEAK_OPTIONS = [
   { id: "kids", label: "Good with kids" },
 ];
 
-type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | null;
+type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | { type: "plan" } | null;
 
 export default function Picks() {
   const router = useRouter();
@@ -97,14 +99,18 @@ export default function Picks() {
     if (origin && !slots[key]) load(when, category);
   }, [origin, key, slots, load, when, category]);
 
-  // Once this category has loaded, quietly load the other one for the same
-  // tab, so switching is instant (Experiences can take 10–20 s to search).
+  // Load the other category for the same tab at the same time, quietly, so
+  // switching is instant (Experiences can take 10–15 s on a first search).
   const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
   const otherKey = `${origin ? originKey(origin) : ""}|${when}:${other}`;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
-    if (origin && slots[key] && !slots[key].loading && !slots[otherKey]) load(when, other);
+    if (origin && slots[key] && !slots[otherKey]) load(when, other);
   }, [origin, key, otherKey, slots, load, when, other]);
+
+  // Both categories for this tab, for Plan my evening.
+  const foodSlot = slots[`${origin ? originKey(origin) : ""}|${when}:food_drinks`];
+  const expSlot = slots[`${origin ? originKey(origin) : ""}|${when}:experiences`];
 
   const city = origin ? cityById(origin.cityId) : null;
   if (!origin || !city) return null;
@@ -260,6 +266,7 @@ export default function Picks() {
                     </>
                   )}
                   <span className={styles.kind}>{pick.kind}</span>
+                  {pick.fetaNote && <span className={styles.fetaBadge}>★ FETA PICK</span>}
                   {pick.photo && (
                     <span className={styles.credit}>
                       Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>
@@ -286,6 +293,7 @@ export default function Picks() {
                       </span>
                     </div>
                     <p className={styles.because}>{pick.because}</p>
+                    {pick.fetaNote && <p className={styles.fetaNote}>“{pick.fetaNote}”</p>}
                     <div className={styles.chips}>
                       {pick.chips.map((chip) => (
                         <span key={chip}>{chip}</span>
@@ -344,16 +352,29 @@ export default function Picks() {
         </button>
       </div>
 
-      <button type="button" className={styles.tweak} onClick={() => setSheet({ type: "tweak" })}>
-        <strong>Tweak these</strong>
-        <span>quieter, cheaper…</span>
-      </button>
+      <div className={styles.bottomRow}>
+        <button type="button" className={styles.planBtn} onClick={() => setSheet({ type: "plan" })}>
+          ✦ Plan my evening
+        </button>
+        <button type="button" className={styles.tweak} onClick={() => setSheet({ type: "tweak" })}>
+          <strong>Tweak these</strong>
+        </button>
+      </div>
 
       <TabBar active="picks" />
 
       {sheet?.type === "details" && <PickDetails pick={sheet.pick} onClose={() => setSheet(null)} onSave={() => save(sheet.pick)} />}
 
-      {sheet && sheet.type !== "details" && (
+      {sheet?.type === "plan" && (
+        <PlanSheet
+          when={when}
+          loading={!foodSlot || foodSlot.loading || !expSlot || expSlot.loading}
+          plan={foodSlot && expSlot && !foodSlot.loading && !expSlot.loading ? planEvening(foodSlot.picks, expSlot.picks, when) : null}
+          onClose={() => setSheet(null)}
+        />
+      )}
+
+      {sheet && sheet.type !== "details" && sheet.type !== "plan" && (
         <>
           <div className={styles.dim} onClick={() => setSheet(null)} />
           <div

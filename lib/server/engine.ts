@@ -4,13 +4,15 @@ import { CITIES, distanceKm, type City } from "@/lib/cities";
 import type { Currency } from "@/lib/currency";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { bestPhoto, placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
-import { cityCalendar, eventPasses, findEvents, findVenue, siteName } from "@/lib/server/events";
+import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyHardFilters,
   FOOD_DRINK_TYPES,
   emptyDrops,
   whyNothing,
   buildEventPick,
+  compromiseFor,
   buildPick,
   chooseWithGemini,
   distanceLimitKm,
@@ -143,7 +145,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // Experiences also look for this week's events, at the same time.
   const eventsSearch =
     body.category === "experiences" && need > 1 && !body.trip && !body.origin.place
-      ? eventPicks({ taste: effective, body, city, origin, exclude }).catch((error) => {
+      ? eventPicks({ db, taste: effective, body, city, origin, exclude }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
         })
@@ -161,6 +163,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     pool = [];
   }
 
+  // The founder's own places ("Feta picks") that pass the same hard filters.
+  const feta = await fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet }).catch((error) => {
+    console.error(error);
+    return [] as Candidate[];
+  });
+  pool = [...feta, ...pool.filter((c) => !feta.some((f) => f.place.id === c.place.id))].slice(0, 16);
+
   // Rank places while the event search is still running.
   const ranking =
     pool.length > 0
@@ -177,15 +186,28 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when) });
   }
 
-  // Up to 2 events first, then places to make 3.
+  // Up to 2 events first, then places to make 3. A Feta pick that passed
+  // the hard filters always gets a place in the set.
   const chosen = takeThree(ranked, pool, need - events.length);
-  const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }) => ({
-    placeId: candidate.place.id,
-    kind: kindOf(candidate.place, body.category),
-    verdict: r?.verdict ?? "Good if you're nearby",
-    ...(r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-    because: r?.because ?? fallbackBecause(taste),
-  }));
+  const fetaInPool = pool.filter((c) => c.fetaNote);
+  if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote) && need - events.length > 0) {
+    const best = ranked.map((r) => pool[r.index]).find((c) => c?.fetaNote) ?? fetaInPool[0];
+    const slot = Math.min(chosen.length, need - events.length - 1);
+    chosen.splice(slot, chosen.length > slot ? 1 : 0, { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null });
+  }
+  const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }, i) => {
+    // The last pick of a full set says "Skip unless…" when there is a real compromise.
+    const weakest = i === chosen.length - 1 && kept.picks.length + events.length + chosen.length >= 3 && r?.verdict !== "Worth a detour";
+    const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
+    return {
+      placeId: candidate.place.id,
+      kind: kindOf(candidate.place, body.category),
+      verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
+      ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
+      because: r?.because ?? fallbackBecause(taste),
+      ...(candidate.fetaNote ? { fetaNote: candidate.fetaNote } : {}),
+    };
+  });
   // One "Worth a detour" per set at most, across events and places.
   let detours = kept.stored.filter((p) => p.verdict === "Worth a detour").length;
   const capped = (p: StoredPick): StoredPick => (p.verdict === "Worth a detour" && detours++ > 0 ? { ...p, verdict: "Good if you're nearby" } : p);
@@ -346,36 +368,58 @@ type EventPick = { stored: StoredPick & { event: EventInfo }; venue: Place | nul
 // This week's events near you that pass the hard filters (date, budget,
 // distance via the venue on Google Maps). At most 2 per set.
 async function eventPicks(ctx: {
+  db: SupabaseClient;
   taste: Taste;
   body: Body;
   city: City;
   origin: { lat: number; lng: number };
   exclude: Set<string>;
 }): Promise<EventPick[]> {
-  const { taste, body, city, origin } = ctx;
+  const { db, taste, body, city, origin } = ctx;
   const limit = distanceLimitKm(taste.answers);
-  const { events, searchHtml } = await findEvents({
-    city,
-    near: nearName(city, body.origin),
-    when: body.when,
-    tasteSummary: tasteSummary(taste, city),
-    distanceKm: limit,
-  });
+  const near = nearName(city, body.origin);
+
+  // This area's events are shared by everyone for a few hours, so only the
+  // first person waits for the web search.
+  const cal = cityCalendar(city.timeZone);
+  const cacheKey = [city.id, near, body.when, body.when === "tonight" ? cal.today : cal.weekend.join("+")].join("|");
+  const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", cacheKey).maybeSingle();
+  let events: FoundEvent[];
+  let searchHtml: string;
+  if (cached) {
+    events = cached.events as FoundEvent[];
+    searchHtml = cached.search_html;
+  } else {
+    ({ events, searchHtml } = await findEvents({ city, near, when: body.when, distanceKm: limit }));
+    if (searchHtml && events.length > 0) {
+      const hours = body.when === "tonight" ? 3 : 12;
+      await db.from("events_cache").upsert({
+        key: cacheKey,
+        events,
+        search_html: searchHtml,
+        expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+      });
+    }
+  }
   if (!searchHtml) return []; // Google's chip must be shown; without it, no events.
+
   const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city), unknownPriceOk: unknownPriceOk(taste.answers) };
-  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 4);
-  const withVenues = await Promise.all(fresh.map(async (e) => ({ e, venue: await findVenue(e, city, origin) })));
-  return withVenues
-    .filter(({ venue }) => venue && venue.km <= Math.max(limit * 2, 8))
-    .slice(0, 2)
-    .map(({ e, venue }) => ({
+  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 6);
+  const withVenues = (await Promise.all(fresh.map(async (e) => ({ e, venue: await findVenue(e, city, origin) })))).filter(
+    ({ venue }) => venue && venue.km <= Math.max(limit * 2, 8),
+  );
+  // Which of these suit this person, and why (no search, about 2 s).
+  const chosen = await personalizeEvents(withVenues.map((w) => w.e), tasteSummary(taste, city), body.when).catch(() => []);
+  return chosen
+    .map((c) => ({ ...withVenues[c.index], c }))
+    .map(({ e, venue, c }) => ({
       venue: venue!.place,
       stored: {
         placeId: `event:${e.url}`,
         kind: "EVENT" as const,
-        verdict: ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(e.verdict) ? e.verdict : "Good if you're nearby",
-        ...(e.verdict === "Skip unless" && e.skipUnless ? { skipUnless: e.skipUnless } : {}),
-        because: e.because?.startsWith("Because you") ? e.because : fallbackBecause(taste),
+        verdict: c.verdict && ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(c.verdict) ? c.verdict : "Good if you're nearby",
+        ...(c.verdict === "Skip unless" && c.skipUnless ? { skipUnless: c.skipUnless } : {}),
+        because: c.because?.startsWith("Because you") ? c.because : fallbackBecause(taste),
         event: {
           title: e.title,
           venueName: e.venueName,
@@ -430,4 +474,37 @@ function resolveCity(o: Body["origin"] | undefined): City | null {
     lng: o.lng,
     covered: true,
   };
+}
+
+// The founder's places in this city for this category, checked live against
+// the person's hard filters. Only place IDs and her notes are stored.
+async function fetaCandidates(ctx: {
+  db: SupabaseClient;
+  taste: Taste;
+  body: Body;
+  city: City;
+  origin: { lat: number; lng: number };
+  exclude: Set<string>;
+  needsDiet: boolean;
+}): Promise<Candidate[]> {
+  const kinds = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
+  const { data, error } = await ctx.db
+    .from("founder_places")
+    .select("place_id, note")
+    .eq("city_id", ctx.city.id)
+    .eq("active", true)
+    .in("kind", kinds)
+    .limit(12);
+  if (error || !data?.length) return [];
+  const places = (await Promise.all(data.map((f) => placeDetails(f.place_id, ctx.needsDiet)))).filter((p): p is Place => !!p);
+  const passed = applyHardFilters(places, {
+    taste: ctx.taste,
+    category: ctx.body.category,
+    when: ctx.body.when,
+    origin: ctx.origin,
+    exclude: ctx.exclude,
+    city: ctx.city,
+  });
+  const notes = new Map(data.map((f) => [f.place_id, f.note as string]));
+  return passed.filter((c) => !c.far).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }));
 }
