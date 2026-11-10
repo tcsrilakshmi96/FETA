@@ -19,7 +19,12 @@ import {
   tasteSummary,
   unknownPriceOk,
   takeThree,
+  applyTweaks,
+  foodPhrases,
+  TWEAKS,
   type Candidate,
+  type DropCounts,
+  type Tweak,
   type EventInfo,
   type Category,
   type Pick,
@@ -39,6 +44,8 @@ type Body = {
   when: When;
   origin: { lat: number; lng: number; label: string; source: "gps" | "area" | "city"; cityId: string };
   more?: boolean; // "Show me 3 more"
+  tweaks?: string[]; // from the Tweak sheet
+  note?: string; // free text from the Tweak sheet
 };
 
 type Reply = { picks: Pick[]; banner?: string; notice?: string };
@@ -106,95 +113,86 @@ export async function POST(request: Request) {
     .limit(20);
   const latest = (recent ?? []).find((s) => s.origin_key === originKey);
 
-  // 1. Reuse recent picks: re-check each place live, show what still passes.
-  if (latest && !body.more && new Date(latest.expires_at) > new Date()) {
-    const reply = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
-    if (reply.picks.length > 0) return json(reply);
+  // Tweaks ("Cheaper", "Closer"…) always search fresh and are kept apart.
+  const tweaks = (body.tweaks ?? []).filter((t) => TWEAKS.includes(t as Tweak)) as Tweak[];
+  const note = (body.note ?? "").slice(0, 200).trim();
+  const tweaked = tweaks.length > 0 || note.length > 0;
+  const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}` : originKey;
+  const effective = applyTweaks(taste, tweaks);
+
+  // 1. Reuse recent picks: re-check each place live. If some have closed,
+  //    top them up to 3 with a fresh search below.
+  let kept: { stored: StoredPick[]; picks: Pick[] } = { stored: [], picks: [] };
+  let keptBanner: string | null = null;
+  if (latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date()) {
+    const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
+    if (shown.picks.length >= 3) return json(shown.reply);
+    kept = shown;
+    keptBanner = latest.banner;
   }
 
   // 2. Daily cost limits.
   const { data: counts } = await db.rpc("pick_searches_today").single<{ everyone: number; mine: number }>();
   if (counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) {
+    if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
     if (latest) {
-      const reply = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
-      if (reply.picks.length > 0) return json({ ...reply, notice: "That's all the new searching for today, so here are your latest picks." });
+      const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
+      if (shown.picks.length > 0) return json({ ...shown.reply, notice: "That's all the new searching for today, so here are your latest picks." });
     }
     return json({ picks: [], notice: "Feta has done all its searching for today. Fresh picks tomorrow morning." });
   }
 
-  // 3. New search. "Show me 3 more" skips anything shown in the last day.
-  if (body.more) {
+  // 3. New search. "Show me 3 more" and tweaks skip anything shown in the
+  //    last day; topping up skips what is already kept.
+  if (body.more || tweaked) {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     for (const set of recent ?? []) {
       if (new Date(set.created_at).getTime() > dayAgo) for (const p of set.picks as StoredPick[]) exclude.add(p.placeId);
     }
   }
-  const phrases = searchPhrases(body.category, taste);
+  for (const k of kept.stored) exclude.add(k.placeId);
+  const need = 3 - kept.picks.length;
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
-  const phrase = phrases[todaysSets % phrases.length];
 
   // Experiences also look for this week's events, at the same time.
   const eventsSearch =
-    body.category === "experiences"
-      ? eventPicks({ taste, body, city, origin, exclude }).catch((error) => {
+    body.category === "experiences" && need > 1
+      ? eventPicks({ taste: effective, body, city, origin, exclude }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
         })
       : Promise.resolve([] as EventPick[]);
 
-  // Food & drinks: everything near you, most popular first ("Show me 3 more"
-  // skips what was already shown). Experiences: a phrase from your interests.
-  let places: Place[] = [];
+  const drops = emptyDrops();
+  let pool: Candidate[];
   try {
-    places =
-      body.category === "food_drinks"
-        ? await searchNearby({
-            types: FOOD_DRINK_TYPES,
-            lat: origin.lat,
-            lng: origin.lng,
-            radiusKm: distanceLimitKm(answers),
-            rank: "POPULARITY",
-            needsDiet,
-            regionCode: city.country,
-          })
-        : await searchPlaces({
-            query: phrase,
-            lat: origin.lat,
-            lng: origin.lng,
-            radiusKm: distanceLimitKm(answers),
-            openNow: body.when === "tonight",
-            needsDiet,
-            regionCode: city.country,
-          });
+    pool = await gatherCandidates({ taste: effective, tweaks, body, city, origin, exclude, needsDiet, need, rotation: todaysSets, drops });
   } catch (error) {
     console.error(error);
-    if (body.category === "food_drinks") {
+    if (body.category === "food_drinks" && kept.picks.length === 0) {
       return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     }
+    pool = [];
   }
-  const drops = emptyDrops();
-  const passed = applyHardFilters(places, { taste, category: body.category, when: body.when, origin, exclude, city }, drops);
-  const near = passed.filter((c) => !c.far);
-  const pool = (near.length >= 3 ? near : passed).slice(0, 15);
 
   // Rank places while the event search is still running.
   const ranking =
     pool.length > 0
-      ? chooseWithGemini({ candidates: pool, taste, city, category: body.category, when: body.when }).catch((error) => {
+      ? chooseWithGemini({ candidates: pool, taste: effective, city, category: body.category, when: body.when, tweaks, note }).catch((error) => {
           console.error(error);
           return [] as Awaited<ReturnType<typeof chooseWithGemini>>;
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof chooseWithGemini>>);
-  const [events, ranked] = await Promise.all([eventsSearch, ranking]);
+  const [allEvents, ranked] = await Promise.all([eventsSearch, ranking]);
+  const events = allEvents.slice(0, Math.min(2, need));
   if (pool.length === 0 && events.length === 0) {
-    console.log("No picks", { category: body.category, when: body.when, phrase, drops });
-    return json({ picks: [], notice: whyNothing(drops, answers, body.when) });
+    if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
+    console.log("No picks", { category: body.category, when: body.when, drops });
+    return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when) });
   }
 
   // Up to 2 events first, then places to make 3.
-  const chosen = takeThree(ranked, pool, 3 - events.length);
-  if (chosen.length === 0 && events.length === 0) return json({ picks: [], notice: "Couldn't choose picks just now. Try again in a minute." }, 502);
-
+  const chosen = takeThree(ranked, pool, need - events.length);
   const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }) => ({
     placeId: candidate.place.id,
     kind: kindOf(candidate.place, body.category),
@@ -202,17 +200,17 @@ export async function POST(request: Request) {
     ...(r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
     because: r?.because ?? fallbackBecause(taste),
   }));
-  const stored: StoredPick[] = [...events.map((e) => e.stored), ...placeStored];
+  const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
   const farCount = chosen.filter((c) => c.candidate.far).length;
   const banner = farCount > 0
     ? `Nothing great right around you ${body.when === "tonight" ? "tonight" : "this weekend"}. ${farCount === 1 ? "Here's 1" : `Here are ${farCount}`} worth a short ride.`
-    : null;
+    : keptBanner;
 
   await db.from("pick_sets").insert({
     user_id: userId,
     category: body.category,
     when_slot: body.when,
-    origin_key: originKey,
+    origin_key: setKey,
     city_id: city.id,
     country: city.country,
     time_zone: city.timeZone,
@@ -224,17 +222,68 @@ export async function POST(request: Request) {
 
   try {
     const today = cityCalendar(city.timeZone).today;
-    const picks = await Promise.all([
+    const fresh = await Promise.all([
       ...events.map(async (e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue, photo: e.venue ? await firstPhoto(e.venue) : null })),
       ...chosen.map(async ({ candidate }, i) =>
         buildPick(candidate, placeStored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
       ),
     ]);
-    return json({ picks, ...(banner ? { banner } : {}) });
+    return json({ picks: [...kept.picks, ...fresh], ...(banner ? { banner } : {}) });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
   }
+}
+
+// Places to choose from. Food & drinks: everything popular nearby plus a
+// search shaped by the user's taste. Experiences: two phrases from their
+// interests. If fewer than needed pass the hard filters, one wider search
+// ("worth a short ride").
+async function gatherCandidates(ctx: {
+  taste: Taste;
+  tweaks: Tweak[];
+  body: Body;
+  city: City;
+  origin: { lat: number; lng: number };
+  exclude: Set<string>;
+  needsDiet: boolean;
+  need: number;
+  rotation: number;
+  drops: DropCounts;
+}): Promise<Candidate[]> {
+  const { taste, body, city, origin } = ctx;
+  const limit = distanceLimitKm(taste.answers);
+  const common = { lat: origin.lat, lng: origin.lng, needsDiet: ctx.needsDiet, regionCode: city.country };
+  const text = (query: string, radiusKm: number) =>
+    searchPlaces({ ...common, query, radiusKm, openNow: body.when === "tonight" });
+  const nearby = (radiusKm: number) => searchNearby({ ...common, types: FOOD_DRINK_TYPES, radiusKm, rank: "POPULARITY" });
+
+  const phrases = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks) : searchPhrases(body.category, taste, ctx.tweaks);
+  const pick = (i: number) => phrases.length ? phrases[(ctx.rotation + i) % phrases.length] : null;
+  const first = pick(0);
+  const second = phrases.length > 1 ? pick(1) : null;
+  const searches: Promise<Place[]>[] =
+    body.category === "food_drinks"
+      ? [nearby(limit), ...(first ? [text(first, limit)] : [])]
+      : [text(first ?? "things to do", limit), ...(second ? [text(second, limit)] : [])];
+  const settled = await Promise.allSettled(searches);
+  if (settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
+  const seen = new Map<string, Place>();
+  const addAll = (list: Place[]) => list.forEach((p) => seen.has(p.id) || seen.set(p.id, p));
+  settled.forEach((r) => r.status === "fulfilled" && addAll(r.value));
+
+  const filter = () => {
+    Object.assign(ctx.drops, emptyDrops());
+    return applyHardFilters([...seen.values()], { taste, category: body.category, when: body.when, origin, exclude: ctx.exclude, city }, ctx.drops);
+  };
+  let passed = filter();
+  if (passed.filter((c) => !c.far).length < ctx.need && limit < 15) {
+    const wider = await (body.category === "food_drinks" ? nearby(limit * 2) : text(first ?? "things to do", limit * 2)).catch(() => [] as Place[]);
+    addAll(wider);
+    passed = filter();
+  }
+  const near = passed.filter((c) => !c.far);
+  return (near.length >= ctx.need ? near : passed).slice(0, 15);
 }
 
 async function firstPhoto(place: Place) {
@@ -260,7 +309,7 @@ async function showStored(
     exclude: Set<string>;
     needsDiet: boolean;
   },
-): Promise<Reply> {
+): Promise<{ picks: Pick[]; stored: StoredPick[]; reply: Reply }> {
   const today = cityCalendar(ctx.city.timeZone).today;
   const eventStored = stored.filter((s): s is StoredPick & { event: EventInfo } => !!s.event);
   const placeStored = stored.filter((s) => !s.event);
@@ -286,7 +335,12 @@ async function showStored(
       }),
   );
   const picks = [...eventPicksShown, ...placePicks];
-  return { picks, ...(banner && placePicks.some((p) => p.distanceKm > distanceLimitKm(ctx.taste.answers)) ? { banner } : {}) };
+  const keptIds = new Set(picks.map((p) => p.placeId));
+  return {
+    picks,
+    stored: stored.filter((s) => keptIds.has(s.placeId)),
+    reply: { picks, ...(banner && placePicks.some((p) => p.distanceKm > distanceLimitKm(ctx.taste.answers)) ? { banner } : {}) },
+  };
 }
 
 function eventStillOn(e: EventInfo, when: When, city: City) {

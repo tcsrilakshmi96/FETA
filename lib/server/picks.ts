@@ -16,6 +16,43 @@ export type Taste = {
   lines: string[]; // profile lines still in use (never trip-only ones)
   yes: string[]; // swipe card ids the user said "Yes, me" to
   no: string[];
+  openLate?: boolean; // the "Open later" tweak
+};
+
+// ---------- Tweaks ----------
+
+export const TWEAKS = ["quieter", "cheaper", "closer", "outdoors", "open_later", "groups", "kids"] as const;
+export type Tweak = (typeof TWEAKS)[number];
+
+export const TWEAK_LABELS: Record<Tweak, string> = {
+  quieter: "Somewhere quieter",
+  cheaper: "Cheaper",
+  closer: "Closer",
+  outdoors: "Outdoors",
+  open_later: "Open later",
+  groups: "Better for groups",
+  kids: "Good with kids",
+};
+
+// Cheaper, Closer and Open later change the hard filters for this search;
+// the rest steer the search words and Gemini's choice.
+export function applyTweaks(taste: Taste, tweaks: Tweak[]): Taste {
+  const answers = { ...taste.answers };
+  if (tweaks.includes("cheaper")) {
+    const level = /^level_(\d)$/.exec(answers.spend ?? "");
+    answers.spend = level ? `level_${Math.max(1, Number(level[1]) - 1)}` : "level_2";
+  }
+  if (tweaks.includes("closer")) {
+    answers.distance = answers.distance === "city" ? "ride_5km" : answers.distance === "ride_5km" ? "walk_2km" : "closer_1km";
+  }
+  return { ...taste, answers, openLate: tweaks.includes("open_later") };
+}
+
+const TWEAK_PHRASES: Partial<Record<Tweak, string>> = {
+  quieter: "quiet cafe",
+  outdoors: "outdoor seating restaurant",
+  groups: "restaurant good for groups",
+  kids: "family friendly restaurant",
 };
 
 // An event found on the web. Its details come from the event's own listing
@@ -61,7 +98,7 @@ export function needsDietCheck(answers: Answers) {
 // Experiences search phrases from the user's interests and swipes. Each new
 // set for the same slot rotates to the next phrase, so "Show me 3 more" feels
 // different. (Food & drinks searches everything nearby instead.)
-export function searchPhrases(category: Category, taste: Taste): string[] {
+export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] = []): string[] {
   const { answers, yes } = taste;
   const drinks = answers.drinks !== "no_alcohol";
   const phrases: string[] = [];
@@ -85,13 +122,33 @@ export function searchPhrases(category: Category, taste: Taste): string[] {
     if (yes.includes("hands_on")) phrases.push("pottery workshop");
     if (yes.includes("night_out_sober")) phrases.push("live music venue");
     if (phrases.length === 0) phrases.push("art gallery", "park", "museum");
+    if (tweaks.includes("outdoors")) phrases.unshift("park");
+    if (tweaks.includes("kids")) phrases.unshift("things to do with kids");
+    if (tweaks.includes("groups")) phrases.unshift("group activity");
+    if (tweaks.includes("quieter")) phrases.unshift("museum");
   }
   return [...new Set(phrases)];
 }
 
+// Food & drinks search words from the user's tweaks and "Yes, me" swipes,
+// searched alongside everything popular nearby. Empty means popular only.
+export function foodPhrases(taste: Taste, tweaks: Tweak[] = []): string[] {
+  const veg = needsDietCheck(taste.answers) ? "vegetarian " : "";
+  const fromTweaks = tweaks.map((t) => TWEAK_PHRASES[t]).filter(Boolean) as string[];
+  const fromSwipes: string[] = [];
+  const yes = taste.yes;
+  if (yes.includes("street_food")) fromSwipes.push(`${veg}street food`);
+  if (yes.includes("spicy_regional")) fromSwipes.push(`${veg}spicy regional food`);
+  if (yes.includes("local_breakfast")) fromSwipes.push(`${veg}local favourite restaurant`);
+  if (yes.includes("quiet_cafe")) fromSwipes.push("quiet cafe");
+  if (yes.includes("night_out") && taste.answers.drinks !== "no_alcohol") fromSwipes.push("cocktail bar");
+  if (yes.includes("night_out_sober")) fromSwipes.push("dessert cafe");
+  return [...new Set([...fromTweaks, ...fromSwipes])];
+}
+
 // ---------- Hard filters, enforced in code ----------
 
-const DISTANCE_KM: Record<string, number> = { walk_2km: 2, ride_5km: 5, city: 15 };
+const DISTANCE_KM: Record<string, number> = { closer_1km: 1, walk_2km: 2, ride_5km: 5, city: 15 };
 
 export function distanceLimitKm(answers: Answers) {
   return DISTANCE_KM[answers.distance ?? ""] ?? 5;
@@ -191,7 +248,11 @@ export function applyHardFilters(
       drop("alcohol");
       continue;
     }
-    if ((opts.when === "tonight" && place.currentOpeningHours?.openNow !== true) || (opts.when === "weekend" && !opensOnWeekend(place))) {
+    if (
+      (opts.when === "tonight" && place.currentOpeningHours?.openNow !== true) ||
+      (opts.when === "weekend" && !opensOnWeekend(place)) ||
+      (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city))
+    ) {
       drop("hours");
       continue;
     }
@@ -209,6 +270,15 @@ export function spendUpperBound(answers: Answers, city: City): number | null {
   if (!match || answers.spendCurrency !== city.currency) return null;
   const level = Number(match[1]);
   return level <= 4 ? SPEND_LEVELS[city.currency][level - 1] : null;
+}
+
+// "Open later": still open at 11 pm tonight.
+function opensLate(place: Place, city: City) {
+  const close = place.currentOpeningHours?.nextCloseTime;
+  if (!close) return false;
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: city.timeZone }).format(new Date(close)));
+  const hoursAway = (new Date(close).getTime() - Date.now()) / 3600000;
+  return hour >= 23 || hour < 5 || hoursAway >= 6;
 }
 
 function opensOnWeekend(place: Place) {
@@ -287,14 +357,17 @@ export async function chooseWithGemini(opts: {
   city: City;
   category: Category;
   when: When;
+  tweaks?: Tweak[];
+  note?: string;
 }): Promise<Ranked[]> {
   const { candidates, category, when, city } = opts;
+  const asked = [...(opts.tweaks ?? []).map((t) => TWEAK_LABELS[t]), ...(opts.note ? [`"${opts.note}"`] : [])];
   const prompt = `You are Feta, a friend with great taste who picks places for one person in ${city.name}, India.
 
 About them:
 ${tasteSummary(opts.taste, city)}
 
-They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${when === "tonight" ? "tonight" : "this weekend"}.
+They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${when === "tonight" ? "tonight" : "this weekend"}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
 Every place below already fits their diet, budget, distance, drinks and opening hours, so choose on taste and fit.
 
 Places:
