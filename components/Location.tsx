@@ -28,8 +28,13 @@ export default function Location() {
       router.replace("/city");
       return;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the city is only readable in the browser
+    // Next.js restores this screen as it was left when you come back to it,
+    // so start fresh each time: no stuck "Finding you…", sheet closed.
+    /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
     setCity(saved);
+    setState("ask");
+    setSheetOpen(false);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [router]);
 
   function switchCity(next: City) {

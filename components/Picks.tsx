@@ -9,6 +9,10 @@ import { cityById, loadOrigin, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
 import styles from "./Picks.module.css";
 
+function originKey(o: Origin) {
+  return `${o.source}:${o.label}:${o.lat.toFixed(3)},${o.lng.toFixed(3)}`;
+}
+
 type Slot = { loading: boolean; picks: Pick[]; index: number; banner?: string; notice?: string };
 
 const CATEGORY_KEY = "feta.category";
@@ -45,13 +49,14 @@ export default function Picks() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [router]);
 
-  const key = `${when}:${category}`;
+  // Picks are kept per place you're searching from, so a new area loads fresh.
+  const key = `${origin ? originKey(origin) : ""}|${when}:${category}`;
   const slot = slots[key];
 
   const load = useCallback(
     async (w: When, c: Category, more = false) => {
       if (!origin) return;
-      const k = `${w}:${c}`;
+      const k = `${originKey(origin)}|${w}:${c}`;
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], index: 0 } }));
       const reply = await fetchPicks(c, w, origin, more);
       setSlots((s) => ({

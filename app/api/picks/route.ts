@@ -1,9 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { CITIES } from "@/lib/cities";
 import { EMPTY_ANSWERS, type Answers } from "@/lib/onboarding";
-import { placeDetails, photoUri, searchPlaces, type Place } from "@/lib/server/places";
+import { placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import {
   applyHardFilters,
+  FOOD_DRINK_TYPES,
+  emptyDrops,
+  whyNothing,
   buildPick,
   chooseWithGemini,
   distanceLimitKm,
@@ -120,31 +123,46 @@ export async function POST(request: Request) {
       if (new Date(set.created_at).getTime() > dayAgo) for (const p of set.picks as StoredPick[]) exclude.add(p.placeId);
     }
   }
-  const phrases = searchPhrases(body.category, body.when, taste);
+  const phrases = searchPhrases(body.category, taste);
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
   const phrase = phrases[todaysSets % phrases.length];
 
+  // Food & drinks: everything near you, alternating most popular and
+  // closest. Experiences: a search phrase from your interests and swipes.
   let places: Place[];
   try {
-    places = await searchPlaces({
-      query: phrase,
-      lat: origin.lat,
-      lng: origin.lng,
-      radiusKm: distanceLimitKm(answers),
-      openNow: body.when === "tonight",
-      needsDiet,
-      regionCode: city.country,
-    });
+    places =
+      body.category === "food_drinks"
+        ? await searchNearby({
+            types: FOOD_DRINK_TYPES,
+            lat: origin.lat,
+            lng: origin.lng,
+            radiusKm: distanceLimitKm(answers),
+            rank: todaysSets % 2 === 0 ? "POPULARITY" : "DISTANCE",
+            needsDiet,
+            regionCode: city.country,
+          })
+        : await searchPlaces({
+            query: phrase,
+            lat: origin.lat,
+            lng: origin.lng,
+            radiusKm: distanceLimitKm(answers),
+            openNow: body.when === "tonight",
+            needsDiet,
+            regionCode: city.country,
+          });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
   }
 
-  const passed = applyHardFilters(places, { taste, category: body.category, when: body.when, origin, exclude, city });
+  const drops = emptyDrops();
+  const passed = applyHardFilters(places, { taste, category: body.category, when: body.when, origin, exclude, city }, drops);
   const near = passed.filter((c) => !c.far);
   const pool = (near.length >= 3 ? near : passed).slice(0, 15);
   if (pool.length === 0) {
-    return json({ picks: [], notice: `Nothing ${body.when === "tonight" ? "open near you right now" : "near you this weekend"} fits everything you told me. Try Tweak these, or a different area.` });
+    console.log("No picks", { category: body.category, when: body.when, phrase, drops });
+    return json({ picks: [], notice: whyNothing(drops, answers, body.when) });
   }
 
   let ranked: Awaited<ReturnType<typeof chooseWithGemini>> = [];
@@ -182,12 +200,17 @@ export async function POST(request: Request) {
     expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString(),
   });
 
-  const picks = await Promise.all(
-    chosen.map(async ({ candidate }, i) =>
-      buildPick(candidate, stored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
-    ),
-  );
-  return json({ picks, ...(banner ? { banner } : {}) });
+  try {
+    const picks = await Promise.all(
+      chosen.map(async ({ candidate }, i) =>
+        buildPick(candidate, stored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
+      ),
+    );
+    return json({ picks, ...(banner ? { banner } : {}) });
+  } catch (error) {
+    console.error(error);
+    return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
+  }
 }
 
 async function firstPhoto(place: Place) {

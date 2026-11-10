@@ -18,7 +18,7 @@ export type Place = {
   regularOpeningHours?: { periods?: { open: { day: number } }[] };
   businessStatus?: string;
   servesVegetarianFood?: boolean;
-  addressComponents?: { longText: string; types: string[] }[];
+  addressComponents?: { longText: string; types?: string[] }[];
   googleMapsUri?: string;
   websiteUri?: string;
   photos?: { name: string; authorAttributions?: { displayName: string; uri?: string }[] }[];
@@ -87,6 +87,39 @@ export async function searchPlaces(opts: {
     }),
   });
   if (!res.ok) throw new Error(`Places search failed: ${res.status} ${await res.text()}`);
+  const data = (await res.json()) as { places?: Place[] };
+  return data.places ?? [];
+}
+
+// Every place of the given types within the radius (up to 20), ranked by
+// popularity or by distance. Used for Food & drinks: "what's near me".
+export async function searchNearby(opts: {
+  types: string[];
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  rank: "POPULARITY" | "DISTANCE";
+  needsDiet: boolean;
+  regionCode: string;
+}): Promise<Place[]> {
+  const res = await fetch(`${BASE}/places:searchNearby`, {
+    method: "POST",
+    headers: headers(fieldMask("places.", opts.needsDiet)),
+    body: JSON.stringify({
+      includedTypes: opts.types,
+      maxResultCount: 20,
+      rankPreference: opts.rank,
+      languageCode: "en",
+      regionCode: opts.regionCode,
+      locationRestriction: {
+        circle: {
+          center: { latitude: opts.lat, longitude: opts.lng },
+          radius: Math.min(opts.radiusKm * 1000, 50000),
+        },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`Places nearby search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
   return data.places ?? [];
 }

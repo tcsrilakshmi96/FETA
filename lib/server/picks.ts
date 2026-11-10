@@ -42,20 +42,15 @@ export function needsDietCheck(answers: Answers) {
   return VEG_DIETS.includes(answers.diet ?? "");
 }
 
-// Search phrases from the user's swipes and interests. Each new set for the
-// same slot rotates to the next phrase, so "Show me 3 more" feels different.
-export function searchPhrases(category: Category, when: When, taste: Taste): string[] {
+// Experiences search phrases from the user's interests and swipes. Each new
+// set for the same slot rotates to the next phrase, so "Show me 3 more" feels
+// different. (Food & drinks searches everything nearby instead.)
+export function searchPhrases(category: Category, taste: Taste): string[] {
   const { answers, yes } = taste;
   const drinks = answers.drinks !== "no_alcohol";
   const phrases: string[] = [];
   if (category === "food_drinks") {
-    const veg = needsDietCheck(answers) ? "vegetarian " : "";
-    if (yes.includes("street_food")) phrases.push(`${veg}street food`);
-    if (yes.includes("spicy_regional")) phrases.push(`${veg}spicy regional food restaurant`);
-    if (yes.includes("local_breakfast")) phrases.push(when === "weekend" ? `${veg}breakfast` : `${veg}authentic local restaurant`);
-    if (yes.includes("quiet_cafe")) phrases.push("quiet cafe");
-    if (yes.includes("night_out") && drinks) phrases.push("cocktail bar");
-    phrases.push(when === "tonight" ? `${veg}restaurant for dinner` : `${veg}restaurant`);
+    phrases.push("everything nearby");
   } else {
     const map: Record<string, string> = {
       live_music: "live music venue",
@@ -103,9 +98,29 @@ const MAX_PRICE_LEVEL: Record<string, number> = { level_1: 1, level_2: 1, level_
 const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery"];
 const DRINK_TYPES = [...ALCOHOL_TYPES, "cafe", "coffee_shop", "tea_house", "juice_shop"];
 
+// Everything Food & drinks searches for: all of it, near you.
+export const FOOD_DRINK_TYPES = [
+  "restaurant", "cafe", "coffee_shop", "bakery", "tea_house", "juice_shop",
+  "dessert_shop", "ice_cream_shop", "bar", "pub", "wine_bar", "cocktail_bar",
+];
+
+// Experiences never show a place that is mainly for eating or drinking
+// (nightclubs still count as an experience).
+function isMainlyFoodOrDrink(place: Place) {
+  const t = place.primaryType ?? "";
+  return t.endsWith("_restaurant") || FOOD_DRINK_TYPES.includes(t) || ["food_court", "meal_takeaway"].includes(t);
+}
+
 export const POPULAR_REVIEWS = 3000;
 
 export type Candidate = { place: Place; km: number; far: boolean };
+
+// How many places each hard filter removed, to explain an empty result.
+export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
+
+export function emptyDrops(): DropCounts {
+  return { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 };
+}
 
 // Returns places that pass every hard filter. Unknown price passes only for
 // spend levels 1–3 (up to ₹1,500 in India): small places with no price on
@@ -114,6 +129,7 @@ export type Candidate = { place: Place; km: number; far: boolean };
 export function applyHardFilters(
   places: Place[],
   opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City },
+  drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
   const limit = distanceLimitKm(answers);
@@ -121,22 +137,48 @@ export function applyHardFilters(
   const maxSpend = spendUpperBound(answers, opts.city);
   const out: Candidate[] = [];
   for (const place of places) {
-    if (opts.exclude.has(place.id)) continue;
-    if (place.businessStatus && place.businessStatus !== "OPERATIONAL") continue;
-    if (!place.location) continue;
+    drops.seen++;
+    const drop = (why: keyof DropCounts) => {
+      drops[why]++;
+    };
+    if (
+      opts.exclude.has(place.id) ||
+      !place.location ||
+      (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
+      (opts.category === "experiences" && isMainlyFoodOrDrink(place))
+    ) {
+      drop("other");
+      continue;
+    }
     const km = distanceKm(opts.origin, { lat: place.location.latitude, lng: place.location.longitude });
     // Up to twice the limit is kept aside for the "worth a short ride" case.
-    if (km > limit * 2 || (limit >= 15 && km > limit)) continue;
+    if (km > limit * 2 || (limit >= 15 && km > limit)) {
+      drop("far");
+      continue;
+    }
     const level = PRICE_LEVELS[place.priceLevel ?? ""];
-    if (level !== undefined && level > maxPrice) continue;
-    if (level === undefined && !place.priceRange && !UNKNOWN_PRICE_OK.has(answers.spend ?? "")) continue;
     const start = Number(place.priceRange?.startPrice?.units);
-    if (maxSpend !== null && place.priceRange?.startPrice?.currencyCode === opts.city.currency && start > maxSpend) continue;
+    if (
+      (level !== undefined && level > maxPrice) ||
+      (level === undefined && !place.priceRange && !UNKNOWN_PRICE_OK.has(answers.spend ?? "")) ||
+      (maxSpend !== null && place.priceRange?.startPrice?.currencyCode === opts.city.currency && start > maxSpend)
+    ) {
+      drop("price");
+      continue;
+    }
     // Diet applies to food and drinks only (Google has no diet data for, say, a park).
-    if (opts.category === "food_drinks" && needsDietCheck(answers) && place.servesVegetarianFood !== true) continue;
-    if (answers.drinks === "no_alcohol" && place.types?.some((t) => ALCOHOL_TYPES.includes(t))) continue;
-    if (opts.when === "tonight" && place.currentOpeningHours?.openNow !== true) continue;
-    if (opts.when === "weekend" && !opensOnWeekend(place)) continue;
+    if (opts.category === "food_drinks" && needsDietCheck(answers) && place.servesVegetarianFood !== true) {
+      drop("diet");
+      continue;
+    }
+    if (answers.drinks === "no_alcohol" && place.types?.some((t) => ALCOHOL_TYPES.includes(t))) {
+      drop("alcohol");
+      continue;
+    }
+    if ((opts.when === "tonight" && place.currentOpeningHours?.openNow !== true) || (opts.when === "weekend" && !opensOnWeekend(place))) {
+      drop("hours");
+      continue;
+    }
     out.push({ place, km, far: km > limit });
   }
   return out;
@@ -157,6 +199,24 @@ function opensOnWeekend(place: Place) {
 export function kindOf(place: Place, category: Category): Kind {
   if (category === "experiences") return "DO";
   return place.types?.some((t) => DRINK_TYPES.includes(t)) ? "DRINK" : "EAT";
+}
+
+// A plain explanation of an empty result, from the filter that removed most.
+export function whyNothing(drops: DropCounts, answers: Answers, when: When): string {
+  const tail = when === "tonight" ? "Try This weekend, a different area, or Show me 3 more." : "Try a different area, or Show me 3 more.";
+  if (drops.seen === 0) return `Google Maps didn't find anything like this near you. ${tail}`;
+  const [top] = (["far", "price", "diet", "hours", "alcohol"] as const)
+    .map((k) => [k, drops[k]] as const)
+    .sort((a, b) => b[1] - a[1]);
+  const limit = distanceLimitKm(answers);
+  const reasons: Record<string, string> = {
+    far: `The places that fit you are more than ${limit * 2} km away.`,
+    price: "The places near you are above your usual spend.",
+    diet: "Nothing near you is confirmed by Google to serve vegetarian food.",
+    hours: when === "tonight" ? "The places that fit you nearby are closed right now." : "The places that fit you nearby aren't open at the weekend.",
+    alcohol: "The places near you are mostly bars, and you said no alcohol.",
+  };
+  return `${top[1] > 0 ? reasons[top[0]] : "Everything near you was already saved or skipped."} ${tail}`;
 }
 
 // ---------- Gemini chooses and explains ----------
@@ -220,7 +280,7 @@ Every place below already fits their diet, budget, distance, drinks and opening 
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
-Rank the best 5 for them, best first. Rules:
+Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
 - Prefer finds over the obvious: at most 1 place marked VERY POPULAR in the top 3.
 - "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above. Never say a place is safe for a diet or allergy.
 - "verdict": "Worth a detour" for a great fit even if a bit far, "Good if you're nearby" for a solid fit, "Skip unless" for a weaker fit, with "skipUnless" finishing the sentence (e.g. "you want somewhere loud").
@@ -266,19 +326,22 @@ Rank the best 5 for them, best first. Rules:
   return ranked.filter((r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && all.findIndex((x) => x.index === r.index) === i);
 }
 
-// Keeps Gemini's order but allows at most 1 very popular place in the 3.
-// If Gemini returned too few, fills from the remaining candidates in order.
+// Picks 3 in Gemini's order with at most 1 very popular place. Rather than
+// show fewer than 3, it then fills from the rest: Gemini's other choices,
+// then unranked places, and extra popular ones only as a last resort.
 export function takeThree(ranked: Ranked[], candidates: Candidate[]): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
-  let popular = 0;
-  const tryAdd = (candidate: Candidate, r: Ranked | null) => {
+  const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
+  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean) => {
     if (chosen.length >= 3 || chosen.some((c) => c.candidate === candidate)) return;
-    const isPopular = (candidate.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
-    if (isPopular && popular >= 1) return;
-    if (isPopular) popular++;
+    if (!allowExtraPopular && isPopular(candidate) && chosen.some((c) => isPopular(c.candidate))) return;
     chosen.push({ candidate, ranked: r });
   };
-  for (const r of ranked) tryAdd(candidates[r.index], r);
+  const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;
+  for (const r of ranked) add(candidates[r.index], r, false);
+  for (const c of candidates) add(c, rankedOf(c), false);
+  for (const r of ranked) add(candidates[r.index], r, true);
+  for (const c of candidates) add(c, rankedOf(c), true);
   return chosen;
 }
 
@@ -286,7 +349,7 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[]): { candidat
 
 function areaName(place: Place, city: City) {
   const parts = place.addressComponents ?? [];
-  const pick = (type: string) => parts.find((p) => p.types.includes(type))?.longText;
+  const pick = (type: string) => parts.find((p) => p.types?.includes(type))?.longText;
   return pick("sublocality_level_1") ?? pick("neighborhood") ?? pick("sublocality") ?? pick("locality") ?? city.name;
 }
 
