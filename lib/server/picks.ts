@@ -308,6 +308,10 @@ function chips(c: Candidate, taste: Taste, city: City): string[] {
     if (diet === "jain" || diet === "vegan") out.push("Veg options · not confirmed, check with staff");
     else if (needsDietCheck(taste.answers)) out.push("Veg-friendly ✓");
   }
+  // Google has no halal data, so it is never claimed, only flagged honestly.
+  if (taste.answers.halal && c.place.types?.some((t) => t.includes("restaurant") || t.includes("food") || t === "cafe")) {
+    out.push("Halal · not confirmed, check with staff");
+  }
   const spend = label("spend", taste.answers.spend, city);
   if (spend && taste.answers.spend !== "depends" && c.place.priceLevel) out.push(`${spend} ✓`);
   out.push(`${c.km < 1 ? c.km.toFixed(1) : Math.round(c.km * 10) / 10} km${c.far ? "" : " ✓"}`);
