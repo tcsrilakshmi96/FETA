@@ -94,6 +94,9 @@ const PRICE_LEVELS: Record<string, number> = {
   PRICE_LEVEL_VERY_EXPENSIVE: 4,
 };
 
+// Spend answers that still see places with no price on Google.
+const UNKNOWN_PRICE_OK = new Set(["", "level_1", "level_2", "level_3", "depends"]);
+
 // Highest Google price level (1–4) each spend level allows.
 const MAX_PRICE_LEVEL: Record<string, number> = { level_1: 1, level_2: 1, level_3: 2, level_4: 3, level_5: 4 };
 
@@ -104,9 +107,10 @@ export const POPULAR_REVIEWS = 3000;
 
 export type Candidate = { place: Place; km: number; far: boolean };
 
-// Returns places that pass every hard filter, plus a reason count for
-// debugging. Unknown price passes (many small places have none on Google);
-// unknown diet info fails for vegetarian diets; unknown hours fail.
+// Returns places that pass every hard filter. Unknown price passes only for
+// spend levels 1–3 (up to ₹1,500 in India): small places with no price on
+// Google are usually cheap (founder's decision). Unknown diet info fails for
+// vegetarian diets; unknown hours fail.
 export function applyHardFilters(
   places: Place[],
   opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City },
@@ -125,6 +129,7 @@ export function applyHardFilters(
     if (km > limit * 2 || (limit >= 15 && km > limit)) continue;
     const level = PRICE_LEVELS[place.priceLevel ?? ""];
     if (level !== undefined && level > maxPrice) continue;
+    if (level === undefined && !place.priceRange && !UNKNOWN_PRICE_OK.has(answers.spend ?? "")) continue;
     const start = Number(place.priceRange?.startPrice?.units);
     if (maxSpend !== null && place.priceRange?.startPrice?.currencyCode === opts.city.currency && start > maxSpend) continue;
     // Diet applies to food and drinks only (Google has no diet data for, say, a park).
