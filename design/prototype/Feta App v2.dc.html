@@ -224,10 +224,13 @@ input,textarea{font-family:Outfit,sans-serif}
 <span onClick="{{ cycleCity }}" style="padding:9px 13px;border-radius:99px;background:rgba(var(--inkRGB),.06);font:400 13px Outfit,sans-serif;cursor:pointer">{{ pk.city }} ▾</span>
 </div>
 <div style="position:absolute;left:22px;right:22px;top:100px;display:flex;justify-content:space-between;align-items:baseline">
-<span style="font:300 26px/1 Outfit,sans-serif;letter-spacing:-.04em;white-space:nowrap">{{ pk.title1 }} <span style="font-weight:500">{{ pk.title2 }}</span></span>
+<span style="font:300 24px/1 Outfit,sans-serif;letter-spacing:-.04em;white-space:nowrap">{{ pk.title1 }} <span style="font-weight:500">{{ pk.title2 }}</span></span>
 <span style="display:flex;gap:4px"><sc-for list="{{ pk.dots }}" as="dt" hint-placeholder-count="3"><span style="height:6px;border-radius:3px;transition:width .4s cubic-bezier(.3,1.4,.5,1),background .3s;width:{{ dt.w }};background:{{ dt.bg }}"></span></sc-for></span>
 </div>
-<div style="position:absolute;left:14px;right:14px;top:140px;height:360px">
+<div style="position:absolute;left:22px;right:22px;top:140px;display:flex;gap:6px">
+<sc-for list="{{ pk.cats }}" as="ct" hint-placeholder-count="3"><button onClick="{{ ct.go }}" style="height:34px;padding:0 14px;border:none;border-radius:99px;font:500 13px Outfit,sans-serif;cursor:pointer;transition:background .3s,color .3s,transform .2s cubic-bezier(.3,1.6,.5,1);background:{{ ct.bg }};color:{{ ct.fg }}" style-active="transform:scale(.94)">{{ ct.label }}</button></sc-for>
+</div>
+<div style="position:absolute;left:14px;right:14px;top:184px;height:316px">
 <sc-if value="{{ pk.loading }}" hint-placeholder-val="{{ false }}">
 <div style="position:absolute;inset:0;border-radius:30px;background:rgba(var(--surf),.55);display:flex;flex-direction:column;justify-content:flex-end;padding:26px;gap:14px;animation:fa-in .3s ease-out">
 <div style="display:flex;gap:5px"><span style="flex:1;height:3px;border-radius:2px;background:rgba(var(--inkRGB),.1);overflow:hidden"><span style="display:block;height:100%;background:var(--ink);transform-origin:left;animation:fa-bar .5s ease-out forwards"></span></span><span style="flex:1;height:3px;border-radius:2px;background:rgba(var(--inkRGB),.1);overflow:hidden"><span style="display:block;height:100%;background:var(--ink);transform-origin:left;transform:scaleX(0);animation:fa-bar .5s ease-out .45s forwards"></span></span><span style="flex:1;height:3px;border-radius:2px;background:rgba(var(--inkRGB),.1);overflow:hidden"><span style="display:block;height:100%;background:var(--ink);transform-origin:left;transform:scaleX(0);animation:fa-bar .5s ease-out .9s forwards"></span></span></div>
@@ -605,7 +608,7 @@ class Component extends DCLogic {
       si: 0, sdx: 0, sout: {}, yes: [], sumIn: false, removed: {},
       loc: 'ask', tab: 'tonight', city: 'Lisbon', k: 0, pdx: 0, pout: {}, pstate: 'ready', banner: null, saved: {}, signedIn: false, sheet: null, sign: 'phone', codeWrong: false, resent: false, consent: { loc: true, pub: false },
       det: 'normal', detIdx: 0, ltab: 'want', lEmpty: false, chatMsgs: [], typing: false, dest: 'Planning: Lisbon', input: '', chatAdded: [], usedPrompts: {},
-      chatOpen: false, hintSeen: false, tripOnly: {}, dark: false, confirmDel: false, ci: 'ask', ciChoice: null, slots: [0, 0, 0], pub: false, styleOn: false, adm: {}, fbSent: false, shot: true, toast: null };
+      cat: (typeof localStorage !== 'undefined' && localStorage.getItem('feta-cat')) || 'food', catMem: {}, chatOpen: false, hintSeen: false, tripOnly: {}, dark: false, confirmDel: false, ci: 'ask', ciChoice: null, slots: [0, 0, 0], pub: false, styleOn: false, adm: {}, fbSent: false, shot: true, toast: null };
   }
   state = this.fresh();
   d = {}; pd = {};
@@ -635,7 +638,42 @@ class Component extends DCLogic {
       if (dir > 0) this.toastMsg('Saved to Want to try');
     }, 420);
   }
-  deck() { const all = this.PICKS[this.state.tab]; return this.state.pstate === 'nearby' ? all.slice(0, 2) : all; }
+  EXTRA = {
+    tonight: [
+      { kind: 'EAT', name: 'Petisco Bar', area: 'Bairro Alto', dist: '1.0 km', verdict: 'Worth a detour', img: '1414235077428-338989a2e8c0', because: 'Because you said yes to small plates in a buzzy room.', chips: ['Veg-friendly ✓', 'Under $35 ✓', 'Walkable ✓'],
+        reason: 'Counter seats, ten small plates, and a crowd that stays late. Good for sharing with friends.', orderTitle: 'WHAT TO ORDER', order: [['Garlic prawns', 'the one'], ['Padrón peppers', 'start here'], ['Cheese board', 'to share']],
+        reviews: [['A', 'Sit at the counter and let them choose.', 'Ana · went in October']], photos: ['1414235077428-338989a2e8c0'], fav: '7 of 9 loved it', gline: 'Open now · closes 00:00 · checked just now · Google Maps', cta: 'Book a table' },
+      { kind: 'EVENT', name: 'Comedy in the cellar', area: 'Cais do Sodré', dist: '1.6 km', verdict: "Good if you're nearby", img: '1516280440614-37939bbacd81', because: 'Because you picked comedy and go out with friends.', chips: ['Under $15 ✓', 'In English ✓', '21:30 ✓'],
+        reason: 'A small basement room with new comics most nights. Short sets, so a bad one is over fast.', orderTitle: 'HIGHLIGHTS', order: [['Doors', '21:00'], ['Show', '75 min'], ['Seats left', '12']],
+        reviews: [], photos: [], fav: null, gline: 'Open now · checked just now · Google Maps', cta: 'Get tickets', event: true },
+      { kind: 'DO', name: 'Sunset at the miradouro', area: 'Graça', dist: '1.4 km', verdict: 'Worth a detour', img: '1585208798174-6cedd86e019a', because: 'Because you liked views and walking over long rides.', chips: ['Free ✓', 'Walkable ✓', 'Sunset 19:42 ✓'],
+        reason: 'The best free view of the city at golden hour. Take the tram up and walk down for dinner.', orderTitle: 'PLAN', order: [['Tram 28 from', 'Martim Moniz'], ['Sunset', '19:42'], ['Walk down', '15 min']],
+        reviews: [['R', 'Bring a drink from the kiosk and sit on the wall.', 'Rui · went last week']], photos: [], fav: null, gline: 'Open 24 hours · checked just now · Google Maps', cta: 'Directions' }
+    ],
+    weekend: [
+      { kind: 'EAT', name: 'Pastelaria Lumi', area: 'Príncipe Real', dist: '2.0 km', verdict: 'Worth a detour', img: '1509042239860-f550ce710b93', because: 'Because you said yes to coffee and slow mornings.', chips: ['Veg-friendly ✓', 'Under $15 ✓', 'Quiet before 10 ✓'],
+        reason: 'A bright corner bakery with a few window seats. Go early for the warm tarts.', orderTitle: 'WHAT TO ORDER', order: [['Custard tart', 'warm'], ['Flat white', '$3'], ['Go before', '10:00']],
+        reviews: [['L', 'The window seat is worth the wait.', 'Lena · went in September']], photos: [], fav: null, gline: 'Opens Sat 08:00 · checked just now · Google Maps', cta: 'Directions' },
+      { kind: 'DRINK', name: 'Vinha wine bar', area: 'Alfama', dist: '1.3 km', verdict: "Good if you're nearby", img: '1513104890138-7c749659a591', because: 'Because you liked pizza and a glass of wine.', chips: ['Under $30 ✓', 'Walkable ✓', 'Date night ✓'],
+        reason: 'Natural wines by the glass and a small oven in the back. Calm on weekends.', orderTitle: 'WHAT TO ORDER', order: [['House red', '$6'], ['Wood-fired flatbread', 'to share'], ['Best seat', 'by the window']],
+        reviews: [], photos: [], fav: null, gline: 'Opens Sat 17:00 · checked just now · Google Maps', cta: 'Book a table' },
+      { kind: 'DO', name: 'Saturday flea market', area: 'Graça', dist: '1.5 km', verdict: 'Worth a detour', img: '1555939594-58d7cb561ad1', because: 'Because you picked markets and like a slow weekend.', chips: ['Free ✓', 'Sat morning ✓', 'Walkable ✓'],
+        reason: 'Vintage, ceramics and street food in one long square. Best between 9 and 12.', orderTitle: 'PLAN', order: [['Opens', '09:00'], ['Bring', 'cash'], ['Eat at', 'the stalls']],
+        reviews: [], photos: [], fav: null, gline: 'Open Sat 09:00–18:00 · checked just now · Google Maps', cta: 'Directions' }
+    ]
+  };
+  deck() { const st = this.state, pool = [...this.PICKS[st.tab], ...this.EXTRA[st.tab]];
+    const food = k => k === 'EAT' || k === 'DRINK';
+    const all = pool.filter(p => st.cat === 'exp' ? !food(p.kind) : food(p.kind)).slice(0, 3);
+    return st.pstate === 'nearby' ? all.slice(0, 2) : all; }
+  switchCat(cat) {
+    const st = this.state; if (cat === st.cat) return;
+    try { localStorage.setItem('feta-cat', cat); } catch (e) {}
+    const mem = { ...st.catMem, [st.cat + st.tab]: { k: st.k, pout: st.pout, banner: st.banner, pstate: st.pstate === 'loading' ? 'ready' : st.pstate } };
+    const back = mem[cat + st.tab];
+    if (back) { this.pd = {}; this.busy = false; this.setState({ cat, catMem: mem, ...back, pdx: 0, sheet: null }); }
+    else this.loadPicks({ cat, catMem: mem, banner: null }, 1100);
+  }
   sendChat(key, text) {
     if (this.state.typing) return;
     const c = key ? this.CHAT[key] : null;
@@ -667,7 +705,7 @@ class Component extends DCLogic {
         { ...R('6 · Location', () => this.go('location', { loc: 'ask' }), scr === 'location'), states: [Sx('Denied', () => this.go('location', { loc: 'denied' }), st.loc === 'denied' && scr === 'location'), Sx('Not covered', () => this.go('location', { loc: 'notcovered' }), st.loc === 'notcovered' && scr === 'location'), Sx('City picker', () => this.go('location', { loc: 'ask', sheet: 'city', cityStep: 'city' }), false), Sx('Area picker', () => this.go('location', { loc: 'ask', sheet: 'city', cityStep: 'area', cityPick: 'Lisbon', areaPick: 'Alfama' }), false)] }
       ] },
       { title: 'PICKS', items: [
-        { ...R('7 · Picks home', picksTo({ banner: null }, 1300), scr === 'picks'), states: [Sx('Loading', picksTo({ banner: null }, 4000), false), Sx('Nothing nearby', picksTo({ banner: 'nearby' }, 900), false), Sx('All swiped', () => this.go('picks', { pstate: 'ready', banner: null, k: 3, pout: { 0: 1, 1: -1, 2: 1 } }), false)] },
+        { ...R('7 · Picks home', picksTo({ banner: null }, 1300), scr === 'picks'), states: [Sx('Loading', picksTo({ banner: null }, 4000), false), Sx('Experiences', () => { this.go('picks', { pstate: 'ready' }); setTimeout(() => this.switchCat('exp'), 60); }, false), Sx('Nothing nearby', picksTo({ banner: 'nearby' }, 900), false), Sx('All swiped', () => this.go('picks', { pstate: 'ready', banner: null, k: 3, pout: { 0: 1, 1: -1, 2: 1 } }), false)] },
         { ...R('8 · Pick details', () => this.go('details', { det: 'normal', detIdx: 0, tab: 'tonight' }), scr === 'details'), states: [Sx('Closed now', () => this.go('details', { det: 'closed', detIdx: 0, tab: 'tonight' }), false), Sx('Sold out', () => this.go('details', { det: 'sold', detIdx: 2, tab: 'tonight' }), false), Sx('No reviews', () => this.go('details', { det: 'normal', detIdx: 2, tab: 'tonight' }), false)] },
       ] },
       { title: 'YOU', items: [
@@ -728,7 +766,7 @@ class Component extends DCLogic {
         cancel: () => { pd.on = false; this.setState({ pdx: 0 }); } };
     });
     const cur = deck[Math.min(st.k, deck.length - 1)] || deck[0];
-    const dp = this.PICKS[st.tab][st.detIdx] || this.PICKS.tonight[0];
+    const dp = this.deck()[st.detIdx] || this.PICKS.tonight[0];
     const closed = st.det === 'closed', sold = st.det === 'sold';
     const savedRows = [{ name: 'Taberna do Mar', area: 'Alfama · 1.2 km', note: 'Note: get the octopus, sit at the bar.', tag: 'Saved Tue', img: IMG('1559339352-11d035aa65de') }, { name: 'Clay & Coffee', area: 'Marvila · 4.5 km', note: 'Note: book for Mum’s birthday.', tag: 'Saved Sun', img: IMG('1565193566173-7a0ee3dbe261') }, { name: 'Ramen counter', area: 'Shinjuku, Tokyo', note: 'Note: from chat, for the December trip.', tag: 'From chat', img: IMG('1569718212165-3a8278d5f624') }];
     const beenRows = [{ name: 'Topo Terrace', area: 'Chiado · 0.9 km', note: 'Loved it · great vibe', tag: 'Loved it', img: IMG('1470337458703-46ad1756a187') }, { name: 'Market brunch', area: 'Campo de Ourique', note: 'It was fine · too busy', tag: 'It was fine', img: IMG('1488459716781-31db52582fe9') }];
@@ -749,7 +787,7 @@ class Component extends DCLogic {
       swipe: ['Ten swipes', 'Drag right for yes, left for not me, or use ✕ / Not sure / ♥. After the last card you go straight to what it picked up.'],
       summary: ['What I picked up', 'No taste type or label. Your yes photos fly in and stack, then plain lines you can remove. It is a starting point that changes with every outing and chat.'],
       location: ['Location', 'Why we need it, in three lines. States: permission denied, and a city we don’t cover yet, with honest nearest options.'],
-      picks: ['Picks home', 'One card at a time, no pile. The next card only shows as you drag. ✕ Details ♥ always visible, no scrolling. Dots show which of the 3 you’re on. Tweak opens a small sheet. Ask (the cheese) sits in the middle of the tab bar.'],
+      picks: ['Picks home', 'Food & drinks or Experiences, each with its own 3 (never more) and its own loading, nothing-nearby and all-swiped states. The last choice is remembered. Style shows as coming soon. One card at a time, no pile. The next card only shows as you drag. ✕ Details ♥ always visible, no scrolling. Dots show which of the 3 you’re on. Tweak opens a small sheet. Ask (the cheese) sits in the middle of the tab bar.'],
       details: ['Pick details', 'Full reason, matched chips, what to order, Feta Favourite badge when earned, short reviews with first names, approved photos, and an action row. States: closed now, sold out, no reviews.'],
       signin: ['Sign in, once', 'Right after Welcome, and never again. Phone, one-time code, then separate toggles for location and public reviews. Not now still lets you in; saves stay on this phone.'],
       lists: ['My lists', 'Want to try and Been, each with a personal note. Private by default, with a clear end and an empty state.'],
@@ -787,10 +825,10 @@ class Component extends DCLogic {
       collage, sumLines,
       loc: { ask: st.loc === 'ask', denied: st.loc === 'denied', notCovered: st.loc === 'notcovered', primary: st.loc === 'notcovered' ? 'Show me Lisbon' : st.loc === 'denied' ? 'Pick a city' : 'Use my location', secondary: st.loc === 'notcovered' ? 'Tell me when you’re in Évora' : st.loc === 'denied' ? 'Try location again' : 'Pick a city instead' },
       locUse: () => st.loc === 'denied' ? this.setState({ sheet: 'city', cityStep: 'city', cityPick: null, areaPick: null }) : this.loadPicks({ banner: null, tab: 'tonight' }, 1600), locCity: () => st.loc === 'notcovered' ? this.toastMsg('We’ll let you know') : st.loc === 'denied' ? this.go('location', { loc: 'ask' }) : this.setState({ sheet: 'city', cityStep: 'city', cityPick: null, areaPick: null }),
-      pk: { dots: deck.map((_, i) => ({ w: i === st.k ? '18px' : '6px', bg: i < st.k ? '#FF4F7B' : i === st.k ? 'var(--ink)' : 'rgba(var(--inkRGB),.18)' })), liveOp: pLive ? 1 : 0, livePe: pLive ? 'auto' : 'none', tweakOp: st.pstate === 'loading' ? 0 : 1, cards: pcards, loading: st.pstate === 'loading', done: st.pstate !== 'loading' && st.k >= deck.length, live: pLive, gline: cur ? cur.gline : '',
+      pk: { cats: [['food', 'Food & drinks'], ['exp', 'Experiences'], ['style', 'Style · soon']].map(([k, l]) => ({ label: l, bg: st.cat === k ? 'var(--ink)' : k === 'style' ? 'transparent' : 'rgba(var(--inkRGB),.07)', fg: st.cat === k ? 'var(--bg)' : k === 'style' ? 'rgba(var(--inkRGB),.45)' : 'var(--ink)', go: () => k === 'style' ? this.go('style') : this.switchCat(k) })), dots: deck.map((_, i) => ({ w: i === st.k ? '18px' : '6px', bg: i < st.k ? '#FF4F7B' : i === st.k ? 'var(--ink)' : 'rgba(var(--inkRGB),.18)' })), liveOp: pLive ? 1 : 0, livePe: pLive ? 'auto' : 'none', tweakOp: st.pstate === 'loading' ? 0 : 1, cards: pcards, loading: st.pstate === 'loading', done: st.pstate !== 'loading' && st.k >= deck.length, live: pLive, gline: cur ? cur.gline : '',
         tabW: wk ? '106px' : '76px', tabTf: wk ? 'translateX(76px)' : 'none', t1: wk ? 'var(--ink)' : 'var(--bg)', t2: wk ? 'var(--bg)' : 'var(--ink)', city: st.city,
-        title1: 'Your 3 for', title2: wk ? 'this weekend' : 'tonight', banner: st.pstate !== 'loading' && !!st.banner, bannerText: st.banner === 'nearby' ? 'Nothing great right around you tonight. Here are 2 worth a short ride.' : `Updated: ${st.banner}.`, loadLine: this.lines[st.li || 0] },
-      toTonight: () => st.tab !== 'tonight' && this.loadPicks({ tab: 'tonight', banner: null }, 1100), toWeekend: () => st.tab !== 'weekend' && this.loadPicks({ tab: 'weekend', banner: null }, 1100),
+        title1: st.cat === 'exp' ? 'Your 3 to do' : 'Your 3 to eat', title2: wk ? 'this weekend' : 'tonight', banner: st.pstate !== 'loading' && !!st.banner, bannerText: st.banner === 'nearby' ? 'Nothing great right around you tonight. Here are 2 worth a short ride.' : `Updated: ${st.banner}.`, loadLine: this.lines[st.li || 0] },
+      toTonight: () => st.tab !== 'tonight' && this.loadPicks({ tab: 'tonight', banner: null, catMem: {} }, 1100), toWeekend: () => st.tab !== 'weekend' && this.loadPicks({ tab: 'weekend', banner: null, catMem: {} }, 1100),
       cycleCity: () => this.setState({ sheet: 'city', cityStep: 'city', cityPick: null, areaPick: null }),
       cp: (() => { const C = [['Lisbon', 'Portugal', ['Alfama', 'Chiado', 'Baixa', 'Príncipe Real', 'Cais do Sodré', 'Belém']], ['Porto', 'Portugal', ['Ribeira', 'Baixa', 'Bonfim', 'Foz']], ['London', 'UK', ['Soho', 'Shoreditch', 'Peckham', 'Notting Hill']], ['Paris', 'France', ['Le Marais', 'Pigalle', 'Canal Saint-Martin', 'Saint-Germain']], ['Tokyo', 'Japan', ['Shibuya', 'Shinjuku', 'Nakameguro', 'Asakusa']], ['Évora', 'Portugal', null]];
         const isArea = st.cityStep === 'area', sel = C.find(c => c[0] === st.cityPick);

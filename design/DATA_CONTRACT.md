@@ -62,7 +62,8 @@ interface ChatReply {
 Undo removes those exact profile lines. Chat never makes anything public.
 
 ## Picks request
-`{ tab: 'tonight' | 'weekend', city, area?, coords?, tweak?: string, tripId?: string, excludeIds: string[] }` → `{ picks: Pick[] (≤3), nothingNearby?: boolean }`
+`{ tab: 'tonight' | 'weekend', city, area?, coords?, category: 'food_drinks' | 'experiences', // required; food_drinks = EAT|DRINK, experiences = DO|EVENT
+   tweak?: string, tripId?: string, excludeIds: string[] }` → `{ picks: Pick[] (≤3), nothingNearby?: boolean }`
 
 ## Skip reasons and check-in
 - Skip reason: `too_far | too_pricey | not_my_vibe | been_there` (optional).

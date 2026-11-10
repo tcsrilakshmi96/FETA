@@ -1,6 +1,6 @@
 # Feta — project guide for Claude Code
 
-Feta (working name: Fashion, Experience, Travel, All in one) is a personal AI lifestyle companion that learns a user's taste and decides for them: 3 confident picks for food, drinks and experiences, each with a reason.
+Feta (working name: Fashion, Experience, Travel, All in one) is a personal AI lifestyle companion that learns a user's taste and decides for them: 3 confident picks for food and drinks, and 3 for experiences, each with a reason.
 
 The full v1 spec (features, screens, onboarding questions, two end-to-end journeys) lives in the founder's doc "Feta v1 Feature List". Ask the founder to paste a section when you need detail.
 
@@ -18,7 +18,7 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - Sign-in comes right after Welcome (founder's decision): phone number, 6-digit code, then consent toggles. "Not now" skips it and the user can sign in later from You. The Welcome screen must not say "No sign-up".
 - Consent toggles: "Use my location" is on by default and "Show my reviews to others" is off by default (founder's decision, as designed). Both can be changed any time in You. The browser's own location prompt still appears only when the user taps "Use my location".
 - No taste types or labels on users. The profile is plain, editable lines, and can hold notes tied to an occasion or a trip.
-- Picks home: "Tonight" and "This weekend" tabs, a city pill, exactly 3 picks mixing food and experiences, shown one card at a time, and "Tweak these". There is no "Who's with you?" chip (founder's decision): company comes from the onboarding answer, the Tweak sheet ("Better for groups") and chat.
+- Picks home: "Tonight" and "This weekend" tabs, a city pill, and a category switch: "Food & drinks" (EAT and DRINK cards) and "Experiences" (DO and EVENT cards), plus a muted "Style · soon" that opens the Style teaser. Each category has exactly 3 picks, shown one card at a time, and the two are never mixed on this screen (founder's decision). The title follows both switches ("Your 3 to eat tonight", "Your 3 to do this weekend"). The last category is remembered, each category keeps its own progress and states, and "Tweak these" applies to the category in view. Chat replies may still mix categories. There is no "Who's with you?" chip (founder's decision): company comes from the onboarding answer, the Tweak sheet ("Better for groups") and chat.
 - Every pick has a "Because you…" line, matched chips, honest wording ("Worth a detour" / "Good if you're nearby" / "Skip unless…"), and an action row: Book on District / Swiggy Dineout / BookMyShow (link out), Directions, Save, Share to WhatsApp.
 - Chat ("Ask Feta"): plan for a destination (India or abroad), change choices, ask "why this one?". What it learns is added to the profile straight away and shown in an "ADDED TO YOUR PROFILE" card with Undo. When the reply is tied to a trip, the card also has an "Only for this trip" toggle (off by default). Trip-only lines are never used for everyday picks and appear in their own group in the profile, with "Use these every day instead".
 - Location: "Near me now" (one-time location while the app is open, never stored as a trail) and a city picker for any Indian city.
@@ -33,9 +33,9 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 ## Proposed stack (confirm with the founder before installing)
 - Next.js web app, hosted on Vercel.
 - Supabase for the database, file storage (review photos) and row-level security.
-- Venice AI (OpenAI-compatible API, founder's credits) for chat, profile updates, choosing the 3 picks, writing reasons, and turning reviews into tags. Use a mainstream model, not an "uncensored" one.
+- Venice AI (OpenAI-compatible API, founder's credits) for chat, profile updates, choosing the 3 picks per category, writing reasons, and turning reviews into tags. Use a mainstream model, not an "uncensored" one.
 - Gemini API with Grounding with Google Maps as the place-finder tool only.
-- Google Places API for live open-now status on the 3 picks shown.
+- Google Places API for live open-now status on the picks shown.
 - Web search (Venice or Gemini with Google Search) for this week's events, linking out to the event page.
 - Foursquare open places data or Overture Maps as a stored base list of places.
 - PostHog for usage analytics.
@@ -50,4 +50,4 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - Every place, event and user record carries city, country, time zone and currency, so new cities are a data job, not a rebuild.
 
 ## Metrics to build in
-Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved" rate, share of picks with a logged outcome, "Tell me when" taps on Style, and feedback-button use.
+Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved" rate, share of picks with a logged outcome, use of Food & drinks versus Experiences, "Tell me when" taps on Style, and feedback-button use.
