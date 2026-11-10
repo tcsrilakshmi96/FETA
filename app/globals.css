@@ -154,6 +154,8 @@ button {
   align-items: center;
   justify-content: center;
   font-size: 18px;
+  color: inherit;
+  text-decoration: none;
 }
 
 .back-btn::before {

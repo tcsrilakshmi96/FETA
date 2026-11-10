@@ -1,0 +1,54 @@
+.page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 56px 24px 48px;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.title {
+  margin-top: 26px;
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.updated {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.page section {
+  margin-top: 24px;
+}
+
+.page h2 {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.page p + p {
+  margin-top: 8px;
+}
+
+.page ul {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.page a:not(:global(.back-btn)) {
+  color: var(--roseText);
+}

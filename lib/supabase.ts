@@ -10,6 +10,8 @@ export function supabase() {
     client = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      // PKCE: Google sign-in returns a one-time code that only this phone can use.
+      { auth: { flowType: "pkce" } },
     );
   }
   return client;

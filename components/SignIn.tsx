@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { saveConsent } from "@/lib/db";
+import {
+  isSignedIn,
+  readGoogleReturn,
+  startGoogleSignIn,
+  switchToExistingAccount,
+  takeReconfirmAge,
+} from "@/lib/auth";
+import { saveAgeConfirmed, saveConsent } from "@/lib/db";
 import styles from "./SignIn.module.css";
 
 type Step = "google" | "consent";
@@ -13,15 +21,45 @@ export default function SignIn() {
   const toast = useToast();
   const [step, setStep] = useState<Step>("google");
   const [consent, setConsent] = useState({ location: false, publicReviews: false });
+  const [opening, setOpening] = useState(false);
+
+  // Coming back from Google: move on to consent, or explain what went wrong.
+  useEffect(() => {
+    const google = readGoogleReturn();
+    if (google.errorCode === "identity_already_exists") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to the address Google sent back
+      setOpening(true);
+      switchToExistingAccount();
+      return;
+    }
+    if (!google.back && !google.error) return;
+    if (google.error) {
+      window.history.replaceState(null, "", "/sign-in");
+      toast("Google sign-in didn't finish. Try again, or tap Not now.");
+      return;
+    }
+    // Supabase reads Google's one-time code from the address first, so tidy
+    // the address only after that.
+    isSignedIn().then((signedIn) => {
+      window.history.replaceState(null, "", "/sign-in");
+      if (!signedIn) return;
+      if (takeReconfirmAge()) saveAgeConfirmed();
+      setStep("consent");
+    });
+  }, [toast]);
 
   function goBack() {
     if (step === "google") router.push("/");
     else setStep("google");
   }
 
-  function continueWithGoogle() {
-    // Pretend for now: real Google sign-in arrives with Supabase.
-    setStep("consent");
+  async function continueWithGoogle() {
+    setOpening(true);
+    const error = await startGoogleSignIn();
+    if (error) {
+      setOpening(false);
+      toast("Couldn't reach Google. Check your connection and try again.");
+    }
   }
 
   function finish() {
@@ -69,7 +107,10 @@ export default function SignIn() {
             onToggle={() => setConsent({ ...consent, publicReviews: !consent.publicReviews })}
           />
           <p className={styles.note}>
-            Nothing is public unless you turn it on. Turning anything off is just as easy, in You.
+            Nothing is public unless you turn it on. Turning anything off is just as easy, in You.{" "}
+            <Link href="/privacy" className={styles.link}>
+              How we use your data
+            </Link>
           </p>
         </div>
       )}
@@ -77,9 +118,9 @@ export default function SignIn() {
       <div className={styles.actions}>
         {step === "google" && (
           <>
-            <button type="button" className={styles.google} onClick={continueWithGoogle}>
+            <button type="button" className={styles.google} onClick={continueWithGoogle} disabled={opening}>
               <GoogleLogo />
-              Continue with Google
+              {opening ? "Opening Google…" : "Continue with Google"}
             </button>
             <button type="button" className={styles.secondary} onClick={notNow}>
               Not now

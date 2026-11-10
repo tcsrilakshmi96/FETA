@@ -113,3 +113,12 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+.google:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.link {
+  color: var(--roseText);
+}
