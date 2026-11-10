@@ -4,18 +4,19 @@
 
 export type Currency = "INR" | "USD" | "CAD" | "GBP" | "EUR" | "AED" | "SGD" | "AUD" | "JPY";
 
-// Upper bounds of spend levels 1–3 per person; level 4 is anything above.
+// Upper bounds of spend levels 1–4 per person; level 5 is anything above.
 // Roughly matched in what they buy, not converted at the exchange rate.
-export const SPEND_LEVELS: Record<Currency, [number, number, number]> = {
-  INR: [500, 1500, 3000],
-  USD: [20, 60, 120],
-  CAD: [25, 75, 150],
-  GBP: [15, 45, 90],
-  EUR: [20, 50, 100],
-  AED: [75, 200, 400],
-  SGD: [25, 75, 150],
-  AUD: [30, 80, 150],
-  JPY: [2000, 6000, 12000],
+type Bounds = [number, number, number, number];
+export const SPEND_LEVELS: Record<Currency, Bounds> = {
+  INR: [300, 500, 1500, 3000],
+  USD: [10, 20, 60, 120],
+  CAD: [15, 25, 75, 150],
+  GBP: [8, 15, 45, 90],
+  EUR: [10, 20, 50, 100],
+  AED: [40, 75, 200, 400],
+  SGD: [15, 25, 75, 150],
+  AUD: [15, 30, 80, 150],
+  JPY: [1000, 2000, 6000, 12000],
 };
 
 const EURO_ZONES = [
@@ -67,15 +68,16 @@ export function formatMoney(amount: number, currency: Currency) {
   }).format(amount);
 }
 
-// Labels for the spend chips, e.g. "Under ₹500", "₹500–1,500", "₹3,000+".
-export function spendLabels(currency: Currency): [string, string, string, string] {
-  const [a, b, c] = SPEND_LEVELS[currency];
+// Labels for the spend chips, e.g. "Under ₹300", "₹500–1,500", "₹3,000+".
+export function spendLabels(currency: Currency): string[] {
+  const [a, b, c, d] = SPEND_LEVELS[currency];
   const range = (low: number, high: number) =>
     `${formatMoney(low, currency)}–${formatMoney(high, currency).replace(/^\D+/, "")}`;
   return [
     `Under ${formatMoney(a, currency)}`,
     range(a, b),
     range(b, c),
-    `${formatMoney(c, currency)}+`,
+    range(c, d),
+    `${formatMoney(d, currency)}+`,
   ];
 }

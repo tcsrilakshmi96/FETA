@@ -11,7 +11,7 @@ export default function SignIn() {
   const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState<Step>("google");
-  const [consent, setConsent] = useState({ location: true, publicReviews: false });
+  const [consent, setConsent] = useState({ location: false, publicReviews: false });
 
   function goBack() {
     if (step === "google") router.push("/");
