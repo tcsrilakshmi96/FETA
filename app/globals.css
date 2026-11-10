@@ -153,6 +153,25 @@ button {
   font-weight: 500;
 }
 
+.toast {
+  position: absolute;
+  left: 50%;
+  top: 92px;
+  transform: translateX(-50%);
+  z-index: 95;
+  padding: 10px 16px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  white-space: nowrap;
+  animation: fa-toast 0.35s var(--ease-press);
+}
+@keyframes fa-toast {
+  0% { opacity: 0; transform: translate(-50%, 14px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .haze,
   .kenburns {

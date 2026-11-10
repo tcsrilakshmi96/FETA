@@ -1,0 +1,246 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 56px 24px 28px;
+  animation: fa-in 0.4s ease-out;
+}
+
+/* 38 px circle as designed, inside a 44 px tap target. */
+.back {
+  position: relative;
+  z-index: 0;
+  align-self: flex-start;
+  width: 44px;
+  height: 44px;
+  margin: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.back::before {
+  content: "";
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(var(--inkRGB), 0.06);
+  z-index: -1;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 26px;
+  animation: fa-up 0.4s ease-out;
+}
+
+.title {
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.sub {
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.phoneField {
+  height: 58px;
+  margin-top: 8px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: rgba(var(--surf), 0.75);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.prefix {
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.phoneField input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.phoneField input::placeholder {
+  color: rgba(var(--inkRGB), 0.3);
+}
+
+/* Six boxes drawn over one real input, so paste and SMS autofill work. */
+.codeWrap {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.codeWrap input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  border: none;
+  font-size: 16px;
+  caret-color: transparent;
+}
+
+.box {
+  flex: 1;
+  height: 58px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: var(--field);
+  transition: background 0.3s, box-shadow 0.2s;
+}
+
+.boxActive {
+  box-shadow: inset 0 0 0 1.5px rgba(var(--inkRGB), 0.35);
+}
+
+.boxWrong {
+  background: rgba(255, 79, 123, 0.18);
+}
+
+.error {
+  font-size: 13.5px;
+  color: var(--roseText);
+  animation: fa-up 0.3s ease-out;
+}
+
+.resend {
+  align-self: flex-start;
+  min-height: 44px;
+  margin: -12px 0;
+  font-size: 14px;
+  color: var(--roseText);
+  font-variant-numeric: tabular-nums;
+}
+
+.resend:disabled {
+  color: rgba(var(--inkRGB), 0.45);
+  cursor: default;
+}
+
+.consentStep {
+  gap: 10px;
+}
+
+.toggleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(var(--surf), 0.75);
+  text-align: left;
+}
+
+.toggleTitle {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.toggleSub {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.switch {
+  flex: none;
+  position: relative;
+  width: 46px;
+  height: 28px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.15);
+  transition: background 0.3s;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+.switchOn {
+  background: var(--rose);
+}
+
+.switchOn::after {
+  transform: translateX(18px);
+}
+
+.note {
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.actions {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.primary {
+  height: 56px;
+  border-radius: 99px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-size: 16px;
+  font-weight: 500;
+  transition: opacity 0.3s, transform 0.2s var(--ease-press);
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.primary:disabled {
+  background: rgba(var(--inkRGB), 0.08);
+  color: var(--ink);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.secondary {
+  height: 44px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}

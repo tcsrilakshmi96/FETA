@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -14,6 +15,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Shrink the page when the keyboard opens, so the main button stays visible.
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#FFF3EE" },
     { media: "(prefers-color-scheme: dark)", color: "#161213" },
@@ -28,7 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="haze haze-saffron" />
           <div className="haze haze-turquoise" />
           <div className="haze haze-rose" />
-          {children}
+          <ToastProvider>{children}</ToastProvider>
           {/* The feedback sheet comes in a later step. */}
           <button type="button" className="feedback-pill">
             Feedback
