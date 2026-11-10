@@ -90,37 +90,6 @@
   color: rgba(var(--inkRGB), 0.6);
 }
 
-/* Not covered: pulsing pin, honest message, nearest covered cities. */
-.pin {
-  position: relative;
-  flex: none;
-  width: 120px;
-  height: 120px;
-  margin: 14px 0 28px;
-}
-
-.pin span {
-  position: absolute;
-  border-radius: 50%;
-}
-
-.pin span:nth-child(1) {
-  inset: 0;
-  background: rgba(255, 79, 123, 0.16);
-  animation: fa-pulse 2.4s ease-in-out infinite;
-}
-
-.pin span:nth-child(2) {
-  inset: 22px;
-  background: rgba(255, 79, 123, 0.28);
-  animation: fa-pulse 2.4s ease-in-out 0.3s infinite;
-}
-
-.pin span:nth-child(3) {
-  inset: 44px;
-  background: var(--rose);
-}
-
 .nearby {
   display: flex;
   flex-wrap: wrap;
@@ -155,10 +124,4 @@
   border-radius: 99px;
   background: rgba(var(--inkRGB), 0.07);
   font-size: 15px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pin span {
-    animation: none !important;
-  }
 }

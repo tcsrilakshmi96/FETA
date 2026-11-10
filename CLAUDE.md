@@ -45,12 +45,23 @@ These came from a 12-persona test of the flow. They override `design/` wherever 
 ## Proposed stack (confirm with the founder before installing)
 - Next.js web app, hosted on Vercel.
 - Supabase for the database, Google sign-in, file storage (review photos) and row-level security.
-- Venice AI (OpenAI-compatible API, founder's credits) for chat, profile updates, choosing the 3 picks per category, writing reasons, and turning reviews into tags. Use a mainstream model, not an "uncensored" one.
-- Gemini API with Grounding with Google Maps as the place-finder tool only.
-- Google Places API for live open-now status on the picks shown.
+- AI split (founder's decision, 10 Nov 2026): Venice knows the person, Gemini knows the places.
+  - Venice AI (OpenAI-compatible API, founder's credits) for chat, profile updates (with Undo / Only for this trip), turning what the user says into a structured search request, and turning reviews into tags. Venice never receives Google Maps or Places content. Use a mainstream model, not an "uncensored" one.
+  - Gemini API with Grounding with Google Maps finds places, chooses the 3 picks per category from those that pass the hard filters, and writes the "Because you…" line and verdict. Gemini receives only a short taste summary built from Feta's own data. Show each pick's Google Maps source right below it, as Google requires.
+  - "Why this one?" in chat is answered from the reason Gemini already wrote.
+- Google Places API (New) for the hard-filter checks (open now, hours, price level, diet and alcohol signals, distance) and live open-now status on the picks shown.
+- Cost guards: a ₹1,000 monthly budget alert in Google Cloud, a daily search limit enforced in Feta, and picks reused per person for a few hours instead of re-searching on every open.
 - Web search (Venice or Gemini with Google Search) for this week's events, linking out to the event page.
 - Foursquare open places data or Overture Maps as a stored base list of places.
 - PostHog for usage analytics.
+
+## How picks work (built 10 Nov 2026)
+- Location screen before picks: "Use my location" (one-time, kept only in the tab's session, never stored; turns location consent on) or an area in the chosen city (areas in `lib/cities.ts`).
+- `/api/picks` (server only, keys never reach phones): one Google Places Text Search per new set, with a search phrase from the user's swipes or interests that rotates on "Show me 3 more" → hard filters in code (`lib/server/picks.ts`) → Gemini 3.5 Flash ranks 5 → code keeps 3 with at most 1 very popular place (3,000+ Google reviews) → `pick_sets` stores place IDs and Feta's own text only.
+- Hard-filter details: unknown price passes (many small places have none on Google); vegetarian diets need Google's "serves vegetarian food" = yes (food and drinks only); "No alcohol" drops bars, pubs and clubs; Tonight needs open now; This weekend needs Sat or Sun hours; closed businesses, saved, skipped and "been" places are never shown. Halal can't be checked from Google data yet.
+- Picks are reused for 3 hours (Tonight) or 12 hours (weekend), re-checked live with Google each time. Cost limits: `PICKS_DAILY_LIMIT` (30 new searches a day across everyone) and `PICKS_USER_DAILY_LIMIT` (6 per person), changeable in Vercel.
+- Matched chips are written by code from verified facts, never by the AI. Jain and vegan chips say "not confirmed, check with staff". Shares to WhatsApp never include diet or chips.
+- Not built yet: Tweak sheet, full Details screen, events (EVENT cards), Lists, Ask, You, Style, check-in, feedback sheet.
 
 ## Rules that must not be broken
 - Diet, budget, distance, alcohol and opening hours are hard filters enforced in code, never left to the AI.

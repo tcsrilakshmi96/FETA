@@ -47,7 +47,7 @@ export default function CityPicker() {
           ‹
         </button>
         <div className={styles.step}>
-          <div className={styles.pin} aria-hidden="true">
+          <div className="pulse-pin" aria-hidden="true">
             <span />
             <span />
             <span />

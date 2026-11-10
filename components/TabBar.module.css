@@ -1,0 +1,88 @@
+.fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 110px;
+  z-index: 39;
+  pointer-events: none;
+  background: linear-gradient(rgba(var(--bgRGB), 0), rgba(var(--bgRGB), 0.9) 70%);
+}
+
+.bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  height: 62px;
+  z-index: 40;
+  padding: 0 4px;
+  border-radius: 24px;
+  background: rgba(var(--surf), 0.42);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 10px 30px rgba(120, 30, 50, 0.1), inset 0 1px 0 rgba(var(--surf), 0.7);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+}
+
+.item {
+  height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: transform 0.2s var(--ease-press);
+}
+
+.item:active {
+  transform: scale(0.92);
+}
+
+.label {
+  font-size: 13px;
+  color: rgba(var(--inkRGB), 0.45);
+  transition: color 0.3s;
+}
+
+.dot {
+  width: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+  transition: width 0.35s cubic-bezier(0.3, 1.5, 0.5, 1), background 0.3s;
+}
+
+.active .label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.active .dot {
+  width: 4px;
+  background: var(--rose);
+}
+
+.askTile {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: rgba(255, 214, 90, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pop {
+  display: block;
+  transform-origin: 50% 70%;
+  animation: fa-pop 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop {
+    animation: none;
+  }
+}

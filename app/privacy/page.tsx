@@ -35,7 +35,8 @@ export default function Privacy() {
         <ul>
           <li>That you confirmed you are 18 or older.</li>
           <li>Your choices about location and public reviews, and a dated record each time you change them.</li>
-          <li>Your city.</li>
+          <li>Your city, and the area you pick for distances.</li>
+          <li>The places you save, skip (and why, if you tell us) or have been to, by their Google place ID only.</li>
           <li>
             Your answers: what you eat, how far you will go, what you usually spend, who you go out with,
             drinks, and what you are into.
@@ -58,8 +59,8 @@ export default function Privacy() {
           <li>Nothing you do is public unless you turn on “Show my reviews to others”.</li>
           <li>What you eat never appears on anything you share.</li>
           <li>
-            We never keep a trail of where you go. When location is added, it will be used once, only when you
-            tap “Use my location”, and not stored.
+            We never keep a trail of where you go. Your location is used only when you tap “Use my location”, only
+            while the app is open, and it is never saved.
           </li>
         </ul>
       </section>
@@ -70,6 +71,10 @@ export default function Privacy() {
           <li>Supabase stores your data, in Mumbai, India.</li>
           <li>Vercel hosts the app.</li>
           <li>Google handles sign-in if you choose it.</li>
+          <li>
+            Google Maps finds places near you, and Google&apos;s Gemini AI chooses your 3 picks and writes why. Gemini
+            gets a short summary of your answers and likes, never your name, email or exact location history.
+          </li>
         </ul>
         <p>When we add another service, we will update this page first.</p>
       </section>

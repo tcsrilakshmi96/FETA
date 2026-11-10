@@ -1,0 +1,566 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 50px 18px 96px;
+  animation: fa-in 0.4s ease-out;
+}
+
+/* Header: Tonight / This weekend and the city pill. */
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.segment {
+  position: relative;
+  display: flex;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.06);
+}
+
+.thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  border-radius: 99px;
+  background: var(--ink);
+  transition: transform 0.45s cubic-bezier(0.3, 1.3, 0.5, 1), width 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+
+.segBtn {
+  position: relative;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: color 0.3s;
+}
+
+.segOn {
+  color: var(--bg);
+}
+
+.cityPill {
+  min-height: 36px;
+  padding: 9px 13px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.06);
+  font-size: 13px;
+  max-width: 45%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 16px;
+  padding: 0 4px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.title strong {
+  font-weight: 500;
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+}
+
+.dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(var(--inkRGB), 0.2);
+  transition: width 0.4s cubic-bezier(0.3, 1.4, 0.5, 1), background 0.3s;
+}
+
+.dots .dotOn {
+  width: 18px;
+  background: var(--ink);
+}
+
+.dots .dotDone {
+  background: var(--rose);
+}
+
+.cats {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 0 4px;
+}
+
+.cat {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 500;
+  background: rgba(var(--inkRGB), 0.06);
+  transition: background 0.3s, color 0.3s, transform 0.2s var(--ease-press);
+}
+
+.cat:active {
+  transform: scale(0.94);
+}
+
+.catOn {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.catSoon {
+  background: none;
+  color: rgba(var(--inkRGB), 0.45);
+}
+
+/* The card area takes the free height; one card is visible at a time. */
+.deck {
+  position: relative;
+  flex: 1;
+  min-height: 280px;
+  max-height: 420px;
+  margin: 12px -4px 0;
+}
+
+.card {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  background: #6a4a40;
+  box-shadow: 0 18px 40px rgba(120, 30, 50, 0.2);
+}
+
+.photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  animation: fa-kb 16s ease-in-out infinite alternate;
+}
+
+.scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 75%;
+  background: linear-gradient(rgba(26, 22, 22, 0), rgba(26, 22, 22, 0.9) 72%);
+}
+
+.tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.kind {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  padding: 6px 11px;
+  border-radius: 99px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.credit {
+  position: absolute;
+  right: 14px;
+  top: 16px;
+  max-width: 55%;
+  font-size: 10px;
+  color: rgba(255, 243, 238, 0.85);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  text-align: right;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.stamp {
+  position: absolute;
+  top: 58px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.stampSave {
+  left: 18px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  transform: rotate(-8deg);
+}
+
+.stampSkip {
+  right: 18px;
+  background: var(--bg);
+  color: var(--ink);
+  transform: rotate(8deg);
+}
+
+.info {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  color: var(--onPhoto);
+  animation: fa-up 0.7s var(--ease-enter) 0.2s both;
+}
+
+.name {
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  text-wrap: pretty;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.where {
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verdict {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--saffron);
+  text-align: right;
+}
+
+.because {
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.chips span {
+  padding: 5px 10px;
+  border-radius: 99px;
+  background: rgba(255, 243, 238, 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 11px;
+}
+
+.banner {
+  position: absolute;
+  left: 96px;
+  right: 12px;
+  top: 12px;
+  z-index: 30;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--turquoise);
+  color: var(--inkFixed);
+  font-size: 12.5px;
+  line-height: 1.35;
+  animation: fa-up 0.4s ease-out;
+}
+
+/* Loading, all swiped, and "nothing found" panels share one look. */
+.panel {
+  position: absolute;
+  inset: 0;
+  border-radius: 30px;
+  background: rgba(var(--surf), 0.55);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 26px;
+  animation: fa-in 0.3s ease-out;
+}
+
+.loadBars {
+  display: flex;
+  gap: 5px;
+}
+
+.loadBars span {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(var(--inkRGB), 0.1);
+  overflow: hidden;
+}
+
+.loadBars span::after {
+  content: "";
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: fa-bar 0.5s ease-out forwards;
+}
+
+.loadBars span:nth-child(2)::after {
+  animation-delay: 0.45s;
+}
+
+.loadBars span:nth-child(3)::after {
+  animation-delay: 0.9s;
+}
+
+.panelTitle {
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.panelTitle strong {
+  font-weight: 500;
+}
+
+.panelText {
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.panelBtn {
+  align-self: flex-start;
+  height: 50px;
+  padding: 0 22px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Live Google data on its own plain band, in a system font. */
+.google {
+  margin-top: 8px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: var(--gBg);
+  color: var(--gInk);
+  font: 400 11px Roboto, Arial, sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.google a {
+  color: inherit;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.round {
+  flex: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-size: 21px;
+  transition: transform 0.2s var(--ease-press);
+}
+
+.round:active {
+  transform: scale(0.88);
+}
+
+.skip {
+  background: rgba(var(--inkRGB), 0.07);
+  font-weight: 300;
+}
+
+.save {
+  background: var(--rose);
+  color: var(--inkFixed);
+}
+
+.details {
+  flex: 1;
+  height: 54px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 14.5px;
+}
+
+.tweak {
+  height: 42px;
+  margin-top: 10px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+
+.tweak strong {
+  font-weight: 500;
+}
+
+.tweak span {
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+/* Bottom sheets: details and "why not?". */
+.dim {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(26, 22, 22, 0.4);
+  animation: fa-in 0.3s ease-out;
+}
+
+.sheet {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 62;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  padding: 22px;
+  border-radius: 36px;
+  background: var(--sheet);
+  animation: fa-sheet 0.55s var(--ease-enter);
+}
+
+@keyframes fa-sheet {
+  0% { transform: translateY(110%); }
+  100% { transform: none; }
+}
+
+.sheetTitle {
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+}
+
+.sheetTitle strong {
+  font-weight: 500;
+}
+
+.sheetSub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.sheetBecause {
+  margin-top: 14px;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.sheetGoogle {
+  margin-top: 14px;
+}
+
+.sheetActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sheetActions a,
+.sheetActions button {
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--inkRGB), 0.07);
+  color: var(--ink);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.sheetActions .primaryAction {
+  grid-column: 1 / -1;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-weight: 500;
+}
+
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.reasons button {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 14px;
+}
+
+.sheetClose {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}

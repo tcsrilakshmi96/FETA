@@ -50,6 +50,17 @@ export function saveConsent(consent: { location: boolean; publicReviews: boolean
   });
 }
 
+// Tapping "Use my location" turns the location consent on (and logs it).
+export function saveLocationConsent(granted: boolean) {
+  return run("location consent", async (userId) => {
+    const { error } = await supabase()
+      .from("profiles")
+      .update({ consent_location: granted, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    return error ? { error } : logConsent(userId, "location", granted);
+  });
+}
+
 export function saveCityToDb(city: City) {
   return run("city", (userId) =>
     supabase()
@@ -111,5 +122,22 @@ export function saveProfileLinesToDb(kept: ProfileLine[], removed: ProfileLine[]
     supabase()
       .from("profile_lines")
       .upsert(rows.map((r) => ({ ...r, user_id: userId })), { onConflict: "user_id,line_key" }),
+  );
+}
+
+// Save (Want to try), skip (with an optional reason) or "Been there".
+// Only the Google place ID is stored.
+export function savePickAction(
+  placeId: string,
+  action: "saved" | "skipped" | "been",
+  extra: { reason?: string; category: string; cityId: string },
+) {
+  return run("pick action", (userId) =>
+    supabase()
+      .from("pick_actions")
+      .upsert(
+        { user_id: userId, place_id: placeId, action, reason: extra.reason ?? null, category: extra.category, city_id: extra.cityId },
+        { onConflict: "user_id,place_id,action" },
+      ),
   );
 }
