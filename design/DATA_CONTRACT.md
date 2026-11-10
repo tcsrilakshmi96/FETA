@@ -28,18 +28,25 @@ interface Pick {
 ```
 
 ## Sources
-- **Google Places API**: placeId, open now / hours (Google line only), coordinates, photos (with attribution). Never merge into Feta's own copy.
-- **AI model**: ranks candidates against the profile and writes `because`, `reason`, `verdict` and `matched`. It must return exactly 3 (or fewer, with the nothing-nearby state), one line each, honest wording, no hype, and never "safe" for food.
+- **Google Places API**: placeId, open now / hours (Google line only), coordinates, photos (with attribution). Never merge into Feta's own copy. Store only the placeId; fetch the rest live.
+- **Place finder**: Gemini API with Grounding with Google Maps supplies candidate places (see `CLAUDE.md`).
+- **AI model** (Venice AI): ranks candidates against the profile and writes `because`, `reason`, `verdict` and `matched`. It must return exactly 3 (or fewer, with the nothing-nearby state), one line each, honest wording, no hype, and never "safe" for food.
 - **Events / tickets**: the provider for the city; sets `event` and `booking`.
 - **Booking**: deep links to the partner for that city.
 - **Feta DB**: lists, check-ins, reviews (pending|approved|hidden), favourites, profile lines, consent.
-- **Phone auth**: Firebase Auth or Twilio Verify (6-digit code, resend after 30 s).
+- **Phone auth**: Firebase Phone Auth (it already handles India's SMS/DLT registration); 6-digit code, resend after 30 s.
 
 ## Profile
 ```ts
-interface ProfileLine { id: string; text: string; source: 'answers' | 'swipes' | 'checkin' | 'chat'; sourceLabel?: string; createdAt: string; removed?: boolean }
+interface ProfileLine {
+  id: string; text: string;
+  source: 'answers' | 'swipes' | 'checkin' | 'chat'; sourceLabel?: string;
+  scope: { type: 'everyday' } | { type: 'trip'; tripId: string }; // default everyday
+  createdAt: string; removed?: boolean;
+}
+interface Trip { id: string; destination: string; startDate: string; endDate: string; company?: string }
 ```
-Removing a line regenerates picks (toast "Picks updated").
+Removing a line regenerates picks (toast "Picks updated"). Everyday picks use only `scope.type === 'everyday'` lines. Trip lines are used only when the picks request targets that trip (destination city, or dates inside the trip window). `Use these every day instead` flips their scope to everyday.
 
 ## Chat (Ask)
 Request: user message + profile lines + current context. Response:
@@ -48,13 +55,14 @@ interface ChatReply {
   text: string;                       // short, warm, honest
   picks?: Pick[];                     // up to 3, shown as mini cards
   addedToProfile?: string[];          // shown in "ADDED TO YOUR PROFILE" with Undo
+  trip?: Trip;                        // when present, the card shows the "Only for this trip" toggle; on = lines saved with scope trip
   context?: { destination?: string; dates?: string; company?: string }; // updates the "Planning: …" chip
 }
 ```
 Undo removes those exact profile lines. Chat never makes anything public.
 
 ## Picks request
-`{ tab: 'tonight' | 'weekend', city, area?, coords?, tweak?: string, excludeIds: string[] }` → `{ picks: Pick[] (≤3), nothingNearby?: boolean }`
+`{ tab: 'tonight' | 'weekend', city, area?, coords?, tweak?: string, tripId?: string, excludeIds: string[] }` → `{ picks: Pick[] (≤3), nothingNearby?: boolean }`
 
 ## Skip reasons and check-in
 - Skip reason: `too_far | too_pricey | not_my_vibe | been_there` (optional).

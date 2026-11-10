@@ -4,7 +4,7 @@ Feta (working name: Fashion, Experience, Travel, All in one) is a personal AI li
 
 The full v1 spec (features, screens, onboarding questions, two end-to-end journeys) lives in the founder's doc "Feta v1 Feature List". Ask the founder to paste a section when you need detail.
 
-The approved designs are in `design/`. Start with `design/README.md` (screens, rules, tokens, motion) and `design/DATA_CONTRACT.md` (data shapes). `design/prototype/Feta App v2.dc.html` is the visual source of truth; `design/explorations/` is earlier rounds for context only (they include dropped ideas such as taste types). Prototype content (Lisbon, Tokyo, $ prices, Unsplash photos) is placeholder: use Indian cities and ₹ for the friends test. Where the design and this file disagree, ask the founder which to follow before building that part.
+The approved designs are in `design/`. Start with `design/README.md` (screens, rules, tokens, motion) and `design/DATA_CONTRACT.md` (data shapes). `design/prototype/Feta App v2.dc.html` is the visual source of truth; `design/explorations/` is earlier rounds for context only (they include dropped ideas such as taste types). Screenshots of every screen and state are in `design/screenshots/light/` and `design/screenshots/dark/`. Prototype content (Lisbon, Tokyo, $ prices, Unsplash photos) is placeholder: use Indian cities and ₹ for the friends test. This file and `design/` were checked against each other on 10 Nov 2026 and agree. If you still find a conflict, the design wins for look, copy and flow; this file wins for data, privacy and the rules below. Tell the founder what you found.
 
 ## Who you're working with
 - The founder, Srilakshmi, is non-technical and builds with Claude Code. Explain choices in plain English, one short paragraph at a time.
@@ -13,17 +13,19 @@ The approved designs are in `design/`. Start with `design/README.md` (screens, r
 - Never put API keys or secrets in code or commits. Keep them in `.env.local` (git-ignored) and list required keys in `.env.example`.
 
 ## v1 scope (friends test, India, Nov–Dec 2026)
-- Mobile web app opened from a link. Phone-first, works on slow connections, light and dark mode.
-- Onboarding: 6 question screens first (diet, city/area + distance, budget per person, company, drinks, interests), then 10 swipe cards. First picks appear before sign-up, in about 90 seconds.
+- Mobile web app opened from a link. Phone-first, works on slow connections. Light and dark mode: Auto follows the phone, and the user can choose Auto / Light / Dark in You (tokens in `design/README.md`).
+- Flow: Welcome (18+ check) → phone sign-in and consent → 6 question screens (diet, distance, spend per person, company, drinks, interests) → 10 swipe cards → "Here's what I picked up" → location → picks. Aim for first picks in about 90 seconds.
+- Sign-in comes right after Welcome (founder's decision): phone number, 6-digit code, then consent toggles. "Not now" skips it and the user can sign in later from You. The Welcome screen must not say "No sign-up".
+- Consent toggles: "Use my location" is on by default and "Show my reviews to others" is off by default (founder's decision, as designed). Both can be changed any time in You. The browser's own location prompt still appears only when the user taps "Use my location".
 - No taste types or labels on users. The profile is plain, editable lines, and can hold notes tied to an occasion or a trip.
-- Picks home: "Tonight" and "This weekend" tabs, a "Who's with you?" chip, exactly 3 swipeable cards mixing food and experiences.
+- Picks home: "Tonight" and "This weekend" tabs, a city pill, exactly 3 picks mixing food and experiences, shown one card at a time, and "Tweak these". There is no "Who's with you?" chip (founder's decision): company comes from the onboarding answer, the Tweak sheet ("Better for groups") and chat.
 - Every pick has a "Because you…" line, matched chips, honest wording ("Worth a detour" / "Good if you're nearby" / "Skip unless…"), and an action row: Book on District / Swiggy Dineout / BookMyShow (link out), Directions, Save, Share to WhatsApp.
-- Chat with Feta: plan for a destination (India or abroad), change choices, ask "why this one?". Before saving anything new to the profile, ask: Remember always / Only for this trip / No.
+- Chat ("Ask Feta"): plan for a destination (India or abroad), change choices, ask "why this one?". What it learns is added to the profile straight away and shown in an "ADDED TO YOUR PROFILE" card with Undo. When the reply is tied to a trip, the card also has an "Only for this trip" toggle (off by default). Trip-only lines are never used for everyday picks and appear in their own group in the profile, with "Use these every day instead".
 - Location: "Near me now" (one-time location while the app is open, never stored as a trail) and a city picker for any Indian city.
 - After an outing: Loved it / It was fine / Not for me, optional review and up to 3 photos, with a "Show my review to others" toggle off by default. Photos and public reviews need founder approval on an admin screen.
 - Feta Favourite badge: at least 3 ratings and at least 70% loved.
 - Style and shopping: a "coming soon" card and tab with a "Tell me when" button that counts interest. No workflow.
-- Sign-in: phone number with a one-time code, only when the user saves something. Use a provider that already handles India's SMS (DLT) registration.
+- Phone sign-in provider: Firebase Phone Auth, because it already handles India's SMS (DLT) registration.
 - Weekend plan: drafted by the app, sent by the founder on WhatsApp. No web push in v1.
 - A small feedback button on every screen.
 - Not in v1: group mode, full travel mode, native app, background location, in-app booking, allergy filter.

@@ -6,7 +6,7 @@ Feta is a personal lifestyle companion that learns your taste and gives **3 conf
 Core loop: Welcome → Sign in (once) → 6 questions → 10 taste swipes → "Here's what I picked up" → Location → Picks (3) → Details / Save / Skip → Check-in after the outing → better picks. A chat ("Ask", the cheese in the tab bar) lets users tell Feta about trips and company; what it learns is added to their profile, visibly and undoably.
 
 ## About the design files
-The files in this bundle are **design references built in HTML**: a clickable prototype showing intended look, copy and behaviour. They are **not production code to copy**. Recreate them in the target stack. The repo is currently empty, so choose a fitting stack (suggested: Next.js or Vite + React, TypeScript, CSS modules or Tailwind, deployed as a mobile-first PWA). All data in the prototype is **placeholder**: picks, reviews, cities, hours and photos must come from real APIs (see `DATA_CONTRACT.md`).
+The files in this bundle are **design references built in HTML**: a clickable prototype showing intended look, copy and behaviour. They are **not production code to copy**. Recreate them in the target stack. Use the stack in the repo's `CLAUDE.md` (Next.js, TypeScript, mobile-first web app). All data in the prototype is **placeholder** (Lisbon, Tokyo, $ prices are examples; the friends test uses Indian cities and ₹): picks, reviews, cities, hours and photos must come from real APIs (see `DATA_CONTRACT.md`).
 
 Open `prototype/Feta App v2.dc.html` in a browser (keep `support.js` next to it). The list on the left jumps to every screen and state.
 
@@ -28,7 +28,7 @@ Open `prototype/Feta App v2.dc.html` in a browser (keep `support.js` next to it)
 ## Screens
 Viewport reference 360 × 760. Side padding 22 px (cards 14 px). Radii: cards 30–32, sheets 36, pills 99, inputs 16–18.
 
-1. **Welcome**: full-bleed photo top (inset 8 px, radius 40, bottom 236 px free) with slow Ken Burns zoom; wordmark `feta` (Outfit 600 30); promise `Three picks for tonight, chosen for your taste.` (Outfit 300/500 36). Below: `A few quick questions, ten swipes, then your picks. No sign-up.`, 18+ checkbox, `Let's go` (disabled at 60% opacity until 18+ is ticked).
+1. **Welcome**: full-bleed photo top (inset 8 px, radius 40, bottom 236 px free) with slow Ken Burns zoom; wordmark `feta` (Outfit 600 30); promise `Three picks for tonight, chosen for your taste.` (Outfit 300/500 36). Below: `A few quick questions, ten swipes, then your picks.` (no "No sign-up" claim; sign-in is the next screen), 18+ checkbox, `Let's go` (disabled at 60% opacity until 18+ is ticked).
 2. **Sign in + consent** (once, right after Welcome): phone number → 6-digit code → consent toggles (`Use my location`, on; `Show my reviews to others`, off). States: wrong code (`That code didn't match. Check it and try again.`), resend (`Code sent again · resend in 0:30`), declined (`Not now` → continue, toast `No problem. Sign in later from You.`).
 3. **Questions (6)**: progress bar (6 segments), ‹ back, Skip, `01 / 06` counter, title (Outfit 300 34), "Why we ask" line, big chips (height 50, radius 99; selected = ink fill, blush text, tick animates in). Continue (rose) is enabled once answered. Q1 diet (single + Halal toggle), Q2 distance, Q3 spend, Q4 who (multi), Q5 drinks, Q6 interests (max 4, `n of 4 picked`).
 4. **Taste swipes (10)**: full-bleed photo cards (radius 32), drag with rotation (dx/18 deg), stamps `Yes, me` / `Not me` fade in with drag, throw threshold 80 px. Buttons ✕ / Not sure / ♥. Progress bar in rose, `n / 10`.
@@ -37,12 +37,12 @@ Viewport reference 360 × 760. Side padding 22 px (cards 14 px). Radii: cards 30
 7. **Picks home**: Tonight / This weekend segmented control (sliding thumb), city pill (opens the city picker), title `Your 3 for tonight` + 3 progress dots. One card visible at a time (360 px tall); the next card fades in only while dragging. On card: type tag (EAT/DRINK/DO/EVENT), name (Outfit 300 32), area · distance, verdict (#FFB020), "Because you…", matched chips. Below the card: Google line, then ✕ · Details · ♥ (54 px), then `Tweak these` (opens a sheet: Somewhere quieter, Cheaper, Closer, Outdoors, Open later, Better for groups, plus free text). Swipe right = save (toast `Saved to Want to try`); swipe left = not for me + optional reason sheet (Too far, Too pricey, Not my vibe, Been there). Tap = details. States: loading (`Finding your 3…`, 3 bars fill in sequence), nothing nearby (2 cards + banner `Here are 2 worth a short ride.`), all swiped (`That's your 3.` + `Show me 3 more`).
 8. **Pick details**: hero photo 330 px with dots, ‹ back; type · area · distance; name; verdict (text rose); Feta Favourite badge (saffron) when earned; Google line; `WHY IT'S YOURS`; matched chips; `WHAT TO ORDER` / `HIGHLIGHTS` (3 numbered rows); `WHAT FETA USERS SAID` (first name + when, approved photos). Floating action bar: primary booking CTA, Directions, ♥, Share. States: closed now, sold out (CTA `Join the waitlist`), no reviews.
 9. **My lists**: Want to try / Been, each with a personal note. Private by default. Empty state. Ends with `That's everything.`
-10. **Profile ("What I think you like")**: plain lines from answers, swipes, check-ins and chat (chat lines tagged `From chat`); Remove → toast `Picks updated`. My reviews, Privacy toggles, policy link, `Delete my data` (confirm inline).
+10. **Profile ("What I think you like")**: plain everyday lines from answers, swipes, check-ins and chat (chat lines tagged `From chat`), then the trip-only group when present (see Ask); Remove → toast `Picks updated`. My reviews, Privacy toggles, policy link, `Delete my data` (confirm inline).
 11. **Check-in**: `Did you go?` → Loved it / It was fine / Not for me (/ I didn't go) → one-tap reason → optional text, up to 3 photos (upload progress), `Show my review to others` (off). States: didn't go, uploading, waiting for approval.
 12. **Style, coming soon**: blurred fashion collage, `Tell me when it's ready` → `✓ You're on the list`.
 13. **Feedback sheet**: from the `Feedback` pill (top-right on every screen): text, attach screenshot toggle, Send, `Thanks. We read every one.`
 14. **Review approval (admin)**: founder-only list of pending reviews and photos with Approve / Hide.
-15. **Ask (chat overlay)**: opened from the cheese in the centre of the tab bar; grows from the bottom centre (550 ms). Header: cheese + `Ask Feta`, × close, context chip (`Planning: Tokyo · 14–18 Dec`). Messages: assistant = white bubble, user = ink bubble. Rich replies: 3 mini pick cards in a 3-column grid, and an `ADDED TO YOUR PROFILE` card (turquoise tint) with Undo. Quick prompts wrap above the input.
+15. **Ask (chat overlay)**: opened from the cheese in the centre of the tab bar; grows from the bottom centre (550 ms). Header: cheese + `Ask Feta`, × close, context chip (`Planning: Tokyo · 14–18 Dec`). Messages: assistant = white bubble, user = ink bubble. Rich replies: 3 mini pick cards in a 3-column grid, and an `ADDED TO YOUR PROFILE` card (turquoise tint) with Undo. Quick prompts wrap above the input. When the reply is tied to a trip, the added card also has an **`Only for this trip`** toggle (off by default, sub-line `Keeps your everyday picks unchanged. Used for Tokyo, 14–18 Dec.`). Trip-only lines are excluded from everyday picks and shown in Profile in their own turquoise-tinted group, `ONLY FOR THIS TRIP · Tokyo · 14–18 Dec`, with the line `Used only while you plan or are in Tokyo. Your everyday picks stay as they are.`, per-line Remove, and `Use these every day instead`.
 
 **Tab bar**: floating glass panel (left/right/bottom 14 px, height 62, radius 24, `rgba(255,255,255,.42)`, `backdrop-filter: blur(22px) saturate(1.4)`, soft shadow) over a blush fade. Items: Picks · Lists · Ask (cheese on a butter tile) · Style · You. Active = ink 600 + 4 px rose dot; inactive = 45% ink.
 
@@ -57,6 +57,22 @@ Viewport reference 360 × 760. Side padding 22 px (cards 14 px). Radii: cards 30
 
 ## State (suggested)
 `user { id, phone, consent{location, publicReviews} }`, `answers{diet, halal, distance, spend, who[], drinks, interests[]}`, `swipes[{cardId, verdict: yes|no|unsure}]`, `profileLines[{id, text, source: answers|swipes|checkin|chat, createdAt}]`, `picksSession{tab, city, area, tweak?, picks[3], index, outcomes[]}`, `lists{want[], been[]}` (+ note), `checkins[]`, `reviews[]` (status pending|approved|hidden), `chat{messages[], context{destination, dates, company}}`. Full shapes: `DATA_CONTRACT.md`.
+
+## Dark mode
+Every screen and state has a dark version (toggle Light / Dark above the screen list in the prototype). Implement with CSS custom properties on the app root. Default **Auto** follows the phone (`prefers-color-scheme`); users can override in You → Privacy → **Appearance: Auto / Light / Dark** (persist locally).
+
+| Token | Light | Dark |
+|---|---|---|
+| --bg | #FFF3EE | #161213 |
+| --ink (text, and inverse fills like selected chips / user bubbles / toast) | #1A1616 | #F5ECE7 |
+| --inkRGB (muted text, hairlines, quiet button fills at .06–.7 alpha) | 26,22,22 | 245,236,231 |
+| --sheet (sheets, assistant bubbles, admin) | #FFFFFF | #241E1F |
+| --surf (translucent cards, glass tab bar, inputs at .42–.88 alpha) | 255,255,255 | 46,39,40 |
+| --field | #F7F4F2 | #2E2728 |
+| --roseText | #C81E52 | #FF8AA8 |
+| Google band bg / text | #FFFFFF / #3C4043 | #202124 / #E8EAED |
+
+Fixed in both modes: Rose #FF4F7B fills always carry **#1A1616** text; saffron #FFB020 (verdict on photos, Feta Favourite badge with #1A1616 text) and turquoise #2BC4C9 (banners with #1A1616 text) stay the same; text on photos stays #FFF3EE over the dark scrim. The Google Maps line keeps its own plain band in both modes, in system font, with the words "Google Maps" unchanged.
 
 ## Design tokens
 Colours: Blush `#FFF3EE` (bg) · Ink `#1A1616` · Rose `#FF4F7B` (fills only) · Text rose `#C81E52` (text accents) · Saffron `#FFB020` (verdict on photos, badge, haze) · Turquoise `#2BC4C9` (banners, chat-added card, haze) · White `#FFFFFF` (sheets, Google band) · Google text `#3C4043` · scrim `rgba(26,22,22,.85–.9)` · muted ink `rgba(26,22,22,.45–.7)` · hairline `rgba(26,22,22,.1)`.
@@ -73,5 +89,5 @@ Shadows: card `0 18px 40px rgba(120,30,50,.2)`; bar `0 10px 30px rgba(120,30,50,
 - `prototype/Feta App v2.dc.html`: the full app, every screen and state (primary reference).
 - `prototype/support.js`: runtime needed to open the prototype locally.
 - `DATA_CONTRACT.md`: data shapes, API sources, and what each screen needs.
-- `screenshots/`: 31 PNGs of every screen and state, named in flow order (`01-welcome.png` … `31-admin-review-approval.png`).
+- `screenshots/light/` and `screenshots/dark/`: PNGs of every screen and state in both modes, named in flow order (`01-welcome.png` … `33-profile-trip-only.png`; dark also has `34-profile-appearance-toggle.png`).
 - `explorations/`: every earlier design round, for context only (not to build). Start at `Feta Design Index.dc.html`. Rounds 1–9 include taste types and other directions that were later dropped; **`Feta App v2.dc.html` is the source of truth.**
