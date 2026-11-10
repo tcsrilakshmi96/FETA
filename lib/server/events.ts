@@ -84,14 +84,14 @@ Never say anything is safe for a diet or allergy. No hype words.`;
       "Api-Revision": "2026-05-20",
     },
     // Low thinking halves the wait (about 11 s instead of 20 s). If events
-    // still take too long, picks go ahead with places only.
+    // take longer than 12 s, picks go ahead with places only.
     body: JSON.stringify({
       model: "gemini-3.5-flash",
       input,
       tools: [{ type: "google_search" }],
       generation_config: { thinking_level: "low" },
     }),
-    signal: AbortSignal.timeout(18000),
+    signal: AbortSignal.timeout(12000),
   });
   if (!res.ok) throw new Error(`Event search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { steps?: Step[] };

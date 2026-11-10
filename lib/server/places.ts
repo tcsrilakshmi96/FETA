@@ -160,3 +160,16 @@ export async function findDestination(name: string): Promise<{ name: string; lat
   const country = place.addressComponents?.find((c) => c.types?.includes("country"))?.shortText ?? "";
   return { name: place.displayName?.text ?? name, lat: place.location.latitude, lng: place.location.longitude, country };
 }
+
+// Prefer a photo taken by a visitor over the venue's own uploads, which are
+// often adverts with slogans across them. Falls back to the first photo.
+export function bestPhoto(place: Place) {
+  const own = (place.displayName?.text ?? "").toLowerCase();
+  const photos = place.photos ?? [];
+  return (
+    photos.slice(0, 6).find((ph) => {
+      const author = (ph.authorAttributions?.[0]?.displayName ?? "").toLowerCase();
+      return author && !own.includes(author) && !author.includes(own.split(" ")[0] ?? "");
+    }) ?? photos[0]
+  );
+}

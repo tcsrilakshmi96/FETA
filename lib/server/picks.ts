@@ -3,7 +3,7 @@ import "server-only";
 import { distanceKm, type City } from "@/lib/cities";
 import { SPEND_LEVELS } from "@/lib/currency";
 import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
-import type { Place } from "@/lib/server/places";
+import { bestPhoto, type Place } from "@/lib/server/places";
 
 export type Category = "food_drinks" | "experiences";
 export type When = "tonight" | "weekend";
@@ -169,7 +169,6 @@ const UNKNOWN_PRICE_OK = new Set(["", "level_1", "level_2", "level_3", "depends"
 const MAX_PRICE_LEVEL: Record<string, number> = { level_1: 1, level_2: 1, level_3: 2, level_4: 3, level_5: 4 };
 
 const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery"];
-const DRINK_TYPES = [...ALCOHOL_TYPES, "cafe", "coffee_shop", "tea_house", "juice_shop"];
 
 // Everything Food & drinks searches for: all of it, near you.
 export const FOOD_DRINK_TYPES = [
@@ -288,9 +287,12 @@ function opensOnWeekend(place: Place) {
   return days.includes(6) || days.includes(0);
 }
 
+// From the place's main type only: many Indian eateries also carry "cafe".
+const DRINK_PRIMARY = [...ALCOHOL_TYPES, "coffee_shop", "tea_house", "juice_shop"];
+
 export function kindOf(place: Place, category: Category): Kind {
   if (category === "experiences") return "DO";
-  return place.types?.some((t) => DRINK_TYPES.includes(t)) ? "DRINK" : "EAT";
+  return DRINK_PRIMARY.includes(place.primaryType ?? "") ? "DRINK" : "EAT";
 }
 
 // A plain explanation of an empty result, from the filter that removed most.
@@ -377,9 +379,12 @@ ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
 Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
 - Prefer finds over the obvious: at most 1 place marked VERY POPULAR in the top 3.
-- "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above. Never say a place is safe for a diet or allergy.
-- "verdict": "Worth a detour" for a great fit even if a bit far, "Good if you're nearby" for a solid fit, "Skip unless" for a weaker fit, with "skipUnless" finishing the sentence (e.g. "you want somewhere loud").
-- Be honest. No hype words.`;
+- "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
+- "verdict" must be honest, like a friend who doesn't oversell:
+  - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
+  - "Worth a detour" is rare: only for an exceptional match to what they told you. At most one place in a set.
+  - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
+- No hype words.`;
 
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
@@ -433,6 +438,9 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
     chosen.push({ candidate, ranked: r });
   };
   const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;
+  // At most one "Worth a detour" per set.
+  let detours = 0;
+  ranked = ranked.map((r) => (r.verdict === "Worth a detour" && detours++ > 0 ? { ...r, verdict: "Good if you're nearby" as const } : r));
   for (const r of ranked) add(candidates[r.index], r, false);
   for (const c of candidates) add(c, rankedOf(c), false);
   for (const r of ranked) add(candidates[r.index], r, true);
@@ -498,7 +506,7 @@ export function buildPick(
 ): Pick {
   const p = c.place;
   const name = p.displayName?.text ?? "This place";
-  const credit = p.photos?.[0]?.authorAttributions?.[0];
+  const credit = bestPhoto(p)?.authorAttributions?.[0];
   return {
     ...stored,
     name,
@@ -534,7 +542,7 @@ export function buildEventPick(
   const destination = e.venuePlaceId
     ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
     : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;
-  const credit = opts.venue?.photos?.[0]?.authorAttributions?.[0];
+  const credit = opts.venue ? bestPhoto(opts.venue)?.authorAttributions?.[0] : undefined;
   return {
     ...stored,
     name: e.title,

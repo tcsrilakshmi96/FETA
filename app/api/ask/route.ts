@@ -5,6 +5,9 @@ import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/p
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 
+// Search, AI and photos can take a while; the default cut-off is shorter.
+export const maxDuration = 60;
+
 // Ask Feta. Venice understands the person (chat, profile updates, turning
 // words into a search); the picks engine (Gemini + Google Maps) finds the
 // places. Venice never sees Google content: only the chat text and a short
@@ -80,7 +83,7 @@ Reply with only a JSON object:
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
  "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase for anything else they want, e.g. "beach shack"} whenever they want suggestions, different ones, or plans.
  "why": true if they ask why a pick was chosen.}
-When you set "search", say in "reply" that you're finding 3. You can search anywhere in the world: for a trip, set "place" to the destination and search straight away. Never say food is safe for an allergy or a diet.`;
+When you set "search", say in "reply" that you're finding 3. You can search anywhere in the world. When they mention a trip or a place, set "search" straight away (food_drinks unless they say otherwise) rather than asking first. Never say food is safe for an allergy or a diet.`;
 
   let parsed: VeniceReply;
   try {
@@ -121,7 +124,8 @@ When you set "search", say in "reply" that you're finding 3. You can search anyw
   // A search goes through the same picks engine and hard filters as Picks.
   let picks: Pick[] = [];
   let notice: string | undefined;
-  const s = parsed.why ? null : parsed.search;
+  // A trip mentioned without a search still gets 3 places there.
+  const s = parsed.why ? null : (parsed.search ?? (parsed.trip?.place ? { category: "food_drinks", place: parsed.trip.place } : null));
   if (s) {
     const origin = await resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity);
     if (!origin) {

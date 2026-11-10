@@ -16,7 +16,7 @@ export async function veniceJson<T>(messages: ChatTurn[]): Promise<T> {
       messages,
       response_format: { type: "json_object" },
       venice_parameters: { include_venice_system_prompt: false },
-      max_tokens: 800,
+      max_tokens: 1500,
     }),
     signal: AbortSignal.timeout(20000),
   });
@@ -24,5 +24,11 @@ export async function veniceJson<T>(messages: ChatTurn[]): Promise<T> {
   const data = await res.json();
   const text: string = data.choices?.[0]?.message?.content ?? "{}";
   const json = /\{[\s\S]*\}/.exec(text)?.[0] ?? "{}";
-  return JSON.parse(json) as T;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    // A cut-off or slightly malformed reply: keep at least the words.
+    const reply = /"reply"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(text)?.[1];
+    return (reply ? { reply: JSON.parse(`"${reply}"`) } : {}) as T;
+  }
 }

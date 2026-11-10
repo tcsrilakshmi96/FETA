@@ -17,6 +17,7 @@ export default function CityPicker() {
   const [notCovered, setNotCovered] = useState<City | null>(null);
   const [suggestion, setSuggestion] = useState<City | null>(null);
   const [fromYou, setFromYou] = useState(false);
+  const [askedFor, setAskedFor] = useState<string[]>([]);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- storage is only readable in the browser */
@@ -83,16 +84,23 @@ export default function CityPicker() {
           <button type="button" className="btn-primary" onClick={() => choose(suggestion)}>
             Show me {suggestion.name}
           </button>
-          <button
-            type="button"
-            className={styles.secondary}
-            onClick={() => {
-              saveCityInterest(notCovered);
-              toast(`Noted. We'll tell you when we're in ${notCovered.name}.`);
-            }}
-          >
-            Tell me when you&apos;re in {notCovered.name}
-          </button>
+          {askedFor.includes(notCovered.id) ? (
+            <p className={styles.noted}>
+              ✓ Noted. You&apos;ll see {notCovered.name} here as soon as we cover it.
+            </p>
+          ) : (
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => {
+                saveCityInterest(notCovered);
+                setAskedFor([...askedFor, notCovered.id]);
+                toast(`Noted for ${notCovered.name}`);
+              }}
+            >
+              Tell me when you&apos;re in {notCovered.name}
+            </button>
+          )}
         </div>
       </main>
     );

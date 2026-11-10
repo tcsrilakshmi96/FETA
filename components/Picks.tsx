@@ -95,6 +95,15 @@ export default function Picks() {
     if (origin && !slots[key]) load(when, category);
   }, [origin, key, slots, load, when, category]);
 
+  // Once this category has loaded, quietly load the other one for the same
+  // tab, so switching is instant (Experiences can take 10–20 s to search).
+  const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
+  const otherKey = `${origin ? originKey(origin) : ""}|${when}:${other}`;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
+    if (origin && slots[key] && !slots[key].loading && !slots[otherKey]) load(when, other);
+  }, [origin, key, otherKey, slots, load, when, other]);
+
   const city = origin ? cityById(origin.cityId) : null;
   if (!origin || !city) return null;
 
@@ -410,7 +419,12 @@ export default function Picks() {
 // Google's "Search Suggestions" chip for an event found by web search.
 // Google requires it shown unaltered, next to and as wide as the result.
 function SearchChip({ html }: { html: string }) {
-  return <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className={styles.searchWrap}>
+      <span className={styles.searchLabel}>Found on the web. See more on Google:</span>
+      <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
 }
 
 // "Open now · closes 23:30 · checked just now · Google Maps", with the

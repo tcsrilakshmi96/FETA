@@ -3,7 +3,7 @@ import "server-only";
 import { CITIES, distanceKm, type City } from "@/lib/cities";
 import type { Currency } from "@/lib/currency";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
-import { placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
+import { bestPhoto, placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import { cityCalendar, eventPasses, findEvents, findVenue, siteName } from "@/lib/server/events";
 import {
   applyHardFilters,
@@ -37,8 +37,9 @@ import {
 import { swipeCards } from "@/lib/swipes";
 
 // Cost guards (founder can change these in Vercel without a code change).
-const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 30);
-const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 6);
+// Friends test: 150 new searches a day across everyone, 30 per person.
+const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 150);
+const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 30);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 
 type Body = {
@@ -185,6 +186,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     ...(r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
     because: r?.because ?? fallbackBecause(taste),
   }));
+  // One "Worth a detour" per set at most, across events and places.
+  let detours = kept.stored.filter((p) => p.verdict === "Worth a detour").length;
+  const capped = (p: StoredPick): StoredPick => (p.verdict === "Worth a detour" && detours++ > 0 ? { ...p, verdict: "Good if you're nearby" } : p);
+  for (const e of events) e.stored = capped(e.stored) as typeof e.stored;
+  placeStored.forEach((p, i) => (placeStored[i] = capped(p)));
   const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
   const farCount = chosen.filter((c) => c.candidate.far).length;
   const banner = farCount > 0
@@ -275,7 +281,7 @@ async function gatherCandidates(ctx: {
 }
 
 async function firstPhoto(place: Place) {
-  const name = place.photos?.[0]?.name;
+  const name = bestPhoto(place)?.name;
   return name ? photoUri(name) : null;
 }
 

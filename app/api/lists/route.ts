@@ -1,7 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { distanceKm } from "@/lib/cities";
-import { photoUri, placeDetails, type Place } from "@/lib/server/places";
+import { bestPhoto, photoUri, placeDetails, type Place } from "@/lib/server/places";
 import type { StoredPick } from "@/lib/server/picks";
+
+// Search, AI and photos can take a while; the default cut-off is shorter.
+export const maxDuration = 60;
 
 // My lists: saved ("Want to try") and been places, with live Google
 // details fetched now (only place IDs are stored).
@@ -78,7 +81,7 @@ export async function GET(request: Request) {
         area: areaOf(place),
         distanceKm: here && place.location ? Math.round(distanceKm(here, { lat: place.location.latitude, lng: place.location.longitude }) * 10) / 10 : null,
         mapsUri: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${place.id}`,
-        photo: i < MAX_PHOTOS && place.photos?.[0]?.name ? await photoUri(place.photos[0].name) : null,
+        photo: i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
       };
     }),
   );

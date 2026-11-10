@@ -565,11 +565,27 @@
   color: rgba(var(--inkRGB), 0.6);
 }
 
-/* Google's Search Suggestions chip (its own styles; full width). */
-.searchChip {
+/* Google's Search Suggestions chip for events found on the web. Google
+   requires it unaltered and at least as wide as the result; Feta only adds
+   a label and a plain band around it so it reads as intentional. */
+.searchWrap {
   margin-top: 8px;
+  padding: 7px 10px 6px;
+  border-radius: 12px;
+  background: var(--gBg);
+}
+
+.searchLabel {
+  display: block;
+  margin-bottom: 4px;
+  font: 400 11px Roboto, Arial, sans-serif;
+  color: var(--gInk);
+}
+
+.searchChip {
   width: 100%;
-  overflow-x: auto;
+  max-height: 44px;
+  overflow: hidden;
 }
 
 /* "Or say it" box in the Tweak sheet. */

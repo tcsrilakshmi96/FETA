@@ -125,3 +125,15 @@
   background: rgba(var(--inkRGB), 0.07);
   font-size: 15px;
 }
+
+.noted {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: rgba(43, 196, 201, 0.16);
+  font-size: 14px;
+  text-align: center;
+}
