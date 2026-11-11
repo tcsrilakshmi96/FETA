@@ -29,6 +29,11 @@ export type Place = {
 
 const BASE = "https://places.googleapis.com/v1";
 
+// Some names use decorative Unicode letters ("𝗟𝗮 𝗧𝗮𝘃𝗲𝗿𝗻𝗲"); show them as plain text.
+function plain(place: Place): Place {
+  return place.displayName ? { ...place, displayName: { text: place.displayName.text.normalize("NFKC") } } : place;
+}
+
 // Fields decide Google's price tier: these need "Enterprise" (price, hours,
 // ratings); servesVegetarianFood adds "Atmosphere", so it is only asked for
 // when the user's diet needs it.
@@ -98,7 +103,7 @@ export async function searchPlaces(opts: {
   track(opts.lite ? "places_text_pro" : opts.needsDiet ? "places_text_atmos" : "places_text");
   if (!res.ok) throw new Error(`Places search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
-  return data.places ?? [];
+  return (data.places ?? []).map(plain);
 }
 
 // Every place of the given types within the radius (up to 20), ranked by
@@ -132,7 +137,7 @@ export async function searchNearby(opts: {
   track(opts.needsDiet ? "places_nearby_atmos" : "places_nearby");
   if (!res.ok) throw new Error(`Places nearby search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
-  return data.places ?? [];
+  return (data.places ?? []).map(plain);
 }
 
 export async function placeDetails(id: string, needsDiet: boolean, lite = false): Promise<Place | null> {
@@ -141,7 +146,7 @@ export async function placeDetails(id: string, needsDiet: boolean, lite = false)
   });
   track(lite ? "places_details_pro" : needsDiet ? "places_details_atmos" : "places_details");
   if (!res.ok) return null;
-  return (await res.json()) as Place;
+  return plain((await res.json()) as Place);
 }
 
 // A short-lived photo address (no key in it) for the card.

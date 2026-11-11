@@ -207,7 +207,21 @@ function isMainlyFoodOrDrink(place: Place) {
 export const POPULAR_REVIEWS = 3000;
 
 // Shops, not places to go out to.
-const NEVER_PICKS = ["liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall"];
+const NEVER_PICKS = [
+  "liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall",
+  // Hotels are not a night out (their restaurants count when Google lists the restaurant itself).
+  "hotel", "lodging", "resort_hotel", "motel", "guest_house", "bed_and_breakfast", "hostel", "inn", "extended_stay_hotel", "budget_japanese_inn", "japanese_inn",
+];
+
+// Words that don't tell two places apart ("Café Savoy" vs "Café Imperial").
+const GENERIC = new Set(["the", "cafe", "café", "restaurant", "bar", "pub", "kitchen", "house", "coffee", "bakery", "bistro", "brasserie", "trattoria", "osteria", "pizzeria", "la", "le", "les", "el", "il", "da", "de", "di", "der", "die", "das", "new", "old", "little", "royal", "grand", "sri", "shree", "hotel"]);
+
+// "Dishoom Covent Garden" and "Dishoom Carnaby" are one chain: a set shows
+// one branch at most.
+export function brandOf(name: string) {
+  const words = name.normalize("NFKC").toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  return words.find((w) => !GENERIC.has(w) && w.length > 2) ?? words.join(" ");
+}
 
 // fetaNote: set when this is one of the founder's own places ("Feta pick").
 export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string };
@@ -467,8 +481,9 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
 export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
+  const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
   const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count) => {
-    if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate)) return;
+    if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
     if (!allowExtraPopular && isPopular(candidate) && chosen.some((c) => isPopular(c.candidate))) return;
     chosen.push({ candidate, ranked: r });
   };
@@ -492,8 +507,10 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
 
 export function areaName(place: Place, city: City) {
   const parts = place.addressComponents ?? [];
-  // Skip number-only names (block numbers in, say, Tokyo addresses).
-  const pick = (type: string) => parts.find((p) => p.types?.includes(type) && !/^[\d\s-]+$/.test(p.longText))?.longText;
+  // Skip number-only names (block numbers in, say, Tokyo addresses) and
+  // ones Google only has in another script (Arabic area names in Dubai).
+  const readable = (t: string) => !/^[\d\s-]+$/.test(t) && !/[^\p{Script=Latin}\p{N}\p{P}\p{Zs}]/u.test(t);
+  const pick = (type: string) => parts.find((p) => p.types?.includes(type) && readable(p.longText))?.longText;
   return pick("sublocality_level_1") ?? pick("neighborhood") ?? pick("sublocality") ?? pick("locality") ?? city.name;
 }
 
