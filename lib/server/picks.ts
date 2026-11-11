@@ -290,7 +290,7 @@ export function applyHardFilters(
       continue;
     }
     if (
-      (opts.when === "tonight" && place.currentOpeningHours?.openNow !== true) ||
+      (opts.when === "tonight" && !openTonight(place, opts.city)) ||
       (opts.when === "weekend" && !opensOnWeekend(place)) ||
       (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city))
     ) {
@@ -315,8 +315,44 @@ export function spendUpperBound(answers: Answers, city: City): number | null {
   return level <= 4 ? spendBounds(city.currency)[level - 1] : null;
 }
 
+// "Tonight" (founder's decision, 11 Nov 2026), in the city's own time:
+// from 5 pm to 3 am it means open now; earlier in the day it means open
+// for at least an hour between 7 and 10 pm today, so a lunch café that
+// shuts at 5 isn't a pick and 4 am in New York still finds tonight's places.
+const EVENING = [19 * 60, 22 * 60];
+
+function cityNow(city: City) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: city.timeZone })
+      .formatToParts(new Date())
+      .map((p) => [p.type, p.value]),
+  );
+  const hour = Number(parts.hour) % 24;
+  return { day: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(parts.weekday), minutes: hour * 60 + Number(parts.minute) };
+}
+
+export function tonightMeansNow(city: City) {
+  const { minutes } = cityNow(city);
+  return minutes >= 17 * 60 || minutes < 3 * 60;
+}
+
+// Today's opening period that covers at least an hour of the evening.
+function eveningHours(place: Place, city: City): [number, number] | null {
+  const { day } = cityNow(city);
+  const found = (weeklyHours(place) ?? [])
+    // A place open around the clock has one period with no close.
+    .filter(([d, open, close]) => (d === day || close >= 7 * 24 * 60) && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60)
+    .sort((a, b) => b[2] - a[2])[0];
+  return found ? [found[1], found[2]] : null;
+}
+
+function openTonight(place: Place, city: City) {
+  return tonightMeansNow(city) ? place.currentOpeningHours?.openNow === true : eveningHours(place, city) !== null;
+}
+
 // "Open later": still open at 11 pm tonight.
 function opensLate(place: Place, city: City) {
+  if (!tonightMeansNow(city)) return (eveningHours(place, city)?.[1] ?? 0) >= 23 * 60;
   const close = place.currentOpeningHours?.nextCloseTime;
   if (!close) return false;
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: city.timeZone }).format(new Date(close)));
@@ -520,6 +556,12 @@ function timeIn(iso: string, timeZone: string) {
 
 // The live Google line, always ending in the unchanged words "Google Maps".
 function googleLine(place: Place, when: When, city: City) {
+  if (when === "tonight" && !tonightMeansNow(city)) {
+    const hours = eveningHours(place, city);
+    const clock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    const until = hours && hours[1] < 7 * 24 * 60 ? ` until ${clock(hours[1])}` : "";
+    return `Open tonight${until} · checked just now · Google Maps`;
+  }
   if (when === "tonight") {
     const close = place.currentOpeningHours?.nextCloseTime;
     const known = close && city.timeZone !== "UTC";
@@ -651,7 +693,7 @@ export function buildEventPick(
 export function compromiseFor(c: Candidate, taste: Taste, when: When, city: City): string | null {
   const limit = distanceLimitKm(taste.answers);
   const close = c.place.currentOpeningHours?.nextCloseTime;
-  if (when === "tonight" && close && new Date(close).getTime() - Date.now() < 75 * 60000) return "you can get there in the next hour";
+  if (when === "tonight" && tonightMeansNow(city) && close && new Date(close).getTime() - Date.now() < 75 * 60000) return "you can get there in the next hour";
   if (c.far || c.km > limit * 0.7) return `you're already near ${areaName(c.place, city)}`;
   if ((c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS) return "you don't mind a crowd";
   return null;

@@ -24,6 +24,7 @@ import {
   tasteSummary,
   unknownPriceOk,
   takeThree,
+  tonightMeansNow,
   applyTweaks,
   foodPhrases,
   TWEAKS,
@@ -286,7 +287,7 @@ async function gatherCandidates(ctx: {
   const limit = distanceLimitKm(taste.answers);
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: ctx.needsDiet, regionCode: city.country };
   const text = (query: string, radiusKm: number) =>
-    searchPlaces({ ...common, query, radiusKm, openNow: body.when === "tonight" });
+    searchPlaces({ ...common, query, radiusKm, openNow: body.when === "tonight" && tonightMeansNow(city) });
   const nearby = (radiusKm: number) => searchNearby({ ...common, types: FOOD_DRINK_TYPES, radiusKm, rank: "POPULARITY" });
 
   // What they asked for in their own words (Tweak sheet or Ask Feta) leads.
