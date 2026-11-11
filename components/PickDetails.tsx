@@ -15,7 +15,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
   useEffect(() => {
     if (pick.event) return;
     let live = true;
-    fetchNotes(pick.placeId, pick.kind).then((n) => live && setNotes(n));
+    fetchNotes(pick).then((n) => live && setNotes(n));
     return () => {
       live = false;
     };
@@ -163,7 +163,13 @@ export function SearchChip({ html }: { html: string }) {
 // "Open now · closes 23:30 · checked just now · Google Maps", with the
 // words "Google Maps" linked to the place and never translated.
 export function GoogleLine({ pick }: { pick: Pick }) {
-  const text = pick.googleLine.replace(/ · Google Maps$/, "");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
+  const mins = pick.checkedAt ? Math.floor((now - pick.checkedAt) / 60000) : 0;
+  const text = pick.googleLine.replace(/ · Google Maps$/, "").replace("checked just now", mins >= 2 ? `checked ${mins} min ago` : "checked just now");
   return (
     <>
       {text} ·{" "}

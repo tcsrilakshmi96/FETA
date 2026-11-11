@@ -36,8 +36,21 @@ export async function fetchPicks(
 export type PlaceNotes = { items: string[]; sources: { title: string; uri: string }[] };
 
 // "What to order" / "Highlights" for the Details view (read live from
-// Google Maps reviews by Gemini; never stored).
-export async function fetchNotes(placeId: string, kind: string): Promise<PlaceNotes> {
+// Google Maps reviews by Gemini; never stored). Kept in the phone's memory
+// while the app is open, so reopening the same place costs nothing.
+// A request still on its way is shared too.
+const notesKept = new Map<string, { notes: Promise<PlaceNotes>; at: number }>();
+
+export function fetchNotes(pick: Pick): Promise<PlaceNotes> {
+  const hit = notesKept.get(pick.placeId);
+  if (hit && Date.now() - hit.at < 60 * 60000) return hit.notes;
+  const notes = askNotes(pick);
+  notesKept.set(pick.placeId, { notes, at: Date.now() });
+  notes.then((n) => n.items.length || notesKept.delete(pick.placeId));
+  return notes;
+}
+
+async function askNotes(pick: Pick): Promise<PlaceNotes> {
   const empty = { items: [], sources: [] };
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
@@ -46,7 +59,7 @@ export async function fetchNotes(placeId: string, kind: string): Promise<PlaceNo
     const res = await fetch("/api/details", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ placeId, kind }),
+      body: JSON.stringify({ placeId: pick.placeId, kind: pick.kind, name: pick.name, lat: pick.lat, lng: pick.lng }),
     });
     return res.ok ? ((await res.json()) as PlaceNotes) : empty;
   } catch {

@@ -91,6 +91,7 @@ export type Pick = StoredPick & {
   distanceKm: number;
   chips: string[];
   googleLine: string; // empty for events, which show the Search chip instead
+  checkedAt?: number; // set on the phone when the picks arrive
   mapsUri: string;
   directionsUri: string;
   book: { label: string; url: string } | null;

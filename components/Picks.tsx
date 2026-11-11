@@ -36,13 +36,28 @@ const TWEAK_OPTIONS = [
 
 type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | { type: "plan" } | null;
 
+// Picks stay in the phone's memory while the app is open, so going to Lists
+// and back doesn't pay Google to check the same places again. Never stored:
+// a reload starts fresh, and nothing is kept for more than 20 minutes.
+const KEEP_MS = 20 * 60000;
+let kept: { slots: Record<string, Slot>; at: number } | null = null;
+
+function keptSlots() {
+  if (!kept || Date.now() - kept.at > KEEP_MS) return {};
+  return Object.fromEntries(Object.entries(kept.slots).filter(([, s]) => !s.loading));
+}
+
 export default function Picks() {
   const router = useRouter();
   const toast = useToast();
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [when, setWhen] = useState<When>("tonight");
   const [category, setCategory] = useState<Category>("food_drinks");
-  const [slots, setSlots] = useState<Record<string, Slot>>({});
+  const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
+
+  useEffect(() => {
+    kept = { slots, at: kept && Object.keys(keptSlots()).length ? kept.at : Date.now() };
+  }, [slots]);
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
@@ -80,7 +95,7 @@ export default function Picks() {
       const tweakBanner = tweak && reply.picks?.length ? `${tweak.label}: here are ${reply.picks.length} new ones.` : undefined;
       setSlots((s) => ({
         ...s,
-        [k]: { loading: false, picks: reply.picks ?? [], index: 0, banner: reply.banner ?? tweakBanner, notice: reply.notice ?? reply.error },
+        [k]: { loading: false, picks: (reply.picks ?? []).map((p) => ({ ...p, checkedAt: Date.now() })), index: 0, banner: reply.banner ?? tweakBanner, notice: reply.notice ?? reply.error },
       }));
     },
     [origin],
