@@ -135,9 +135,15 @@
 .deck {
   position: relative;
   flex: 1;
-  min-height: 280px;
+  min-height: 190px;
   max-height: 420px;
   margin: 12px -4px 0;
+}
+
+/* On short phones the card gives up height; the Google Maps line, the
+   buttons and everything else keep their full size. */
+.screen > :not(.deck) {
+  flex-shrink: 0;
 }
 
 .card {
