@@ -10,6 +10,8 @@ export type Plan = { stops: [PlanStop, PlanStop]; km: number; minutes: number; m
 
 const DINNER_MINUTES = 75;
 const MAX_KM = 3;
+// The second stop only needs to be open this long after you arrive.
+const AFTER_MINUTES = 45;
 
 function travel(km: number) {
   return km <= 1.5 ? { mode: "walk" as const, minutes: Math.max(3, Math.round(km * 13)) } : { mode: "ride" as const, minutes: Math.round(8 + km * 3) };
@@ -51,13 +53,17 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
   const day = new Date(now);
   if (when === "weekend") day.setDate(day.getDate() + ((6 - day.getDay() + 7) % 7));
   // Dinner at 7:30 pm, or as soon as possible if that has passed tonight.
+  // Late in the evening it starts sooner and dinner is quicker, so there is
+  // still time for a second stop before places close.
   const usual = new Date(day);
   usual.setHours(19, 30, 0, 0);
-  const earliest = when === "tonight" ? quarter(new Date(now.getTime() + 40 * 60000)) : usual;
+  const late = when === "tonight" && now.getHours() >= 21;
+  const earliest = when === "tonight" ? quarter(new Date(now.getTime() + (late ? 20 : 40) * 60000)) : usual;
+  const dinnerMinutes = late ? 60 : DINNER_MINUTES;
 
   const consider = (first: Pick, second: Pick, firstAt: Date, secondAt: Date, km: number, t: ReturnType<typeof travel>, bonus: number) => {
     if (firstAt < earliest) return;
-    if (!openUntil(first, firstAt, 60) || !openUntil(second, secondAt, 60)) return;
+    if (!openUntil(first, firstAt, 60) || !openUntil(second, secondAt, AFTER_MINUTES)) return;
     const score = km + bonus + (VERDICT_SCORE[first.verdict] ?? 1) + (VERDICT_SCORE[second.verdict] ?? 1) + (first.fetaNote || second.fetaNote ? -1 : 0);
     if (found.best && score >= found.best.score) return;
     found.best = {
@@ -84,13 +90,13 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
       const fixed = eventStart(b);
       if (fixed) {
         // An event fixes the time: dinner before it, or straight after.
-        consider(a, b, quarter(new Date(fixed.getTime() - (DINNER_MINUTES + t.minutes + 10) * 60000)), fixed, km, t, 0);
+        consider(a, b, quarter(new Date(fixed.getTime() - (dinnerMinutes + t.minutes + 10) * 60000)), fixed, km, t, 0);
         consider(b, a, fixed, quarter(new Date(fixed.getTime() + (120 + t.minutes) * 60000)), km, t, 0.5);
         continue;
       }
       // Dinner, then something after (open late enough)…
       const dinner = usual < earliest ? earliest : usual;
-      consider(a, b, dinner, quarter(new Date(dinner.getTime() + (DINNER_MINUTES + t.minutes) * 60000)), km, t, 0);
+      consider(a, b, dinner, quarter(new Date(dinner.getTime() + (dinnerMinutes + t.minutes) * 60000)), km, t, 0);
       // …or something first in the early evening, then dinner.
       const visit = 90;
       const before = quarter(new Date(dinner.getTime() - (visit + t.minutes) * 60000));

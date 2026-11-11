@@ -33,6 +33,24 @@ export async function fetchPicks(
   }
 }
 
+// Plan my evening: something to do or a drink close to the chosen dinner,
+// when the picks on screen are too far apart.
+export async function fetchNearDinner(dinner: Pick, when: When, cityId: string, exclude: string[]): Promise<Pick[]> {
+  const { data } = await supabase().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return [];
+  try {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ when, cityId, near: { placeId: dinner.placeId, lat: dinner.lat, lng: dinner.lng }, exclude }),
+    });
+    return ((await res.json()) as { picks?: Pick[] }).picks ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export type PlaceNotes = { items: string[]; sources: { title: string; uri: string }[] };
 
 // "What to order" / "Highlights" for the Details view (read live from

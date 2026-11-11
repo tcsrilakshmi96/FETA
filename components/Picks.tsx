@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PickDetails, { GoogleLine, SearchChip } from "@/components/PickDetails";
 import PlanSheet from "@/components/PlanSheet";
-import { planEvening } from "@/lib/plan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import { savePickAction, saveTweakLines } from "@/lib/db";
@@ -380,8 +379,10 @@ export default function Picks() {
       {sheet?.type === "plan" && (
         <PlanSheet
           when={when}
+          cityId={city.id}
           loading={!foodSlot || foodSlot.loading || !expSlot || expSlot.loading}
-          plan={foodSlot && expSlot && !foodSlot.loading && !expSlot.loading ? planEvening(foodSlot.picks, expSlot.picks, when) : null}
+          food={foodSlot?.picks ?? []}
+          experiences={expSlot?.picks ?? []}
           onClose={() => setSheet(null)}
         />
       )}
