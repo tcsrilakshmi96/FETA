@@ -84,6 +84,10 @@ export default function Privacy() {
             Venice AI reads your chats with Ask Feta, with a short summary of what you like, to reply and suggest
             what to remember. It never gets place details from Google.
           </li>
+          <li>
+            When you type an area, Google Maps suggests matching places from what you type. City names come from
+            GeoNames (geonames.org, CC BY 4.0), kept inside Feta, so choosing a city sends nothing to anyone.
+          </li>
         </ul>
         <p>When we add another service, we will update this page first.</p>
       </section>

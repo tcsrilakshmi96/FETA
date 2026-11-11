@@ -1,6 +1,7 @@
 "use client";
 
 import SendToGroup from "@/components/SendToGroup";
+import { formatDistance } from "@/lib/cities";
 import { clock, type Plan } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
 
@@ -35,7 +36,7 @@ export default function PlanSheet({ plan, loading, when, onClose }: { plan: Plan
                 <li key={stop.pick.placeId}>
                   {i === 1 && (
                     <p className={styles.travel}>
-                      {plan.minutes}-minute {plan.mode} · {plan.km} km
+                      {plan.minutes}-minute {plan.mode} · {formatDistance(plan.km, plan.stops[0].pick.country)}
                     </p>
                   )}
                   <div className={styles.stop}>
@@ -64,6 +65,7 @@ export default function PlanSheet({ plan, loading, when, onClose }: { plan: Plan
               payload={{
                 title: plan.day,
                 travel: { km: plan.km, minutes: plan.minutes, mode: plan.mode },
+                country: plan.stops[0].pick.country,
                 stops: plan.stops.map((s) => ({
                   placeId: s.pick.placeId,
                   kind: s.pick.kind,

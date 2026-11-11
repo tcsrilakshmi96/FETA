@@ -1,4 +1,5 @@
-import { CITIES } from "@/lib/cities";
+import { cityById } from "@/lib/server/cities";
+import { withCosts } from "@/lib/server/costs";
 import { searchPlaces } from "@/lib/server/places";
 import { areaName } from "@/lib/server/picks";
 import { userDb } from "@/lib/server/taste";
@@ -12,9 +13,9 @@ export async function GET(request: Request) {
   if (admin !== true) return Response.json({ error: "Not allowed" }, { status: 403 });
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
-  const city = CITIES.find((c) => c.id === url.searchParams.get("city")) ?? CITIES[0];
-  if (q.length < 2) return Response.json({ results: [] });
-  const places = await searchPlaces({ query: `${q}, ${city.name}`, lat: city.lat, lng: city.lng, radiusKm: 30, openNow: false, needsDiet: false, regionCode: city.country, lite: true, count: 6 });
+  const city = cityById(url.searchParams.get("city"));
+  if (q.length < 2 || !city) return Response.json({ results: [] });
+  const places = await withCosts(db, "admin", () => searchPlaces({ query: `${q}, ${city.name}`, lat: city.lat, lng: city.lng, radiusKm: 30, openNow: false, needsDiet: false, regionCode: city.country, lite: true, count: 6 }));
   return Response.json({
     results: places.map((p) => ({ placeId: p.id, name: p.displayName?.text ?? "", area: areaName(p, city) })),
   });

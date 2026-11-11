@@ -1,4 +1,5 @@
 import "server-only";
+import { track } from "@/lib/server/costs";
 
 // Google Places API (New), called only from Feta's server so the key stays
 // private. Results are used for this request and never stored, apart from
@@ -94,6 +95,7 @@ export async function searchPlaces(opts: {
       },
     }),
   });
+  track(opts.lite ? "places_text_pro" : opts.needsDiet ? "places_text_atmos" : "places_text");
   if (!res.ok) throw new Error(`Places search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
   return data.places ?? [];
@@ -127,6 +129,7 @@ export async function searchNearby(opts: {
       },
     }),
   });
+  track(opts.needsDiet ? "places_nearby_atmos" : "places_nearby");
   if (!res.ok) throw new Error(`Places nearby search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
   return data.places ?? [];
@@ -136,6 +139,7 @@ export async function placeDetails(id: string, needsDiet: boolean, lite = false)
   const res = await fetch(`${BASE}/places/${encodeURIComponent(id)}?languageCode=en`, {
     headers: headers(fieldMask("", needsDiet, lite)),
   });
+  track(lite ? "places_details_pro" : needsDiet ? "places_details_atmos" : "places_details");
   if (!res.ok) return null;
   return (await res.json()) as Place;
 }
@@ -145,6 +149,7 @@ export async function photoUri(photoName: string): Promise<string | null> {
   const res = await fetch(`${BASE}/${photoName}/media?maxWidthPx=800&skipHttpRedirect=true`, {
     headers: { "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
   });
+  track("places_photo");
   if (!res.ok) return null;
   const data = (await res.json()) as { photoUri?: string };
   return data.photoUri ?? null;
@@ -157,11 +162,49 @@ export async function findDestination(name: string): Promise<{ name: string; lat
     headers: headers("places.displayName,places.location,places.addressComponents"),
     body: JSON.stringify({ textQuery: name, pageSize: 1, languageCode: "en" }),
   });
+  track("places_text_pro");
   if (!res.ok) return null;
   const place = ((await res.json()) as { places?: Place[] }).places?.[0];
   if (!place?.location) return null;
   const country = place.addressComponents?.find((c) => c.types?.includes("country"))?.shortText ?? "";
   return { name: place.displayName?.text ?? name, lat: place.location.latitude, lng: place.location.longitude, country };
+}
+
+// "Type a neighbourhood or landmark": suggestions near the city, then the
+// chosen one's location. Autocomplete is free when the session ends in this
+// details call, which uses the cheapest fields (Essentials).
+export async function suggestAreas(input: string, near: { lat: number; lng: number }, country: string, session: string) {
+  const res = await fetch(`${BASE}/places:autocomplete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
+    body: JSON.stringify({
+      input,
+      sessionToken: session,
+      languageCode: "en",
+      includedRegionCodes: [country.toLowerCase()],
+      locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 40000 } },
+    }),
+  });
+  track("places_autocomplete");
+  if (!res.ok) return [];
+  const data = (await res.json()) as {
+    suggestions?: { placePrediction?: { placeId: string; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
+  };
+  return (data.suggestions ?? [])
+    .map((s) => s.placePrediction)
+    .filter((p): p is NonNullable<typeof p> => !!p?.structuredFormat?.mainText)
+    .slice(0, 5)
+    .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "" }));
+}
+
+export async function areaLocation(placeId: string, session: string): Promise<{ lat: number; lng: number } | null> {
+  const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(session)}`, {
+    headers: headers("location"),
+  });
+  track("places_details_essentials");
+  if (!res.ok) return null;
+  const loc = ((await res.json()) as Place).location;
+  return loc ? { lat: loc.latitude, lng: loc.longitude } : null;
 }
 
 // Prefer a photo taken by a visitor over the venue's own uploads, which are

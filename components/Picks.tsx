@@ -9,13 +9,10 @@ import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import { savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
-import { cityById, loadOrigin, type Origin } from "@/lib/origin";
+import { formatDistance } from "@/lib/cities";
+import { loadOrigin, originKey, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
 import styles from "./Picks.module.css";
-
-function originKey(o: Origin) {
-  return `${o.source}:${o.label}:${o.lat.toFixed(3)},${o.lng.toFixed(3)}`;
-}
 
 type Slot = { loading: boolean; picks: Pick[]; index: number; banner?: string; notice?: string };
 
@@ -127,7 +124,7 @@ export default function Picks() {
   const foodSlot = slots[`${origin ? originKey(origin) : ""}|${when}:food_drinks`];
   const expSlot = slots[`${origin ? originKey(origin) : ""}|${when}:experiences`];
 
-  const city = origin ? cityById(origin.cityId) : null;
+  const city = origin?.city ?? null;
   if (!origin || !city) return null;
 
   const picks = slot?.picks ?? [];
@@ -195,7 +192,7 @@ export default function Picks() {
 
       <div className={styles.titleRow}>
         <h1 className={styles.title}>
-          Your 3 to {verb} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+          Your {picks.length > 0 && picks.length < 3 ? picks.length : 3} to {verb} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
         </h1>
         <span className={styles.dots} aria-hidden="true">
           {Array.from({ length: picks.length > 0 ? picks.length : 3 }, (_, i) => (
@@ -301,7 +298,7 @@ export default function Picks() {
                     <p className={styles.name}>{pick.name}</p>
                     <div className={styles.meta}>
                       <span className={styles.where}>
-                        {pick.area} · {pick.distanceKm} km
+                        {pick.area} · {formatDistance(pick.distanceKm, city.country)}
                       </span>
                       <span className={styles.verdict}>
                         {pick.verdict === "Skip unless" ? `Skip unless ${pick.skipUnless ?? "you're curious"}` : pick.verdict}

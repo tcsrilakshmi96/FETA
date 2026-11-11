@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
+import { formatDistance } from "@/lib/cities";
 import { fetchNotes, type Pick, type PlaceNotes } from "@/lib/picks-client";
 import styles from "./PickDetails.module.css";
 
@@ -42,7 +43,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
         </div>
 
         <p className={styles.meta}>
-          {[pick.area, pick.distanceKm ? `${pick.distanceKm} km` : null, pick.event && pick.chips[0]].filter(Boolean).join(" · ")}
+          {[pick.area, pick.distanceKm ? formatDistance(pick.distanceKm, pick.country) : null, pick.event && pick.chips[0]].filter(Boolean).join(" · ")}
         </p>
         <h2 className={styles.name}>{pick.name}</h2>
         <p className={styles.verdict}>{verdict}</p>
@@ -111,8 +112,9 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
         )}
 
         <div className={styles.actions}>
-          <a className={styles.primary} href={pick.book?.url ?? pick.mapsUri} target="_blank" rel="noopener noreferrer">
-            {pick.book?.label ?? "Open in Google Maps"}
+          {/* Booking (India) or tickets lead; else Naver in Korea, else Google Maps. */}
+          <a className={styles.primary} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer">
+            {pick.book?.label ?? (pick.naverUri ? "Open in Naver Map" : "Open in Google Maps")}
           </a>
           <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer">
             Directions
@@ -120,6 +122,16 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
           <button type="button" onClick={onSave}>
             ♥ Save
           </button>
+          {(pick.book || pick.naverUri) && (
+            <a className={pick.website && !pick.event ? "" : styles.wide} href={pick.mapsUri} target="_blank" rel="noopener noreferrer">
+              <span translate="no">Google Maps</span>
+            </a>
+          )}
+          {pick.website && !pick.event && (
+            <a className={pick.book || pick.naverUri ? "" : styles.wide} href={pick.website} target="_blank" rel="noopener noreferrer">
+              Website
+            </a>
+          )}
         </div>
         <div className={styles.group}>
           {/* Shares never include the personal reason (it can mention diet). */}

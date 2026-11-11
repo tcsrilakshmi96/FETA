@@ -2,18 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
-import { CITIES, loadCity } from "@/lib/cities";
+import { findCities, loadCity, type City } from "@/lib/cities";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Admin.module.css";
 
 type Result = { placeId: string; name: string; area: string };
-type FetaPlace = { id: string; place_id: string; name: string; kind: string; note: string; city_id: string; active: boolean };
+type FetaPlace = { id: string; place_id: string; name: string; kind: string; note: string; city_id: string; city_name: string | null; active: boolean };
 
 // Founder only: add and manage Feta picks (her own places, with a note).
 export default function Admin() {
   const toast = useToast();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [cityId, setCityId] = useState("bengaluru");
+  const [city, setCity] = useState<City | null>(null);
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityResults, setCityResults] = useState<City[]>([]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [chosen, setChosen] = useState<Result | null>(null);
@@ -22,13 +24,13 @@ export default function Admin() {
   const [places, setPlaces] = useState<FetaPlace[]>([]);
 
   async function refresh() {
-    const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, active").order("created_at", { ascending: false });
+    const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").order("created_at", { ascending: false });
     setPlaces((data ?? []) as FetaPlace[]);
   }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the city is only readable in the browser
-    setCityId(loadCity()?.id ?? "bengaluru");
+    setCity(loadCity());
     currentUserId().then(async () => {
       const { data } = await supabase().rpc("is_admin");
       setAllowed(data === true);
@@ -39,14 +41,14 @@ export default function Admin() {
   async function search(e: React.FormEvent) {
     e.preventDefault();
     const { data } = await supabase().auth.getSession();
-    const res = await fetch(`/api/admin/search?city=${cityId}&q=${encodeURIComponent(query)}`, {
+    if (!city) return;
+    const res = await fetch(`/api/admin/search?city=${city.id}&q=${encodeURIComponent(query)}`, {
       headers: { Authorization: `Bearer ${data.session?.access_token ?? ""}` },
     });
     setResults(res.ok ? ((await res.json()) as { results: Result[] }).results : []);
   }
 
   async function save() {
-    const city = CITIES.find((c) => c.id === cityId);
     if (!chosen || !city || !note.trim()) return;
     const { error } = await supabase().from("founder_places").insert({
       place_id: chosen.placeId,
@@ -54,6 +56,7 @@ export default function Admin() {
       kind,
       note: note.trim(),
       city_id: city.id,
+      city_name: city.name,
       country: city.country,
       time_zone: city.timeZone,
       currency: city.currency,
@@ -97,13 +100,33 @@ export default function Admin() {
       </h1>
       <p className={styles.sub}>Your own places. One shows up in someone&apos;s 3 whenever it fits their hard filters, with your note.</p>
 
-      <div className={styles.cities}>
-        {CITIES.filter((c) => c.covered).map((c) => (
-          <button key={c.id} type="button" className={c.id === cityId ? styles.on : ""} onClick={() => setCityId(c.id)}>
-            {c.name}
-          </button>
-        ))}
-      </div>
+      <form
+        className={styles.search}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setCityResults(await findCities(cityQuery));
+        }}
+      >
+        <input value={cityQuery} onChange={(e) => setCityQuery(e.target.value)} placeholder={city ? `City: ${city.name}` : "Which city?"} aria-label="City" />
+        <button type="submit">Change</button>
+      </form>
+      {cityResults.length > 0 && (
+        <div className={styles.cities}>
+          {cityResults.slice(0, 5).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => {
+                setCity(c);
+                setCityResults([]);
+                setCityQuery("");
+              }}
+            >
+              {c.name}, {c.countryName}
+            </button>
+          ))}
+        </div>
+      )}
 
       {!chosen ? (
         <>
@@ -156,7 +179,7 @@ export default function Admin() {
         {places.map((p) => (
           <li key={p.id} className={p.active ? "" : styles.paused}>
             <div>
-              <strong>{p.name}</strong> <span>· {p.kind} · {CITIES.find((c) => c.id === p.city_id)?.name}</span>
+              <strong>{p.name}</strong> <span>· {p.kind} · {p.city_name ?? ""}</span>
               <p>“{p.note}”</p>
             </div>
             <div className={styles.rowActions}>

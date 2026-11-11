@@ -1,7 +1,8 @@
 import "server-only";
 
-import { CITIES, distanceKm, type City } from "@/lib/cities";
-import type { Currency } from "@/lib/currency";
+import { isMainlandChina, type City } from "@/lib/cities";
+import { cityById } from "@/lib/server/cities";
+import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { bestPhoto, placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
@@ -39,9 +40,10 @@ import {
 import { swipeCards } from "@/lib/swipes";
 
 // Cost guards (founder can change these in Vercel without a code change).
-// Friends test: 150 new searches a day across everyone, 30 per person.
-const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 150);
-const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 30);
+// Alpha: 600 new searches a day across everyone, 20 per person (each
+// category counts once), and an estimated-spend cap per day (costs.ts).
+const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
+const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 20);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 
 type Body = {
@@ -52,9 +54,8 @@ type Body = {
     lng: number;
     label: string;
     source: "gps" | "area" | "city";
-    cityId: string;
-    // A trip destination outside the covered cities, from Ask Feta.
-    place?: { name: string; country: string; currency: string; timeZone: string };
+    areaId?: string;
+    city: { id: string };
   };
   trip?: string; // trip-only profile lines for this trip count too
   more?: boolean; // "Show me 3 more"
@@ -73,8 +74,11 @@ function json(body: Reply | { error: string }, status = 200) {
 export async function runPicks(token: string | undefined, input: unknown): Promise<Response> {
   if (!token) return json({ error: "Not signed in" }, 401);
   const body = input as Body;
-  const city = resolveCity(body.origin);
-  if (!city || !["food_drinks", "experiences"].includes(body.category) || !["tonight", "weekend"].includes(body.when)) {
+  const city = cityById(body.origin?.city?.id);
+  if (city && isMainlandChina(city)) {
+    return json({ picks: [], notice: `Feta can't find reliable places in mainland China yet, because Google Maps has very little there. Ask Feta in chat for ideas in ${city.name}; they'll be less reliable than usual.` });
+  }
+  if (!city || !Number.isFinite(body.origin.lat) || !Number.isFinite(body.origin.lng) || !["food_drinks", "experiences"].includes(body.category) || !["tonight", "weekend"].includes(body.when)) {
     return json({ error: "Bad request" }, 400);
   }
 
@@ -85,7 +89,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const [taste, actionsRes] = await Promise.all([loadTaste(db, body.trip), db.from("pick_actions").select("place_id")]);
   const answers = taste.answers;
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
-  const originKey = body.origin.source === "gps" ? "gps" : body.origin.label;
+  // Place IDs and rounded coordinates only: no Google text in the database.
+  const originKey =
+    body.origin.source === "gps"
+      ? `gps:${city.id}`
+      : body.origin.source === "area"
+        ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
+        : `city:${city.id}`;
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
 
@@ -114,14 +124,18 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   let keptBanner: string | null = null;
   if (latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date()) {
     const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
-    if (shown.picks.length >= 3) return json(shown.reply);
+    // A set of 2 (a small city, no weak third) stays 2 while both still fit.
+    if (shown.picks.length >= Math.min(3, (latest.picks as StoredPick[]).length)) return json(shown.reply);
     kept = shown;
     keptBanner = latest.banner;
   }
 
-  // 2. Daily cost limits.
-  const { data: counts } = await db.rpc("pick_searches_today").single<{ everyone: number; mine: number }>();
-  if (counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) {
+  // 2. Daily cost limits: searches, and today's estimated spend.
+  const [{ data: counts }, spent] = await Promise.all([
+    db.rpc("pick_searches_today").single<{ everyone: number; mine: number }>(),
+    spentToday(db),
+  ]);
+  if ((counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) || spent >= DAILY_BUDGET_INR) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
     if (latest) {
       const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
@@ -144,7 +158,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   // Experiences also look for this week's events, at the same time.
   const eventsSearch =
-    body.category === "experiences" && need > 1 && !body.trip && !body.origin.place
+    body.category === "experiences" && need > 1 && !body.trip
       ? eventPicks({ db, taste: effective, body, city, origin, exclude }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
@@ -183,7 +197,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   if (pool.length === 0 && events.length === 0) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
     console.log("No picks", { category: body.category, when: body.when, drops });
-    return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when) });
+    return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when, city.country) });
   }
 
   // Up to 2 events first, then places to make 3. A Feta pick that passed
@@ -215,9 +229,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   placeStored.forEach((p, i) => (placeStored[i] = capped(p)));
   const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
   const farCount = chosen.filter((c) => c.candidate.far).length;
-  const banner = farCount > 0
-    ? `Nothing great right around you ${body.when === "tonight" ? "tonight" : "this weekend"}. ${farCount === 1 ? "Here's 1" : `Here are ${farCount}`} worth a short ride.`
-    : keptBanner;
+  const short = stored.length < 3;
+  const whenText = body.when === "tonight" ? "tonight" : "this weekend";
+  const banner = short
+    ? `Only ${stored.length} ${stored.length === 1 ? "place" : "places"} really ${stored.length === 1 ? "fits" : "fit"} you here ${whenText}${farCount > 0 ? `, worth a short ride` : ""}. No weak filler.`
+    : farCount > 0
+      ? `Nothing great right around you ${whenText}. ${farCount === 1 ? "Here's 1" : `Here are ${farCount}`} worth a short ride.`
+      : keptBanner;
 
   await db.from("pick_sets").insert({
     user_id: userId,
@@ -320,7 +338,7 @@ async function showStored(
   ctx: {
     taste: Taste;
     body: Body;
-    city: (typeof CITIES)[number];
+    city: City;
     origin: { lat: number; lng: number };
     exclude: Set<string>;
     needsDiet: boolean;
@@ -436,44 +454,10 @@ async function eventPicks(ctx: {
     }));
 }
 
-// The area name sent to the event search: the chosen area, or the nearest
-// listed neighbourhood. Coordinates are never sent.
+// The area name sent to the event search: the typed area, or the city.
+// Coordinates are never sent.
 function nearName(city: City, o: Body["origin"]) {
-  if (o.source === "area") return `${o.label}, ${city.name}`;
-  const nearest = (city.areas ?? [])
-    .map((a) => ({ a, km: distanceKm(o, a) }))
-    .sort((x, y) => x.km - y.km)[0];
-  return nearest && nearest.km <= 4 ? `${nearest.a.name}, ${city.name}` : city.name;
-}
-
-// A covered city, or (for trips planned in Ask Feta) a destination anywhere,
-// described by the caller and checked here.
-const CURRENCIES: Currency[] = ["INR", "USD", "CAD", "GBP", "EUR", "AED", "SGD", "AUD", "JPY"];
-
-function resolveCity(o: Body["origin"] | undefined): City | null {
-  if (!o) return null;
-  const covered = CITIES.find((c) => c.id === o.cityId && c.covered);
-  if (covered) return covered;
-  if (!o.cityId?.startsWith("trip:") || !o.place || !Number.isFinite(o.lat) || !Number.isFinite(o.lng)) return null;
-  const currency = CURRENCIES.includes(o.place.currency as Currency) ? (o.place.currency as Currency) : "USD";
-  let timeZone = "UTC";
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: o.place.timeZone });
-    timeZone = o.place.timeZone;
-  } catch {
-    // Unknown zone: closing times are shown without a local clock.
-  }
-  return {
-    id: o.cityId.slice(0, 80),
-    name: o.place.name.slice(0, 60),
-    region: "",
-    country: o.place.country.slice(0, 2).toUpperCase(),
-    timeZone,
-    currency,
-    lat: o.lat,
-    lng: o.lng,
-    covered: true,
-  };
+  return o.source === "area" ? `${o.label.slice(0, 60)}, ${city.name}` : city.name;
 }
 
 // The founder's places in this city for this category, checked live against

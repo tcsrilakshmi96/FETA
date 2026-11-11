@@ -34,8 +34,11 @@ export default function Ask() {
   const nextId = useRef(1);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the origin is only readable in the browser
+    /* eslint-disable react-hooks/set-state-in-effect -- the origin and link are only readable in the browser */
     setOrigin(loadOrigin());
+    // "Ask Feta about Shanghai" arrives with a starting message, ready to send.
+    setInput(new URLSearchParams(window.location.search).get("q")?.slice(0, 200) ?? "");
+    /* eslint-enable react-hooks/set-state-in-effect */
     loadChat().then((past) => {
       if (past.length === 0) return;
       setMessages([
@@ -201,7 +204,7 @@ export default function Ask() {
           onSave={() => {
             savePickAction(detail.placeId, "saved", {
               category: detail.kind === "DO" || detail.kind === "EVENT" ? "experiences" : "food_drinks",
-              cityId: origin?.cityId ?? "",
+              cityId: origin?.city.id ?? "",
               because: detail.because,
             });
             toast("Saved to Want to try");

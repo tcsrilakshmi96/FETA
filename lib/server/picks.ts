@@ -1,8 +1,9 @@
 import "server-only";
 
-import { distanceKm, type City } from "@/lib/cities";
-import { SPEND_LEVELS } from "@/lib/currency";
+import { distanceKm, formatDistance, type City } from "@/lib/cities";
+import { spendBounds } from "@/lib/currency";
 import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
+import { track } from "@/lib/server/costs";
 import { bestPhoto, type Place } from "@/lib/server/places";
 
 export type Category = "food_drinks" | "experiences";
@@ -94,7 +95,10 @@ export type Pick = StoredPick & {
   checkedAt?: number; // set on the phone when the picks arrive
   mapsUri: string;
   directionsUri: string;
-  book: { label: string; url: string } | null;
+  book: { label: string; url: string } | null; // India: District / BookMyShow; events: the ticket page
+  website?: string | null; // the venue's own site
+  naverUri?: string; // South Korea: "Open in Naver Map" leads, Google Maps second
+  country?: string; // for km or miles on the phone
   photo: { uri: string; credit: string; creditUri?: string } | null;
   // For Plan my evening: where it is and when it next closes (live, not stored).
   lat?: number;
@@ -290,9 +294,11 @@ export function unknownPriceOk(answers: Answers) {
 
 export function spendUpperBound(answers: Answers, city: City): number | null {
   const match = /^level_(\d)$/.exec(answers.spend ?? "");
-  if (!match || answers.spendCurrency !== city.currency) return null;
+  if (!match) return null;
+  // Levels travel: "₹500–1,500" at home means the same kind of place, at
+  // local prices, in Lisbon.
   const level = Number(match[1]);
-  return level <= 4 ? SPEND_LEVELS[city.currency][level - 1] : null;
+  return level <= 4 ? spendBounds(city.currency)[level - 1] : null;
 }
 
 // "Open later": still open at 11 pm tonight.
@@ -318,7 +324,7 @@ export function kindOf(place: Place, category: Category): Kind {
 }
 
 // A plain explanation of an empty result, from the filter that removed most.
-export function whyNothing(drops: DropCounts, answers: Answers, when: When): string {
+export function whyNothing(drops: DropCounts, answers: Answers, when: When, country?: string): string {
   const tail = when === "tonight" ? "Try This weekend, a different area, or Show me 3 more." : "Try a different area, or Show me 3 more.";
   if (drops.seen === 0) return `Google Maps didn't find anything like this near you. ${tail}`;
   const [top] = (["far", "price", "diet", "hours", "alcohol"] as const)
@@ -326,7 +332,7 @@ export function whyNothing(drops: DropCounts, answers: Answers, when: When): str
     .sort((a, b) => b[1] - a[1]);
   const limit = distanceLimitKm(answers);
   const reasons: Record<string, string> = {
-    far: `The places that fit you are more than ${limit * 2} km away.`,
+    far: `The places that fit you are more than ${formatDistance(limit * 2, country)} away.`,
     price: "The places near you are above your usual spend.",
     diet: "Nothing near you is confirmed by Google to serve vegetarian food.",
     hours: when === "tonight" ? "The places that fit you nearby are closed right now." : "The places that fit you nearby aren't open at the weekend.",
@@ -340,7 +346,7 @@ export function whyNothing(drops: DropCounts, answers: Answers, when: When): str
 function label(questionId: string, optionId: string | null, city: City) {
   const q = QUESTIONS.find((x) => x.id === questionId);
   if (!q || !optionId) return null;
-  return optionsFor(q, city.currency).find((o) => o.id === optionId)?.label ?? null;
+  return optionsFor(q, city.currency, city.country).find((o) => o.id === optionId)?.label ?? null;
 }
 
 // A short taste summary built only from Feta's own data.
@@ -391,7 +397,7 @@ export async function chooseWithGemini(opts: {
 }): Promise<Ranked[]> {
   const { candidates, category, when, city } = opts;
   const asked = [...(opts.tweaks ?? []).map((t) => TWEAK_LABELS[t]), ...(opts.note ? [`"${opts.note}"`] : [])];
-  const prompt = `You are Feta, a friend with great taste who picks places for one person in ${city.name}, India.
+  const prompt = `You are Feta, a friend with great taste who picks places for one person in ${city.name}, ${city.countryName}.
 
 About them:
 ${tasteSummary(opts.taste, city)}
@@ -413,6 +419,7 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
   - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence in at most 7 words (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
 - No hype words.`;
 
+  track("gemini_rank");
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
     {
@@ -453,14 +460,15 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
   return ranked.filter((r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && all.findIndex((x) => x.index === r.index) === i);
 }
 
-// Picks 3 in Gemini's order with at most 1 very popular place. Rather than
-// show fewer than 3, it then fills from the rest: Gemini's other choices,
-// then unranked places, and extra popular ones only as a last resort.
+// Picks 3 in Gemini's order with at most 1 very popular place. Never pads
+// with weak places: only ones Gemini rated a real fit count, so a small
+// city may get 2 (a third "Skip unless" fills in only to reach 2). Without
+// a ranking (Gemini down), it falls back to the filtered places in order.
 export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
-  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean) => {
-    if (chosen.length >= count || chosen.some((c) => c.candidate === candidate)) return;
+  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count) => {
+    if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate)) return;
     if (!allowExtraPopular && isPopular(candidate) && chosen.some((c) => isPopular(c.candidate))) return;
     chosen.push({ candidate, ranked: r });
   };
@@ -468,9 +476,14 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
   // At most one "Worth a detour" per set.
   let detours = 0;
   ranked = ranked.map((r) => (r.verdict === "Worth a detour" && detours++ > 0 ? { ...r, verdict: "Good if you're nearby" as const } : r));
-  for (const r of ranked) add(candidates[r.index], r, false);
+  if (ranked.length > 0) {
+    const good = ranked.filter((r) => r.verdict !== "Skip unless");
+    for (const r of good) add(candidates[r.index], r, false);
+    for (const r of good) add(candidates[r.index], r, true);
+    for (const r of ranked) add(candidates[r.index], r, true, Math.min(2, count));
+    return chosen;
+  }
   for (const c of candidates) add(c, rankedOf(c), false);
-  for (const r of ranked) add(candidates[r.index], r, true);
   for (const c of candidates) add(c, rankedOf(c), true);
   return chosen;
 }
@@ -514,16 +527,21 @@ function chips(c: Candidate, taste: Taste, city: City): string[] {
   }
   const spend = label("spend", taste.answers.spend, city);
   if (spend && taste.answers.spend !== "depends" && c.place.priceLevel) out.push(`${spend} ✓`);
-  out.push(`${c.km < 1 ? c.km.toFixed(1) : Math.round(c.km * 10) / 10} km${c.far ? "" : " ✓"}`);
+  out.push(`${formatDistance(c.km, city.country)}${c.far ? "" : " ✓"}`);
   return out;
 }
 
+// Booking brands only where they operate: District for tables in India.
+// Elsewhere the card leads with the map, and the venue's own website.
 function booking(kind: Kind, place: Place, city: City) {
+  if (city.country !== "IN" || (kind !== "EAT" && kind !== "DRINK")) return null;
   const name = place.displayName?.text ?? "";
   const q = encodeURIComponent(name.includes(city.name) ? name : `${name} ${city.name}`);
-  if (kind === "EAT" || kind === "DRINK") return { label: "Book on District", url: `https://www.district.in/search?q=${q}` };
-  if (place.websiteUri) return { label: "Website", url: place.websiteUri };
-  return null;
+  return { label: "Book on District", url: `https://www.district.in/search?q=${q}` };
+}
+
+function naverSearch(name: string, city: City) {
+  return city.country === "KR" ? `https://map.naver.com/p/search/${encodeURIComponent(name)}` : undefined;
 }
 
 export function buildPick(
@@ -544,6 +562,9 @@ export function buildPick(
     mapsUri: p.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${p.id}`,
     directionsUri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name)}&destination_place_id=${p.id}`,
     book: booking(stored.kind, p, opts.city),
+    website: p.websiteUri ?? null,
+    naverUri: naverSearch(name, opts.city),
+    country: opts.city.country,
     photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
     lat: p.location?.latitude,
     lng: p.location?.longitude,
@@ -583,7 +604,7 @@ export function buildEventPick(
   const limit = distanceLimitKm(opts.taste.answers);
   const km = e.distanceKm;
   const maxSpend = spendUpperBound(opts.taste.answers, opts.city);
-  const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${Math.round(km * 10) / 10} km${km <= limit ? " ✓" : ""}`].filter(Boolean) as string[];
+  const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${formatDistance(km, opts.city.country)}${km <= limit ? " ✓" : ""}`].filter(Boolean) as string[];
   const destination = e.venuePlaceId
     ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
     : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;
@@ -598,6 +619,8 @@ export function buildEventPick(
     mapsUri: opts.venue?.googleMapsUri ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`,
     directionsUri: `https://www.google.com/maps/dir/?api=1&${destination}`,
     book: { label: `Tickets on ${e.site}`, url: e.url },
+    naverUri: naverSearch(e.venueName, opts.city),
+    country: opts.city.country,
     photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
     lat: opts.venue?.location?.latitude,
     lng: opts.venue?.location?.longitude,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { formatDistance } from "@/lib/cities";
 import { clock } from "@/lib/plan";
 import { castVote, loadShare, loadVotes, type SharePayload, type ShareStop } from "@/lib/share-client";
 import styles from "./GroupShare.module.css";
@@ -89,7 +90,7 @@ export default function GroupShare() {
             <li key={st.placeId}>
               {i === 1 && payload.travel && (
                 <p className={styles.travel}>
-                  {payload.travel.minutes}-minute {payload.travel.mode} · {payload.travel.km} km
+                  {payload.travel.minutes}-minute {payload.travel.mode} · {formatDistance(payload.travel.km, payload.country)}
                 </p>
               )}
               <div className={styles.stop}>

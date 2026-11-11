@@ -12,7 +12,9 @@ import {
   saveWhatsApp,
 } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
+import { formatDistance } from "@/lib/cities";
 import { loadOrigin } from "@/lib/origin";
+import { CALLING_CODES, codeFor, fullNumber, showNumber } from "@/lib/phone";
 import styles from "./Lists.module.css";
 
 type Tab = "want" | "been";
@@ -38,11 +40,18 @@ export default function Lists() {
   const [note, setNote] = useState("");
   const [whatsApp, setWhatsApp] = useState<string | null>(null);
   const [number, setNumber] = useState("");
+  const [callingCode, setCallingCode] = useState("91");
+  const [country, setCountry] = useState<string | undefined>(undefined);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
     let live = true;
-    fetchLists(loadOrigin()).then((list) => live && setItems(list ?? []));
+    const origin = loadOrigin();
+    /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
+    setCountry(origin?.city.country);
+    setCallingCode(codeFor(origin?.city.country).code);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    fetchLists(origin).then((list) => live && setItems(list ?? []));
     loadWhatsApp().then((n) => live && setWhatsApp(n));
     return () => {
       live = false;
@@ -97,8 +106,8 @@ export default function Lists() {
     toast("Removed");
   }
 
-  const digits = number.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
-  const validNumber = /^[6-9]\d{9}$/.test(digits);
+  const full = fullNumber(callingCode, number);
+  const validNumber = full !== null;
 
   return (
     <>
@@ -192,7 +201,7 @@ export default function Lists() {
                       >
                         {[
                           item.area,
-                          item.distanceKm !== null && `${item.distanceKm} km`,
+                          item.distanceKm !== null && formatDistance(item.distanceKm, country),
                           item.event?.when,
                         ]
                           .filter(Boolean)
@@ -221,8 +230,7 @@ export default function Lists() {
             {whatsApp ? (
               <>
                 <p className={styles.waText}>
-                  We&apos;ll send it to +91 {whatsApp.slice(0, 5)}{" "}
-                  {whatsApp.slice(5)} on Fridays. Only used for this.
+                  We&apos;ll send it to {showNumber(whatsApp)} on Fridays. Only used for this.
                 </p>
                 <button
                   type="button"
@@ -246,20 +254,27 @@ export default function Lists() {
                   className={styles.waForm}
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (!validNumber) return;
-                    saveWhatsApp(digits);
-                    setWhatsApp(digits);
+                    if (!full) return;
+                    saveWhatsApp(full);
+                    setWhatsApp(full);
                     setNumber("");
                     toast("You're on the weekend plan list");
                   }}
                 >
                   <label className={styles.waField}>
-                    <span>+91</span>
+                    <select value={callingCode} onChange={(e) => setCallingCode(e.target.value)} aria-label="Country code">
+                      {CALLING_CODES.map((c) => (
+                        <option key={c.country} value={c.code}>
+                          {c.name} +{c.code}
+                        </option>
+                      ))}
+                    </select>
+                    <span aria-hidden="true">+{callingCode}</span>
                     <input
                       type="tel"
                       inputMode="numeric"
                       autoComplete="tel-national"
-                      placeholder="98765 43210"
+                      placeholder="Your number"
                       aria-label="WhatsApp number"
                       value={number}
                       onChange={(e) => setNumber(e.target.value)}
@@ -287,7 +302,7 @@ export default function Lists() {
             <p className={styles.sheetSub}>
               {[
                 open.area,
-                open.distanceKm !== null && `${open.distanceKm} km`,
+                open.distanceKm !== null && formatDistance(open.distanceKm, country),
                 open.event?.when,
               ]
                 .filter(Boolean)

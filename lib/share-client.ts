@@ -19,6 +19,7 @@ export type SharePayload = {
   title: string; // "Tonight" or "Saturday"
   stops: ShareStop[];
   travel?: { km: number; minutes: number; mode: "walk" | "ride" };
+  country?: string; // for km or miles
 };
 
 export async function createShare(kind: "pick" | "plan", payload: SharePayload): Promise<string | null> {

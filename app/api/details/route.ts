@@ -1,5 +1,6 @@
 import { placeNotes } from "@/lib/server/details";
 import { placeDetails, type Place } from "@/lib/server/places";
+import { withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
 // Up to 15 s for Gemini to read the reviews.
@@ -8,7 +9,12 @@ export const maxDuration = 30;
 // "What to order" / "Highlights" for one place, for the Details view.
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
-  if (!token || !(await userIdFor(userDb(token), token))) return Response.json({ error: "Not signed in" }, { status: 401 });
+  const db = token ? userDb(token) : null;
+  if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
+  return withCosts(db, "details", () => notesFor(request));
+}
+
+async function notesFor(request: Request) {
   let body: { placeId?: string; kind?: string; name?: string; lat?: number; lng?: number };
   try {
     body = await request.json();

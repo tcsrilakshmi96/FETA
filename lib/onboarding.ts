@@ -1,3 +1,4 @@
+import { usesMiles } from "@/lib/cities";
 import { spendLabels, type Currency } from "@/lib/currency";
 
 // The 6 onboarding questions. Each option has a stable id (what we store and
@@ -120,7 +121,11 @@ export const QUESTIONS: Question[] = [
   },
 ];
 
-export function optionsFor(q: Question, currency: Currency): Option[] {
+// Distances in miles for the US and UK (the limits stay 2 and 5 km).
+const MILES: Record<string, string> = { walk_2km: "Walking distance · about 1 mile", ride_5km: "Short ride · 3 miles" };
+
+export function optionsFor(q: Question, currency: Currency, country?: string): Option[] {
+  if (q.id === "distance" && usesMiles(country)) return q.options.map((o) => (MILES[o.id] ? { ...o, label: MILES[o.id] } : o));
   if (q.id !== "spend") return q.options;
   const labels = spendLabels(currency);
   return q.options.map((option, i) => (i < labels.length ? { ...option, label: labels[i] } : option));

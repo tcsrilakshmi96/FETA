@@ -1,6 +1,7 @@
 import "server-only";
 
 import { distanceKm, type City } from "@/lib/cities";
+import { track } from "@/lib/server/costs";
 import { searchPlaces, type Place } from "@/lib/server/places";
 
 // This week's events, found by Gemini with Grounding with Google Search,
@@ -66,13 +67,14 @@ export async function findEvents(opts: {
     opts.when === "tonight"
       ? `tonight, ${readable(cal.today)}, starting after ${cal.time}`
       : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
-  const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, India.
+  const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events of different kinds (gigs, comedy, theatre, art, talks, workshops, markets, sport) happening ${window} in ${opts.city.name}, as close as possible to ${opts.near} (ideally within ${opts.distanceKm} km).
-Use at most 2 searches. Prefer listing pages on BookMyShow, District, Skillboxes or the organiser's own site. Only include events whose listing page you actually found.
+Use at most 2 searches. Prefer listing pages on ${ticketSites(opts.city.country)} or the organiser's own site. Only include events whose listing page you actually found.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect)}.`;
 
+  track("gemini_search");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: {
@@ -155,6 +157,27 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
   return { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) };
 }
 
+// Where people in that country actually buy tickets. Indian sites only in
+// India; elsewhere the big international ones plus local leaders.
+const LOCAL_TICKETS: Record<string, string> = {
+  IN: "BookMyShow, District, Skillboxes",
+  GB: "Ticketmaster UK, DICE, Resident Advisor, Eventbrite, Time Out",
+  US: "Ticketmaster, Eventbrite, DICE, Resident Advisor, Time Out",
+  DE: "Eventim, Resident Advisor, Eventbrite, DICE",
+  FR: "Fnac Spectacles, Shotgun, Resident Advisor, Eventbrite",
+  CZ: "GoOut, Ticketportal, Resident Advisor",
+  PT: "BOL, Ticketline, Resident Advisor, Eventbrite",
+  AE: "Platinumlist, Virgin Megastore Tickets, Time Out Dubai",
+  SG: "SISTIC, Eventbrite, Peatix, Time Out",
+  HK: "Cityline, URBTIX, Klook, Time Out",
+  KR: "Interpark Tickets, Melon Ticket, Yes24",
+  AU: "Ticketek, Ticketmaster, Moshtix, Eventbrite",
+};
+
+function ticketSites(country: string) {
+  return LOCAL_TICKETS[country] ?? "Eventbrite, Ticketmaster, Resident Advisor, Time Out and local ticket sites";
+}
+
 export function siteName(url: string) {
   const host = new URL(url).hostname.replace(/^www\.|^in\./, "");
   const known: Record<string, string> = {
@@ -162,6 +185,21 @@ export function siteName(url: string) {
     "district.in": "District",
     "skillboxes.com": "Skillboxes",
     "insider.in": "District",
+    "eventbrite.com": "Eventbrite",
+    "eventbrite.co.uk": "Eventbrite",
+    "eventbrite.de": "Eventbrite",
+    "ticketmaster.com": "Ticketmaster",
+    "ticketmaster.co.uk": "Ticketmaster",
+    "dice.fm": "DICE",
+    "ra.co": "Resident Advisor",
+    "eventim.de": "Eventim",
+    "goout.net": "GoOut",
+    "platinumlist.net": "Platinumlist",
+    "sistic.com.sg": "SISTIC",
+    "timeout.com": "Time Out",
+    "ticketek.com.au": "Ticketek",
+    "klook.com": "Klook",
+    "shotgun.live": "Shotgun",
   };
   return known[host] ?? host;
 }
@@ -175,6 +213,7 @@ export async function personalizeEvents(
 ): Promise<{ index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[]> {
   if (events.length === 0) return [];
   const list = events.map((e, i) => `${i}. ${e.title} · ${e.venueName} · ${e.date} ${e.time} · ${e.priceText}`).join("\n");
+  track("gemini_rank");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },

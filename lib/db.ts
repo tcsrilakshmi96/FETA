@@ -76,14 +76,6 @@ export function saveCityToDb(city: City) {
   );
 }
 
-export function saveCityInterest(city: City) {
-  return run("city interest", (userId) =>
-    supabase()
-      .from("city_interest")
-      .upsert({ user_id: userId, city_id: city.id }, { onConflict: "user_id,city_id", ignoreDuplicates: true }),
-  );
-}
-
 export function saveAnswersToDb(answers: Answers) {
   return run("answers", (userId) =>
     supabase().from("answers").upsert({

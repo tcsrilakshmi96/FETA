@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { loadCity } from "@/lib/cities";
 import { EMPTY_ANSWERS, loadAnswers } from "@/lib/onboarding";
 import { saveSwipes, swipeCards, type Swipe, type Verdict } from "@/lib/swipes";
 import { saveSwipesToDb } from "@/lib/db";
@@ -20,10 +21,10 @@ export default function Swipes() {
   const startX = useRef(0);
   const busy = useRef(false);
 
-  // The night-out card depends on the drinks answer.
+  // The night-out card depends on the drinks answer, the food photos on the city's region.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- answers are only readable in the browser
-    setCards(swipeCards(loadAnswers()));
+    setCards(swipeCards(loadAnswers(), loadCity()?.country));
   }, []);
 
   function decide(verdict: Verdict) {

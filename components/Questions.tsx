@@ -26,6 +26,7 @@ export default function Questions() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [currency, setCurrency] = useState<Currency>("INR");
+  const [country, setCountry] = useState<string | undefined>(undefined);
   const [fromYou, setFromYou] = useState(false);
 
   // Bring back answers from an earlier visit on this phone, and use the
@@ -35,6 +36,7 @@ export default function Questions() {
     /* eslint-disable react-hooks/set-state-in-effect */
     setAnswers(loadAnswers());
     setCurrency(loadCity()?.currency ?? detectCurrency());
+    setCountry(loadCity()?.country);
     setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
@@ -118,7 +120,7 @@ export default function Questions() {
             <p className={styles.why}>{q.why}</p>
 
             <div className={styles.chips} role="group" aria-label={q.title}>
-              {optionsFor(q, currency).map((option) => {
+              {optionsFor(q, currency, country).map((option) => {
                 const on = Array.isArray(value) ? value.includes(option.id) : value === option.id;
                 return (
                   <button

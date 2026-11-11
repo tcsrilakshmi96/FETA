@@ -1,5 +1,6 @@
 import "server-only";
 
+import { track } from "@/lib/server/costs";
 import type { Place } from "@/lib/server/places";
 
 // "What to order" (food and drinks) or "Highlights" (things to do), from
@@ -20,6 +21,7 @@ export async function placeNotes(place: Place, kind: "EAT" | "DRINK" | "DO"): Pr
     kind === "DO"
       ? `List the 3 best things about visiting ${name}, from what visitors say on Google Maps. Each at most 60 characters, concrete (what to see or do, best time, what to book).`
       : `List the 3 things people most recommend ordering at ${name}, from Google Maps reviews. Each at most 60 characters: the dish or drink, then a few words on why. Never say anything is safe for a diet or allergy.`;
+  track("gemini_maps");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },

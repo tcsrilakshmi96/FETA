@@ -32,31 +32,9 @@
   color: rgba(var(--inkRGB), 0.75);
 }
 
-.nearby {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
 
-.chip {
-  min-height: 44px;
-  padding: 10px 16px;
-  border-radius: 99px;
-  background: rgba(var(--inkRGB), 0.07);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  transition: background 0.25s, color 0.25s, transform 0.2s var(--ease-press);
-}
 
-.chip:active {
-  transform: scale(0.93);
-}
 
-.chipOn {
-  background: var(--ink);
-  color: var(--bg);
-}
 
 .actions {
   margin-top: auto;
@@ -128,29 +106,46 @@
   color: rgba(var(--inkRGB), 0.6);
 }
 
-.areas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.areaInput {
+  width: 100%;
+  height: 48px;
   margin-top: 14px;
-}
-
-.area {
-  height: 46px;
   padding: 0 16px;
+  border: none;
   border-radius: 99px;
-  font-size: 14.5px;
-  background: rgba(var(--inkRGB), 0.07);
-  transition: background 0.25s, color 0.25s, transform 0.2s var(--ease-press);
+  outline: none;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
 }
 
-.area:active {
-  transform: scale(0.93);
+.suggestions {
+  list-style: none;
+  margin-top: 6px;
 }
 
-.areaOn {
-  background: var(--ink);
-  color: var(--bg);
+.suggestions button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 52px;
+  padding: 9px 4px;
+  border-top: 1px solid rgba(var(--inkRGB), 0.08);
+  text-align: left;
+  font-size: 15px;
+}
+
+.suggestions button span {
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.powered {
+  margin-top: 4px;
+  font: 400 11px Roboto, Arial, sans-serif;
+  color: rgba(var(--inkRGB), 0.5);
 }
 
 .sheetActions {

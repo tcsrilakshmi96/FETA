@@ -1,4 +1,6 @@
-import { CITIES, coveredCityAt, searchCities, type City } from "@/lib/cities";
+import { isMainlandChina, type City } from "@/lib/cities";
+import { cityAt, cityById, searchCities } from "@/lib/server/cities";
+import { withCosts } from "@/lib/server/costs";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
@@ -13,7 +15,7 @@ export const maxDuration = 60;
 // places. Venice never sees Google content: only the chat text and a short
 // taste summary from Feta's own data.
 
-type Origin = { lat: number; lng: number; label: string; source: "gps" | "area" | "city"; cityId: string };
+type Origin = { lat: number; lng: number; label: string; source: "gps" | "area" | "city"; areaId?: string; city: City };
 
 type VeniceReply = {
   reply?: string;
@@ -37,14 +39,6 @@ export type AskReply = {
   notice?: string;
 };
 
-const SINGLE_ZONE: Record<string, string> = {
-  IN: "Asia/Kolkata", GB: "Europe/London", JP: "Asia/Tokyo", AE: "Asia/Dubai", SG: "Asia/Singapore",
-  FR: "Europe/Paris", IT: "Europe/Rome", ES: "Europe/Madrid", DE: "Europe/Berlin", NL: "Europe/Amsterdam",
-  PT: "Europe/Lisbon", TH: "Asia/Bangkok", LK: "Asia/Colombo", NP: "Asia/Kathmandu", MV: "Indian/Maldives",
-  VN: "Asia/Ho_Chi_Minh", KR: "Asia/Seoul", HK: "Asia/Hong_Kong", GR: "Europe/Athens", TR: "Europe/Istanbul",
-};
-const EURO = ["FR", "IT", "ES", "DE", "NL", "PT", "GR", "IE", "AT", "BE", "FI"];
-const CURRENCY: Record<string, string> = { IN: "INR", US: "USD", CA: "CAD", GB: "GBP", AE: "AED", SG: "SGD", AU: "AUD", JP: "JPY" };
 
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
@@ -63,19 +57,19 @@ export async function POST(request: Request) {
   if (!userId) return Response.json({ error: "Not signed in" }, { status: 401 });
 
   const here = body.origin ?? null;
-  const homeCity = CITIES.find((c) => c.id === here?.cityId) ?? CITIES[0];
+  const homeCity = cityById(here?.city?.id);
   const [taste, { data: history }] = await Promise.all([
     loadTaste(db),
     db.from("chat_messages").select("role, content, extras").order("id", { ascending: false }).limit(12),
   ]);
   const past = (history ?? []).reverse();
 
-  const today = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: homeCity.timeZone }).format(new Date());
+  const today = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: homeCity?.timeZone ?? "UTC" }).format(new Date());
   const system = `You are Feta, a warm, honest friend who picks places to eat and drink and things to do. You talk briefly, like a friend texting.
-Today is ${today}. They are in ${homeCity.name}${here?.source === "area" ? ` (${here.label})` : ""}.
+Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countryName}${here?.source === "area" ? ` (${here.label})` : ""}.` : "They haven't said where they are."}
 
 What Feta knows about them:
-${tasteSummary(taste, homeCity) || "Not much yet."}
+${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 
 Reply with only a JSON object:
 {"reply": 1 or 2 short, plain sentences. No hype, no emoji.
@@ -83,7 +77,7 @@ Reply with only a JSON object:
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
  "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase for anything else they want, e.g. "beach shack"} whenever they want suggestions, different ones, or plans.
  "why": true if they ask why a pick was chosen.}
-When you set "search", say in "reply" that you're finding 3. You can search anywhere in the world. When they mention a trip or a place, set "search" straight away (food_drinks unless they say otherwise) rather than asking first. Never say food is safe for an allergy or a diet.`;
+When you set "search", say in "reply" that you're finding 3. You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. When they mention a trip or a place, set "search" straight away (food_drinks unless they say otherwise) rather than asking first. Never say food is safe for an allergy or a diet.`;
 
   let parsed: VeniceReply;
   try {
@@ -127,18 +121,20 @@ When you set "search", say in "reply" that you're finding 3. You can search anyw
   // A trip mentioned without a search still gets 3 places there.
   const s = parsed.why ? null : (parsed.search ?? (parsed.trip?.place ? { category: "food_drinks", place: parsed.trip.place } : null));
   if (s) {
-    const origin = await resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity);
-    if (!origin) {
+    const origin = await withCosts(db, "ask", () => resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity));
+    if (origin && isMainlandChina(origin.city)) {
+      notice = `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.`;
+    } else if (!origin) {
       notice = `I couldn't find ${s.place ?? parsed.trip?.place} on the map. Try a nearby city?`;
     } else {
-      const res = await runPicks(token, {
+      const res = await withCosts(db, "ask", () => runPicks(token, {
           category: s.category === "experiences" ? "experiences" : "food_drinks",
           when: s.when === "weekend" || tripLabel ? "weekend" : "tonight",
           origin,
           tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
           note: (s.note ?? "").slice(0, 120),
           ...(tripLabel ? { trip: tripLabel } : {}),
-      });
+      }));
       const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
       picks = data.picks ?? [];
       notice = data.notice;
@@ -163,34 +159,21 @@ When you set "search", say in "reply" that you're finding 3. You can search anyw
   return Response.json({ reply, picks, added, trip: tripLabel, ...(notice ? { notice } : {}) } satisfies AskReply);
 }
 
-// Where to search: a covered city or one of its areas, or anywhere else as
-// a trip destination. No place named means where the user is now.
-async function resolvePlace(name: string | null, here: Origin | null, home: City) {
-  if (!name) return here ?? { lat: home.lat, lng: home.lng, label: `Anywhere in ${home.name}`, source: "city", cityId: home.id };
-  const q = name.toLowerCase();
-  for (const city of CITIES.filter((c) => c.covered)) {
-    const area = city.areas?.find((a) => q.includes(a.name.toLowerCase()) || a.name.toLowerCase().includes(q));
-    if (area) return { lat: area.lat, lng: area.lng, label: area.name, source: "area", cityId: city.id };
-  }
-  const [match] = searchCities(name).filter((c) => c.covered);
-  if (match && (q.includes(match.name.toLowerCase()) || match.aliases?.some((a) => q.includes(a)))) {
-    return { lat: match.lat, lng: match.lng, label: `Anywhere in ${match.name}`, source: "city", cityId: match.id };
-  }
+// Where to search: a city anywhere in the world (by name, from Feta's own
+// list), or a neighbourhood, landmark or region found on Google Maps and
+// placed in its nearest city. No place named means where the user is now.
+async function resolvePlace(name: string | null, here: Origin | null, home: City | null): Promise<Origin | null> {
+  if (!name) return here ?? (home ? { lat: home.lat, lng: home.lng, label: `Anywhere in ${home.name}`, source: "city", city: home } : null);
+  const q = name.toLowerCase().trim();
+  const [match] = searchCities(name, 1);
+  const named = match && [match.name, match.matched].some((n) => n && n.toLowerCase() === q.split(",")[0].trim());
+  if (match && named) return { lat: match.lat, lng: match.lng, label: `Anywhere in ${match.name}`, source: "city", city: match };
   const found = await findDestination(name);
-  if (!found) return null;
-  const covered = found.country === "IN" ? coveredCityAt(found) : null;
-  if (covered) return { lat: found.lat, lng: found.lng, label: found.name, source: "area", cityId: covered.id };
-  return {
-    lat: found.lat,
-    lng: found.lng,
-    label: found.name,
-    source: "city",
-    cityId: `trip:${found.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
-    place: {
-      name: found.name,
-      country: found.country,
-      currency: EURO.includes(found.country) ? "EUR" : CURRENCY[found.country] ?? "USD",
-      timeZone: SINGLE_ZONE[found.country] ?? "UTC",
-    },
-  };
+  if (!found) return match ? { lat: match.lat, lng: match.lng, label: `Anywhere in ${match.name}`, source: "city", city: match } : null;
+  const city = cityAt(found);
+  if (!city) return null;
+  // A neighbourhood in their own city is an area; anywhere else (a trip to
+  // Goa, Bali or Kyoto) means the whole place around it.
+  const source = city.id === home?.id ? "area" : "city";
+  return { lat: found.lat, lng: found.lng, label: source === "area" ? name.slice(0, 60) : `Anywhere in ${name.slice(0, 50)}`, source, city };
 }

@@ -225,6 +225,26 @@
   color: rgba(var(--inkRGB), 0.55);
 }
 
+/* The country picker sits invisibly over the "+91" so a tap opens it. */
+.waField {
+  position: relative;
+}
+
+.waField select {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 64px;
+  opacity: 0;
+  font-size: 16px;
+}
+
+.waField span::after {
+  content: " ▾";
+  font-size: 11px;
+}
+
 .waField input {
   flex: 1;
   min-width: 0;

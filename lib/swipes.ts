@@ -1,11 +1,14 @@
 import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
 import type { Currency } from "@/lib/currency";
 
-// The 6 taste cards (founder's list, 10 Nov 2026). Photos are free Unsplash
-// images saved in public/swipes: dosa by Paul (5oF7d_hPJG4), chole bhature
-// (Idh9dnG2v8w), street cart (yOIHawAsRqA), café (photo-1521017432531),
-// bar (photo-1514933651103), microphone (photo-1516280440614), potter's
-// hands (w46tRF64qNc).
+// The 6 taste cards (founder's list, 10 Nov 2026), worded to work anywhere
+// (11 Nov 2026). Photos are free Unsplash images saved in public/swipes,
+// with the three food photos chosen by region. South Asia: dosa by Paul
+// (5oF7d_hPJG4), chole bhature (Idh9dnG2v8w), street cart (yOIHawAsRqA).
+// Everywhere else: egg on toast (photo-1525351484163), red curry with
+// chillies (photo-1455619452474), street tacos (photo-1551504734). Same
+// everywhere: café (photo-1521017432531), bar (photo-1514933651103),
+// microphone (photo-1516280440614), potter's hands (w46tRF64qNc).
 
 export type Verdict = "yes" | "no" | "unsure";
 
@@ -32,24 +35,27 @@ const NIGHT_OUT_SOBER: SwipeCard = {
   line: "Live music and open mics",
 };
 
-export function swipeCards(answers: Answers): SwipeCard[] {
+const SOUTH_ASIA = ["IN", "LK", "NP", "BD", "PK", "BT", "MV"];
+
+export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
+  const photo = (name: string) => (!country || SOUTH_ASIA.includes(country) ? `/swipes/${name}.jpg` : `/swipes/world-${name}.jpg`);
   return [
     {
       id: "local_breakfast",
-      label: "A classic breakfast: dosa, chutney, filter coffee",
-      image: "/swipes/breakfast.jpg",
+      label: "A classic local breakfast",
+      image: photo("breakfast"),
       line: "Classic breakfasts done well",
     },
     {
       id: "spicy_regional",
-      label: "Fiery, spicy regional food",
-      image: "/swipes/spicy.jpg",
+      label: "Fiery, spicy food",
+      image: photo("spicy"),
       line: "Fiery, spicy food",
     },
     {
       id: "street_food",
       label: "Hole-in-the-wall street food",
-      image: "/swipes/street.jpg",
+      image: photo("street"),
       line: "Small, no-frills places with one great dish",
     },
     {

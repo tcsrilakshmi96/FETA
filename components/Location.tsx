@@ -1,26 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
-import { coveredCityAt, loadCity, nearestCovered, saveCity, type Area, type City } from "@/lib/cities";
+import { cityAt, isMainlandChina, loadCity, saveCity, type City } from "@/lib/cities";
+import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { saveCityToDb, saveLocationConsent } from "@/lib/db";
 import { originFromArea, originFromCity, originFromGps, saveOrigin } from "@/lib/origin";
 import styles from "./Location.module.css";
 
-type State = "ask" | "finding" | "denied" | "far";
+type State = "ask" | "finding" | "denied";
 
-// Just before the picks: one-time location while the app is open, or an
-// area in the chosen city. The browser's own prompt appears only on tap.
+// Just before the picks: one-time location while the app is open, or a
+// typed neighbourhood or landmark, or anywhere in the city. The browser's
+// own prompt appears only on tap.
 export default function Location() {
   const router = useRouter();
   const toast = useToast();
   const [city, setCity] = useState<City | null>(null);
   const [state, setState] = useState<State>("ask");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [area, setArea] = useState<Area | null>(null);
-  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
-  const [suggestion, setSuggestion] = useState<City | null>(null);
+  const [typed, setTyped] = useState("");
+  const [suggestions, setSuggestions] = useState<AreaSuggestion[]>([]);
+  const [choosing, setChoosing] = useState<string | null>(null);
+  const session = useRef("");
 
   useEffect(() => {
     const saved = loadCity();
@@ -37,6 +40,21 @@ export default function Location() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [router]);
 
+  // Suggestions as they type, a moment after they stop.
+  useEffect(() => {
+    if (!city || typed.trim().length < 3) return;
+    let live = true;
+    const t = setTimeout(async () => {
+      session.current ||= newAreaSession();
+      const found = await suggestAreas(typed.trim(), city, session.current);
+      if (live) setSuggestions(found);
+    }, 350);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [typed, city]);
+
   function switchCity(next: City) {
     saveCity(next);
     saveCityToDb(next);
@@ -50,37 +68,56 @@ export default function Location() {
     }
     setState("finding");
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
+      async ({ coords }) => {
         saveLocationConsent(true);
         const point = { lat: coords.latitude, lng: coords.longitude };
-        const covered = coveredCityAt(point);
-        if (!covered) {
-          setHere(point);
-          setSuggestion(nearestCovered(point)[0].city);
-          setState("far");
+        // Wherever you are, picks come from there; the city follows you.
+        const here = (await cityAt(point)) ?? city;
+        if (!here) {
+          setState("ask");
+          toast("Couldn't work out which city you're in. Type an area instead.");
           return;
         }
-        if (covered.id !== city?.id) {
-          switchCity(covered);
-          toast(`You're in ${covered.name}, so picks are from here.`);
+        if (here.id !== city?.id) {
+          switchCity(here);
+          toast(`You're in ${here.name}, so picks are from here.`);
         }
-        saveOrigin(originFromGps(point.lat, point.lng, covered));
+        if (isMainlandChina(here)) {
+          router.push(`/ask?q=${encodeURIComponent(`Ideas near me in ${here.name}`)}`);
+          return;
+        }
+        saveOrigin(originFromGps(point.lat, point.lng, here));
         router.push("/picks");
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) setState("denied");
         else {
           setState("ask");
-          toast("Couldn't find you just now. Try again, or pick an area.");
+          toast("Couldn't find you just now. Try again, or type an area.");
         }
       },
       { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
     );
   }
 
-  function showPicksIn(target: City, chosen: Area | null) {
-    if (target.id !== city?.id) switchCity(target);
-    saveOrigin(chosen ? originFromArea(chosen, target) : originFromCity(target));
+  async function chooseArea(s: AreaSuggestion) {
+    if (!city) return;
+    setChoosing(s.placeId);
+    const at = await locateArea(s.placeId, session.current);
+    session.current = "";
+    setChoosing(null);
+    if (!at) {
+      toast("Couldn't find that spot just now. Try again, or pick anywhere in the city.");
+      return;
+    }
+    // "Kreuzberg, Friedrichshain-Kreuzberg" reads as "Kreuzberg" on the pill.
+    saveOrigin(originFromArea({ placeId: s.placeId, name: s.name.split(",")[0].trim().slice(0, 40), ...at }, city));
+    router.push("/picks");
+  }
+
+  function anywhere() {
+    if (!city) return;
+    saveOrigin(originFromCity(city));
     router.push("/picks");
   }
 
@@ -94,7 +131,16 @@ export default function Location() {
         <span />
       </div>
 
-      {(state === "ask" || state === "finding") && (
+      {state === "denied" ? (
+        <div className={styles.body}>
+          <h1 className={styles.title}>
+            Location is off. <strong>That&apos;s fine.</strong>
+          </h1>
+          <p className={styles.lines}>
+            Type an area in {city.name} instead. You can turn location on later in your phone&apos;s settings.
+          </p>
+        </div>
+      ) : (
         <div className={styles.body}>
           <h1 className={styles.title}>
             Picks work best when I know <strong>where you are.</strong>
@@ -107,69 +153,25 @@ export default function Location() {
         </div>
       )}
 
-      {state === "denied" && (
-        <div className={styles.body}>
-          <h1 className={styles.title}>
-            Location is off. <strong>That&apos;s fine.</strong>
-          </h1>
-          <p className={styles.lines}>
-            Pick an area in {city.name} instead. You can turn location on later in your phone&apos;s settings.
-          </p>
-        </div>
-      )}
-
-      {state === "far" && suggestion && here && (
-        <div className={styles.body}>
-          <h1 className={styles.title}>
-            We&apos;re not <strong>near you yet.</strong>
-          </h1>
-          <p className={styles.lines}>I&apos;d rather say so than guess. Closest cities we cover:</p>
-          <div className={styles.nearby}>
-            {nearestCovered(here).map(({ city: c, km }) => (
-              <button
-                key={c.id}
-                type="button"
-                aria-pressed={c.id === suggestion.id}
-                className={`${styles.chip} ${c.id === suggestion.id ? styles.chipOn : ""}`}
-                onClick={() => setSuggestion(c)}
-              >
-                {c.name} · {km} km
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className={styles.actions}>
-        {state === "ask" || state === "finding" ? (
-          <>
-            <button type="button" className="btn-primary" disabled={state === "finding"} onClick={useMyLocation}>
-              {state === "finding" ? "Finding you…" : "Use my location"}
-            </button>
-            <button type="button" className={styles.secondary} onClick={() => setSheetOpen(true)}>
-              Pick an area instead
-            </button>
-          </>
-        ) : state === "denied" ? (
+        {state === "denied" ? (
           <>
             <button type="button" className="btn-primary" onClick={() => setSheetOpen(true)}>
-              Pick an area
+              Type an area
             </button>
             <button type="button" className={styles.secondary} onClick={useMyLocation}>
               Try location again
             </button>
           </>
         ) : (
-          suggestion && (
-            <>
-              <button type="button" className="btn-primary" onClick={() => showPicksIn(suggestion, null)}>
-                Show me {suggestion.name}
-              </button>
-              <button type="button" className={styles.secondary} onClick={() => setSheetOpen(true)}>
-                Pick an area in {city.name}
-              </button>
-            </>
-          )
+          <>
+            <button type="button" className="btn-primary" disabled={state === "finding"} onClick={useMyLocation}>
+              {state === "finding" ? "Finding you…" : "Use my location"}
+            </button>
+            <button type="button" className={styles.secondary} onClick={() => setSheetOpen(true)}>
+              Type an area instead
+            </button>
+          </>
         )}
       </div>
 
@@ -185,25 +187,34 @@ export default function Location() {
                 Close
               </button>
             </div>
-            <p className={styles.sheetSub}>Pick an area so distances make sense. You can change it any time.</p>
-            <div className={styles.areas}>
-              {(city.areas ?? []).map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  aria-pressed={area?.id === a.id}
-                  className={`${styles.area} ${area?.id === a.id ? styles.areaOn : ""}`}
-                  onClick={() => setArea(area?.id === a.id ? null : a)}
-                >
-                  {a.name}
-                </button>
-              ))}
-            </div>
+            <p className={styles.sheetSub}>A neighbourhood or a landmark, so distances make sense.</p>
+            <input
+              className={styles.areaInput}
+              type="search"
+              autoComplete="off"
+              placeholder="e.g. a neighbourhood, a station, your office"
+              aria-label={`An area or landmark in ${city.name}`}
+              value={typed}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                if (e.target.value.trim().length < 3) setSuggestions([]);
+              }}
+            />
+            {suggestions.length > 0 && typed.trim().length >= 3 && (
+              <ul className={styles.suggestions}>
+                {suggestions.map((s) => (
+                  <li key={s.placeId}>
+                    <button type="button" disabled={!!choosing} onClick={() => chooseArea(s)}>
+                      <strong>{s.name}</strong>
+                      <span>{choosing === s.placeId ? "Finding it…" : s.detail}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {suggestions.length > 0 && typed.trim().length >= 3 && <p className={styles.powered}>Suggestions from Google</p>}
             <div className={styles.sheetActions}>
-              <button type="button" className="btn-primary" disabled={!area} onClick={() => showPicksIn(city, area)}>
-                {area ? `Show picks in ${area.name}` : "Pick an area"}
-              </button>
-              <button type="button" className={styles.link} onClick={() => showPicksIn(city, null)}>
+              <button type="button" className="btn-primary" onClick={anywhere}>
                 Anywhere in {city.name}
               </button>
             </div>

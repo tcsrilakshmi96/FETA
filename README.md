@@ -4,22 +4,22 @@
 
 Live (friends test): **https://feta-beige.vercel.app** · phone-first web app, light and dark mode.
 
-> Status: v1 friends test, November 2026. Built by the founder with Claude Code.
-> International from v1 is planned (founder's decision, 11 Nov 2026) and not built yet.
+> Status: v1 alpha, November 2026, international from day one. Built by the founder with Claude Code.
 
 ---
 
 ## What it does
 
 **Onboarding (about 90 seconds to first picks)**
-Welcome (18+) → Continue with Google or "Not now" → city → 6 quick questions (diet, distance, spend in local currency, company, drinks, interests) → 6 taste swipes → "Here's what I picked up" → your location or an area → picks.
+Welcome (18+) → Continue with Google or "Not now" → any city in the world → 6 quick questions (diet, distance in km or miles, spend in local currency, company, drinks, interests) → 6 taste swipes → "Here's what I picked up" → your location, a typed neighbourhood or landmark, or anywhere in the city → picks.
 
 **Picks**
 - *Tonight* and *This weekend*, in two separate categories: **Food & drinks** (EAT, DRINK) and **Experiences** (DO, plus this week's EVENTs).
 - Exactly 3 per category, one card at a time, each with a "Because you…" line, matched facts and an honest verdict: *Good if you're nearby*, at most one *Worth a detour*, and *Skip unless…* for a real compromise.
 - **Feta picks**: the founder's own places, with her note, always get a spot when they fit.
 - **Tweak these** (cheaper, closer, open later, quieter, outdoors, groups, kids, or your own words), **Show me 3 more**, and **Plan my evening** (dinner plus something nearby, with times that respect opening hours).
-- **Details**: photo, live Google Maps line, why it's yours, and *What to order* / *Highlights* read from Google Maps.
+- **Details**: photo, live Google Maps line, why it's yours, and *What to order* / *Highlights* read from Google Maps. Booking links only where the brand operates (District in India); elsewhere Google Maps and the venue's website; Naver Map in South Korea. Mainland China is chat-only for now.
+- **Small cities** get 2 honest picks rather than a weak third.
 - **Send to the group**: a Feta link friends vote on (I'm in / Not this time) without signing up.
 
 **Ask Feta** (the cheese): chat to plan a trip anywhere, change your picks, or ask "why this one?". What it learns goes into your profile straight away, with Undo and "Only for this trip".
@@ -47,7 +47,7 @@ Welcome (18+) → Continue with Google or "Not now" → city → 6 quick questio
 
 **How picks work:** one Google search per new set → hard filters in code → Gemini ranks the survivors and writes the reasons → code keeps 3 (at most one very popular place) → only place IDs and Feta's own words are stored. Sets are reused for 3 hours (tonight) or 12 hours (weekend) and re-checked live. Full detail in [`CLAUDE.md`](CLAUDE.md).
 
-**Cost guards:** daily search limits (shared and per person, set in Vercel), set reuse, events shared per area for a few hours, picks and "What to order" kept in the phone's memory while the app is open, a Google Cloud budget alert, and the Monday usage email.
+**Cost guards:** every Google and Gemini call is logged with its estimated price; a daily spending cap and daily search limits (shared and per person, set in Vercel); set reuse, events shared per area for a few hours, picks and "What to order" kept in the phone's memory while the app is open, a Google Cloud budget alert, and the Monday usage email.
 
 ## Project map
 
@@ -61,8 +61,9 @@ app/                 screens (one folder per route) and server routes in app/api
   p/[id], s/[slug]   shared place page, group vote page
   admin              Feta picks (founder only)
 components/          one component (+ .module.css) per screen or sheet
-lib/                 client helpers: cities, currency, swipes, plan, sharing, Supabase
-lib/server/          server-only: engine, Google Places, events, Gemini details, Venice, taste summary
+lib/                 client helpers: cities, currency, phone codes, swipes, plan, sharing, Supabase
+lib/server/          server-only: engine, Google Places, events, Gemini details, Venice, taste summary, cities, costs
+data/cities.json     every city of 15,000+ people (GeoNames), for "type any city"
 supabase/migrations/ database changes, run in order in the Supabase SQL editor
 design/              approved designs, screenshots and the data contract
 ```
@@ -74,11 +75,13 @@ design/              approved designs, screenshots and the data contract
 3. Run each file in `supabase/migrations/` in order in Supabase → SQL Editor.
 4. `npm install` then `npm run dev`, and open http://localhost:3000 (phone-sized window works best).
 
-Settings in Vercel: the same keys, plus optional `PICKS_DAILY_LIMIT` (shared, default 150) and `PICKS_USER_DAILY_LIMIT` (per person, default 30).
+Settings in Vercel: the same keys, plus optional `PICKS_DAILY_LIMIT` (shared, default 600), `PICKS_USER_DAILY_LIMIT` (per person, default 20) and `DAILY_BUDGET_INR` (estimated spend a day, default 170).
+
+City data: `data/cities.json` is built from [GeoNames](https://www.geonames.org) (CC BY 4.0) by `node scripts/build-cities.mjs <folder>`, using `cities15000.txt`, `admin1CodesASCII.txt` and `countryInfo.txt` from download.geonames.org.
 
 ## Not built yet
 
-International cities and currencies (planned next) · check-in after an outing (Loved it / It was fine / Not for me) and reviews · admin approval for review photos · weekend plan drafted for WhatsApp · Instagram import for Feta picks · usage analytics.
+Download my data (needed for EU/UK users) · check-in after an outing (Loved it / It was fine / Not for me) and reviews · admin approval for review photos · weekend plan drafted for WhatsApp · Instagram import for Feta picks · usage analytics.
 
 ## For contributors (and Claude)
 
