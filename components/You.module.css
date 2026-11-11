@@ -59,6 +59,7 @@
 }
 
 .empty {
+  margin-top: 14px;
   padding: 12px 0;
   border-top: 1px solid rgba(var(--inkRGB), 0.1);
   font-size: 14px;
@@ -237,4 +238,137 @@
   background: #131314;
   color: #e3e3e3;
   border-color: #8e918f;
+}
+
+/* What Feta knows: groups, people, places, and settings folded away. */
+.group {
+  margin-top: 18px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--roseText);
+}
+
+.group + .lines {
+  margin-top: 6px;
+}
+
+.lineBtns {
+  flex: none;
+  display: flex;
+  gap: 12px;
+}
+
+.editForm {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.editForm input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 12px;
+  outline: none;
+  background: rgba(var(--inkRGB), 0.07);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.save {
+  flex: none;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.save:disabled {
+  opacity: 0.4;
+}
+
+.addWrap {
+  margin-top: 6px;
+}
+
+.add {
+  min-height: 40px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--roseText);
+}
+
+.person {
+  margin-top: 12px;
+  padding: 12px 14px 6px;
+  border-radius: 18px;
+  background: rgba(var(--inkRGB), 0.05);
+  animation: var(--kf-up) 0.35s ease-out;
+}
+
+.person .lines {
+  margin-top: 4px;
+}
+
+.personName {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.places {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 52px;
+  margin-top: 6px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: rgba(var(--inkRGB), 0.05);
+  font-size: 14px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.places strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.places .muted {
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.settingsHead {
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 30px;
+  border-top: 1px solid rgba(var(--inkRGB), 0.14);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.settings {
+  animation: var(--kf-up) 0.3s ease-out;
+}
+
+.settings > .section:first-child {
+  margin-top: 6px;
 }

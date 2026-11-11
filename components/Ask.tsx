@@ -10,11 +10,12 @@ import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
 import type { Pick } from "@/lib/picks-client";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { setLinesTrip, undoLines } from "@/lib/profile-client";
+import { removeWeekendWish } from "@/lib/weekend-client";
 import styles from "./Ask.module.css";
 
 type Message =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean };
+  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; weekendUndone?: boolean };
 
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
@@ -169,6 +170,28 @@ export default function Ask() {
                     <span className={`switch ${m.tripOnly ? "on" : ""}`} />
                   </button>
                 )}
+              </div>
+            )}
+            {m.role === "assistant" && m.reply?.weekend && (
+              <div className={styles.added}>
+                <div className={styles.addedHead}>
+                  <span className={styles.addedLabel}>ADDED TO YOUR WEEKEND</span>
+                  <button
+                    type="button"
+                    className={styles.undo}
+                    disabled={m.weekendUndone}
+                    onClick={() => {
+                      removeWeekendWish(m.reply!.weekend!.id);
+                      patch(m.id, { weekendUndone: true });
+                    }}
+                  >
+                    {m.weekendUndone ? "Undone" : "Undo"}
+                  </button>
+                </div>
+                <div className={styles.addedLines} style={{ opacity: m.weekendUndone ? 0.4 : 1 }}>
+                  <span>＋ {m.reply.weekend.text}</span>
+                  <span className={styles.tripSub}>On your weekend list in Lists. Feta plans your weekend from it.</span>
+                </div>
               </div>
             )}
           </div>

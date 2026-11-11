@@ -4,11 +4,27 @@ import { currentUserId, supabase } from "@/lib/supabase";
 
 // The You screen: plain profile lines, privacy choices and the account.
 
-export type Line = { id: string; text: string; source: string; trip: string | null };
+export type Line = { id: string; text: string; source: string; trip: string | null; key: string };
+
+// Who a line is about: "people:partner:…" lines come from chat or You.
+export const PEOPLE = [
+  { id: "partner", label: "Partner" },
+  { id: "family", label: "Family" },
+  { id: "friends", label: "Friends" },
+  { id: "kids", label: "Kids" },
+] as const;
+export type Person = (typeof PEOPLE)[number]["id"];
+
+export function aboutOf(line: Line): Person | null {
+  const who = line.key.startsWith("people:") ? line.key.split(":")[1] : null;
+  return PEOPLE.some((p) => p.id === who) ? (who as Person) : null;
+}
 
 export type Profile = {
   lines: Line[];
   consent: { location: boolean; publicReviews: boolean };
+  places: { want: number; been: number };
+  whatsapp: string | null;
   email: string | null; // null while not signed in with Google
 };
 
@@ -16,14 +32,21 @@ export async function loadProfile(): Promise<Profile | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const db = supabase();
-  const [{ data: lines }, { data: profile }, { data: auth }] = await Promise.all([
-    db.from("profile_lines").select("id, text, source, trip").is("removed_at", null).order("created_at"),
-    db.from("profiles").select("consent_location, consent_public_reviews").eq("id", userId).maybeSingle(),
+  const [{ data: lines }, { data: profile }, { data: auth }, { data: actions }] = await Promise.all([
+    db.from("profile_lines").select("id, text, source, trip, line_key").is("removed_at", null).order("created_at"),
+    db.from("profiles").select("consent_location, consent_public_reviews, whatsapp_number").eq("id", userId).maybeSingle(),
     db.auth.getUser(),
+    db.from("pick_actions").select("place_id, action").in("action", ["saved", "been"]),
   ]);
+  const been = new Set((actions ?? []).filter((a) => a.action === "been").map((a) => a.place_id));
   return {
-    lines: (lines ?? []) as Line[],
+    lines: (lines ?? []).map(({ line_key, ...l }) => ({ ...l, key: line_key })) as Line[],
     consent: { location: !!profile?.consent_location, publicReviews: !!profile?.consent_public_reviews },
+    places: {
+      want: (actions ?? []).filter((a) => a.action === "saved" && !been.has(a.place_id)).length,
+      been: been.size,
+    },
+    whatsapp: profile?.whatsapp_number ?? null,
     email: auth.user && !auth.user.is_anonymous ? (auth.user.email ?? null) : null,
   };
 }
@@ -32,6 +55,26 @@ export async function loadProfile(): Promise<Profile | null> {
 export async function removeLine(id: string) {
   const { error } = await supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("id", id);
   if (error) console.error("Removing line failed", error.message);
+}
+
+// Editing a line: picks and chat use the new words from now on.
+export async function editLine(id: string, text: string) {
+  const { error } = await supabase().from("profile_lines").update({ text: text.trim().slice(0, 80) }).eq("id", id);
+  if (error) console.error("Editing line failed", error.message);
+}
+
+// "Add something" on You, about them or about someone they go out with.
+export async function addLine(text: string, about: Person | null): Promise<Line | null> {
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const key = `${about ? `people:${about}` : "you"}:${crypto.randomUUID()}`;
+  const { data, error } = await supabase()
+    .from("profile_lines")
+    .insert({ user_id: userId, line_key: key, text: text.trim().slice(0, 80), source: "you" })
+    .select("id, text, source, trip")
+    .single();
+  if (error) console.error("Adding line failed", error.message);
+  return data ? ({ ...data, key } as Line) : null;
 }
 
 // "Use these every day instead": trip-only lines become everyday lines.

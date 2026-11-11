@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminImport from "@/components/AdminImport";
+import AdminWeekend from "@/components/AdminWeekend";
 import { useToast } from "@/components/Toast";
 import { findCities, loadCity, type City } from "@/lib/cities";
 import { currentUserId, supabase } from "@/lib/supabase";
@@ -22,6 +24,7 @@ export default function Admin() {
   const [kind, setKind] = useState<"EAT" | "DRINK" | "DO">("EAT");
   const [note, setNote] = useState("");
   const [places, setPlaces] = useState<FetaPlace[]>([]);
+  const [tab, setTab] = useState<"picks" | "weekend" | "instagram">("picks");
 
   async function refresh() {
     const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").order("created_at", { ascending: false });
@@ -96,8 +99,25 @@ export default function Admin() {
   return (
     <main className={styles.screen}>
       <h1 className={styles.title}>
-        Feta <strong>picks</strong>
+        Feta <strong>admin</strong>
       </h1>
+      <div className={styles.tabs} role="tablist">
+        {(
+          [
+            ["picks", "Feta picks"],
+            ["weekend", "Weekend plans"],
+            ["instagram", "From Instagram"],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? styles.on : ""} onClick={() => setTab(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "weekend" && <AdminWeekend />}
+      {tab === "instagram" && <AdminImport onAdded={refresh} />}
+      {tab === "picks" && (
+      <>
       <p className={styles.sub}>Your own places. One shows up in someone&apos;s 3 whenever it fits their hard filters, with your note.</p>
 
       <form
@@ -193,6 +213,8 @@ export default function Admin() {
           </li>
         ))}
       </ul>
+      </>
+      )}
     </main>
   );
 }

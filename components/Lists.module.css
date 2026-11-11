@@ -371,3 +371,99 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+/* This weekend: ticked places and things they feel like doing. */
+.weekend {
+  margin-top: 16px;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  background: rgba(255, 79, 123, 0.1);
+  animation: var(--kf-up) 0.35s ease-out;
+}
+
+.wkLabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--roseText);
+}
+
+.wkText {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.wkChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  list-style: none;
+}
+
+.wkChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.85);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.wkRemove {
+  min-width: 24px;
+  min-height: 30px;
+  font-size: 11px;
+  color: rgba(var(--inkRGB), 0.5);
+}
+
+.wkForm {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.wkForm input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 14px;
+  outline: none;
+  background: rgba(var(--surf), 0.85);
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.wkForm button {
+  flex: none;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wkForm button:disabled {
+  opacity: 0.4;
+}
+
+.wkSwitch {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 14.5px;
+  color: var(--ink);
+  text-align: left;
+}

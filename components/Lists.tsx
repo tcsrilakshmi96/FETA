@@ -15,6 +15,7 @@ import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin } from "@/lib/origin";
 import { CALLING_CODES, codeFor, fullNumber, showNumber } from "@/lib/phone";
+import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
 
 type Tab = "want" | "been";
@@ -42,6 +43,9 @@ export default function Lists() {
   const [number, setNumber] = useState("");
   const [callingCode, setCallingCode] = useState("91");
   const [country, setCountry] = useState<string | undefined>(undefined);
+  const [wishes, setWishes] = useState<Wish[]>([]);
+  const [wish, setWish] = useState("");
+  const [saturday, setSaturday] = useState("");
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
@@ -50,9 +54,11 @@ export default function Lists() {
     /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
     setCountry(origin?.city.country);
     setCallingCode(codeFor(origin?.city.country).code);
+    setSaturday(thisSaturday());
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchLists(origin).then((list) => live && setItems(list ?? []));
     loadWhatsApp().then((n) => live && setWhatsApp(n));
+    loadWishes().then((w) => live && setWishes(w));
     return () => {
       live = false;
     };
@@ -106,6 +112,27 @@ export default function Lists() {
     toast("Removed");
   }
 
+  const ticked = (items ?? []).filter((i) => i.list === "want" && i.weekendFor === saturday);
+  const isTicked = (i: ListItem) => i.list === "want" && i.weekendFor === saturday;
+
+  function toggleWeekend(item: ListItem) {
+    const on = !isTicked(item);
+    tickWeekend(item.placeId, on);
+    update(item.placeId, "want", { weekendFor: on ? saturday : null });
+    setOpen((o) => o && { ...o, weekendFor: on ? saturday : null });
+    toast(on ? "On your weekend list" : "Off your weekend list");
+  }
+
+  async function addWish(e: React.FormEvent) {
+    e.preventDefault();
+    const text = wish.trim();
+    if (!text) return;
+    setWish("");
+    const saved = await addWeekendWish(text);
+    if (saved) setWishes((w) => [...w, saved]);
+    else toast("Couldn't add that just now. Try again.");
+  }
+
   const full = fullNumber(callingCode, number);
   const validNumber = full !== null;
 
@@ -140,6 +167,57 @@ export default function Lists() {
           </button>
         </div>
         <p className={styles.private}>Private. Only you can see these.</p>
+
+        {tab === "want" && items !== null && (
+          <section className={styles.weekend}>
+            <p className={styles.wkLabel}>THIS WEEKEND</p>
+            <p className={styles.wkText}>
+              Tick saved places for this weekend, or add what you feel like doing.{" "}
+              {whatsApp ? "Your plan comes on WhatsApp on Friday." : "Add your number at the bottom to get the plan on WhatsApp."}
+            </p>
+            {(ticked.length > 0 || wishes.length > 0) && (
+              <ul className={styles.wkChips}>
+                {ticked.map((i) => (
+                  <li key={i.placeId}>
+                    <button type="button" className={styles.wkChip} onClick={() => openItem(i)}>
+                      ✓ {i.name}
+                    </button>
+                  </li>
+                ))}
+                {wishes.map((w) => (
+                  <li key={w.id}>
+                    <span className={styles.wkChip}>
+                      {w.text}
+                      <button
+                        type="button"
+                        className={styles.wkRemove}
+                        aria-label={`Remove ${w.text}`}
+                        onClick={() => {
+                          removeWeekendWish(w.id);
+                          setWishes((all) => all.filter((x) => x.id !== w.id));
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form className={styles.wkForm} onSubmit={addWish}>
+              <input
+                value={wish}
+                onChange={(e) => setWish(e.target.value)}
+                placeholder="e.g. pottery with my sister, brunch somewhere new"
+                aria-label="Something you want to do this weekend"
+                maxLength={80}
+              />
+              <button type="submit" disabled={!wish.trim()}>
+                Add
+              </button>
+            </form>
+          </section>
+        )}
 
         {items === null && (
           <p className={styles.loading}>Getting your places…</p>
@@ -193,7 +271,7 @@ export default function Lists() {
                     <span className={styles.text}>
                       <span className={styles.row}>
                         <span className={styles.name}>{item.name}</span>
-                        <span className={styles.when}>{savedLabel(item)}</span>
+                        <span className={styles.when}>{isTicked(item) ? "This weekend ✓" : savedLabel(item)}</span>
                       </span>
                       <span
                         className={styles.area}
@@ -308,6 +386,18 @@ export default function Lists() {
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {open.list === "want" && (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isTicked(open)}
+                className={styles.wkSwitch}
+                onClick={() => toggleWeekend(open)}
+              >
+                <span>Plan it for this weekend</span>
+                <span className={`switch ${isTicked(open) ? "on" : ""}`} />
+              </button>
+            )}
             <textarea
               className={styles.noteBox}
               value={note}

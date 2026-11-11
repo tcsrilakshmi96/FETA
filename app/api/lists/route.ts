@@ -18,6 +18,7 @@ export type ListItem = {
   distanceKm: number | null;
   note: string;
   savedAt: string;
+  weekendFor: string | null; // the Saturday it is ticked for
   mapsUri: string;
   photo: string | null;
   event?: { when: string; url: string; site: string };
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   });
   const { data: actions, error } = await db
     .from("pick_actions")
-    .select("place_id, action, note, created_at")
+    .select("place_id, action, note, created_at, weekend_for")
     .in("action", ["saved", "been"])
     .order("created_at", { ascending: false })
     .limit(MAX_ITEMS * 2);
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
 
   const items = await withCosts(db, "lists", () => Promise.all(
     rows.map(async (r, i): Promise<ListItem | null> => {
-      const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at } as const;
+      const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null } as const;
       const event = events.get(r.place_id);
       if (r.place_id.startsWith("event:")) {
         if (!event) return null;

@@ -12,6 +12,9 @@ import styles from "./Swipes.module.css";
 type Choice = "a" | "b" | "both" | "neither";
 
 // The 6 taste cards: a cuisine grid, then five "this or that" pairs.
+// Redoing the cards from You returns there.
+const fromYou = () => new URLSearchParams(window.location.search).get("from") === "you";
+
 export default function Swipes() {
   const router = useRouter();
   const [cards, setCards] = useState(() => swipeCards(EMPTY_ANSWERS));
@@ -35,7 +38,7 @@ export default function Swipes() {
     saveSwipes(all);
     if (index + 1 >= cards.length) {
       saveSwipesToDb(all);
-      router.push("/picked-up");
+      router.push(`/picked-up${fromYou() ? "?from=you" : ""}`);
       return;
     }
     setChosen(null);
@@ -60,7 +63,7 @@ export default function Swipes() {
   function skip() {
     saveSwipes(swipes);
     saveSwipesToDb(swipes);
-    router.push("/picked-up");
+    router.push(`/picked-up${fromYou() ? "?from=you" : ""}`);
   }
 
   const isPair = card.type === "pair";
@@ -121,7 +124,7 @@ export default function Swipes() {
             <button
               type="button"
               className="btn-primary"
-              onClick={() => next(cuisines.map((id) => ({ cardId: `cuisine_${id}`, verdict: "yes" as const })))}
+              onClick={() => next(card.options.map((o) => ({ cardId: `cuisine_${o.id}`, verdict: cuisines.includes(o.id) ? ("yes" as const) : ("no" as const) })))}
             >
               {cuisines.length === 0 ? "I eat anything" : `Next · ${cuisines.length} picked`}
             </button>

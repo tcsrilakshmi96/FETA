@@ -24,7 +24,7 @@ Welcome (18+) → Continue with Google or "Not now" → any city in the world �
 
 **Ask Feta** (the cheese): chat to plan a trip anywhere, change your picks, or ask "why this one?". What it learns goes into your profile straight away, with Undo and "Only for this trip".
 
-**Lists** (Want to try, Been, private notes) · **You** (editable profile lines, answers, city, appearance, consent toggles, privacy, Delete my data) · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
+**Lists** (Want to try, Been, private notes, a *This weekend* box for the WhatsApp weekend plan) · **You** (what Feta knows: editable taste lines, the people you go out with, trips, your places; settings folded below) · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
 
 ## Rules Feta never breaks
 
@@ -59,7 +59,7 @@ app/                 screens (one folder per route) and server routes in app/api
   api/lists          Want to try / Been
   api/place/[id]     public data for shared links
   p/[id], s/[slug]   shared place page, group vote page
-  admin              Feta picks (founder only)
+  admin              Feta picks, weekend plans, Instagram import (founder only)
 components/          one component (+ .module.css) per screen or sheet
 lib/                 client helpers: cities, currency, phone codes, swipes, plan, sharing, Supabase
 lib/server/          server-only: engine, Google Places, events, Gemini details, Venice, taste summary, cities, costs
@@ -81,7 +81,7 @@ City data: `data/cities.json` is built from [GeoNames](https://www.geonames.org)
 
 ## Not built yet
 
-Download my data (needed for EU/UK users) · check-in after an outing (Loved it / It was fine / Not for me) and reviews · admin approval for review photos · weekend plan drafted for WhatsApp · Instagram import for Feta picks · usage analytics.
+Download my data (needed for EU/UK users) · check-in after an outing (Loved it / It was fine / Not for me) and reviews · admin approval for review photos · usage analytics.
 
 ## For contributors (and Claude)
 

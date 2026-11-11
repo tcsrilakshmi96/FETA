@@ -6,6 +6,7 @@ import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
+import { weekendSaturday } from "@/lib/weekend";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 export const maxDuration = 60;
@@ -19,7 +20,8 @@ type Origin = { lat: number; lng: number; label: string; source: "gps" | "area" 
 
 type VeniceReply = {
   reply?: string;
-  learned?: ({ text?: string } | string)[];
+  learned?: ({ text?: string; about?: string | null } | string)[];
+  weekend?: string | null;
   trip?: { place?: string; dates?: string } | null;
   search?: {
     category?: string;
@@ -39,7 +41,11 @@ export type AskReply = {
   trip: string | null; // "Goa · 14–18 Dec"
   notice?: string;
   options?: string[]; // tap-able answers to a question Feta just asked
+  weekend?: { id: string; text: string } | null; // added to their weekend plan
 };
+
+// Who a learned line is about, for the People group on You.
+const ABOUT = ["partner", "family", "friends", "kids"] as const;
 
 
 export async function POST(request: Request) {
@@ -76,7 +82,8 @@ ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 Reply with only a JSON object:
 {"reply": 1 or 2 short, plain sentences (a question counts as one). No hype, no emoji.
  "options": when "reply" asks a question, 2 to 4 short answers they can tap (each under 5 words, e.g. "Quiet and cosy", "Something lively", "Surprise me"); otherwise [].
- "learned": at most 3 new, lasting things worth remembering about their taste, the people they go out with (e.g. "Partner loves live music", "Parents prefer early dinners"), budget or plans, each a short plain line. [] if nothing new. Never labels or personality types, never health or allergy details.
+ "learned": at most 3 new, lasting things worth remembering, each {"text": a short plain line, "about": null for them, or "partner", "family", "friends" or "kids" when it is about the people they go out with (e.g. {"text": "Partner loves live music", "about": "partner"}, {"text": "Parents prefer early dinners", "about": "family"})}. Their taste, budget or plans count too. [] if nothing new. Never labels or personality types, never health or allergy details.
+ "weekend": null, or a short phrase (under 8 words) when they say something they want to do or try this weekend, e.g. "Pottery class with my sister", "Brunch somewhere new". It goes on their weekend plan.
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
  "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase capturing what they want, e.g. "romantic, quiet, live jazz"} once you know enough to suggest places.
  "why": true if they ask why a pick was chosen.}
@@ -106,17 +113,31 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
 
   // Things learned go straight into the profile, shown with Undo.
   const learned = (parsed.learned ?? [])
-    .map((l) => (typeof l === "string" ? l : (l.text ?? "")).trim().slice(0, 80))
-    .filter(Boolean)
+    .map((l) => (typeof l === "string" ? { text: l, about: null } : { text: l.text ?? "", about: l.about ?? null }))
+    .map((l) => ({ text: l.text.trim().slice(0, 80), about: (ABOUT as readonly string[]).includes(l.about ?? "") ? l.about : null }))
+    .filter((l) => l.text)
     .slice(0, 3);
   let added: { id: string; text: string }[] = [];
   if (learned.length > 0) {
     const { data, error } = await db
       .from("profile_lines")
-      .insert(learned.map((text) => ({ user_id: userId, line_key: `chat:${crypto.randomUUID()}`, text, source: "chat" })))
+      .insert(learned.map((l) => ({ user_id: userId, line_key: `${l.about ? `people:${l.about}` : "chat"}:${crypto.randomUUID()}`, text: l.text, source: "chat" })))
       .select("id, text");
     if (error) console.error("Saving chat lines failed", error.message);
     added = data ?? [];
+  }
+
+  // Something for this weekend goes on their weekend plan (Lists shows it).
+  let weekend: AskReply["weekend"] = null;
+  const wish = typeof parsed.weekend === "string" ? parsed.weekend.trim().slice(0, 80) : "";
+  if (wish) {
+    const { data, error } = await db
+      .from("weekend_wishes")
+      .insert({ user_id: userId, text: wish, for_date: weekendSaturday(homeCity?.timeZone) })
+      .select("id, text")
+      .single();
+    if (error) console.error("Saving weekend wish failed", error.message);
+    weekend = data ?? null;
   }
 
   // A search goes through the same picks engine and hard filters as Picks.
@@ -162,11 +183,12 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
         picks: picks.map((p) => ({ placeId: p.placeId, kind: p.kind, verdict: p.verdict, because: p.because })),
         added,
         trip: tripLabel,
+        weekend,
       },
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, ...(notice ? { notice } : {}), ...(options.length && !s ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, trip: tripLabel, weekend, ...(notice ? { notice } : {}), ...(options.length && !s ? { options } : {}) } satisfies AskReply);
 }
 
 // Where to search: a city anywhere in the world (by name, from Feta's own

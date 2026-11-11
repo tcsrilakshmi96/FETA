@@ -20,12 +20,12 @@ export default function Privacy() {
       <h1 className={styles.title}>
         Your privacy, <strong>plainly.</strong>
       </h1>
-      <p className={styles.updated}>Last updated 10 November 2026 · Friends test</p>
+      <p className={styles.updated}>Last updated 11 November 2026 · Friends test</p>
 
       <section>
         <h2>Who we are</h2>
         <p>
-          Feta is a small app being tested with friends in India. It is run by its founder,
+          Feta is a small app being tested with friends. It is run by its founder,
           Srilakshmi. You must be 18 or older to use it.
         </p>
       </section>
@@ -44,6 +44,12 @@ export default function Privacy() {
           <li>Your taste cards (favourite cuisines and this-or-that choices), and the plain lines Feta writes about what you like.</li>
           <li>Cities you asked us to tell you about.</li>
           <li>Your chats with Ask Feta, and the lines it adds to your profile (you can undo or remove them).</li>
+          <li>Lines you add or change in You, including ones about the people you go out with (“Partner loves live music”).</li>
+          <li>
+            If you ask for the weekend plan: your WhatsApp number, the saved places you tick for the weekend and what
+            you say you want to do. Srilakshmi reads these to write your plan and sends it from her own WhatsApp.
+            Remove your number any time in My lists or You.
+          </li>
           <li>Feedback you send, and a screenshot of that screen if you leave the box ticked.</li>
           <li>If you sign in with Google: your name and email address from Google.</li>
         </ul>
@@ -95,8 +101,8 @@ export default function Privacy() {
       <section>
         <h2>Deleting your data</h2>
         <p>
-          You can delete everything Feta holds about you at any time. A one-tap “Delete my data” button is coming
-          to the You tab. Until then, email us and we will delete it within 7 days.
+          You can delete everything Feta holds about you at any time: You → Settings and privacy → Delete my data.
+          Or email us and we will delete it within 7 days.
         </p>
         <p>We keep your data only while your account exists.</p>
       </section>

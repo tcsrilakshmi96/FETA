@@ -45,7 +45,7 @@ export default function PickedUp() {
   function showPicks() {
     saveProfileLines(lines);
     saveProfileLinesToDb(lines, removed);
-    router.push("/location");
+    router.push(new URLSearchParams(window.location.search).get("from") === "you" ? "/you" : "/location");
   }
 
   return (
