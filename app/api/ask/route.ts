@@ -29,6 +29,7 @@ type VeniceReply = {
     note?: string;
   } | null;
   why?: boolean;
+  options?: string[];
 };
 
 export type AskReply = {
@@ -37,6 +38,7 @@ export type AskReply = {
   added: { id: string; text: string }[];
   trip: string | null; // "Goa · 14–18 Dec"
   notice?: string;
+  options?: string[]; // tap-able answers to a question Feta just asked
 };
 
 
@@ -72,12 +74,14 @@ What Feta knows about them:
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 
 Reply with only a JSON object:
-{"reply": 1 or 2 short, plain sentences. No hype, no emoji.
- "learned": at most 3 new, lasting things worth remembering about their taste, company, budget or plans, each a short plain line such as "Often out with parents" or "Prefers quiet places". [] if nothing new. Never labels or personality types, never health or allergy details.
+{"reply": 1 or 2 short, plain sentences (a question counts as one). No hype, no emoji.
+ "options": when "reply" asks a question, 2 to 4 short answers they can tap (each under 5 words, e.g. "Quiet and cosy", "Something lively", "Surprise me"); otherwise [].
+ "learned": at most 3 new, lasting things worth remembering about their taste, the people they go out with (e.g. "Partner loves live music", "Parents prefer early dinners"), budget or plans, each a short plain line. [] if nothing new. Never labels or personality types, never health or allergy details.
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
- "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase for anything else they want, e.g. "beach shack"} whenever they want suggestions, different ones, or plans.
+ "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase capturing what they want, e.g. "romantic, quiet, live jazz"} once you know enough to suggest places.
  "why": true if they ask why a pick was chosen.}
-When you set "search", say in "reply" that you're finding 3. You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. When they mention a trip or a place, set "search" straight away (food_drinks unless they say otherwise) rather than asking first. Never say food is safe for an allergy or a diet.`;
+How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
+You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. Never say food is safe for an allergy or a diet.`;
 
   let parsed: VeniceReply;
   try {
@@ -118,8 +122,14 @@ When you set "search", say in "reply" that you're finding 3. You can search anyw
   // A search goes through the same picks engine and hard filters as Picks.
   let picks: Pick[] = [];
   let notice: string | undefined;
-  // A trip mentioned without a search still gets 3 places there.
-  const s = parsed.why ? null : (parsed.search ?? (parsed.trip?.place ? { category: "food_drinks", place: parsed.trip.place } : null));
+  const options = (parsed.options ?? [])
+    .filter((o): o is string => typeof o === "string")
+    .map((o) => o.trim().slice(0, 40))
+    .filter(Boolean)
+    .slice(0, 4);
+  // A trip mentioned without a search still gets 3 places there, unless
+  // Feta is still asking about it.
+  const s = parsed.why ? null : (parsed.search ?? (parsed.trip?.place && options.length === 0 ? { category: "food_drinks", place: parsed.trip.place } : null));
   if (s) {
     const origin = await withCosts(db, "ask", () => resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity));
     if (origin && isMainlandChina(origin.city)) {
@@ -156,7 +166,7 @@ When you set "search", say in "reply" that you're finding 3. You can search anyw
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, ...(notice ? { notice } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, trip: tripLabel, ...(notice ? { notice } : {}), ...(options.length && !s ? { options } : {}) } satisfies AskReply);
 }
 
 // Where to search: a city anywhere in the world (by name, from Feta's own

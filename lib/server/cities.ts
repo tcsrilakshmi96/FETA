@@ -64,6 +64,14 @@ export function cityById(id: string | undefined | null): City | null {
   return row ? toCity(row) : null;
 }
 
+// Small cities (under 300,000 people, e.g. Koblenz, Metz) may get 2 picks
+// rather than a weak third; bigger ones always fill to 3.
+export function isSmallCity(id: string | undefined | null): boolean {
+  const n = Number((id ?? "").replace(/^gn:/, ""));
+  const row = n ? rows.find((r) => r[0] === n) : undefined;
+  return !!row && row[7] < 300000;
+}
+
 // The city someone is in: the biggest city within a few km (so a point in
 // a suburb counts as the city), else the nearest one at all.
 export function cityAt(point: { lat: number; lng: number }): City | null {

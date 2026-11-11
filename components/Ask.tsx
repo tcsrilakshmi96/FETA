@@ -19,7 +19,7 @@ type Message =
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
 
-const PROMPTS = ["Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "I'm going to Goa next month", "Why this one?"];
+const PROMPTS = ["Plan my date night", "Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "I'm going to Goa next month", "Why this one?"];
 
 export default function Ask() {
   const router = useRouter();
@@ -64,6 +64,11 @@ export default function Ask() {
     const text2 = reply.notice && reply.picks.length === 0 ? `${reply.reply}\n${reply.notice}` : reply.reply;
     setMessages((m) => [...m, { id: nextId.current++, role: "assistant", text: text2, reply }]);
   }
+
+  // When Feta has just asked a question, its tap-able answers replace the
+  // usual prompts.
+  const last = messages[messages.length - 1];
+  const lastOptions = !thinking && last?.role === "assistant" && last.reply?.options?.length ? last.reply.options : null;
 
   function patch(id: number, change: Partial<Extract<Message, { role: "assistant" }>>) {
     setMessages((all) => all.map((m) => (m.id === id && m.role === "assistant" ? { ...m, ...change } : m)));
@@ -178,7 +183,7 @@ export default function Ask() {
       </div>
 
       <div className={styles.prompts}>
-        {PROMPTS.map((p) => (
+        {(lastOptions ?? PROMPTS).map((p) => (
           <button key={p} type="button" onClick={() => send(p)} disabled={thinking}>
             {p}
           </button>

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isMainlandChina, type City } from "@/lib/cities";
-import { cityById } from "@/lib/server/cities";
+import { cityById, isSmallCity } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { bestPhoto, placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
@@ -98,6 +98,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
         ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
         : `city:${city.id}`;
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
+  const small = isSmallCity(city.id);
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
 
   const { data: recent } = await db
@@ -125,8 +126,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   let keptBanner: string | null = null;
   if (latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date()) {
     const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
-    // A set of 2 (a small city, no weak third) stays 2 while both still fit.
-    if (shown.picks.length >= Math.min(3, (latest.picks as StoredPick[]).length)) return json(shown.reply);
+    // A set of 2 in a small city (no weak third) stays 2 while both still fit.
+    if (shown.picks.length >= (small ? Math.min(3, (latest.picks as StoredPick[]).length) : 3)) return json(shown.reply);
     kept = shown;
     keptBanner = latest.banner;
   }
@@ -203,7 +204,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   // Up to 2 events first, then places to make 3. A Feta pick that passed
   // the hard filters always gets a place in the set.
-  const chosen = takeThree(ranked, pool, need - events.length);
+  const chosen = takeThree(ranked, pool, need - events.length, small);
   const fetaInPool = pool.filter((c) => c.fetaNote);
   if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote) && need - events.length > 0) {
     const best = ranked.map((r) => pool[r.index]).find((c) => c?.fetaNote) ?? fetaInPool[0];

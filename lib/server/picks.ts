@@ -510,11 +510,13 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
   return ranked.filter((r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && all.findIndex((x) => x.index === r.index) === i);
 }
 
-// Picks 3 in Gemini's order with at most 1 very popular place. Never pads
-// with weak places: only ones Gemini rated a real fit count, so a small
-// city may get 2 (a third "Skip unless" fills in only to reach 2). Without
-// a ranking (Gemini down), it falls back to the filtered places in order.
-export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3): { candidate: Candidate; ranked: Ranked | null }[] {
+// Picks 3 in Gemini's order with at most 1 very popular place. A small
+// city never gets weak filler: only places Gemini rated a real fit count,
+// so it may get 2 (a "Skip unless" fills in only to reach 2). A bigger city
+// always fills to 3, with the next best place that passed the hard filters
+// (its verdict then says honestly what the compromise is). Without a
+// ranking (Gemini down), it uses the filtered places in order.
+export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3, small = false): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
@@ -531,8 +533,8 @@ export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3):
     const good = ranked.filter((r) => r.verdict !== "Skip unless");
     for (const r of good) add(candidates[r.index], r, false);
     for (const r of good) add(candidates[r.index], r, true);
-    for (const r of ranked) add(candidates[r.index], r, true, Math.min(2, count));
-    return chosen;
+    for (const r of ranked) add(candidates[r.index], r, true, small ? Math.min(2, count) : count);
+    if (small) return chosen;
   }
   for (const c of candidates) add(c, rankedOf(c), false);
   for (const c of candidates) add(c, rankedOf(c), true);
