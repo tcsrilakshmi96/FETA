@@ -38,7 +38,7 @@ import {
   type Taste,
   type When,
 } from "@/lib/server/picks";
-import { swipeCards } from "@/lib/swipes";
+import { sideById } from "@/lib/swipes";
 
 // Cost guards (founder can change these in Vercel without a code change).
 // Alpha: 600 new searches a day across everyone, 20 per person (each
@@ -328,8 +328,11 @@ async function firstPhoto(place: Place) {
 }
 
 function fallbackBecause(taste: Taste) {
-  const card = swipeCards(taste.answers).find((c) => taste.yes.includes(c.id));
-  return card ? `Because you said yes to ${card.label.toLowerCase()}.` : "Because it fits what you told me.";
+  const id = taste.yes.find((y) => sideById(y, taste.answers));
+  const side = id ? sideById(id, taste.answers) : null;
+  if (!id || !side) return "Because it fits what you told me.";
+  if (id.startsWith("cuisine_")) return `Because ${side.label} is one of your favourites.`;
+  return `Because you picked ${side.label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
 }
 
 // Shows a saved set again with live Google details, dropping anything that

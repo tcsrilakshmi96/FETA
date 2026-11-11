@@ -33,7 +33,7 @@ export default function Welcome() {
 
       <div className={styles.controls}>
         <p className={styles.intro}>
-          A few quick questions, six swipes, then your picks.
+          A few quick questions, six taste cards, then your picks.
         </p>
         <button
           type="button"

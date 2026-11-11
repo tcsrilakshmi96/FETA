@@ -62,120 +62,220 @@
   transition: width 0.5s var(--ease-enter);
 }
 
-.deck {
+.stage {
   position: absolute;
   left: 14px;
   right: 14px;
-  top: 118px;
-  bottom: 112px;
+  top: 116px;
+  bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  animation: var(--kf-up) 0.45s var(--ease-enter);
 }
 
-.card {
-  position: absolute;
-  inset: 0;
-  touch-action: none;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
+.sub {
+  margin: 4px 10px 14px;
+  font-size: 15px;
+  color: rgba(var(--inkRGB), 0.6);
 }
 
-.photo {
-  position: absolute;
-  inset: 0;
-  border-radius: 32px;
+.grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 10px;
+  padding: 0 4px 12px;
+  list-style: none;
+  align-content: start;
+}
+
+.tile {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  transition: transform 0.2s var(--ease-press), opacity 0.2s;
+}
+
+.tile:active {
+  transform: scale(0.95);
+}
+
+.tilePhoto {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 18px;
   overflow: hidden;
   background: #6a4a40;
-  box-shadow: 0 20px 40px rgba(120, 30, 50, 0.18);
+  outline: 3px solid transparent;
+  outline-offset: -3px;
+  transition: outline-color 0.2s;
 }
 
-.photo img {
+.tilePhoto img {
+  object-fit: cover;
+}
+
+.tileOn .tilePhoto {
+  outline-color: var(--rose);
+}
+
+.tileFull {
+  opacity: 0.45;
+}
+
+.tick {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-size: 13px;
+  font-weight: 600;
+  animation: var(--kf-pop) 0.3s var(--ease-spring);
+}
+
+.tileLabel {
+  font-size: 13px;
+  line-height: 1.2;
+  padding: 0 2px;
+}
+
+.pair {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.half {
+  position: relative;
+  flex: 1;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #6a4a40;
+  box-shadow: 0 14px 30px rgba(120, 30, 50, 0.14);
+  text-align: left;
+  outline: 4px solid transparent;
+  outline-offset: -4px;
+  transition: transform 0.35s var(--ease-spring), opacity 0.3s, outline-color 0.2s;
+}
+
+.half img {
   object-fit: cover;
   pointer-events: none;
-  animation: var(--kf-kb) 16s ease-in-out infinite alternate;
+}
+
+.half:active {
+  transform: scale(0.98);
+}
+
+.picked {
+  outline-color: var(--rose);
+  transform: scale(1.02);
+}
+
+.dropped {
+  opacity: 0.35;
+  transform: scale(0.97);
 }
 
 .scrim {
   position: absolute;
   inset: auto 0 0 0;
-  height: 55%;
-  background: linear-gradient(rgba(26, 22, 22, 0), rgba(26, 22, 22, 0.85));
-}
-
-.stamp {
-  position: absolute;
-  top: 18px;
-  padding: 9px 16px;
-  border-radius: 14px;
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.stampYes {
-  left: 18px;
-  background: var(--rose);
-  color: var(--inkFixed);
-}
-
-.stampNo {
-  right: 18px;
-  background: var(--bg);
-  color: var(--ink);
+  height: 60%;
+  background: linear-gradient(rgba(26, 22, 22, 0), rgba(26, 22, 22, 0.82));
 }
 
 .label {
   position: absolute;
-  left: 22px;
-  right: 22px;
-  bottom: 22px;
-  font-size: 32px;
+  left: 20px;
+  right: 20px;
+  bottom: 16px;
+  font-size: 23px;
   font-weight: 300;
-  line-height: 1.05;
-  letter-spacing: -0.035em;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
   color: var(--onPhoto);
   text-wrap: pretty;
 }
 
-.buttons {
+.stamp {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  bottom: 28px;
+  top: 14px;
+  left: 14px;
+  padding: 7px 13px;
+  border-radius: 12px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-size: 15px;
+  font-weight: 500;
+  transform: rotate(-6deg);
+  animation: var(--kf-pop) 0.3s var(--ease-spring);
+}
+
+.or {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  font-style: italic;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.buttons {
+  flex: none;
   display: flex;
   gap: 10px;
+  padding: 14px 6px 0;
 }
 
-.round {
-  flex: none;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  font-size: 22px;
-  transition: transform 0.2s var(--ease-press);
+.buttons > * {
+  flex: 1;
 }
 
-.round:active {
-  transform: scale(0.88);
-}
-
-.no {
+.pill {
+  height: 54px;
+  border-radius: 99px;
   background: rgba(var(--inkRGB), 0.07);
-  font-weight: 300;
+  font-size: 15px;
+  transition: transform 0.2s var(--ease-press), background 0.2s;
 }
 
-.yes {
+.pill:active {
+  transform: scale(0.96);
+}
+
+.pillOn {
   background: var(--rose);
   color: var(--inkFixed);
 }
 
-.unsure {
-  flex: 1;
-  height: 58px;
-  border-radius: 99px;
-  background: rgba(var(--inkRGB), 0.07);
-  font-size: 15px;
-  transition: transform 0.2s var(--ease-press);
-}
-
-.unsure:active {
-  transform: scale(0.96);
+.preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }

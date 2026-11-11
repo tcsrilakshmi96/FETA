@@ -140,7 +140,9 @@ export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] 
       if (id === "nightlife" && !drinks) continue;
       if (map[id]) phrases.push(map[id]);
     }
-    if (yes.includes("hands_on")) phrases.push("pottery workshop");
+    // How they like to spend time (the experience cards) comes first.
+    const doing = yes.map((id) => DOING_SIDE_PHRASES[id]).filter(Boolean);
+    phrases.unshift(...doing);
     if (yes.includes("night_out_sober")) phrases.push("live music venue");
     if (phrases.length === 0) phrases.push("art gallery", "park", "museum");
     if (tweaks.includes("outdoors")) phrases.unshift("park");
@@ -151,19 +153,62 @@ export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] 
   return [...new Set(phrases)];
 }
 
-// Food & drinks search words from the user's tweaks and "Yes, me" swipes,
-// searched alongside everything popular nearby. Empty means popular only.
+// Search words for each taste card answer (lib/swipes.ts). Old card ids
+// (before 11 Nov 2026) still count for people who swiped then.
+const CUISINE_PHRASES: Record<string, string> = {
+  south_indian: "south indian restaurant",
+  north_indian: "north indian restaurant",
+  indo_chinese: "chinese restaurant",
+  regional: "regional indian thali restaurant",
+  local: "local cuisine restaurant",
+  indian: "indian restaurant",
+  italian: "italian restaurant",
+  japanese: "japanese restaurant",
+  korean: "korean restaurant",
+  thai: "thai restaurant",
+  middle_eastern: "middle eastern restaurant",
+  mexican: "mexican restaurant",
+  bakery: "bakery and desserts",
+  healthy: "healthy bowls and salads",
+};
+const FOOD_SIDE_PHRASES: Record<string, string> = {
+  hole_in_wall: "small local favourite, one famous dish",
+  dressed_up: "fine dining restaurant",
+  quiet_cafe: "quiet cafe",
+  buzzing: "lively bar with music",
+  buzzing_sober: "cafe with live music",
+  street_food: "street food",
+  spicy_regional: "spicy regional food",
+  local_breakfast: "local favourite restaurant",
+  night_out: "cocktail bar",
+  night_out_sober: "dessert cafe",
+};
+const DOING_SIDE_PHRASES: Record<string, string> = {
+  dance: "dance class",
+  make: "pottery workshop",
+  play: "badminton court",
+  unwind: "book cafe",
+  crowd: "live music venue",
+  circle: "community meetup",
+  hands_on: "pottery workshop",
+};
+
+// Food & drinks search words from the user's tweaks, cuisines and taste
+// cards, searched alongside everything popular nearby. Empty means popular only.
 export function foodPhrases(taste: Taste, tweaks: Tweak[] = []): string[] {
   const veg = needsDietCheck(taste.answers) ? "vegetarian " : "";
+  const sober = taste.answers.drinks === "no_alcohol";
   const fromTweaks = tweaks.map((t) => TWEAK_PHRASES[t]).filter(Boolean) as string[];
   const fromSwipes: string[] = [];
-  const yes = taste.yes;
-  if (yes.includes("street_food")) fromSwipes.push(`${veg}street food`);
-  if (yes.includes("spicy_regional")) fromSwipes.push(`${veg}spicy regional food`);
-  if (yes.includes("local_breakfast")) fromSwipes.push(`${veg}local favourite restaurant`);
-  if (yes.includes("quiet_cafe")) fromSwipes.push("quiet cafe");
-  if (yes.includes("night_out") && taste.answers.drinks !== "no_alcohol") fromSwipes.push("cocktail bar");
-  if (yes.includes("night_out_sober")) fromSwipes.push("dessert cafe");
+  for (const id of taste.yes) {
+    const cuisine = id.startsWith("cuisine_") ? CUISINE_PHRASES[id.slice(8)] : null;
+    if (cuisine) fromSwipes.push(`${veg}${cuisine}`);
+  }
+  for (const id of taste.yes) {
+    const phrase = FOOD_SIDE_PHRASES[id];
+    if (!phrase || (sober && ["buzzing", "night_out"].includes(id))) continue;
+    fromSwipes.push(["quiet_cafe", "buzzing", "buzzing_sober", "night_out", "night_out_sober"].includes(id) ? phrase : `${veg}${phrase}`);
+  }
   return [...new Set([...fromTweaks, ...fromSwipes])];
 }
 

@@ -10,7 +10,7 @@ import {
   loadSwipes,
   pickedUpLines,
   saveProfileLines,
-  swipeCards,
+  chosenImages,
   type ProfileLine,
 } from "@/lib/swipes";
 import { saveProfileLinesToDb } from "@/lib/db";
@@ -32,17 +32,11 @@ export default function PickedUp() {
   useEffect(() => {
     const answers = loadAnswers();
     const swipes = loadSwipes();
-    const cards = swipeCards(answers);
-    const currency = loadCity()?.currency ?? detectCurrency();
+    const city = loadCity();
+    const currency = city?.currency ?? detectCurrency();
     /* eslint-disable react-hooks/set-state-in-effect -- answers and swipes are only readable in the browser */
-    setPhotos(
-      swipes
-        .filter((s) => s.verdict === "yes")
-        .map((s) => cards.find((c) => c.id === s.cardId)?.image)
-        .filter((src): src is string => !!src)
-        .slice(0, 5),
-    );
-    setLines(pickedUpLines(answers, swipes, currency));
+    setPhotos(chosenImages(answers, swipes, city?.country).slice(0, 5));
+    setLines(pickedUpLines(answers, swipes, currency, city?.country));
     /* eslint-enable react-hooks/set-state-in-effect */
     const t = setTimeout(() => setSettled(true), 80);
     return () => clearTimeout(t);
