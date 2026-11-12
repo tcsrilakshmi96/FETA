@@ -28,6 +28,7 @@ import {
   applyTweaks,
   foodPhrases,
   TWEAKS,
+  POPULAR_REVIEWS,
   type Candidate,
   type DropCounts,
   type Tweak,
@@ -180,7 +181,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
 
   // The founder's own places ("Feta picks") that pass the same hard filters.
-  const feta = await fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet }).catch((error) => {
+  const feta = await fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }).catch((error) => {
     console.error(error);
     return [] as Candidate[];
   });
@@ -203,11 +204,12 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
 
   // Up to 2 events first, then places to make 3. A Feta pick that passed
-  // the hard filters always gets a place in the set.
+  // the hard filters always gets a place in the set, unless it is a very
+  // popular place (a famous sight is not a find; Gemini may still pick it).
   const chosen = takeThree(ranked, pool, need - events.length, small);
-  const fetaInPool = pool.filter((c) => c.fetaNote);
+  const fetaInPool = pool.filter((c) => c.fetaNote && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
   if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote) && need - events.length > 0) {
-    const best = ranked.map((r) => pool[r.index]).find((c) => c?.fetaNote) ?? fetaInPool[0];
+    const best = ranked.map((r) => pool[r.index]).find((c) => c && fetaInPool.includes(c)) ?? fetaInPool[0];
     const slot = Math.min(chosen.length, need - events.length - 1);
     chosen.splice(slot, chosen.length > slot ? 1 : 0, { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null });
   }
@@ -465,8 +467,12 @@ function nearName(city: City, o: Body["origin"]) {
   return o.source === "area" ? `${o.label.slice(0, 60)}, ${city.name}` : city.name;
 }
 
-// The founder's places in this city for this category, checked live against
-// the person's hard filters. Only place IDs and her notes are stored.
+// The founder's places in this city for this category. Ones already found
+// by the search cost nothing; at most FETA_LOOKUPS others (chosen at random,
+// so each gets a turn) are checked live against the person's hard filters.
+// Only place IDs and her notes are stored.
+const FETA_LOOKUPS = 2;
+
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
   taste: Taste;
@@ -475,6 +481,7 @@ async function fetaCandidates(ctx: {
   origin: { lat: number; lng: number };
   exclude: Set<string>;
   needsDiet: boolean;
+  pool: Candidate[];
 }): Promise<Candidate[]> {
   const kinds = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
   const { data, error } = await ctx.db
@@ -483,9 +490,16 @@ async function fetaCandidates(ctx: {
     .eq("city_id", ctx.city.id)
     .eq("active", true)
     .in("kind", kinds)
-    .limit(12);
+    .limit(500);
   if (error || !data?.length) return [];
-  const places = (await Promise.all(data.map((f) => placeDetails(f.place_id, ctx.needsDiet)))).filter((p): p is Place => !!p);
+  const notes = new Map(data.map((f) => [f.place_id as string, f.note as string]));
+  const found = ctx.pool.filter((c) => notes.has(c.place.id)).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }));
+  const others = data
+    .map((f) => f.place_id as string)
+    .filter((id) => !ctx.exclude.has(id) && !found.some((c) => c.place.id === id))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, FETA_LOOKUPS);
+  const places = (await Promise.all(others.map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
   const passed = applyHardFilters(places, {
     taste: ctx.taste,
     category: ctx.body.category,
@@ -494,6 +508,5 @@ async function fetaCandidates(ctx: {
     exclude: ctx.exclude,
     city: ctx.city,
   });
-  const notes = new Map(data.map((f) => [f.place_id, f.note as string]));
-  return passed.filter((c) => !c.far).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }));
+  return [...found, ...passed.filter((c) => !c.far).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }))];
 }
