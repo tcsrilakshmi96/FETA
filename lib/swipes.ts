@@ -40,9 +40,15 @@ export const MAX_CUISINES = 4;
 
 const SOUTH_ASIA = ["IN", "LK", "NP", "BD", "PK", "BT", "MV"];
 
-export function cuisinesFor(country?: string): Cuisine[] {
+// Photos showing meat, fish or egg have a vegetarian version, shown to
+// vegetarian, vegan and Jain users (testers: egg and fish photos broke trust).
+const VEG_PHOTOS = ["bowl", "fine-dining", "indo-chinese", "japanese", "korean", "mexican", "middle-eastern", "thai", "world-street", "world-spicy"];
+const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
+const photo = (name: string, veg: boolean) => `/swipes/${veg && VEG_PHOTOS.includes(name) ? `veg-${name}` : name}.jpg`;
+
+export function cuisinesFor(country?: string, veg = false): Cuisine[] {
   const home = !country || SOUTH_ASIA.includes(country);
-  const c = (id: string, label: string, image: string): Cuisine => ({ id, label, image: `/swipes/${image}.jpg` });
+  const c = (id: string, label: string, image: string): Cuisine => ({ id, label, image: photo(image, veg) });
   const shared = [
     c("italian", "Italian", "italian"),
     c("japanese", "Japanese", "japanese"),
@@ -67,13 +73,14 @@ export function cuisinesFor(country?: string): Cuisine[] {
 export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
   const home = !country || SOUTH_ASIA.includes(country);
   const sober = answers.drinks === "no_alcohol";
+  const veg = VEG_DIETS.includes(answers.diet ?? "");
   return [
-    { type: "cuisines", id: "cuisines", options: cuisinesFor(country) },
+    { type: "cuisines", id: "cuisines", options: cuisinesFor(country, veg) },
     {
       type: "pair",
       id: "style",
-      a: { id: "hole_in_wall", label: "A hole-in-the-wall with one great dish", image: home ? "/swipes/street.jpg" : "/swipes/world-street.jpg" },
-      b: { id: "dressed_up", label: "A dressed-up dinner for an occasion", image: "/swipes/fine-dining.jpg" },
+      a: { id: "hole_in_wall", label: "A hole-in-the-wall with one great dish", image: home ? "/swipes/street.jpg" : photo("world-street", veg) },
+      b: { id: "dressed_up", label: "A dressed-up dinner for an occasion", image: photo("fine-dining", veg) },
       lines: {
         a: "Would pick a hole-in-the-wall over a fancy dinner",
         b: "Likes a dressed-up dinner for an occasion",
