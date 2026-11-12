@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
+import ThemeToggle from "@/components/ThemeToggle";
 import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
-import { loadAppearance, setAppearance } from "@/lib/profile-client";
 import { weekendSummary } from "@/lib/weekend-client";
 import styles from "./Home.module.css";
 
@@ -42,7 +42,6 @@ export default function Home() {
   const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
   const [weekend, setWeekend] = useState<{ ticked: number; wishes: string[] } | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
-  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -52,9 +51,6 @@ export default function Home() {
     }
     /* eslint-disable react-hooks/set-state-in-effect -- the origin is only readable in the browser */
     if (cityDay(saved.city.timeZone).weekend) setWhen("weekend");
-    // The look in use now: the chosen one, or the phone's own (Auto).
-    const look = loadAppearance();
-    setDark(look === "dark" || (look === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches));
     /* eslint-enable react-hooks/set-state-in-effect */
     weekendSummary().then(setWeekend);
     // Picks near where they are, not the city centre, when location is
@@ -147,17 +143,7 @@ export default function Home() {
               <button type="button" className={styles.area} onClick={() => router.push("/location")}>
                 {(origin.source === "area" ? origin.label : origin.source === "gps" ? "Near you" : `All of ${city.name}`).toUpperCase()} ▾
               </button>
-              <button
-                type="button"
-                className={styles.look}
-                aria-label={dark ? "Switch to light" : "Switch to dark"}
-                onClick={() => {
-                  setAppearance(dark ? "light" : "dark");
-                  setDark(!dark);
-                }}
-              >
-                <span key={String(dark)}>{dark ? "☀︎" : "☾"}</span>
-              </button>
+              <ThemeToggle />
             </span>
           </p>
           <h1 className={styles.mast}>

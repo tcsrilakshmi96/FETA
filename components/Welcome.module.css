@@ -25,6 +25,13 @@
   background: linear-gradient(rgba(26, 22, 22, 0), rgba(26, 22, 22, 0.85));
 }
 
+.look {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+}
+
 .promise {
   position: absolute;
   left: 24px;

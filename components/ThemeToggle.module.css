@@ -1,0 +1,62 @@
+.pill {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.75);
+  border: 1px solid rgba(var(--inkRGB), 0.1);
+  box-shadow: 0 4px 14px rgba(120, 40, 40, 0.08);
+}
+
+.placeholder {
+  display: inline-block;
+  width: 70px;
+  height: 36px;
+}
+
+.thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 32px;
+  height: 28px;
+  border-radius: 99px;
+  background: var(--ink);
+  transition: transform 0.45s cubic-bezier(0.3, 1.3, 0.5, 1);
+}
+
+.pill button {
+  position: relative;
+  width: 32px;
+  height: 28px;
+  border-radius: 99px;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(var(--inkRGB), 0.6);
+  transition: color 0.3s;
+}
+
+.pill .on {
+  color: var(--bg);
+}
+
+/* On a photo (Welcome), a frosted pill. */
+.onPhoto {
+  background: rgba(26, 22, 22, 0.35);
+  border-color: rgba(255, 243, 238, 0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.onPhoto button {
+  color: rgba(255, 243, 238, 0.8);
+}
+
+.onPhoto .thumb {
+  background: #fff3ee;
+}
+
+.onPhoto .on {
+  color: #1a1616;
+}

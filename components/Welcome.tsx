@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 import { restoreFromAccount, saveAgeConfirmed, setUpOnThisPhone } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import styles from "./Welcome.module.css";
@@ -37,6 +38,10 @@ export default function Welcome() {
           className="kenburns"
         />
         <div className={styles.scrim} />
+        {/* Light or dark from the very first screen. */}
+        <span className={styles.look}>
+          <ThemeToggle onPhoto />
+        </span>
         <div className={styles.promise}>
           <div className={styles.wordmark}>feta</div>
           <h1 className={styles.headline}>
