@@ -17,7 +17,15 @@ export default function AdminFeedback() {
       .select("id, message, screen, screenshot, user_agent, created_at")
       .order("created_at", { ascending: false })
       .limit(200)
-      .then(({ data }) => setItems((data ?? []) as Item[]));
+      .then(({ data }) => {
+        setItems((data ?? []) as Item[]);
+        // Opened from the sheet's link: show that message's screenshot.
+        const f = Number(new URLSearchParams(window.location.search).get("f"));
+        if (f) {
+          setOpen(f);
+          setTimeout(() => document.getElementById(`f${f}`)?.scrollIntoView({ block: "center" }), 100);
+        }
+      });
   }, []);
 
   if (!items) return <p className={styles.sub}>Loading feedback…</p>;
@@ -31,7 +39,7 @@ export default function AdminFeedback() {
       <p className={styles.sub}>{items.length} messages from the Feedback button, newest first. Tap a screenshot to enlarge it.</p>
       <ul className={styles.drafts}>
         {items.map((f) => (
-          <li key={f.id}>
+          <li key={f.id} id={`f${f.id}`}>
             <p className={styles.draftHead}>
               <strong>{f.screen ?? "?"}</strong>
               <span>{[when(f.created_at), phone(f.user_agent)].filter(Boolean).join(" · ")}</span>

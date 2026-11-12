@@ -40,8 +40,11 @@ export default function Admin() {
       signInToExistingAccount("/admin");
       return;
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the city is only readable in the browser
+    /* eslint-disable react-hooks/set-state-in-effect -- the city and address are only readable in the browser */
     setCity(loadCity());
+    // A link from the feedback sheet: /admin?f=12 opens that message.
+    if (new URLSearchParams(window.location.search).get("f")) setTab("feedback");
+    /* eslint-enable react-hooks/set-state-in-effect */
     currentUserId().then(async () => {
       const { data } = await supabase().rpc("is_admin");
       setAllowed(data === true);
