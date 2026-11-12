@@ -10,21 +10,10 @@ import { useToast } from "@/components/Toast";
 import { savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
 import { formatDistance } from "@/lib/cities";
-import { loadOrigin, originKey, type Origin } from "@/lib/origin";
+import { loadOrigin, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
+import { keepSlots, keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
-
-// picks: on screen, best first. spares: the next best from the same search,
-// shown 8 at a time on "Show me more" without searching again.
-type Slot = {
-  loading: boolean;
-  more?: boolean; // a new search for more is on its way
-  picks: Pick[];
-  spares: Pick[];
-  saved: string[];
-  banner?: string;
-  notice?: string;
-};
 
 const SHOW = 8;
 const CATEGORY_KEY = "feta.category";
@@ -43,24 +32,6 @@ const TWEAK_OPTIONS = [
 
 type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | { type: "plan" } | null;
 
-// Picks stay in the phone's memory while the app is open, so going to Lists
-// and back doesn't pay Google to check the same places again. Never stored:
-// a reload starts fresh, and nothing is kept for more than an hour. A place
-// whose closing time has passed since it was checked is dropped.
-const KEEP_MS = 60 * 60000;
-let kept: { slots: Record<string, Slot>; at: number } | null = null;
-
-const stillOpen = (p: Pick) => !p.closesAt || new Date(p.closesAt).getTime() > Date.now();
-
-function keptSlots() {
-  if (!kept || Date.now() - kept.at > KEEP_MS) return {};
-  return Object.fromEntries(
-    Object.entries(kept.slots)
-      .filter(([, s]) => !s.loading)
-      .map(([k, s]) => [k, { ...s, picks: s.picks.filter(stillOpen), spares: s.spares.filter(stillOpen) }]),
-  );
-}
-
 const verdictText = (p: Pick) => (p.verdict === "Skip unless" ? `Skip unless ${p.skipUnless ?? "you're curious"}` : p.verdict);
 
 export default function Picks() {
@@ -72,7 +43,7 @@ export default function Picks() {
   const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
 
   useEffect(() => {
-    kept = { slots, at: kept && Object.keys(keptSlots()).length ? kept.at : Date.now() };
+    keepSlots(slots);
   }, [slots]);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tweakNote, setTweakNote] = useState("");
@@ -87,36 +58,30 @@ export default function Picks() {
     /* eslint-disable react-hooks/set-state-in-effect -- origin and category are only readable in the browser */
     setOrigin(saved);
     setWithKids(loadAnswers().who.includes("family_kids"));
+    // Opened from a Home cover: /picks?c=experiences&w=weekend.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("w") === "weekend") setWhen("weekend");
+    let c = params.get("c");
     try {
-      if (localStorage.getItem(CATEGORY_KEY) === "experiences") setCategory("experiences");
+      c ??= localStorage.getItem(CATEGORY_KEY);
     } catch {
       // Defaults to Food & drinks.
     }
+    if (c === "experiences") setCategory("experiences");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [router]);
 
   // Picks are kept per place you're searching from, so a new area loads fresh.
-  const key = `${origin ? originKey(origin) : ""}|${when}:${category}`;
+  const key = origin ? slotKey(origin, when, category) : "";
   const slot = slots[key];
 
   const load = useCallback(
     async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string }) => {
       if (!origin) return;
-      const k = `${originKey(origin)}|${w}:${c}`;
+      const k = slotKey(origin, w, c);
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
-      const reply = await fetchPicks(c, w, origin, false, tweak && { tweaks: tweak.tweaks, note: tweak.note });
-      const at = Date.now();
-      setSlots((s) => ({
-        ...s,
-        [k]: {
-          loading: false,
-          picks: (reply.picks ?? []).map((p) => ({ ...p, checkedAt: at })),
-          spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
-          saved: [],
-          banner: reply.banner,
-          notice: reply.notice ?? reply.error,
-        },
-      }));
+      const slot = await loadSlot(origin, w, c, tweak);
+      setSlots((s) => ({ ...s, [k]: slot }));
     },
     [origin],
   );
@@ -156,15 +121,15 @@ export default function Picks() {
   // Load the other category for the same tab at the same time, quietly, so
   // switching is instant (Experiences can take 10–15 s on a first search).
   const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
-  const otherKey = `${origin ? originKey(origin) : ""}|${when}:${other}`;
+  const otherKey = origin ? slotKey(origin, when, other) : "";
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
     if (origin && slots[key] && !slots[otherKey]) load(when, other);
   }, [origin, key, otherKey, slots, load, when, other]);
 
   // Both categories for this tab, for Plan my evening.
-  const foodSlot = slots[`${origin ? originKey(origin) : ""}|${when}:food_drinks`];
-  const expSlot = slots[`${origin ? originKey(origin) : ""}|${when}:experiences`];
+  const foodSlot = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
+  const expSlot = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
 
   const city = origin?.city ?? null;
   if (!origin || !city) return null;
@@ -173,15 +138,6 @@ export default function Picks() {
   const [hero, ...rest] = picks;
   const nothing = !!slot && !slot.loading && picks.length === 0;
   const eventChip = picks.find((p) => p.event)?.event?.searchHtml;
-
-  function chooseCategory(c: Category) {
-    setCategory(c);
-    try {
-      localStorage.setItem(CATEGORY_KEY, c);
-    } catch {
-      // Remembering is a nicety.
-    }
-  }
 
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;
@@ -226,20 +182,13 @@ export default function Picks() {
           </button>
         </div>
 
-        <h1 className={styles.title}>
-          {when === "tonight" ? "Tonight's" : "This weekend's"} picks <strong>for you</strong>
-        </h1>
-
-        <div className={styles.cats}>
-          <button type="button" className={`${styles.cat} ${category === "food_drinks" ? styles.catOn : ""}`} onClick={() => chooseCategory("food_drinks")}>
-            Food &amp; drinks
+        <div className={styles.titleRow}>
+          <button type="button" className={styles.back} aria-label="Back to Home" onClick={() => router.push("/home")}>
+            ‹
           </button>
-          <button type="button" className={`${styles.cat} ${category === "experiences" ? styles.catOn : ""}`} onClick={() => chooseCategory("experiences")}>
-            Experiences
-          </button>
-          <button type="button" className={`${styles.cat} ${styles.catSoon}`} onClick={() => router.push("/style")}>
-            Style · soon
-          </button>
+          <h1 className={styles.title}>
+            {category === "food_drinks" ? "Food & drinks" : "Experiences"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+          </h1>
         </div>
 
         <div className={styles.tools}>
@@ -376,7 +325,7 @@ export default function Picks() {
       )}
       </div>
 
-      <TabBar active="picks" />
+      <TabBar active="home" />
 
       {sheet?.type === "details" && (
         <PickDetails

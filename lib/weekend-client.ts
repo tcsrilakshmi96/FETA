@@ -49,3 +49,15 @@ export async function tickWeekend(placeId: string, on: boolean) {
     .eq("action", "saved");
   if (error) console.error("Saving weekend tick failed", error.message);
 }
+
+// For the This weekend tile on Home: how many saved places are ticked, and
+// what they said they want to do.
+export async function weekendSummary(): Promise<{ ticked: number; wishes: string[] }> {
+  if (!(await currentUserId())) return { ticked: 0, wishes: [] };
+  const sat = thisSaturday();
+  const [{ count }, wishes] = await Promise.all([
+    supabase().from("pick_actions").select("place_id", { count: "exact", head: true }).eq("action", "saved").eq("weekend_for", sat),
+    loadWishes(),
+  ]);
+  return { ticked: count ?? 0, wishes: wishes.map((w) => w.text) };
+}

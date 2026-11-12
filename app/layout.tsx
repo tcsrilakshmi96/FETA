@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Fraunces, Outfit } from "next/font/google";
 import Feedback from "@/components/Feedback";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
@@ -9,6 +9,14 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600"],
+});
+
+// The magazine headline and tile titles on Home.
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["300", "500"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +35,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={outfit.variable} suppressHydrationWarning>
+    <html lang="en" className={`${outfit.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <body>
         {/* Applies a chosen Light/Dark appearance before the page paints. */}
         <script

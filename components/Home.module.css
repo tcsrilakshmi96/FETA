@@ -1,0 +1,336 @@
+/* Home: magazine headline and tiles, all on one screen (founder's design,
+   12 Nov 2026). Tile colours are set here for light and dark. */
+.screen {
+  --plan: var(--ink);
+  --planText: var(--bg);
+  --pink: #fbdde2;
+  --pinkText: #c81e52;
+  --yellow: #f6b545;
+  --mint: #dce8e6;
+  --mintText: #2b7a78;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  animation: var(--kf-in) 0.4s ease-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .screen {
+    --pink: #4a2a33;
+    --pinkText: #ff9db4;
+    --mint: #20393a;
+    --mintText: #8fd9d6;
+  }
+}
+
+:root[data-theme="dark"] .screen {
+  --pink: #4a2a33;
+  --pinkText: #ff9db4;
+  --mint: #20393a;
+  --mintText: #8fd9d6;
+}
+
+.page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 16px 96px;
+}
+
+.dateline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--roseText);
+}
+
+.area {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(var(--inkRGB), 0.65);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mast {
+  margin-top: 6px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.mast i {
+  display: inline-block;
+  font-weight: 500;
+  animation: slideIn 0.7s var(--ease-enter) both 0.1s;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.seg {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.65);
+}
+
+.seg button {
+  padding: 6px 12px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 0.3s, color 0.3s;
+}
+
+.seg .segOn {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+/* Six by six: Food & drinks wide on top, Experiences below with Your
+   evening and This weekend beside it, Ask and Style at the bottom. */
+.grid {
+  flex: 1;
+  min-height: 500px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tile {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 24px;
+  overflow: hidden;
+  text-align: left;
+  color: var(--ink);
+  animation: tileIn 0.65s var(--ease-spring) both;
+  transition: transform 0.25s var(--ease-press);
+}
+
+.tile:active {
+  transform: scale(0.96);
+}
+
+@keyframes tileIn {
+  from { opacity: 0; transform: translateY(22px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+.food { grid-area: 1 / 1 / 4 / 7; border-radius: 32px; animation-delay: 0.05s; }
+.exp { grid-area: 4 / 1 / 6 / 4; border-radius: 28px; animation-delay: 0.15s; }
+.plan { grid-area: 4 / 4 / 5 / 7; background: var(--plan); color: var(--planText); animation-delay: 0.22s; }
+.weekend { grid-area: 5 / 4 / 6 / 7; background: var(--pink); animation-delay: 0.29s; }
+.ask {
+  grid-area: 6 / 1 / 7 / 3;
+  background: var(--yellow);
+  color: var(--inkFixed);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  animation-delay: 0.36s;
+}
+.style {
+  grid-area: 6 / 3 / 7 / 7;
+  background: var(--mint);
+  flex-direction: row;
+  align-items: center;
+  animation-delay: 0.42s;
+}
+
+/* Photo covers. */
+.cover {
+  justify-content: flex-end;
+  padding: 14px 16px;
+  background: rgba(var(--inkRGB), 0.08);
+  color: #fff3ee;
+}
+
+.cover img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(26, 22, 22, 0) 40%, rgba(26, 22, 22, 0.8));
+}
+
+.coverText {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.coverName {
+  margin-top: 4px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.05;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.exp .coverName {
+  font-size: 17px;
+}
+
+.coverSub {
+  margin-top: 3px;
+  font-size: 11.5px;
+  opacity: 0.85;
+}
+
+.count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(255, 243, 238, 0.88);
+  color: var(--inkFixed);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* An event's date, as a round badge that wobbles in. */
+.date {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 243, 238, 0.92);
+  color: var(--inkFixed);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 600;
+  line-height: 1;
+  animation: wobble 0.9s ease-in-out 0.8s both;
+}
+
+.date b {
+  font-size: 16px;
+}
+
+@keyframes wobble {
+  0% { transform: scale(0) rotate(-20deg); }
+  60% { transform: scale(1.12) rotate(8deg); }
+  80% { transform: rotate(-4deg); }
+  100% { transform: none; }
+}
+
+/* While picks load: a soft moving sheen. */
+.shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(var(--inkRGB), 0.05) 30%, rgba(var(--inkRGB), 0.12) 50%, rgba(var(--inkRGB), 0.05) 70%);
+  background-size: 250% 100%;
+  animation: sheen 1.4s linear infinite;
+}
+
+@keyframes sheen {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+.loadingText {
+  margin-top: 4px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.cover:has(.shimmer) .kick {
+  color: var(--roseText);
+}
+
+.kick {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: #ffd27a;
+}
+
+.plan .kick { color: var(--saffron); }
+.weekend .kick { color: var(--pinkText); }
+.style .kick { display: block; color: var(--mintText); }
+
+.tileTitle {
+  display: block;
+  font-family: var(--font-fraunces), serif;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.12;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tileSub {
+  font-size: 10.5px;
+  opacity: 0.65;
+}
+
+.style > span:first-child {
+  flex: 1;
+}
+
+/* The cheese bobs now and then. */
+.cheese {
+  display: inline-block;
+  animation: bob 3.2s ease-in-out infinite 1s;
+}
+
+@keyframes bob {
+  0%, 70%, 100% { transform: none; }
+  78% { transform: translateY(-5px) rotate(-8deg); }
+  86% { transform: translateY(0) rotate(4deg); }
+  92% { transform: rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .mast i,
+  .date,
+  .cheese,
+  .shimmer {
+    animation: none;
+  }
+}

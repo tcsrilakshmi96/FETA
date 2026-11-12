@@ -24,7 +24,7 @@ Welcome (18+) → Continue with Google or "Not now" → any city in the world �
 
 **Ask Feta** (the cheese): chat to plan a trip anywhere, change your picks, or ask "why this one?". What it learns goes into your profile straight away, with Undo and "Only for this trip".
 
-**Lists** (Want to try, Been, private notes, a *This weekend* box for the WhatsApp weekend plan) · **You** (what Feta knows: editable taste lines, the people you go out with, trips, your places; settings folded below) · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
+**Home** (a magazine-style first screen: today's top picks, your evening plan, this weekend, Ask, Style) · **Lists** (Want to try, Been, private notes, a *This weekend* box for the WhatsApp weekend plan) · **You** (what Feta knows: editable taste lines, the people you go out with, trips, your places; settings folded below) · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
 
 ## Rules Feta never breaks
 

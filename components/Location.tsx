@@ -87,7 +87,7 @@ export default function Location() {
           return;
         }
         saveOrigin(originFromGps(point.lat, point.lng, here));
-        router.push("/picks");
+        router.push("/home");
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) setState("denied");
@@ -112,13 +112,13 @@ export default function Location() {
     }
     // "Kreuzberg, Friedrichshain-Kreuzberg" reads as "Kreuzberg" on the pill.
     saveOrigin(originFromArea({ placeId: s.placeId, name: s.name.split(",")[0].trim().slice(0, 40), ...at }, city));
-    router.push("/picks");
+    router.push("/home");
   }
 
   function anywhere() {
     if (!city) return;
     saveOrigin(originFromCity(city));
-    router.push("/picks");
+    router.push("/home");
   }
 
   if (!city) return null;

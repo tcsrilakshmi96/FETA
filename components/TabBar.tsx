@@ -5,7 +5,7 @@ import Cheese from "@/components/Cheese";
 import styles from "./TabBar.module.css";
 
 const TABS = [
-  { id: "picks", label: "Picks", href: "/picks" },
+  { id: "home", label: "Home", href: "/home" },
   { id: "lists", label: "Lists", href: "/lists" },
   { id: "ask", label: "Ask", href: "/ask" },
   { id: "style", label: "Style", href: "/style" },

@@ -15,13 +15,13 @@ export default function Welcome() {
   // phone's copy or, if this phone is already signed in, from their account.
   useEffect(() => {
     if (setUpOnThisPhone()) {
-      router.replace("/picks");
+      router.replace("/home");
       return;
     }
     supabase()
       .auth.getSession()
       .then(({ data }) => (data.session ? restoreFromAccount() : false))
-      .then((restored) => restored && router.replace("/picks"));
+      .then((restored) => restored && router.replace("/home"));
   }, [router]);
 
   return (

@@ -46,7 +46,7 @@ export default function SignIn() {
       if (takeReconfirmAge()) saveAgeConfirmed();
       // Someone who already set Feta up gets their answers back and goes
       // straight to their picks; consent was given the first time.
-      if (await restoreFromAccount()) router.replace("/picks");
+      if (await restoreFromAccount()) router.replace("/home");
       else setStep("consent");
     });
   }, [toast, router]);

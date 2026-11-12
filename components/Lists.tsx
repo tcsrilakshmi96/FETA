@@ -237,7 +237,7 @@ export default function Lists() {
               <button
                 type="button"
                 className={styles.emptyBtn}
-                onClick={() => router.push("/picks")}
+                onClick={() => router.push("/home")}
               >
                 See tonight&apos;s picks
               </button>

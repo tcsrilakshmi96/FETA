@@ -78,7 +78,7 @@ export default function Ask() {
 
   function close() {
     if (window.history.length > 1) router.back();
-    else router.push("/picks");
+    else router.push("/home");
   }
 
   return (
