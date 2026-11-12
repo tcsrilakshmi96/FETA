@@ -142,7 +142,13 @@ export default function Picks() {
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;
     savePickAction(pick.placeId, "saved", { category, cityId: city!.id, because: pick.because });
-    setSlots((s) => ({ ...s, [key]: { ...s[key], saved: [...s[key].saved, pick.placeId] } }));
+    // Saving the big one moves it to the end (ticked), so the next pick
+    // takes the big card, as a "Not for me" does.
+    setSlots((s) => {
+      const list = s[key].picks;
+      const picks = list[0]?.placeId === pick.placeId ? [...list.slice(1), list[0]] : list;
+      return { ...s, [key]: { ...s[key], picks, saved: [...s[key].saved, pick.placeId] } };
+    });
     toast("Saved to Want to try");
   }
 
@@ -232,7 +238,7 @@ export default function Picks() {
           {(slot?.banner || slot?.notice) && <div className={styles.banner}>{slot.banner ?? slot.notice}</div>}
 
           {/* The best fit, big. */}
-          <div className={styles.hero}>
+          <div className={styles.hero} key={hero.placeId}>
             <button type="button" className={styles.photo} onClick={() => setSheet({ type: "details", pick: hero })} aria-label={`${hero.name}: details`}>
               <PickPhoto photo={hero.photo} className="kenburns" />
               <span className={styles.scrim} />
