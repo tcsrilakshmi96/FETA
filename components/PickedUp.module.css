@@ -1,23 +1,30 @@
+/* The photo pile takes the space left above the text and shrinks on short
+   screens (say, inside WhatsApp's browser), so the two never overlap. */
 .screen {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 60px 24px 28px;
+  overflow-y: auto;
 }
 
 /* Yes-photos fly in from off screen and settle in a loose pile. */
 .collage {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 60px;
-  height: 260px;
+  position: relative;
+  flex: 1 1 260px;
+  min-height: 140px;
+  max-height: 280px;
+  margin-bottom: 14px;
+  container-type: size;
 }
 
 .tile {
   position: absolute;
-  left: calc(50% - 75px);
-  top: 16px;
-  width: 150px;
-  height: 196px;
+  left: calc(50% - 29cqh);
+  top: 8cqh;
+  width: 58cqh;
+  height: 75cqh;
   border-radius: 20px;
   overflow: hidden;
   background: #6a4a40;
@@ -30,10 +37,7 @@
 }
 
 .bottom {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 28px;
+  flex: none;
   display: flex;
   flex-direction: column;
 }
