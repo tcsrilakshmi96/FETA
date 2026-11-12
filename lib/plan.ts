@@ -64,7 +64,7 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
   const consider = (first: Pick, second: Pick, firstAt: Date, secondAt: Date, km: number, t: ReturnType<typeof travel>, bonus: number) => {
     if (firstAt < earliest) return;
     if (!openUntil(first, firstAt, 60) || !openUntil(second, secondAt, AFTER_MINUTES)) return;
-    const score = km + bonus + (VERDICT_SCORE[first.verdict] ?? 1) + (VERDICT_SCORE[second.verdict] ?? 1) + (first.fetaNote || second.fetaNote ? -1 : 0);
+    const score = km + bonus + (VERDICT_SCORE[first.verdict] ?? 1) + (VERDICT_SCORE[second.verdict] ?? 1) + (first.fetaNote !== undefined || second.fetaNote !== undefined ? -1 : 0);
     if (found.best && score >= found.best.score) return;
     found.best = {
       score,

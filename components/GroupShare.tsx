@@ -104,7 +104,7 @@ export default function GroupShare() {
                   {st.time && <span className={styles.time}>{clock(new Date(st.time))}</span>}
                   <strong>{label(st)}</strong>
                   <span className={styles.area}>{st.event ? `${st.event.venueName} · ${st.event.date} ${st.event.time}` : l?.area}</span>
-                  {st.fetaNote && <span className={styles.note}>★ Feta pick: “{st.fetaNote}”</span>}
+                  {st.fetaNote !== undefined && <span className={styles.note}>★ Feta pick{st.fetaNote ? `: “${st.fetaNote}”` : ""}</span>}
                   {st.event ? (
                     <a href={st.event.url} target="_blank" rel="noopener noreferrer">
                       Tickets on {st.event.site}

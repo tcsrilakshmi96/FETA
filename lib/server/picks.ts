@@ -473,7 +473,7 @@ function describe(c: Candidate, i: number, category: Category) {
     p.priceLevel && `price ${p.priceLevel.replace("PRICE_LEVEL_", "").toLowerCase()}`,
     p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews`,
     (p.userRatingCount ?? 0) >= POPULAR_REVIEWS && "VERY POPULAR",
-    c.fetaNote && `FETA PICK, the founder's own favourite: "${c.fetaNote}"`,
+    c.fetaNote !== undefined && `FETA PICK, the founder's own favourite${c.fetaNote ? `: "${c.fetaNote}"` : ""}`,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -25,6 +25,7 @@ export default function Admin() {
   const [kind, setKind] = useState<"EAT" | "DRINK" | "DO">("EAT");
   const [note, setNote] = useState("");
   const [places, setPlaces] = useState<FetaPlace[]>([]);
+  const [editing, setEditing] = useState<{ id: string; note: string } | null>(null);
   const [tab, setTab] = useState<"picks" | "weekend" | "instagram">("picks");
 
   async function refresh() {
@@ -217,7 +218,24 @@ export default function Admin() {
           <li key={p.id} className={p.active ? "" : styles.paused}>
             <div>
               <strong>{p.name}</strong> <span>· {p.kind} · {p.city_name ?? ""}</span>
-              <p>“{p.note}”</p>
+              {editing?.id === p.id ? (
+                <form
+                  className={styles.noteEdit}
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await supabase().from("founder_places").update({ note: editing.note.trim() }).eq("id", p.id);
+                    setEditing(null);
+                    refresh();
+                  }}
+                >
+                  <textarea autoFocus value={editing.note} maxLength={160} onChange={(e) => setEditing({ ...editing, note: e.target.value })} placeholder="A tip for friends, e.g. order the filter coffee" aria-label={`Note for ${p.name}`} />
+                  <button type="submit">Save</button>
+                </form>
+              ) : (
+                <button type="button" className={styles.noteBtn} onClick={() => setEditing({ id: p.id, note: p.note })}>
+                  {p.note ? `“${p.note}”` : "＋ Add a tip"}
+                </button>
+              )}
             </div>
             <div className={styles.rowActions}>
               <button type="button" onClick={() => toggle(p)}>

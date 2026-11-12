@@ -207,8 +207,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // the hard filters always gets a place in the set, unless it is a very
   // popular place (a famous sight is not a find; Gemini may still pick it).
   const chosen = takeThree(ranked, pool, need - events.length, small);
-  const fetaInPool = pool.filter((c) => c.fetaNote && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
-  if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote) && need - events.length > 0) {
+  const fetaInPool = pool.filter((c) => c.fetaNote !== undefined && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
+  if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote !== undefined) && need - events.length > 0) {
     const best = ranked.map((r) => pool[r.index]).find((c) => c && fetaInPool.includes(c)) ?? fetaInPool[0];
     const slot = Math.min(chosen.length, need - events.length - 1);
     chosen.splice(slot, chosen.length > slot ? 1 : 0, { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null });
@@ -223,7 +223,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
       because: r?.because ?? fallbackBecause(taste),
-      ...(candidate.fetaNote ? { fetaNote: candidate.fetaNote } : {}),
+      ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
     };
   });
   // One "Worth a detour" per set at most, across events and places.

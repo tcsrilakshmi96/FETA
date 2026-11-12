@@ -112,7 +112,7 @@ export default function PlanSheet({
                   placeId: s.pick.placeId,
                   kind: s.pick.kind,
                   time: s.time.toISOString(),
-                  ...(s.pick.fetaNote ? { fetaNote: s.pick.fetaNote } : {}),
+                  ...(s.pick.fetaNote !== undefined ? { fetaNote: s.pick.fetaNote } : {}),
                   ...(s.pick.event
                     ? { event: { title: s.pick.event.title, venueName: s.pick.event.venueName, date: s.pick.event.date, time: s.pick.event.time, url: s.pick.event.url, site: s.pick.event.site } }
                     : {}),

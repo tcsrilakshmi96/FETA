@@ -277,7 +277,7 @@ export default function Picks() {
                     </>
                   )}
                   <span className={styles.kind}>{pick.kind}</span>
-                  {pick.fetaNote && <span className={styles.fetaBadge}>★ FETA PICK</span>}
+                  {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
                   {pick.photo && (
                     <span className={styles.credit}>
                       Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>

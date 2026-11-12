@@ -34,7 +34,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
             <img src={pick.photo.uri} alt="" referrerPolicy="no-referrer" />
           )}
           <span className={styles.kind}>{pick.kind}</span>
-          {pick.fetaNote && <span className={styles.fetaBadge}>★ FETA PICK</span>}
+          {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
           {pick.photo && (
             <span className={styles.credit}>
               Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>
@@ -144,7 +144,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
                 {
                   placeId: pick.placeId,
                   kind: pick.kind,
-                  ...(pick.fetaNote ? { fetaNote: pick.fetaNote } : {}),
+                  ...(pick.fetaNote !== undefined ? { fetaNote: pick.fetaNote } : {}),
                   ...(pick.event
                     ? { event: { title: pick.event.title, venueName: pick.event.venueName, date: pick.event.date, time: pick.event.time, url: pick.event.url, site: pick.event.site } }
                     : {}),

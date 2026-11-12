@@ -123,7 +123,7 @@ export default function AdminImport({ onAdded }: { onAdded: () => void }) {
       return;
     }
     const kind = kinds[f.placeId!] ?? (f.kind === "unsure" ? "DO" : f.kind);
-    const note = (notes[f.placeId!] ?? f.caption ?? "").trim() || `I went in ${when(f.dates)}.`;
+    const note = (notes[f.placeId!] ?? f.caption ?? "").trim();
     const { error } = await supabase().from("founder_places").insert({
       place_id: f.placeId,
       name: l.name || f.name,
