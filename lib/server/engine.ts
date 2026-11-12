@@ -436,7 +436,9 @@ async function eventPicks(ctx: {
   if (!searchHtml) return []; // Google's chip must be shown; without it, no events.
 
   const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city), unknownPriceOk: unknownPriceOk(taste.answers) };
-  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 6);
+  // Each venue is looked up on Google Maps (about ₹3), and at most 2 events
+  // are shown, so only the first 4 that pass are checked.
+  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 4);
   const withVenues = (await Promise.all(fresh.map(async (e) => ({ e, venue: await findVenue(e, city, origin) })))).filter(
     ({ venue }) => venue && venue.km <= Math.max(limit * 2, 8),
   );
@@ -478,7 +480,7 @@ function nearName(city: City, o: Body["origin"]) {
 // by the search cost nothing; at most FETA_LOOKUPS others (chosen at random,
 // so each gets a turn) are checked live against the person's hard filters.
 // Only place IDs and her notes are stored.
-const FETA_LOOKUPS = 2;
+const FETA_LOOKUPS = 1;
 
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
