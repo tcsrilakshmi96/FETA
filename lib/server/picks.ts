@@ -7,6 +7,7 @@ import { track } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { photoRef } from "@/lib/server/photo-ref";
 import { bestPhoto, type Place } from "@/lib/server/places";
+import { sideById } from "@/lib/swipes";
 
 export type Category = "food_drinks" | "experiences";
 export type When = "tonight" | "weekend";
@@ -132,6 +133,17 @@ export type Pick = StoredPick & {
 // ---------- What to search for ----------
 
 const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
+
+// Places that serve some veg food but are mainly about meat or fish (a
+// steakhouse, a biryani or kebab house) are not picks for vegetarians
+// (founder's decision, 12 Nov 2026, "Option B"); Gemini also flags ones
+// these words miss. Never "pure veg": that can't be confirmed.
+const NON_VEG_TYPES = ["steak_house", "seafood_restaurant", "barbecue_restaurant", "fish_and_chips_restaurant", "chicken_restaurant", "chicken_wings_restaurant"];
+const NON_VEG_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meat|meats|seafood|fish|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|non[- ]?veg)\b/i;
+
+export function mainlyNonVeg(place: Place) {
+  return NON_VEG_TYPES.includes(place.primaryType ?? "") || NON_VEG_WORDS.test(place.displayName?.text ?? "");
+}
 
 export function needsDietCheck(answers: Answers) {
   return VEG_DIETS.includes(answers.diet ?? "");
@@ -348,7 +360,7 @@ export function applyHardFilters(
       continue;
     }
     // Diet applies to food and drinks only (Google has no diet data for, say, a park).
-    if (opts.category === "food_drinks" && needsDietCheck(answers) && place.servesVegetarianFood !== true) {
+    if (opts.category === "food_drinks" && needsDietCheck(answers) && (place.servesVegetarianFood !== true || mainlyNonVeg(place))) {
       drop("diet");
       continue;
     }
@@ -467,6 +479,35 @@ function label(questionId: string, optionId: string | null, city: City) {
 }
 
 // A short taste summary built only from Feta's own data.
+function likes(taste: Taste, which: "yes" | "no") {
+  const ids = which === "yes" ? taste.yes : taste.no;
+  return ids
+    .filter((id) => !id.startsWith("cuisine_") || which === "yes")
+    .map((id) => sideById(id, taste.answers)?.label.replace(/^[A-Za-z ]+: /, ""))
+    .filter(Boolean)
+    .join("; ");
+}
+
+// Words that belong to each this-or-that side. A reason that leans on a side
+// the person turned down ("cosy" for someone who chose buzzing) is replaced.
+const SIDE_WORDS: Record<string, RegExp> = {
+  quiet_cafe: /\b(quiet|cosy|cozy|calm|peaceful|intimate|tranquil)\b/i,
+  buzzing: /\b(buzzing|lively|loud|energetic|vibrant|party)\b/i,
+  buzzing_sober: /\b(buzzing|lively|loud|energetic|vibrant)\b/i,
+  dressed_up: /\b(fancy|fine[- ]dining|upscale|elegant|dressed[- ]up|special occasion)\b/i,
+  hole_in_wall: /\b(no-frills|hole[- ]in[- ]the[- ]wall|humble|unpretentious)\b/i,
+  dance: /\b(dance|dancing|salsa)\b/i,
+  make: /\b(pottery|workshop|craft|hands-on)\b/i,
+  play: /\b(sport|sports|badminton|pickleball|game of)\b/i,
+  unwind: /\b(book club|reading|books)\b/i,
+  crowd: /\b(gig|concert|crowd|big match|stadium)\b/i,
+  circle: /\b(run club|trivia|meetup|community)\b/i,
+};
+
+export function reasonFits(because: string, taste: Taste) {
+  return !taste.no.some((id) => SIDE_WORDS[id]?.test(because) && !taste.yes.some((y) => SIDE_WORDS[y]?.test(because)));
+}
+
 export function tasteSummary(taste: Taste, city: City) {
   const a = taste.answers;
   const multi = (id: string, values: string[]) => values.map((v) => label(id, v, city)).filter(Boolean).join(", ");
@@ -477,6 +518,10 @@ export function tasteSummary(taste: Taste, city: City) {
     a.who.length > 0 && `Usually goes out with: ${multi("who", a.who)}`,
     a.drinks && `Drinks: ${label("drinks", a.drinks, city)}`,
     a.interests.length > 0 && `Into: ${multi("interests", a.interests)}`,
+    // The this-or-that choices as plain likes and dislikes, so a reason
+    // never cites the side they turned down.
+    likes(taste, "yes") && `Chose: ${likes(taste, "yes")}`,
+    likes(taste, "no") && `Said no to: ${likes(taste, "no")} (never use these as a reason)`,
     taste.lines.length > 0 && `What they like: ${taste.lines.join("; ")}`,
     taste.saved?.length && `Places they saved lately, and why: ${taste.saved.join(" | ")}`,
     taste.skipped?.length && `Why they skipped places lately: ${taste.skipped.join(", ")}`,
@@ -525,12 +570,12 @@ Every place below already fits their diet, budget, distance, drinks and opening 
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
-Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
+${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place), and list every such place's number in "nonVeg".\n\n` : ""}Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
 
-Rank all of them that genuinely suit them, best first (leave out any that don't). Rules:
+Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${MAX_POPULAR} places marked VERY POPULAR in the top ${SHOW}, and not first.
 - Mix their favourites: at most ${MAX_SAME_CUISINE} places of the same cuisine in the top ${SHOW}, and if they named several cuisines, cover as many of them as the places allow.
-- "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
+- "because": one line, at most 110 characters, starting "Because you", tied to something they chose or liked above (never something under "Said no to") that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
   - "Worth a detour" is rare: only for an exceptional match to what they told you. At most one place in a set.
@@ -551,6 +596,7 @@ Rank all of them that genuinely suit them, best first (leave out any that don't)
           responseSchema: {
             type: "OBJECT",
             properties: {
+              nonVeg: { type: "ARRAY", items: { type: "INTEGER" } },
               ranked: {
                 type: "ARRAY",
                 items: {
@@ -575,8 +621,14 @@ Rank all of them that genuinely suit them, best first (leave out any that don't)
   if (!res.ok) throw new Error(`Gemini failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   const text: string = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text ?? "{}";
-  const ranked = (JSON.parse(text).ranked ?? []) as Ranked[];
-  return ranked.filter((r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && all.findIndex((x) => x.index === r.index) === i);
+  const parsed = JSON.parse(text) as { ranked?: Ranked[]; nonVeg?: number[] };
+  // Places Gemini says are mainly meat or fish are dropped for vegetarians.
+  const nonVeg = new Set(needsDietCheck(opts.taste.answers) && category === "food_drinks" ? (parsed.nonVeg ?? []) : []);
+  const out = (parsed.ranked ?? []).filter(
+    (r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && !nonVeg.has(r.index) && all.findIndex((x) => x.index === r.index) === i,
+  ) as Ranked[] & { nonVeg?: string[] };
+  out.nonVeg = [...nonVeg].filter((i) => candidates[i]).map((i) => candidates[i].place.id);
+  return out;
 }
 
 // Orders places in Gemini's ranking, with at most MAX_POPULAR very popular

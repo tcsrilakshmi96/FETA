@@ -11,10 +11,10 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
   if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
-  return withCosts(db, "details", () => notesFor(request));
+  return withCosts(db, "details", () => notesFor(request, db));
 }
 
-async function notesFor(request: Request) {
+async function notesFor(request: Request, db: NonNullable<ReturnType<typeof userDb>>) {
   let body: { placeId?: string; kind?: string; name?: string; lat?: number; lng?: number };
   try {
     body = await request.json();
@@ -31,7 +31,13 @@ async function notesFor(request: Request) {
       : await placeDetails(placeId, false, true);
   if (!place) return Response.json({ items: [], sources: [] });
   try {
-    const notes = await placeNotes(place, body.kind === "DO" ? "DO" : body.kind === "DRINK" ? "DRINK" : "EAT");
+    // Their diet and drinks, so suggested dishes fit them.
+    const { data: a } = await db.from("answers").select("diet, halal, drinks").maybeSingle();
+    const notes = await placeNotes(place, body.kind === "DO" ? "DO" : body.kind === "DRINK" ? "DRINK" : "EAT", {
+      diet: a?.diet ?? null,
+      halal: !!a?.halal,
+      noAlcohol: a?.drinks === "no_alcohol",
+    });
     return Response.json(notes);
   } catch (error) {
     console.error(error);

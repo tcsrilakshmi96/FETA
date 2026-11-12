@@ -34,7 +34,7 @@ import {
 import styles from "./You.module.css";
 
 const SOURCE_LABELS: Record<string, string> = {
-  chat: "From chat",
+  chat: "From Ask Feta",
   checkin: "From an outing",
   tweaks: "From your tweaks",
 };
@@ -139,7 +139,7 @@ export default function You() {
       return;
     }
     setProfile((p) => p && { ...p, lines: [...p.lines, line] });
-    toast("Added. Picks and chat will use it.");
+    toast("Added. Your picks and Ask Feta will use it.");
   }
 
   function toEveryday(trip: string) {
@@ -286,12 +286,12 @@ export default function You() {
           What Feta knows <strong>about you</strong>
         </h1>
         <p className={styles.sub}>
-          Your picks and chat come from this. Change anything, and picks follow.
+          Your picks and Ask Feta (the 🧀) work from this. Change anything, and picks follow.
         </p>
 
         {mine.length === 0 && (
           <p className={styles.empty}>
-            Nothing yet. Your answers, taste cards and chats will fill this in.
+            Nothing yet. Your answers, taste cards and talks with Ask Feta will fill this in.
           </p>
         )}
         {groups.map(
@@ -333,7 +333,7 @@ export default function You() {
         <p className={styles.section}>PEOPLE YOU GO OUT WITH</p>
         {knownPeople.length === 0 && !addingPerson && (
           <p className={styles.sub}>
-            Tell Feta about them, in chat or here, and date nights and family
+            Tell Feta about them here, or by tapping the 🧀, and date nights and family
             dinners get easier. &ldquo;My partner loves live music.&rdquo;
           </p>
         )}

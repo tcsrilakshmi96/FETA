@@ -17,7 +17,7 @@ export async function nearMeIfAllowed(current: Origin): Promise<Origin | null> {
     return null;
   }
   const pos = await new Promise<GeolocationPosition | null>((resolve) =>
-    navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }),
+    navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 }),
   );
   if (!pos) return null;
   const point = { lat: pos.coords.latitude, lng: pos.coords.longitude };

@@ -86,6 +86,12 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
                     </li>
                   ))}
                 </ol>
+                {/* What reviews say about halal or Jain food: a signal, never a promise. */}
+                {notes.dietSignal && (
+                  <p className={styles.dietSignal}>
+                    {notes.dietSignal.replace(/\.$/, "")}. Not confirmed, check with staff.
+                  </p>
+                )}
                 <p className={styles.sources}>
                   From reviews on{" "}
                   {notes.sources.length > 0 ? (

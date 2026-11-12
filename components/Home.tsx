@@ -28,9 +28,10 @@ function cityDay(timeZone: string) {
   return { label, weekend: weekday === "Sat" || weekday === "Sun", hour };
 }
 
-function eventBadge(p: Pick) {
+function eventBadge(p: Pick, timeZone: string) {
   if (!p.event?.date) return null;
-  const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${p.event.date}T12:00:00Z`)).toUpperCase();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
+  const day = p.event.date === today ? "TODAY" : new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${p.event.date}T12:00:00Z`)).toUpperCase();
   const [h] = (p.event.time ?? "").split(":").map(Number);
   return { day, hour: Number.isFinite(h) ? String(((h + 11) % 12) + 1) : "", half: Number.isFinite(h) ? (h < 12 ? "AM" : "PM") : "" };
 }
@@ -90,7 +91,7 @@ export default function Home() {
   function cover(c: Category, slot: Slot | undefined, wide: boolean) {
     const top = slot?.picks[0];
     const label = c === "food_drinks" ? "FOOD & DRINKS" : "EXPERIENCES";
-    const badge = top ? eventBadge(top) : null;
+    const badge = top ? eventBadge(top, city.timeZone) : null;
     return (
       <button type="button" className={`${styles.tile} ${styles.cover} ${wide ? styles.food : styles.exp}`} onClick={() => open(c)} aria-label={`${label.toLowerCase()}: see all`}>
         {!slot || slot.loading ? (

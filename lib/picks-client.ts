@@ -51,7 +51,7 @@ export async function fetchNearDinner(dinner: Pick, when: When, cityId: string, 
   }
 }
 
-export type PlaceNotes = { items: string[]; sources: { title: string; uri: string }[] };
+export type PlaceNotes = { items: string[]; sources: { title: string; uri: string }[]; dietSignal?: string };
 
 // "What to order" / "Highlights" for the Details view (read live from
 // Google Maps reviews by Gemini; never stored). Kept in the phone's memory

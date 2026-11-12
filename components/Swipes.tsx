@@ -108,6 +108,7 @@ export default function Swipes() {
                     type="button"
                     className={`${styles.tile} ${on ? styles.tileOn : ""} ${full ? styles.tileFull : ""}`}
                     aria-pressed={on}
+                    aria-label={o.label}
                     onClick={() => toggleCuisine(o.id)}
                   >
                     <span className={styles.tilePhoto}>

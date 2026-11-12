@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
@@ -30,6 +31,7 @@ import {
   foodPhrases,
   TWEAKS,
   POPULAR_REVIEWS,
+  reasonFits,
   type Candidate,
   type DropCounts,
   type Tweak,
@@ -48,6 +50,9 @@ import { sideById } from "@/lib/swipes";
 const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
 const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 20);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
+// How long places wait for this week's events (founder's testers: 20 s
+// for first picks was too slow).
+const EVENTS_WAIT_MS = 5000;
 
 type Body = {
   category: Category;
@@ -160,14 +165,19 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // The same search words as last time, so the same places come back.
   const rotation = previous.length ? Math.max(0, todaysSets - 1) : todaysSets;
 
-  // Experiences also look for this week's events, at the same time.
-  const eventsSearch =
+  // Experiences also look for this week's events, at the same time. Places
+  // don't wait more than a few seconds for them: a slow first search keeps
+  // going after the reply and fills the shared events cache, so the next
+  // person in the area (or the next open) gets events straight away.
+  const eventsFull =
     body.category === "experiences" && need > 1 && !body.trip
       ? eventPicks({ db, taste: effective, body, city, origin, exclude }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
         })
       : Promise.resolve([] as EventPick[]);
+  after(() => eventsFull);
+  const eventsSearch = Promise.race([eventsFull, new Promise<EventPick[]>((resolve) => setTimeout(() => resolve([]), EVENTS_WAIT_MS))]);
 
   const drops = emptyDrops();
   let pool: Candidate[];
@@ -196,7 +206,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
           return [] as Awaited<ReturnType<typeof chooseWithGemini>>;
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof chooseWithGemini>>);
-  const [allEvents, ranked] = await Promise.all([eventsSearch, ranking]);
+  const [allEvents, rankedAll] = await Promise.all([eventsSearch, ranking]);
+  // Mainly meat or fish places Gemini flagged leave the pool for vegetarians.
+  const flagged = new Set((rankedAll as { nonVeg?: string[] }).nonVeg ?? []);
+  let ranked = rankedAll;
+  if (flagged.size) {
+    const kept = pool.filter((c) => !flagged.has(c.place.id));
+    ranked = rankedAll.map((r) => ({ ...r, index: kept.indexOf(pool[r.index]) })).filter((r) => r.index >= 0);
+    pool = kept;
+  }
   // Events shown last time stay while they're still on.
   const prevEvents: EventPick[] = previous
     .filter((p): p is StoredPick & { event: EventInfo } => !!p.event && !exclude.has(p.placeId) && eventStillOn(p.event, body.when, city))
@@ -223,6 +241,21 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
   const prevOrder = new Map(previous.map((p, i) => [p.placeId, i]));
   if (prevOrder.size) chosen.sort((a, b) => (prevOrder.get(a.candidate.place.id) ?? 99) - (prevOrder.get(b.candidate.place.id) ?? 99));
+  // Every favourite cuisine they chose shows up among the 8 when the search
+  // found one: it swaps in for the lowest pick that isn't a Feta pick
+  // (founder's testers: 6 of 8 were Italian, none of their Japanese or Thai).
+  if (!previous.length && body.category === "food_drinks") {
+    for (const y of taste.yes.filter((id) => id.startsWith("cuisine_"))) {
+      const re = CUISINE_TYPES[y.slice(8)];
+      if (!re || chosen.slice(0, room).some((c) => re.test(c.candidate.place.primaryType ?? ""))) continue;
+      const j = chosen.findIndex((c, i) => i >= room && re.test(c.candidate.place.primaryType ?? ""));
+      if (j < 0) continue;
+      let k = Math.min(room, chosen.length) - 1;
+      while (k >= 0 && (chosen[k].candidate.fetaNote !== undefined || Object.values(CUISINE_TYPES).some((r) => r !== re && taste.yes.some((t) => CUISINE_TYPES[t.slice(8)] === r) && r.test(chosen[k].candidate.place.primaryType ?? "") && chosen.slice(0, room).filter((c) => r.test(c.candidate.place.primaryType ?? "")).length === 1))) k--;
+      if (k < 0) continue;
+      [chosen[k], chosen[j]] = [chosen[j], chosen[k]];
+    }
+  }
   const shownCount = Math.min(room, chosen.length);
   const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }, i) => {
     const before = previous.find((p) => p.placeId === candidate.place.id);
@@ -235,7 +268,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       kind: kindOf(candidate.place, body.category),
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-      because: r?.because ?? fallbackBecause(taste),
+      because: r?.because && reasonFits(r.because, taste) ? r.because : fallbackBecause(taste, candidate.place, kindOf(candidate.place, body.category)),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
       ...(i >= room ? { spare: true } : {}),
     };
@@ -339,12 +372,24 @@ async function gatherCandidates(ctx: {
   return (near.length >= ctx.need ? near : passed).slice(0, 24);
 }
 
-function fallbackBecause(taste: Taste) {
-  const id = taste.yes.find((y) => sideById(y, taste.answers));
-  const side = id ? sideById(id, taste.answers) : null;
-  if (!id || !side) return "Because it fits what you told me.";
-  if (id.startsWith("cuisine_")) return `Because ${side.label} is one of your favourites.`;
-  return `Because you picked ${side.label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
+// When Gemini's reason is missing or leans on something they turned down: a
+// plain reason that fits this place (its cuisine, or what kind of place it
+// is), never a side that has nothing to do with it.
+const CUISINE_TYPES: Record<string, RegExp> = {
+  italian: /italian|pizza/, japanese: /japanese|sushi|ramen/, korean: /korean/, thai: /thai/, mexican: /mexican/,
+  middle_eastern: /middle_eastern|lebanese|turkish|mediterranean/, indian: /indian/, south_indian: /indian/, north_indian: /indian/,
+  bakery: /bakery|dessert|cafe/, healthy: /vegan|vegetarian|salad/,
+};
+const KIND_SIDES: Record<string, string[]> = { DRINK: ["buzzing", "buzzing_sober", "quiet_cafe"], EAT: ["hole_in_wall", "dressed_up", "quiet_cafe"] };
+
+function fallbackBecause(taste: Taste, place?: Place, kind?: string) {
+  const type = place?.primaryType ?? "";
+  const cuisine = taste.yes.find((y) => y.startsWith("cuisine_") && CUISINE_TYPES[y.slice(8)]?.test(type));
+  if (cuisine) return `Because ${sideById(cuisine, taste.answers)?.label ?? "it"} is one of your favourites.`;
+  const side = taste.yes.find((y) => KIND_SIDES[kind ?? ""]?.includes(y));
+  const label = side ? sideById(side, taste.answers)?.label : null;
+  if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
+  return "Because it fits what you told me.";
 }
 
 // Shows a saved set again with live Google details, dropping anything that
@@ -453,7 +498,7 @@ async function eventPicks(ctx: {
         kind: "EVENT" as const,
         verdict: c.verdict && ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(c.verdict) ? c.verdict : "Good if you're nearby",
         ...(c.verdict === "Skip unless" && c.skipUnless ? { skipUnless: c.skipUnless } : {}),
-        because: c.because?.startsWith("Because you") ? c.because : fallbackBecause(taste),
+        because: c.because?.startsWith("Because you") && reasonFits(c.because, taste) ? c.because : fallbackBecause(taste),
         event: {
           title: e.title,
           venueName: e.venueName,
