@@ -132,14 +132,16 @@
   color: var(--bg);
 }
 
-/* Six by six: Food & drinks wide on top, Experiences below with Your
-   evening and This weekend beside it, Ask and Style at the bottom. */
+/* Food & drinks wide on top, Experiences below with Your evening and This
+   weekend beside it. Ask and Style live in the tab bar (founder: Home felt
+   crowded with them as tiles too). */
 .grid {
   flex: 1;
-  min-height: 500px;
+  min-height: 440px;
+  max-height: 640px;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
-  grid-template-rows: repeat(6, 1fr);
+  grid-template-rows: repeat(5, 1fr);
   gap: 12px;
   margin-top: 14px;
 }

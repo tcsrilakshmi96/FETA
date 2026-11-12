@@ -169,7 +169,7 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
 export function SearchChip({ html }: { html: string }) {
   return (
     <div className={styles.searchWrap}>
-      <span className={styles.searchLabel}>Found on the web. See more on Google:</span>
+      <span className={styles.searchLabel}>Events found with Google Search:</span>
       <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );

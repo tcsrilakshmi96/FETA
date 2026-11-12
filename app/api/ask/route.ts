@@ -197,7 +197,9 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
           when: s.when === "weekend" || tripLabel ? "weekend" : "tonight",
           origin,
           tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
-          note: (s.note ?? "").slice(0, 120),
+          // Their own words lead, and always mean a fresh search (never
+          // the last list again), e.g. "something Pokémon-related".
+          note: ((s.note ?? "").trim() || message).slice(0, 120),
           ...(tripLabel ? { trip: tripLabel } : {}),
       }));
       const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };

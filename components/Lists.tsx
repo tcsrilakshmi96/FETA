@@ -22,10 +22,12 @@ type Tab = "want" | "been";
 
 function savedLabel(item: ListItem) {
   if (item.event) return "Event";
+  // "Been" has no date: marking it doesn't say when they went.
+  if (item.list === "been") return "Been ✓";
   const days = Math.floor(
     (Date.now() - new Date(item.savedAt).getTime()) / 86400000,
   );
-  const verb = item.list === "been" ? "Been" : "Saved";
+  const verb = "Saved";
   if (days < 1) return `${verb} today`;
   if (days < 7)
     return `${verb} ${new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(new Date(item.savedAt))}`;

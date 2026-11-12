@@ -32,6 +32,10 @@ const TWEAK_OPTIONS = [
 
 type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | { type: "plan" } | null;
 
+// Google's stars, e.g. "★ 4.5 (1.2k)", credited with the Google Maps line.
+const stars = (p: Pick) =>
+  p.rating ? `★ ${p.rating.toFixed(1)}${p.ratingCount ? ` (${p.ratingCount >= 1000 ? `${(p.ratingCount / 1000).toFixed(1).replace(/\.0$/, "")}k` : p.ratingCount})` : ""}` : null;
+
 const verdictText = (p: Pick) => (p.verdict === "Skip unless" ? `Skip unless ${p.skipUnless ?? "you're curious"}` : p.verdict);
 
 export default function Picks() {
@@ -167,7 +171,7 @@ export default function Picks() {
   }
 
   const isSaved = (p: Pick) => !!slot?.saved.includes(p.placeId);
-  const where = (p: Pick) => [p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
+  const where = (p: Pick) => [stars(p), p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
 
   return (
     <main className={styles.screen}>

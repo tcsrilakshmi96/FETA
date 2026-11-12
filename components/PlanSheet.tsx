@@ -16,6 +16,14 @@ const nearKept = new Map<string, Promise<Pick[]>>();
 // together, with times, ready to send.
 // The picks on screen first; if none pair up (experiences are often across
 // town), one search for something close to the best dinner.
+// Directions to the second stop via the first, by exact coordinates (with
+// place IDs), so Google Maps can't land on a different place of that name.
+function directionsForBoth(first: Pick, second: Pick) {
+  const spot = (p: Pick) => (p.lat !== undefined && p.lng !== undefined ? `${p.lat},${p.lng}` : encodeURIComponent(p.event ? `${p.event.venueName}` : p.name));
+  const ids = (key: string, p: Pick) => (p.event ? "" : `&${key}=${p.placeId}`);
+  return `https://www.google.com/maps/dir/?api=1&destination=${spot(second)}${ids("destination_place_id", second)}&waypoints=${spot(first)}${ids("waypoint_place_ids", first)}`;
+}
+
 export default function PlanSheet({
   food,
   experiences,
@@ -136,7 +144,7 @@ export default function PlanSheet({
             )}
             <a
               className={styles.directions}
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b!.pick.name)}${b!.pick.event ? "" : `&destination_place_id=${b!.pick.placeId}`}&waypoints=${encodeURIComponent(a!.pick.name)}${a!.pick.event ? "" : `&waypoint_place_ids=${a!.pick.placeId}`}`}
+              href={directionsForBoth(a!.pick, b!.pick)}
               target="_blank"
               rel="noopener noreferrer"
             >

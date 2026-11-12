@@ -110,6 +110,8 @@ export type Pick = StoredPick & {
   distanceKm: number;
   chips: string[];
   googleLine: string; // empty for events, which show the Search chip instead
+  rating?: number; // Google's stars and how many reviews, shown with the Google Maps credit
+  ratingCount?: number;
   checkedAt?: number; // set on the phone when the picks arrive
   mapsUri: string;
   directionsUri: string;
@@ -699,8 +701,11 @@ export function buildPick(
     distanceKm: Math.round(c.km * 10) / 10,
     chips: chips(c, opts.taste, opts.city),
     googleLine: googleLine(p, opts.when, opts.city),
+    rating: p.rating,
+    ratingCount: p.userRatingCount,
     mapsUri: p.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${p.id}`,
-    directionsUri: `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(name)}&destination_place_id=${p.id}`,
+    // Coordinates, with the place ID: a name alone can open a different place.
+    directionsUri: `https://www.google.com/maps/dir/?api=1&destination=${p.location ? `${p.location.latitude},${p.location.longitude}` : encodeURIComponent(name)}&destination_place_id=${p.id}`,
     book: booking(stored.kind, p, opts.city),
     website: p.websiteUri ?? null,
     naverUri: naverSearch(name, opts.city),

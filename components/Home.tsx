@@ -2,11 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Cheese from "@/components/Cheese";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
 import { formatDistance } from "@/lib/cities";
+import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
@@ -16,8 +16,8 @@ import { weekendSummary } from "@/lib/weekend-client";
 import styles from "./Home.module.css";
 
 // Home (founder's design, 12 Nov 2026): a magazine headline, then tiles.
-// Food & drinks and Experiences show their top pick; Your evening, This
-// weekend, Ask and Style lead to the rest. The picks are the same ones the
+// Food & drinks and Experiences show their top pick; Your evening and This
+// weekend lead to plans and Lists (Ask and Style are in the tab bar). The picks are the same ones the
 // lists show, loaded once and shared, so Home costs no extra searches.
 
 function cityDay(timeZone: string) {
@@ -51,13 +51,15 @@ export default function Home() {
       return;
     }
     /* eslint-disable react-hooks/set-state-in-effect -- the origin is only readable in the browser */
-    setOrigin(saved);
     if (cityDay(saved.city.timeZone).weekend) setWhen("weekend");
     // The look in use now: the chosen one, or the phone's own (Auto).
     const look = loadAppearance();
     setDark(look === "dark" || (look === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches));
     /* eslint-enable react-hooks/set-state-in-effect */
     weekendSummary().then(setWeekend);
+    // Picks near where they are, not the city centre, when location is
+    // allowed; decided before loading, so picks load once.
+    nearMeIfAllowed(saved).then((here) => setOrigin(here ?? saved));
   }, [router]);
 
   // Both categories for the chosen time, shared with the picks list.
@@ -85,7 +87,7 @@ export default function Home() {
   // On a Saturday or Sunday morning the weekend tab is about today.
   const today = when === "weekend" && day.weekend && day.hour < 16;
   const open = (c: Category) => router.push(`/picks?c=${c}${when === "weekend" ? "&w=weekend" : ""}`);
-  const where = (p: Pick) => [p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
+  const where = (p: Pick) => [p.rating ? `★ ${p.rating.toFixed(1)}` : null, p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
   const plan = plans[0];
   const wish = weekend?.wishes[0];
 
@@ -143,7 +145,7 @@ export default function Home() {
             <span>{day.label}</span>
             <span className={styles.right}>
               <button type="button" className={styles.area} onClick={() => router.push("/location")}>
-                {(origin.source === "area" ? origin.label : city.name).toUpperCase()} ▾
+                {(origin.source === "area" ? origin.label : origin.source === "gps" ? "Near you" : `All of ${city.name}`).toUpperCase()} ▾
               </button>
               <button
                 type="button"
@@ -196,20 +198,6 @@ export default function Home() {
               </span>
             </button>
 
-            <button type="button" className={`${styles.tile} ${styles.ask}`} onClick={() => router.push("/ask")}>
-              <span className={styles.cheese}>
-                <Cheese />
-              </span>
-              Ask
-            </button>
-
-            <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
-              <span>
-                <span className={styles.kick}>STYLE</span>
-                <span className={styles.tileTitle}>Coming soon</span>
-              </span>
-              <span className={styles.tileSub}>Tell me ›</span>
-            </button>
           </div>
         </div>
       </main>
