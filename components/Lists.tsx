@@ -172,7 +172,7 @@ export default function Lists() {
           <section className={styles.weekend}>
             <p className={styles.wkLabel}>THIS WEEKEND</p>
             <p className={styles.wkText}>
-              Tick saved places for this weekend, or add what you feel like doing.{" "}
+              Open a saved place below and tap “Plan it for this weekend”, or type what you feel like doing.{" "}
               {whatsApp ? "Your plan comes on WhatsApp on Friday." : "Add your number at the bottom to get the plan on WhatsApp."}
             </p>
             {(ticked.length > 0 || wishes.length > 0) && (
