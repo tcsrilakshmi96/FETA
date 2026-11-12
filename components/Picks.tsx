@@ -45,13 +45,20 @@ type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | 
 
 // Picks stay in the phone's memory while the app is open, so going to Lists
 // and back doesn't pay Google to check the same places again. Never stored:
-// a reload starts fresh, and nothing is kept for more than 20 minutes.
-const KEEP_MS = 20 * 60000;
+// a reload starts fresh, and nothing is kept for more than an hour. A place
+// whose closing time has passed since it was checked is dropped.
+const KEEP_MS = 60 * 60000;
 let kept: { slots: Record<string, Slot>; at: number } | null = null;
+
+const stillOpen = (p: Pick) => !p.closesAt || new Date(p.closesAt).getTime() > Date.now();
 
 function keptSlots() {
   if (!kept || Date.now() - kept.at > KEEP_MS) return {};
-  return Object.fromEntries(Object.entries(kept.slots).filter(([, s]) => !s.loading));
+  return Object.fromEntries(
+    Object.entries(kept.slots)
+      .filter(([, s]) => !s.loading)
+      .map(([k, s]) => [k, { ...s, picks: s.picks.filter(stillOpen), spares: s.spares.filter(stillOpen) }]),
+  );
 }
 
 const verdictText = (p: Pick) => (p.verdict === "Skip unless" ? `Skip unless ${p.skipUnless ?? "you're curious"}` : p.verdict);
