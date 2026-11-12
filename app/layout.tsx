@@ -13,7 +13,7 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: "Feta",
-  description: "Three picks for tonight, chosen for your taste.",
+  description: "Tonight's picks, chosen for your taste.",
 };
 
 export const viewport: Viewport = {

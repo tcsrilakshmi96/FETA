@@ -53,7 +53,7 @@ export default function SharedPlace() {
           Feta learns your taste and picks <strong>3 places for tonight</strong>, each with a reason.
         </p>
         <Link href="/" className="btn-primary" style={{ display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }}>
-          Get your own 3 picks
+          Get your own picks
         </Link>
       </div>
     </main>

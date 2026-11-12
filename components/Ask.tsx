@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import PickDetails from "@/components/PickDetails";
+import PickPhoto from "@/components/PickPhoto";
 import { useToast } from "@/components/Toast";
 import { savePickAction } from "@/lib/db";
 import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
@@ -107,10 +108,7 @@ export default function Ask() {
                 <div className={styles.minis}>
                   {m.reply.picks.slice(0, 3).map((p) => (
                     <button key={p.placeId} type="button" className={styles.mini} onClick={() => setDetail(p)}>
-                      {p.photo && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.photo.uri} alt="" referrerPolicy="no-referrer" />
-                      )}
+                      <PickPhoto photo={p.photo} />
                       <span className={styles.miniScrim} />
                       <span className={styles.miniText}>
                         <span className={styles.miniKind} style={{ display: "block" }}>{p.kind}</span>

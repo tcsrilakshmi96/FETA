@@ -1,5 +1,6 @@
 "use client";
 
+import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
@@ -10,7 +11,7 @@ import styles from "./PickDetails.module.css";
 // the live Google line, why it's yours, what to order or highlights (from
 // Google Maps reviews, with the sources Google requires), and the actions.
 
-export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onClose: () => void; onSave: () => void }) {
+export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: Pick; onClose: () => void; onSave: () => void; onSkip?: () => void }) {
   const [notes, setNotes] = useState<PlaceNotes | null>(null);
 
   useEffect(() => {
@@ -29,10 +30,7 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
       <div className={styles.dim} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-label={pick.name}>
         <div className={styles.hero}>
-          {pick.photo && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={pick.photo.uri} alt="" referrerPolicy="no-referrer" />
-          )}
+          <PickPhoto photo={pick.photo} />
           <span className={styles.kind}>{pick.kind}</span>
           {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
           {pick.photo && (
@@ -153,6 +151,11 @@ export default function PickDetails({ pick, onClose, onSave }: { pick: Pick; onC
             }}
           />
         </div>
+        {onSkip && (
+          <button type="button" className={styles.close} onClick={onSkip}>
+            Not for me
+          </button>
+        )}
         <button type="button" className={styles.close} onClick={onClose}>
           Close
         </button>

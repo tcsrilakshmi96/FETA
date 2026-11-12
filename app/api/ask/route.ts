@@ -167,7 +167,8 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
           ...(tripLabel ? { trip: tripLabel } : {}),
       }));
       const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
-      picks = data.picks ?? [];
+      // Chat shows a short answer: the best 3.
+      picks = (data.picks ?? []).slice(0, 3);
       notice = data.notice;
     }
   }

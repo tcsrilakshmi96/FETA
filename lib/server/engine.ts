@@ -4,7 +4,7 @@ import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
-import { bestPhoto, placeDetails, photoUri, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
+import { placeDetails, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -23,7 +23,8 @@ import {
   spendUpperBound,
   tasteSummary,
   unknownPriceOk,
-  takeThree,
+  takePicks,
+  SHOW,
   tonightMeansNow,
   applyTweaks,
   foodPhrases,
@@ -60,12 +61,13 @@ type Body = {
     city: { id: string };
   };
   trip?: string; // trip-only profile lines for this trip count too
-  more?: boolean; // "Show me 3 more"
+  more?: boolean; // "Show me more", once the backup places run out
   tweaks?: string[]; // from the Tweak sheet
   note?: string; // free text from the Tweak sheet
 };
 
-type Reply = { picks: Pick[]; banner?: string; notice?: string };
+// spares: the next best places, kept on the phone for "Show me more".
+type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string };
 
 function json(body: Reply | { error: string }, status = 200) {
   return Response.json(body, { status });
@@ -121,14 +123,16 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const wide = body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: "city" } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
-  // 1. Reuse recent picks: re-check each place live. If some have closed,
-  //    top them up to 3 with a fresh search below.
+  // 1. Reuse recent picks: re-check the ones shown live (not the backups,
+  //    which would cost more than a new search). If more than 2 have
+  //    closed, top up with a fresh search below.
   let kept: { stored: StoredPick[]; picks: Pick[] } = { stored: [], picks: [] };
   let keptBanner: string | null = null;
+  const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
   if (latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date()) {
-    const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
-    // A set of 2 in a small city (no weak third) stays 2 while both still fit.
-    if (shown.picks.length >= (small ? Math.min(3, (latest.picks as StoredPick[]).length) : 3)) return json(shown.reply);
+    const before = firstShown(latest);
+    const shown = await showStored(before, latest.banner, { taste, body, city, origin, exclude, needsDiet });
+    if (shown.picks.length >= Math.max(1, before.length - 2)) return json(shown.reply);
     kept = shown;
     keptBanner = latest.banner;
   }
@@ -141,14 +145,14 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   if ((counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) || spent >= DAILY_BUDGET_INR) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
     if (latest) {
-      const shown = await showStored(latest.picks as StoredPick[], latest.banner, { taste, body, city, origin, exclude, needsDiet });
+      const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });
       if (shown.picks.length > 0) return json({ ...shown.reply, notice: "That's all the new searching for today, so here are your latest picks." });
     }
     return json({ picks: [], notice: "Feta has done all its searching for today. Fresh picks tomorrow morning." });
   }
 
-  // 3. New search. "Show me 3 more" and tweaks skip anything shown in the
-  //    last day; topping up skips what is already kept.
+  // 3. New search. "Show me more" and tweaks skip anything shown (or kept
+  //    as backup) in the last day; topping up skips what is already kept.
   if (body.more || tweaked) {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     for (const set of recent ?? []) {
@@ -156,7 +160,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     }
   }
   for (const k of kept.stored) exclude.add(k.placeId);
-  const need = 3 - kept.picks.length;
+  const need = SHOW - kept.picks.length;
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
 
   // Experiences also look for this week's events, at the same time.
@@ -185,7 +189,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     console.error(error);
     return [] as Candidate[];
   });
-  pool = [...feta, ...pool.filter((c) => !feta.some((f) => f.place.id === c.place.id))].slice(0, 16);
+  pool = [...feta, ...pool.filter((c) => !feta.some((f) => f.place.id === c.place.id))].slice(0, 24);
 
   // Rank places while the event search is still running.
   const ranking =
@@ -203,19 +207,23 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when, city.country) });
   }
 
-  // Up to 2 events first, then places to make 3. A Feta pick that passed
-  // the hard filters always gets a place in the set, unless it is a very
-  // popular place (a famous sight is not a find; Gemini may still pick it).
-  const chosen = takeThree(ranked, pool, need - events.length, small);
+  // Up to 2 events first, then places to make 8; every other place that
+  // passed is kept, in order, as backup. A Feta pick that passed the hard
+  // filters always gets a place in the 8, unless it is a very popular place
+  // (a famous sight is not a find; Gemini may still pick it).
+  const room = Math.max(0, need - events.length);
+  const chosen = takePicks(ranked, pool, pool.length, small);
   const fetaInPool = pool.filter((c) => c.fetaNote !== undefined && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
-  if (fetaInPool.length > 0 && !chosen.some((c) => c.candidate.fetaNote !== undefined) && need - events.length > 0) {
+  if (fetaInPool.length > 0 && room > 0 && !chosen.slice(0, room).some((c) => c.candidate.fetaNote !== undefined)) {
     const best = ranked.map((r) => pool[r.index]).find((c) => c && fetaInPool.includes(c)) ?? fetaInPool[0];
-    const slot = Math.min(chosen.length, need - events.length - 1);
-    chosen.splice(slot, chosen.length > slot ? 1 : 0, { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null });
+    const at = chosen.findIndex((c) => c.candidate === best);
+    const entry = at >= 0 ? chosen.splice(at, 1)[0] : { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null };
+    chosen.splice(Math.min(2, room - 1, chosen.length), 0, entry);
   }
+  const shownCount = Math.min(room, chosen.length);
   const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }, i) => {
-    // The last pick of a full set says "Skip unless…" when there is a real compromise.
-    const weakest = i === chosen.length - 1 && kept.picks.length + events.length + chosen.length >= 3 && r?.verdict !== "Worth a detour";
+    // The last pick shown says "Skip unless…" when there is a real compromise.
+    const weakest = i === shownCount - 1 && kept.picks.length + events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
     const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
     return {
       placeId: candidate.place.id,
@@ -224,21 +232,23 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
       because: r?.because ?? fallbackBecause(taste),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
+      ...(i >= room ? { spare: true } : {}),
     };
   });
-  // One "Worth a detour" per set at most, across events and places.
+  // One "Worth a detour" among the ones shown at most, across events and places.
   let detours = kept.stored.filter((p) => p.verdict === "Worth a detour").length;
   const capped = (p: StoredPick): StoredPick => (p.verdict === "Worth a detour" && detours++ > 0 ? { ...p, verdict: "Good if you're nearby" } : p);
   for (const e of events) e.stored = capped(e.stored) as typeof e.stored;
   placeStored.forEach((p, i) => (placeStored[i] = capped(p)));
   const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
-  const farCount = chosen.filter((c) => c.candidate.far).length;
-  const short = stored.length < 3;
+  const shownTotal = kept.picks.length + events.length + shownCount;
+  const farCount = chosen.slice(0, shownCount).filter((c) => c.candidate.far).length;
+  const short = shownTotal < 3;
   const whenText = body.when === "tonight" ? "tonight" : "this weekend";
   const banner = short
-    ? `Only ${stored.length} ${stored.length === 1 ? "place" : "places"} really ${stored.length === 1 ? "fits" : "fit"} you here ${whenText}${farCount > 0 ? `, worth a short ride` : ""}. No weak filler.`
+    ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}${farCount > 0 ? `, worth a short ride` : ""}. No weak filler.`
     : farCount > 0
-      ? `Nothing great right around you ${whenText}. ${farCount === 1 ? "Here's 1" : `Here are ${farCount}`} worth a short ride.`
+      ? `Nothing great right around you ${whenText}. ${farCount === 1 ? "1 is" : `${farCount} are`} worth a short ride.`
       : keptBanner;
 
   await db.from("pick_sets").insert({
@@ -257,13 +267,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   try {
     const today = cityCalendar(city.timeZone).today;
-    const fresh = await Promise.all([
-      ...events.map(async (e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue, photo: e.venue ? await firstPhoto(e.venue) : null })),
-      ...chosen.map(async ({ candidate }, i) =>
-        buildPick(candidate, placeStored[i], { taste, when: body.when, city, photo: await firstPhoto(candidate.place) }),
-      ),
-    ]);
-    return json({ picks: [...kept.picks, ...fresh], ...(banner ? { banner } : {}) });
+    // Photos are fetched by the phone only once a card is on screen.
+    const fresh = [
+      ...events.map((e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue })),
+      ...chosen.map(({ candidate }, i) => buildPick(candidate, placeStored[i], { taste, when: body.when, city })),
+    ];
+    const shownFresh = fresh.filter((p) => !p.spare);
+    return json({ picks: [...kept.picks, ...shownFresh], spares: fresh.filter((p) => p.spare), ...(banner ? { banner } : {}) });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
@@ -321,12 +331,7 @@ async function gatherCandidates(ctx: {
     passed = filter();
   }
   const near = passed.filter((c) => !c.far);
-  return (near.length >= ctx.need ? near : passed).slice(0, 15);
-}
-
-async function firstPhoto(place: Place) {
-  const name = bestPhoto(place)?.name;
-  return name ? photoUri(name) : null;
+  return (near.length >= ctx.need ? near : passed).slice(0, 24);
 }
 
 function fallbackBecause(taste: Taste) {
@@ -360,7 +365,7 @@ async function showStored(
       .filter((s) => !ctx.exclude.has(s.placeId) && eventStillOn(s.event, ctx.body.when, ctx.city))
       .map(async (s) => {
         const venue = s.event.venuePlaceId ? await placeDetails(s.event.venuePlaceId, false, true) : null;
-        return buildEventPick(s, { taste: ctx.taste, city: ctx.city, today, venue, photo: venue ? await firstPhoto(venue) : null });
+        return buildEventPick(s, { taste: ctx.taste, city: ctx.city, today, venue });
       }),
   );
   const live = await Promise.all(placeStored.map((s) => placeDetails(s.placeId, ctx.needsDiet)));
@@ -370,10 +375,7 @@ async function showStored(
   const placePicks = await Promise.all(
     placeStored
       .filter((s) => byId.has(s.placeId))
-      .map(async (s) => {
-        const c = byId.get(s.placeId)!;
-        return buildPick(c, s, { taste: ctx.taste, when: ctx.body.when, city: ctx.city, photo: await firstPhoto(c.place) });
-      }),
+      .map((s) => buildPick(byId.get(s.placeId)!, s, { taste: ctx.taste, when: ctx.body.when, city: ctx.city })),
   );
   const picks = [...eventPicksShown, ...placePicks];
   const keptIds = new Set(picks.map((p) => p.placeId));

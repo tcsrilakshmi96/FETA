@@ -1,5 +1,6 @@
 "use client";
 
+import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
@@ -65,7 +66,7 @@ export default function PlanSheet({
             </p>
             <p className={styles.sub}>
               I couldn&apos;t find a place to eat and something to do or a drink close to it
-              {when === "tonight" ? " that are open tonight at a good time" : " this weekend"}. Try {when === "tonight" ? "This weekend" : "another area"}, or Show me 3 more.
+              {when === "tonight" ? " that are open tonight at a good time" : " this weekend"}. Try {when === "tonight" ? "This weekend" : "another area"}, or Show me more.
             </p>
           </>
         ) : (
@@ -84,10 +85,7 @@ export default function PlanSheet({
                   <div className={styles.stop}>
                     <span className={styles.time}>{clock(stop.time)}</span>
                     <span className={styles.pic}>
-                      {stop.pick.photo && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={stop.pick.photo.uri} alt="" referrerPolicy="no-referrer" />
-                      )}
+                      <PickPhoto photo={stop.pick.photo} />
                     </span>
                     <span className={styles.text}>
                       <span className={styles.kind}>{stop.pick.kind}</span>

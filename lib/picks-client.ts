@@ -6,9 +6,9 @@ import { currentUserId, supabase } from "@/lib/supabase";
 
 export type { Category, Pick, When };
 
-export type PicksReply = { picks: Pick[]; banner?: string; notice?: string; error?: string };
+export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; error?: string };
 
-// Asks Feta's server for 3 picks. The server reads the user's answers and
+// Asks Feta's server for picks (8 to show, the rest as backup). The server reads the user's answers and
 // swipes from the database itself.
 export async function fetchPicks(
   category: Category,
@@ -83,4 +83,31 @@ async function askNotes(pick: Pick): Promise<PlaceNotes> {
   } catch {
     return empty;
   }
+}
+
+// A pick's photo, fetched only when it comes on screen (Google charges per
+// photo). Kept in the phone's memory while the app is open.
+const photosKept = new Map<string, Promise<string | null>>();
+
+export function fetchPhoto(ref: string): Promise<string | null> {
+  const hit = photosKept.get(ref);
+  if (hit) return hit;
+  const uri = (async () => {
+    const { data } = await supabase().auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return null;
+    try {
+      const res = await fetch("/api/photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ref }),
+      });
+      return res.ok ? (((await res.json()) as { uri?: string }).uri ?? null) : null;
+    } catch {
+      return null;
+    }
+  })();
+  photosKept.set(ref, uri);
+  uri.then((u) => u || photosKept.delete(ref));
+  return uri;
 }

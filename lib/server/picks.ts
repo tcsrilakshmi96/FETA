@@ -4,6 +4,7 @@ import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
 import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { track } from "@/lib/server/costs";
+import { photoRef } from "@/lib/server/photo-ref";
 import { bestPhoto, type Place } from "@/lib/server/places";
 
 export type Category = "food_drinks" | "experiences";
@@ -83,7 +84,14 @@ export type StoredPick = {
   because: string;
   event?: EventInfo;
   fetaNote?: string; // the founder's own words, for a Feta pick
+  spare?: boolean; // backup for "Show me more", not shown at first
 };
+
+// Picks shown at first per category; the rest of the ranked places are
+// kept as backup for "Show me more" (founder's decision, 12 Nov 2026).
+export const SHOW = 8;
+// Very popular places allowed among the 8 shown ("New to you" rule).
+const MAX_POPULAR = 2;
 
 // Sent to the phone for one card.
 export type Pick = StoredPick & {
@@ -99,7 +107,8 @@ export type Pick = StoredPick & {
   website?: string | null; // the venue's own site
   naverUri?: string; // South Korea: "Open in Naver Map" leads, Google Maps second
   country?: string; // for km or miles on the phone
-  photo: { uri: string; credit: string; creditUri?: string } | null;
+  // uri is empty until the phone asks for it with ref (only once on screen).
+  photo: { uri: string; ref?: string; credit: string; creditUri?: string } | null;
   // For Plan my evening: where it is and when it next closes (live, not stored).
   lat?: number;
   lng?: number;
@@ -117,7 +126,7 @@ export function needsDietCheck(answers: Answers) {
 }
 
 // Experiences search phrases from the user's interests and swipes. Each new
-// set for the same slot rotates to the next phrase, so "Show me 3 more" feels
+// set for the same slot rotates to the next phrase, so "Show me more" feels
 // different. (Food & drinks searches everything nearby instead.)
 export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] = []): string[] {
   const { answers, yes } = taste;
@@ -420,7 +429,7 @@ export function kindOf(place: Place, category: Category): Kind {
 
 // A plain explanation of an empty result, from the filter that removed most.
 export function whyNothing(drops: DropCounts, answers: Answers, when: When, country?: string): string {
-  const tail = when === "tonight" ? "Try This weekend, a different area, or Show me 3 more." : "Try a different area, or Show me 3 more.";
+  const tail = when === "tonight" ? "Try This weekend, a different area, or Show me more." : "Try a different area, or Show me more.";
   if (drops.seen === 0) return `Google Maps didn't find anything like this near you. ${tail}`;
   const [top] = (["far", "price", "diet", "hours", "alcohol"] as const)
     .map((k) => [k, drops[k]] as const)
@@ -505,8 +514,8 @@ ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
 Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
 
-Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
-- Prefer finds over the obvious: at most 1 place marked VERY POPULAR in the top 3.
+Rank all of them that genuinely suit them, best first (leave out any that don't). Rules:
+- Prefer finds over the obvious: at most ${MAX_POPULAR} places marked VERY POPULAR in the top ${SHOW}, and not first.
 - "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
@@ -555,19 +564,19 @@ Rank the best 8 for them (fewer if there are fewer places), best first. Rules:
   return ranked.filter((r, i, all) => Number.isInteger(r.index) && r.index >= 0 && r.index < candidates.length && all.findIndex((x) => x.index === r.index) === i);
 }
 
-// Picks 3 in Gemini's order with at most 1 very popular place. A small
-// city never gets weak filler: only places Gemini rated a real fit count,
-// so it may get 2 (a "Skip unless" fills in only to reach 2). A bigger city
-// always fills to 3, with the next best place that passed the hard filters
-// (its verdict then says honestly what the compromise is). Without a
-// ranking (Gemini down), it uses the filtered places in order.
-export function takeThree(ranked: Ranked[], candidates: Candidate[], count = 3, small = false): { candidate: Candidate; ranked: Ranked | null }[] {
+// Orders places in Gemini's ranking, with at most MAX_POPULAR very popular
+// places among the first SHOW. A small city never gets weak filler: only
+// places Gemini rated a real fit count (a "Skip unless" fills in only to
+// reach 2). A bigger city fills up with the next best places that passed
+// the hard filters (their verdict then says honestly what the compromise
+// is). Without a ranking (Gemini down), it uses the filtered places in order.
+export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHOW, small = false): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
   const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count) => {
     if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
-    if (!allowExtraPopular && isPopular(candidate) && chosen.some((c) => isPopular(c.candidate))) return;
+    if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= MAX_POPULAR) return;
     chosen.push({ candidate, ranked: r });
   };
   const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;
@@ -650,14 +659,23 @@ function naverSearch(name: string, city: City) {
   return city.country === "KR" ? `https://map.naver.com/p/search/${encodeURIComponent(name)}` : undefined;
 }
 
+// A photo address already fetched, or a reference the phone fetches later.
+function lazyPhoto(uri: string | null | undefined, name: string | undefined, credit?: { displayName: string; uri?: string }): Pick["photo"] {
+  const base = { credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri };
+  if (uri) return { uri, ...base };
+  if (uri === undefined && name) return { uri: "", ref: photoRef(name), ...base };
+  return null;
+}
+
 export function buildPick(
   c: Candidate,
   stored: StoredPick,
-  opts: { taste: Taste; when: When; city: City; photo: string | null },
+  opts: { taste: Taste; when: When; city: City; photo?: string | null },
 ): Pick {
   const p = c.place;
   const name = p.displayName?.text ?? "This place";
-  const credit = bestPhoto(p)?.authorAttributions?.[0];
+  const best = bestPhoto(p);
+  const credit = best?.authorAttributions?.[0];
   return {
     ...stored,
     name,
@@ -671,7 +689,7 @@ export function buildPick(
     website: p.websiteUri ?? null,
     naverUri: naverSearch(name, opts.city),
     country: opts.city.country,
-    photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
+    photo: lazyPhoto(opts.photo, best?.name, credit),
     lat: p.location?.latitude,
     lng: p.location?.longitude,
     closesAt: p.currentOpeningHours?.nextCloseTime,
@@ -704,7 +722,7 @@ function eventWhen(e: EventInfo, today: string) {
 
 export function buildEventPick(
   stored: StoredPick & { event: EventInfo },
-  opts: { taste: Taste; city: City; today: string; venue: Place | null; photo: string | null },
+  opts: { taste: Taste; city: City; today: string; venue: Place | null; photo?: string | null },
 ): Pick {
   const e = stored.event;
   const limit = distanceLimitKm(opts.taste.answers);
@@ -714,7 +732,8 @@ export function buildEventPick(
   const destination = e.venuePlaceId
     ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
     : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;
-  const credit = opts.venue ? bestPhoto(opts.venue)?.authorAttributions?.[0] : undefined;
+  const best = opts.venue ? bestPhoto(opts.venue) : undefined;
+  const credit = best?.authorAttributions?.[0];
   return {
     ...stored,
     name: e.title,
@@ -727,7 +746,7 @@ export function buildEventPick(
     book: { label: `Tickets on ${e.site}`, url: e.url },
     naverUri: naverSearch(e.venueName, opts.city),
     country: opts.city.country,
-    photo: opts.photo ? { uri: opts.photo, credit: credit?.displayName ?? "Google Maps", creditUri: credit?.uri } : null,
+    photo: lazyPhoto(opts.photo, best?.name, credit),
     lat: opts.venue?.location?.latitude,
     lng: opts.venue?.location?.longitude,
   };

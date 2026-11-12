@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PickDetails, { GoogleLine, SearchChip } from "@/components/PickDetails";
+import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
@@ -13,10 +14,20 @@ import { loadOrigin, originKey, type Origin } from "@/lib/origin";
 import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
 import styles from "./Picks.module.css";
 
-type Slot = { loading: boolean; picks: Pick[]; index: number; banner?: string; notice?: string };
+// picks: on screen, best first. spares: the next best from the same search,
+// shown 8 at a time on "Show me more" without searching again.
+type Slot = {
+  loading: boolean;
+  more?: boolean; // a new search for more is on its way
+  picks: Pick[];
+  spares: Pick[];
+  saved: string[];
+  banner?: string;
+  notice?: string;
+};
 
+const SHOW = 8;
 const CATEGORY_KEY = "feta.category";
-const THROW_PX = 80;
 const SKIP_REASONS = ["Too far", "Too pricey", "Not my vibe", "Been there"];
 
 // The Tweak sheet. Ids match TWEAKS on the server.
@@ -43,6 +54,8 @@ function keptSlots() {
   return Object.fromEntries(Object.entries(kept.slots).filter(([, s]) => !s.loading));
 }
 
+const verdictText = (p: Pick) => (p.verdict === "Skip unless" ? `Skip unless ${p.skipUnless ?? "you're curious"}` : p.verdict);
+
 export default function Picks() {
   const router = useRouter();
   const toast = useToast();
@@ -54,12 +67,9 @@ export default function Picks() {
   useEffect(() => {
     kept = { slots, at: kept && Object.keys(keptSlots()).length ? kept.at : Date.now() };
   }, [slots]);
-  const [dx, setDx] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tweakNote, setTweakNote] = useState("");
   const [withKids, setWithKids] = useState(false);
-  const startX = useRef(0);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -83,15 +93,23 @@ export default function Picks() {
   const slot = slots[key];
 
   const load = useCallback(
-    async (w: When, c: Category, more = false, tweak?: { tweaks: string[]; note?: string; label: string }) => {
+    async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string; label: string }) => {
       if (!origin) return;
       const k = `${originKey(origin)}|${w}:${c}`;
-      setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], index: 0 } }));
-      const reply = await fetchPicks(c, w, origin, more, tweak && { tweaks: tweak.tweaks, note: tweak.note });
+      setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
+      const reply = await fetchPicks(c, w, origin, false, tweak && { tweaks: tweak.tweaks, note: tweak.note });
+      const at = Date.now();
       const tweakBanner = tweak && reply.picks?.length ? `${tweak.label}: here are ${reply.picks.length} new ones.` : undefined;
       setSlots((s) => ({
         ...s,
-        [k]: { loading: false, picks: (reply.picks ?? []).map((p) => ({ ...p, checkedAt: Date.now() })), index: 0, banner: reply.banner ?? tweakBanner, notice: reply.notice ?? reply.error },
+        [k]: {
+          loading: false,
+          picks: (reply.picks ?? []).map((p) => ({ ...p, checkedAt: at })),
+          spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
+          saved: [],
+          banner: reply.banner ?? tweakBanner,
+          notice: reply.notice ?? reply.error,
+        },
       }));
     },
     [origin],
@@ -101,7 +119,26 @@ export default function Picks() {
     saveTweakLines(tweaks);
     setSheet(null);
     setTweakNote("");
-    load(when, category, false, { tweaks, note, label });
+    load(when, category, { tweaks, note, label });
+  }
+
+  // "Show me more": the next 8 from the backup, or a new search once the
+  // backup has run out. New ones go below the ones already shown.
+  async function showMore() {
+    if (!origin || !slot || slot.more) return;
+    if (slot.spares.length > 0) {
+      setSlots((s) => ({ ...s, [key]: { ...s[key], picks: [...s[key].picks, ...s[key].spares.slice(0, SHOW)], spares: s[key].spares.slice(SHOW) } }));
+      return;
+    }
+    setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
+    const reply = await fetchPicks(category, when, origin, true);
+    const at = Date.now();
+    const fresh = (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at }));
+    if (fresh.length === 0) toast(reply.notice ?? "That's everything that fits right now. Try Tweak.");
+    setSlots((s) => ({
+      ...s,
+      [key]: { ...s[key], more: false, picks: [...s[key].picks, ...fresh], spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })) },
+    }));
   }
 
   // Each tab and category loads once and then keeps its own progress.
@@ -126,11 +163,10 @@ export default function Picks() {
   const city = origin?.city ?? null;
   if (!origin || !city) return null;
 
-  const picks = slot?.picks ?? [];
-  const index = slot?.index ?? 0;
-  const current = !slot?.loading ? picks[index] : undefined;
-  const allSwiped = !!slot && !slot.loading && picks.length > 0 && index >= picks.length;
+  const picks = slot && !slot.loading ? slot.picks : [];
+  const [hero, ...rest] = picks;
   const nothing = !!slot && !slot.loading && picks.length === 0;
+  const eventChip = picks.find((p) => p.event)?.event?.searchHtml;
 
   function chooseCategory(c: Category) {
     setCategory(c);
@@ -141,25 +177,18 @@ export default function Picks() {
     }
   }
 
-  function advance() {
-    setDragging(false);
-    setDx(0);
-    setSlots((s) => ({ ...s, [key]: { ...s[key], index: s[key].index + 1 } }));
-  }
-
   function save(pick: Pick) {
+    if (slot?.saved.includes(pick.placeId)) return;
     savePickAction(pick.placeId, "saved", { category, cityId: city!.id, because: pick.because });
+    setSlots((s) => ({ ...s, [key]: { ...s[key], saved: [...s[key].saved, pick.placeId] } }));
     toast("Saved to Want to try");
   }
 
-  function decide(dir: 1 | -1) {
-    if (!current) return;
-    if (dir > 0) save(current);
-    else {
-      savePickAction(current.placeId, "skipped", { category, cityId: city!.id });
-      setSheet({ type: "reason", pick: current });
-    }
-    advance();
+  // "Not for me": it leaves the list, and Feta asks why (optional).
+  function skip(pick: Pick) {
+    savePickAction(pick.placeId, "skipped", { category, cityId: city!.id });
+    setSlots((s) => ({ ...s, [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    setSheet({ type: "reason", pick });
   }
 
   function giveReason(pick: Pick, reason: string) {
@@ -169,212 +198,187 @@ export default function Picks() {
     toast("Got it. That helps.");
   }
 
-  const verb = category === "food_drinks" ? "eat" : "do";
-  const pull = Math.max(-1, Math.min(1, dx / 100));
+  const isSaved = (p: Pick) => !!slot?.saved.includes(p.placeId);
+  const where = (p: Pick) => [p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
 
   return (
     <main className={styles.screen}>
-      <div className={styles.top}>
-        <div className={styles.segment} role="tablist" aria-label="When">
-          <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
-          <button type="button" role="tab" aria-selected={when === "tonight"} className={`${styles.segBtn} ${when === "tonight" ? styles.segOn : ""}`} style={{ width: 76 }} onClick={() => setWhen("tonight")}>
-            Tonight
-          </button>
-          <button type="button" role="tab" aria-selected={when === "weekend"} className={`${styles.segBtn} ${when === "weekend" ? styles.segOn : ""}`} style={{ width: 106 }} onClick={() => setWhen("weekend")}>
-            This weekend
+      <div className={styles.scroll}>
+      <div className={styles.head}>
+        <div className={styles.top}>
+          <div className={styles.segment} role="tablist" aria-label="When">
+            <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
+            <button type="button" role="tab" aria-selected={when === "tonight"} className={`${styles.segBtn} ${when === "tonight" ? styles.segOn : ""}`} style={{ width: 76 }} onClick={() => setWhen("tonight")}>
+              Tonight
+            </button>
+            <button type="button" role="tab" aria-selected={when === "weekend"} className={`${styles.segBtn} ${when === "weekend" ? styles.segOn : ""}`} style={{ width: 106 }} onClick={() => setWhen("weekend")}>
+              This weekend
+            </button>
+          </div>
+          <button type="button" className={styles.cityPill} onClick={() => router.push("/location")}>
+            {origin.source === "area" ? origin.label : city.name} ▾
           </button>
         </div>
-        <button type="button" className={styles.cityPill} onClick={() => router.push("/location")}>
-          {origin.source === "area" ? origin.label : city.name} ▾
-        </button>
-      </div>
 
-      <div className={styles.titleRow}>
         <h1 className={styles.title}>
-          Your {picks.length > 0 && picks.length < 3 ? picks.length : 3} to {verb} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+          {when === "tonight" ? "Tonight's" : "This weekend's"} picks <strong>for you</strong>
         </h1>
-        <span className={styles.dots} aria-hidden="true">
-          {Array.from({ length: picks.length > 0 ? picks.length : 3 }, (_, i) => (
-            <span key={i} className={allSwiped ? styles.dotDone : i === index ? styles.dotOn : ""} />
-          ))}
-        </span>
+
+        <div className={styles.cats}>
+          <button type="button" className={`${styles.cat} ${category === "food_drinks" ? styles.catOn : ""}`} onClick={() => chooseCategory("food_drinks")}>
+            Food &amp; drinks
+          </button>
+          <button type="button" className={`${styles.cat} ${category === "experiences" ? styles.catOn : ""}`} onClick={() => chooseCategory("experiences")}>
+            Experiences
+          </button>
+          <button type="button" className={`${styles.cat} ${styles.catSoon}`} onClick={() => router.push("/style")}>
+            Style · soon
+          </button>
+        </div>
+
+        <div className={styles.tools}>
+          <button type="button" className={styles.tool} onClick={() => setSheet({ type: "tweak" })}>
+            ⚙ Tweak
+          </button>
+          <button type="button" className={styles.tool} onClick={() => setSheet({ type: "plan" })}>
+            ✦ Plan my evening
+          </button>
+        </div>
       </div>
 
-      <div className={styles.cats}>
-        <button type="button" className={`${styles.cat} ${category === "food_drinks" ? styles.catOn : ""}`} onClick={() => chooseCategory("food_drinks")}>
-          Food &amp; drinks
-        </button>
-        <button type="button" className={`${styles.cat} ${category === "experiences" ? styles.catOn : ""}`} onClick={() => chooseCategory("experiences")}>
-          Experiences
-        </button>
-        <button type="button" className={`${styles.cat} ${styles.catSoon}`} onClick={() => router.push("/style")}>
-          Style · soon
-        </button>
-      </div>
-
-      <div className={styles.deck}>
-        {(!slot || slot.loading) && (
-          <div className={styles.panel}>
-            <div className={styles.loadBars}>
-              <span />
-              <span />
-              <span />
-            </div>
-            <p className={styles.panelTitle}>
-              Finding <strong>your 3</strong>…
-            </p>
-            <p className={styles.panelText}>Skipping the overhyped ones…</p>
+      {(!slot || slot.loading) && (
+        <div className={styles.panel}>
+          <div className={styles.loadBars}>
+            <span />
+            <span />
+            <span />
           </div>
-        )}
-
-        {slot &&
-          !slot.loading &&
-          picks.map((pick, i) => {
-            const pos = i - index;
-            if (pos < 0 || pos > 1) return null;
-            const active = pos === 0;
-            const style = active
-              ? { transform: `translateX(${dx}px) rotate(${dx / 18}deg)`, transition: dragging ? "none" : "transform .8s var(--ease-spring)", zIndex: 2 }
-              : { opacity: dragging ? Math.min(1, Math.abs(dx) / 120) : 0, transform: "scale(.96)", zIndex: 1 };
-            return (
-              <div
-                key={pick.placeId}
-                className={styles.card}
-                style={style}
-                aria-hidden={!active}
-                onPointerDown={(e) => {
-                  if (!active) return;
-                  setDragging(true);
-                  startX.current = e.clientX;
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                }}
-                onPointerMove={(e) => dragging && active && setDx(e.clientX - startX.current)}
-                onPointerUp={() => {
-                  if (!dragging || !active) return;
-                  setDragging(false);
-                  if (Math.abs(dx) > THROW_PX) decide(dx > 0 ? 1 : -1);
-                  else if (Math.abs(dx) < 6) {
-                    setDx(0);
-                    setSheet({ type: "details", pick });
-                  } else setDx(0);
-                }}
-                onPointerCancel={() => {
-                  setDragging(false);
-                  setDx(0);
-                }}
-              >
-                <div className={styles.photo}>
-                  {pick.photo && (
-                    // Google's photo address is short-lived, so it is shown as is.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={pick.photo.uri} alt="" referrerPolicy="no-referrer" draggable={false} className="kenburns" />
-                  )}
-                  <div className={styles.scrim} />
-                  {active && (
-                    <>
-                      <div className={styles.tint} style={{ background: "linear-gradient(270deg,rgba(255,79,123,.7),rgba(255,79,123,0) 55%)", opacity: Math.max(0, pull) }} />
-                      <div className={styles.tint} style={{ background: "linear-gradient(90deg,rgba(255,243,238,.55),rgba(255,243,238,0) 55%)", opacity: Math.max(0, -pull) }} />
-                    </>
-                  )}
-                  <span className={styles.kind}>{pick.kind}</span>
-                  {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
-                  {pick.photo && (
-                    <span className={styles.credit}>
-                      Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>
-                    </span>
-                  )}
-                  {active && (
-                    <>
-                      <span className={`${styles.stamp} ${styles.stampSave}`} style={{ opacity: Math.max(0, pull) }}>
-                        Save ♥
-                      </span>
-                      <span className={`${styles.stamp} ${styles.stampSkip}`} style={{ opacity: Math.max(0, -pull) }}>
-                        Not for me
-                      </span>
-                    </>
-                  )}
-                  <div className={styles.info}>
-                    <p className={styles.name}>{pick.name}</p>
-                    <div className={styles.meta}>
-                      <span className={styles.where}>
-                        {pick.area} · {formatDistance(pick.distanceKm, city.country)}
-                      </span>
-                      <span className={styles.verdict}>
-                        {pick.verdict === "Skip unless" ? `Skip unless ${pick.skipUnless ?? "you're curious"}` : pick.verdict}
-                      </span>
-                    </div>
-                    <p className={styles.because}>{pick.because}</p>
-                    {pick.fetaNote && <p className={styles.fetaNote}>“{pick.fetaNote}”</p>}
-                    <div className={styles.chips}>
-                      {pick.chips.map((chip) => (
-                        <span key={chip}>{chip}</span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-        {slot && !slot.loading && (slot.banner || (slot.notice && picks.length > 0)) && current && (
-          <div className={styles.banner}>{slot.banner ?? slot.notice}</div>
-        )}
-
-        {allSwiped && (
-          <div className={styles.panel} style={{ animation: "fa-up .5s ease-out" }}>
-            <p className={styles.panelTitle}>
-              That&apos;s <strong>your 3.</strong>
-            </p>
-            <p className={styles.panelText}>Want different ones? Tap Tweak these, or Ask below.</p>
-            <button type="button" className={styles.panelBtn} onClick={() => load(when, category, true)}>
-              Show me 3 more
-            </button>
-          </div>
-        )}
-
-        {nothing && (
-          <div className={styles.panel}>
-            <p className={styles.panelTitle}>
-              Nothing <strong>yet.</strong>
-            </p>
-            <p className={styles.panelText}>{slot?.notice ?? "Nothing fits right now."}</p>
-            <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>
-              Try another area
-            </button>
-          </div>
-        )}
-      </div>
-
-      {current?.event ? (
-        <SearchChip html={current.event.searchHtml} />
-      ) : (
-        <div className={`${styles.google} ${current ? "" : styles.hidden}`}>{current && <GoogleLine pick={current} />}</div>
+          <p className={styles.panelTitle}>
+            Finding <strong>your picks</strong>…
+          </p>
+          <p className={styles.panelText}>Skipping the overhyped ones…</p>
+        </div>
       )}
 
-      <div className={`${styles.actions} ${current ? "" : styles.hidden}`}>
-        <button type="button" aria-label="Not for me" className={`${styles.round} ${styles.skip}`} onClick={() => decide(-1)}>
-          ✕
-        </button>
-        <button type="button" className={styles.details} onClick={() => current && setSheet({ type: "details", pick: current })}>
-          Details
-        </button>
-        <button type="button" aria-label="Save" className={`${styles.round} ${styles.save}`} onClick={() => decide(1)}>
-          ♥
-        </button>
-      </div>
+      {nothing && (
+        <div className={styles.panel}>
+          <p className={styles.panelTitle}>
+            Nothing <strong>yet.</strong>
+          </p>
+          <p className={styles.panelText}>{slot?.notice ?? "Nothing fits right now."}</p>
+          <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>
+            Try another area
+          </button>
+        </div>
+      )}
 
-      <div className={styles.bottomRow}>
-        <button type="button" className={styles.planBtn} onClick={() => setSheet({ type: "plan" })}>
-          ✦ Plan my evening
-        </button>
-        <button type="button" className={styles.tweak} onClick={() => setSheet({ type: "tweak" })}>
-          <strong>Tweak these</strong>
-        </button>
+      {hero && (
+        <>
+          {(slot?.banner || slot?.notice) && <div className={styles.banner}>{slot.banner ?? slot.notice}</div>}
+
+          {/* The best fit, big. */}
+          <div className={styles.hero}>
+            <button type="button" className={styles.photo} onClick={() => setSheet({ type: "details", pick: hero })} aria-label={`${hero.name}: details`}>
+              <PickPhoto photo={hero.photo} className="kenburns" />
+              <span className={styles.scrim} />
+              <span className={styles.kind}>{hero.kind}</span>
+              {hero.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
+              {hero.photo && (
+                <span className={styles.credit}>
+                  Photo: {hero.photo.credit} · <span translate="no">Google Maps</span>
+                </span>
+              )}
+              <span className={styles.info}>
+                <span className={styles.name}>{hero.name}</span>
+                <span className={styles.meta}>
+                  <span className={styles.where}>{where(hero)}</span>
+                  <span className={styles.verdict}>{verdictText(hero)}</span>
+                </span>
+                <span className={styles.because}>{hero.because}</span>
+                {hero.fetaNote && <span className={styles.fetaNote}>“{hero.fetaNote}”</span>}
+                <span className={styles.chips}>
+                  {hero.chips.map((chip) => (
+                    <span key={chip}>{chip}</span>
+                  ))}
+                </span>
+              </span>
+            </button>
+            {!hero.event && (
+              <div className={styles.google}>
+                <GoogleLine pick={hero} />
+              </div>
+            )}
+            <div className={styles.actions}>
+              <button type="button" aria-label="Not for me" className={`${styles.round} ${styles.skip}`} onClick={() => skip(hero)}>
+                ✕
+              </button>
+              <button type="button" className={styles.details} onClick={() => setSheet({ type: "details", pick: hero })}>
+                Details
+              </button>
+              <button type="button" aria-label="Save" className={`${styles.round} ${styles.save}`} onClick={() => save(hero)}>
+                {isSaved(hero) ? "✓" : "♥"}
+              </button>
+            </div>
+          </div>
+
+          {rest.length > 0 && <p className={styles.section}>{rest.length} MORE THAT FIT</p>}
+          <ul className={styles.rows}>
+            {rest.map((p, i) => (
+              <li key={p.placeId} className={styles.rowItem} style={{ animationDelay: `${Math.min(i, 8) * 0.04}s` }}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className={styles.row}
+                  onClick={() => setSheet({ type: "details", pick: p })}
+                  onKeyDown={(e) => e.key === "Enter" && setSheet({ type: "details", pick: p })}
+                >
+                  <span className={styles.pic}>
+                    <PickPhoto photo={p.photo} />
+                    {p.fetaNote !== undefined && <span className={styles.picStar}>★</span>}
+                  </span>
+                  <span className={styles.rowText}>
+                    <span className={styles.rowName}>{p.name}</span>
+                    <span className={styles.rowWhy}>{p.because}</span>
+                    <span className={styles.rowMeta}>
+                      {[where(p), p.event ? p.chips[0] : null, verdictText(p)].filter(Boolean).join(" · ")}
+                    </span>
+                    {!p.event && (
+                      <span className={styles.rowGoogle}>
+                        {p.googleLine.split(" · ").filter((part) => !part.startsWith("checked") && part !== "Google Maps").join(" · ")} ·{" "}
+                        <a href={p.mapsUri} target="_blank" rel="noopener noreferrer" translate="no" onClick={(e) => e.stopPropagation()}>
+                          Google Maps
+                        </a>
+                        {p.photo && ` · Photo: ${p.photo.credit}`}
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <button type="button" aria-label={`Save ${p.name}`} className={`${styles.rowSave} ${isSaved(p) ? styles.rowSaved : ""}`} onClick={() => save(p)}>
+                  {isSaved(p) ? "✓" : "♥"}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {eventChip && <SearchChip html={eventChip} />}
+
+          <button type="button" className={styles.more} disabled={slot?.more} onClick={showMore}>
+            {slot?.more ? "Finding more…" : "Show me more"}
+          </button>
+        </>
+      )}
       </div>
 
       <TabBar active="picks" />
 
-      {sheet?.type === "details" && <PickDetails pick={sheet.pick} onClose={() => setSheet(null)} onSave={() => save(sheet.pick)} />}
+      {sheet?.type === "details" && (
+        <PickDetails
+          pick={sheet.pick}
+          onClose={() => setSheet(null)}
+          onSave={() => save(sheet.pick)}
+          onSkip={() => skip(sheet.pick)}
+        />
+      )}
 
       {sheet?.type === "plan" && (
         <PlanSheet
@@ -390,17 +394,13 @@ export default function Picks() {
       {sheet && sheet.type !== "details" && sheet.type !== "plan" && (
         <>
           <div className={styles.dim} onClick={() => setSheet(null)} />
-          <div
-            className={styles.sheet}
-            role="dialog"
-            aria-label={sheet.type === "tweak" ? "Tweak these" : "Why not?"}
-          >
+          <div className={styles.sheet} role="dialog" aria-label={sheet.type === "tweak" ? "Tweak these" : "Why not?"}>
             {sheet.type === "tweak" ? (
               <>
                 <h2 className={styles.sheetTitle}>
                   Tweak <strong>these</strong>
                 </h2>
-                <p className={styles.sheetSub}>Pick one and I&apos;ll find 3 new ones.</p>
+                <p className={styles.sheetSub}>Pick one and I&apos;ll find new ones.</p>
                 <div className={styles.reasons}>
                   {TWEAK_OPTIONS.filter((t) => t.id !== "kids" || withKids).map((t) => (
                     <button key={t.id} type="button" onClick={() => tweak([t.id], t.label)}>
@@ -415,14 +415,8 @@ export default function Picks() {
                     if (tweakNote.trim()) tweak([], `"${tweakNote.trim()}"`, tweakNote.trim());
                   }}
                 >
-                  <input
-                    value={tweakNote}
-                    onChange={(e) => setTweakNote(e.target.value)}
-                    placeholder='Or say it, e.g. "rooftop with a view"'
-                    aria-label="Say what you want"
-                    maxLength={200}
-                  />
-                  <button type="submit" aria-label="Find 3 new ones" disabled={!tweakNote.trim()}>
+                  <input value={tweakNote} onChange={(e) => setTweakNote(e.target.value)} placeholder='Or say it, e.g. "rooftop with a view"' aria-label="Say what you want" maxLength={200} />
+                  <button type="submit" aria-label="Find new ones" disabled={!tweakNote.trim()}>
                     ↑
                   </button>
                 </form>

@@ -26,7 +26,7 @@ export default function Welcome() {
         <div className={styles.promise}>
           <div className={styles.wordmark}>feta</div>
           <h1 className={styles.headline}>
-            Three picks for tonight, <strong>chosen for your taste.</strong>
+            Tonight&apos;s picks, <strong>chosen for your taste.</strong>
           </h1>
         </div>
       </div>
