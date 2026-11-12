@@ -41,8 +41,8 @@ const SOURCE_LABELS: Record<string, string> = {
 
 // Lines from the answers and taste cards are changed by redoing them (they
 // also drive the filters); lines from chat, tweaks or typed here are words.
-const FOOD_KEYS = ["cuisines", "style", "vibe", "diet", "drinks", "spend"];
-const DOING_KEYS = ["move_make", "play_unwind", "crowd_circle", "interests"];
+const FOOD_KEYS = ["cuisines", "novelty", "style", "vibe", "diet", "drinks", "spend"];
+const DOING_KEYS = ["energy", "move_make", "play_unwind", "crowd_circle", "interests"];
 
 function groupOf(line: Line) {
   if (FOOD_KEYS.includes(line.key)) return "food";

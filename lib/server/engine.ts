@@ -32,6 +32,7 @@ import {
   foodPhrases,
   TWEAKS,
   POPULAR_REVIEWS,
+  popularCap,
   reasonFits,
   type Candidate,
   type DropCounts,
@@ -232,7 +233,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // filters always gets a place in the 8, unless it is a very popular place
   // (a famous sight is not a find; Gemini may still pick it).
   const room = Math.max(0, need - events.length);
-  const chosen = takePicks(ranked, pool, pool.length, small);
+  const chosen = takePicks(ranked, pool, pool.length, small, popularCap(taste));
   const fetaInPool = pool.filter((c) => c.fetaNote !== undefined && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
   if (fetaInPool.length > 0 && room > 0 && !chosen.slice(0, room).some((c) => c.candidate.fetaNote !== undefined)) {
     const best = ranked.map((r) => pool[r.index]).find((c) => c && fetaInPool.includes(c)) ?? fetaInPool[0];

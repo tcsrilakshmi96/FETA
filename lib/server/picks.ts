@@ -267,7 +267,31 @@ const DOING_SIDE_PHRASES: Record<string, string> = {
   crowd: "live music venue",
   circle: "community meetup",
   hands_on: "pottery workshop",
+  get_moving: "dance class or sports",
+  slow_down: "pottery workshop or book cafe",
 };
+
+// How adventurous they are with food (research, 13 Nov 2026): the novelty
+// card, or, when they didn't choose a side, what they do: keep going back
+// to regulars, or keep loving places once. Only nudges the ranking.
+export type NoveltyLean = "familiar" | "new" | "mix";
+
+export function noveltyLean(taste: Taste): NoveltyLean {
+  const familiar = taste.yes.includes("familiar");
+  const fresh = taste.yes.includes("new_to_me");
+  if (familiar !== fresh) return familiar ? "familiar" : "new";
+  const p = taste.places;
+  if (p && p.regulars >= 3 && p.regulars * 2 >= p.loved) return "familiar";
+  if (p && p.loved >= 5 && p.regulars <= 1) return "new";
+  return "mix";
+}
+
+// Very popular places allowed among the 8: fewer for someone who loves
+// finding new things, more for someone who likes their usual done well.
+export function popularCap(taste: Taste) {
+  const lean = noveltyLean(taste);
+  return lean === "new" ? 1 : lean === "familiar" ? 3 : MAX_POPULAR;
+}
 
 // Food & drinks search words from the user's tweaks, cuisines and taste
 // cards, searched alongside everything popular nearby. Empty means popular only.
@@ -547,6 +571,10 @@ const SIDE_WORDS: Record<string, RegExp> = {
   unwind: /\b(book club|reading|books)\b/i,
   crowd: /\b(gig|concert|crowd|big match|stadium)\b/i,
   circle: /\b(run club|trivia|meetup|community)\b/i,
+  get_moving: /\b(dance|dancing|salsa|sport|sports|badminton|pickleball|hike|hiking|active)\b/i,
+  slow_down: /\b(pottery|book club|books|reading|gallery|galleries|slow)\b/i,
+  familiar: /\b(your usual|favourites? done|classic|comfort food|old favourite)\b/i,
+  new_to_me: /\b(something new|never tried|new to you|adventurous|unusual)\b/i,
 };
 
 // A card's phrase only fits some kinds of place: "hole-in-the-wall" isn't a
@@ -633,10 +661,18 @@ Every place below already fits their diet, budget, distance, drinks and opening 
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
-${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
+${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}${
+    category === "food_drinks"
+      ? {
+          new: "They love trying new things: favour places and cuisines that would be new to them, and lesser-known finds over the obvious.\n\n",
+          familiar: "They like their usual done really well: favour excellent, well-loved versions of their favourite cuisines over novelty.\n\n",
+          mix: "",
+        }[noveltyLean(opts.taste)]
+      : ""
+  }Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
-- Prefer finds over the obvious: at most ${MAX_POPULAR} places marked VERY POPULAR in the top ${SHOW}, and not first.
+- Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
 - Mix their favourites: at most ${MAX_SAME_CUISINE} places of the same cuisine in the top ${SHOW}, and if they named several cuisines, cover as many of them as the places allow.
 - "because": one line, at most 110 characters, starting "Because you", tied to something they chose or liked above (never something under "Said no to") that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
@@ -700,13 +736,13 @@ Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best fi
 // reach 2). A bigger city fills up with the next best places that passed
 // the hard filters (their verdict then says honestly what the compromise
 // is). Without a ranking (Gemini down), it uses the filtered places in order.
-export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHOW, small = false): { candidate: Candidate; ranked: Ranked | null }[] {
+export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHOW, small = false, maxPopular = MAX_POPULAR): { candidate: Candidate; ranked: Ranked | null }[] {
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
   const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count, anyCuisine = false) => {
     if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
-    if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= MAX_POPULAR) return;
+    if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= maxPopular) return;
     // A mix: at most 2 of the same cuisine (Google's type, e.g. indian_restaurant) among the first 8.
     const kind = cuisineOf(candidate);
     if (!anyCuisine && kind && chosen.length < SHOW && chosen.filter((c) => cuisineOf(c.candidate) === kind).length >= MAX_SAME_CUISINE) return;

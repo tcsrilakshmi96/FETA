@@ -77,6 +77,21 @@ export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
   return [
     { type: "cuisines", id: "cuisines", options: cuisinesFor(country, veg) },
     {
+      // How adventurous with food (research, 13 Nov 2026: the trait with the
+      // strongest evidence for where people enjoy eating). It only nudges the
+      // ranking and how strictly "new to you" applies; it never filters.
+      type: "pair",
+      id: "novelty",
+      a: { id: "familiar", label: "Your usual, done really well", image: photo(home ? "breakfast" : "italian", veg) },
+      b: { id: "new_to_me", label: "Something you've never tried", image: photo("korean", veg) },
+      lines: {
+        a: "Likes their favourites, done really well",
+        b: "Loves trying something new",
+        both: "Likes a mix of old favourites and new finds",
+        neither: "No strong pull to the familiar or the new",
+      },
+    },
+    {
       type: "pair",
       id: "style",
       a: { id: "hole_in_wall", label: "A hole-in-the-wall with one great dish", image: home ? "/swipes/street.jpg" : photo("world-street", veg) },
@@ -103,27 +118,17 @@ export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
       },
     },
     {
+      // Energy (research, 13 Nov 2026: replaces dance vs make and badminton
+      // vs book club, so a new card fits in 6).
       type: "pair",
-      id: "move_make",
-      a: { id: "dance", label: "Move: a dance class or salsa night", image: "/swipes/dance.jpg" },
-      b: { id: "make", label: "Make: pottery, painting, a workshop", image: "/swipes/hands-on.jpg" },
+      id: "energy",
+      a: { id: "get_moving", label: "Get moving: a dance class, badminton, a hike", image: "/swipes/dance.jpg" },
+      b: { id: "slow_down", label: "Slow down: pottery, a book club, a gallery", image: "/swipes/hands-on.jpg" },
       lines: {
-        a: "Would pick a dance class over a workshop",
-        b: "Likes making things: pottery, painting, workshops",
-        both: "Into dance classes and hands-on workshops",
-        neither: "Not into classes or workshops",
-      },
-    },
-    {
-      type: "pair",
-      id: "play_unwind",
-      a: { id: "play", label: "Play: a game of badminton or pickleball", image: "/swipes/badminton.jpg" },
-      b: { id: "unwind", label: "Unwind: a book club or a reading café", image: "/swipes/reading.jpg" },
-      lines: {
-        a: "Likes playing a sport with others",
-        b: "Unwinds with books and slow, quiet places",
-        both: "Likes a game of sport and a quiet read",
-        neither: "Not into sports or book clubs",
+        a: "Likes active plans: dancing, sport, getting outdoors",
+        b: "Likes slow, hands-on plans: pottery, books, galleries",
+        both: "Likes active plans and slow, hands-on ones",
+        neither: "Not into classes, sport or workshops",
       },
     },
     {
@@ -141,8 +146,19 @@ export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
   ];
 }
 
+// Sides from cards that were replaced, for people who swiped before (their
+// lines and search words still count).
+const LEGACY_SIDES: Side[] = [
+  { id: "dance", label: "Move: a dance class or salsa night", image: "/swipes/dance.jpg" },
+  { id: "make", label: "Make: pottery, painting, a workshop", image: "/swipes/hands-on.jpg" },
+  { id: "play", label: "Play: a game of badminton or pickleball", image: "/swipes/badminton.jpg" },
+  { id: "unwind", label: "Unwind: a book club or a reading café", image: "/swipes/reading.jpg" },
+];
+
 // A side chosen, by id, with its pair (for reasons and search words).
 export function sideById(id: string, answers: Answers): Side | Cuisine | null {
+  const legacy = LEGACY_SIDES.find((side) => side.id === id);
+  if (legacy) return legacy;
   for (const card of swipeCards(answers)) {
     if (card.type === "cuisines") {
       // Either list: the home one, or the one used abroad.
