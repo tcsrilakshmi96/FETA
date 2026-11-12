@@ -23,6 +23,9 @@ export type Taste = {
   openLate?: boolean; // the "Open later" tweak
   saved?: string[]; // Feta's reasons for places they saved lately
   skipped?: string[]; // why they skipped places lately ("Too pricey")
+  // Places they've been and rated (My places, check-in): counts, and their
+  // own words about ones they loved or didn't.
+  places?: { loved: number; regulars: number; notForThem: number; lovedNotes: string[]; dislikedNotes: string[] };
 };
 
 // ---------- Tweaks ----------
@@ -525,6 +528,10 @@ export function tasteSummary(taste: Taste, city: City) {
     taste.lines.length > 0 && `What they like: ${taste.lines.join("; ")}`,
     taste.saved?.length && `Places they saved lately, and why: ${taste.saved.join(" | ")}`,
     taste.skipped?.length && `Why they skipped places lately: ${taste.skipped.join(", ")}`,
+    taste.places?.lovedNotes.length && `What they love about places they keep going to, in their words: ${taste.places.lovedNotes.join(" | ")}`,
+    taste.places?.dislikedNotes.length && `Why places weren't for them, in their words: ${taste.places.dislikedNotes.join(" | ")}`,
+    taste.places && taste.places.loved + taste.places.notForThem > 0 &&
+      `They've rated ${taste.places.loved + taste.places.notForThem + 0} places they've been (${taste.places.loved} loved, ${taste.places.regulars} regulars, ${taste.places.notForThem} not for them).`,
   ]
     .filter(Boolean)
     .join("\n");

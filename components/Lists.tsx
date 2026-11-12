@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import AddPlace from "@/components/AddPlace";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import {
@@ -13,8 +14,9 @@ import {
 } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { formatDistance } from "@/lib/cities";
-import { loadOrigin } from "@/lib/origin";
+import { loadOrigin, type Origin } from "@/lib/origin";
 import { CALLING_CODES, codeFor, fullNumber, showNumber } from "@/lib/phone";
+import { saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
 
@@ -22,8 +24,12 @@ type Tab = "want" | "been";
 
 function savedLabel(item: ListItem) {
   if (item.event) return "Event";
-  // "Been" has no date: marking it doesn't say when they went.
-  if (item.list === "been") return "Been ✓";
+  // "Been" has no date: marking it doesn't say when they went. It shows
+  // how it was and how often, when they've said.
+  if (item.list === "been") {
+    const parts = [VERDICTS.find((v) => v.id === item.verdict)?.label, item.visits === "regular" ? "Regular" : item.visits === "few" ? "A few times" : null];
+    return parts.filter(Boolean).join(" · ") || "Been ✓";
+  }
   const days = Math.floor(
     (Date.now() - new Date(item.savedAt).getTime()) / 86400000,
   );
@@ -47,18 +53,21 @@ export default function Lists() {
   const [country, setCountry] = useState<string | undefined>(undefined);
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [wish, setWish] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [origin, setOrigin] = useState<Origin | null>(null);
   const [saturday, setSaturday] = useState("");
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
     let live = true;
-    const origin = loadOrigin();
+    const here = loadOrigin();
     /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
-    setCountry(origin?.city.country);
-    setCallingCode(codeFor(origin?.city.country).code);
+    setOrigin(here);
+    setCountry(here?.city.country);
+    setCallingCode(codeFor(here?.city.country).code);
     setSaturday(thisSaturday());
     /* eslint-enable react-hooks/set-state-in-effect */
-    fetchLists(origin).then((list) => live && setItems(list ?? []));
+    fetchLists(here).then((list) => live && setItems(list ?? []));
     loadWhatsApp().then((n) => live && setWhatsApp(n));
     loadWishes().then((w) => live && setWishes(w));
     return () => {
@@ -169,6 +178,16 @@ export default function Lists() {
           </button>
         </div>
         <p className={styles.private}>Private. Only you can see these.</p>
+
+        {tab === "been" && items !== null && (
+          <button type="button" className={styles.addPlace} onClick={() => setAdding(true)}>
+            <span>＋</span>
+            <span>
+              <strong>Add a place you&apos;ve been</strong>
+              <span>Your favourites and regulars teach Feta most.</span>
+            </span>
+          </button>
+        )}
 
         {tab === "want" && items !== null && (
           <section className={styles.weekend}>
@@ -374,6 +393,33 @@ export default function Lists() {
         )}
       </main>
       <TabBar active="lists" />
+      {adding && origin && (
+        <AddPlace
+          city={origin.city}
+          onClose={() => setAdding(false)}
+          onAdded={(p) => {
+            setAdding(false);
+            setItems((all) => [
+              {
+                placeId: p.placeId,
+                list: "been",
+                name: p.name,
+                area: p.detail.split(",")[0],
+                distanceKm: null,
+                note: p.note,
+                savedAt: new Date().toISOString(),
+                weekendFor: null,
+                visits: p.visits,
+                verdict: p.verdict,
+                mapsUri: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+                photo: null,
+              },
+              ...(all ?? []).filter((i) => !(i.placeId === p.placeId && i.list === "been")),
+            ]);
+            toast(`${p.name} added. Feta will learn from it.`);
+          }}
+        />
+      )}
       {open && (
         <>
           <div className={styles.dim} onClick={() => setOpen(null)} />
@@ -388,6 +434,42 @@ export default function Lists() {
                 .filter(Boolean)
                 .join(" · ")}
             </p>
+            {open.list === "been" && (
+              <div className={styles.rate}>
+                <div className={styles.rateRow}>
+                  {VERDICTS.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className={open.verdict === v.id ? styles.rateOn : ""}
+                      onClick={() => {
+                        saveBeen(open.placeId, { verdict: v.id as Verdict });
+                        update(open.placeId, "been", { verdict: v.id });
+                        setOpen({ ...open, verdict: v.id });
+                      }}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+                <div className={styles.rateRow}>
+                  {VISITS.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      className={open.visits === v.id ? styles.rateOn : ""}
+                      onClick={() => {
+                        saveBeen(open.placeId, { visits: v.id as Visits });
+                        update(open.placeId, "been", { visits: v.id });
+                        setOpen({ ...open, visits: v.id });
+                      }}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {open.list === "want" && (
               <button
                 type="button"

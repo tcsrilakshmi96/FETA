@@ -184,6 +184,7 @@ export async function findDestination(name: string): Promise<{ name: string; lat
 // chosen one's location. Autocomplete is free when the session ends in this
 // details call, which uses the cheapest fields (Essentials).
 export async function suggestAreas(input: string, near: { lat: number; lng: number }, country: string, session: string) {
+  if (FAKE) return [0, 1, 2].map((n) => ({ placeId: `fake_${near.lat.toFixed(4)}_${near.lng.toFixed(4)}_${n}_f`, name: `${input} (test ${n + 1})`, detail: "Test Area, Test City", types: ["restaurant", "food"] }));
   const res = await fetch(`${BASE}/places:autocomplete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
@@ -198,16 +199,20 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
   track("places_autocomplete");
   if (!res.ok) return [];
   const data = (await res.json()) as {
-    suggestions?: { placePrediction?: { placeId: string; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
+    suggestions?: { placePrediction?: { placeId: string; types?: string[]; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
   };
   return (data.suggestions ?? [])
     .map((s) => s.placePrediction)
     .filter((p): p is NonNullable<typeof p> => !!p?.structuredFormat?.mainText)
     .slice(0, 5)
-    .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "" }));
+    .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "", types: p.types ?? [] }));
 }
 
 export async function areaLocation(placeId: string, session: string): Promise<{ lat: number; lng: number } | null> {
+  if (FAKE) {
+    const p = fakeDetails(placeId);
+    return p?.location ? { lat: p.location.latitude, lng: p.location.longitude } : null;
+  }
   const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(session)}`, {
     headers: headers("location"),
   });

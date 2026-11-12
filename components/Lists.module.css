@@ -467,3 +467,69 @@
   color: var(--ink);
   text-align: left;
 }
+
+/* "Add a place you've been", at the top of Been. */
+.addPlace {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(255, 79, 123, 0.1);
+  border: 1px dashed rgba(255, 79, 123, 0.45);
+  text-align: left;
+  color: var(--ink);
+}
+
+.addPlace > span:first-child {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--rose);
+  color: var(--inkFixed);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+}
+
+.addPlace strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.addPlace span span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+/* How it was, and how often, on a place you've been. */
+.rate {
+  margin-top: 10px;
+}
+
+.rateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.rateRow button {
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.rateRow .rateOn {
+  background: var(--ink);
+  color: var(--bg);
+}

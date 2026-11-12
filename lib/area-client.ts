@@ -3,7 +3,7 @@
 import type { City } from "@/lib/cities";
 import { currentUserId, supabase } from "@/lib/supabase";
 
-export type AreaSuggestion = { placeId: string; name: string; detail: string };
+export type AreaSuggestion = { placeId: string; name: string; detail: string; types?: string[] };
 
 async function call<T>(body: object): Promise<T | null> {
   await currentUserId();
