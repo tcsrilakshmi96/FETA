@@ -1,4 +1,5 @@
 import "server-only";
+import { FAKE } from "@/lib/server/fake-places";
 
 import { distanceKm, type City } from "@/lib/cities";
 import { track } from "@/lib/server/costs";
@@ -62,6 +63,7 @@ export async function findEvents(opts: {
   when: "tonight" | "weekend";
   distanceKm: number;
 }): Promise<EventSearch> {
+  if (FAKE) return { events: [], searchHtml: "" };
   const cal = cityCalendar(opts.city.timeZone);
   const window =
     opts.when === "tonight"

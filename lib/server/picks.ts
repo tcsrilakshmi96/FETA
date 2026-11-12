@@ -4,6 +4,7 @@ import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
 import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { track } from "@/lib/server/costs";
+import { FAKE } from "@/lib/server/fake-places";
 import { photoRef } from "@/lib/server/photo-ref";
 import { bestPhoto, type Place } from "@/lib/server/places";
 
@@ -523,6 +524,7 @@ Rank all of them that genuinely suit them, best first (leave out any that don't)
   - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence in at most 7 words (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
 - No hype words.`;
 
+  if (FAKE) throw new Error("Test mode: no Gemini ranking");
   track("gemini_rank");
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",

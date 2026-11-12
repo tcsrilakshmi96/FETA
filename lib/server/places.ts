@@ -1,5 +1,6 @@
 import "server-only";
 import { track } from "@/lib/server/costs";
+import { FAKE, fakeDetails, fakeSearch } from "@/lib/server/fake-places";
 
 // Google Places API (New), called only from Feta's server so the key stays
 // private. Results are used for this request and never stored, apart from
@@ -83,6 +84,7 @@ export async function searchPlaces(opts: {
   lite?: boolean; // cheaper fields, top match only unless count is given
   count?: number;
 }): Promise<Place[]> {
+  if (FAKE) return fakeSearch(opts.lat, opts.lng, opts.query, /food|eat|drink|cafe|bar|restaurant|dinner|brunch|dessert/i.test(opts.query)).slice(0, opts.count ?? (opts.lite ? 1 : 20));
   const res = await fetch(`${BASE}/places:searchText`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet, opts.lite)),
@@ -117,6 +119,7 @@ export async function searchNearby(opts: {
   needsDiet: boolean;
   regionCode: string;
 }): Promise<Place[]> {
+  if (FAKE) return fakeSearch(opts.lat, opts.lng, opts.types.join(), true);
   const res = await fetch(`${BASE}/places:searchNearby`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet)),
@@ -141,6 +144,7 @@ export async function searchNearby(opts: {
 }
 
 export async function placeDetails(id: string, needsDiet: boolean, lite = false): Promise<Place | null> {
+  if (FAKE) return fakeDetails(id);
   const res = await fetch(`${BASE}/places/${encodeURIComponent(id)}?languageCode=en`, {
     headers: headers(fieldMask("", needsDiet, lite)),
   });
@@ -151,6 +155,7 @@ export async function placeDetails(id: string, needsDiet: boolean, lite = false)
 
 // A short-lived photo address (no key in it) for the card.
 export async function photoUri(photoName: string): Promise<string | null> {
+  if (FAKE) return null;
   const res = await fetch(`${BASE}/${photoName}/media?maxWidthPx=800&skipHttpRedirect=true`, {
     headers: { "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
   });

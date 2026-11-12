@@ -1,4 +1,5 @@
 import "server-only";
+import { FAKE } from "@/lib/server/fake-places";
 
 import { track } from "@/lib/server/costs";
 import type { Place } from "@/lib/server/places";
@@ -16,6 +17,7 @@ export type PlaceNotes = {
 type Chunk = { maps?: { uri?: string; title?: string } };
 
 export async function placeNotes(place: Place, kind: "EAT" | "DRINK" | "DO"): Promise<PlaceNotes> {
+  if (FAKE) return { items: ["Test mode: no notes"], sources: [] };
   const name = place.displayName?.text ?? "this place";
   const ask =
     kind === "DO"
