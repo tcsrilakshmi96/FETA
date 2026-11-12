@@ -5,6 +5,7 @@ import AdminImport from "@/components/AdminImport";
 import AdminWeekend from "@/components/AdminWeekend";
 import { useToast } from "@/components/Toast";
 import { findCities, loadCity, type City } from "@/lib/cities";
+import { readGoogleReturn, signInToExistingAccount, startGoogleSignIn } from "@/lib/auth";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Admin.module.css";
 
@@ -32,6 +33,11 @@ export default function Admin() {
   }
 
   useEffect(() => {
+    // Back from Google: the founder's account already exists, so sign in to it.
+    if (readGoogleReturn().errorCode === "identity_already_exists") {
+      signInToExistingAccount("/admin");
+      return;
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the city is only readable in the browser
     setCity(loadCity());
     currentUserId().then(async () => {
@@ -91,7 +97,18 @@ export default function Admin() {
     return (
       <main className={styles.screen}>
         <h1 className={styles.title}>Not for you, sorry.</h1>
-        <p className={styles.sub}>This page is only for Feta&apos;s founder. Sign in with the founder&apos;s Google account in You.</p>
+        <p className={styles.sub}>This page is only for Feta&apos;s founder. Sign in with the founder&apos;s Google account.</p>
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ width: "100%", marginTop: 18 }}
+          onClick={async () => {
+            const error = await startGoogleSignIn("/admin");
+            if (error) toast("Couldn't reach Google. Try again.");
+          }}
+        >
+          Continue with Google
+        </button>
       </main>
     );
   }
