@@ -44,10 +44,12 @@ function openUntil(p: Pick, at: Date, minutes: number) {
 
 const VERDICT_SCORE: Record<string, number> = { "Worth a detour": 0, "Good if you're nearby": 1, "Skip unless": 3 };
 
-export function planEvening(food: Pick[], experiences: Pick[], when: When, now = new Date()): Plan | null {
+// Up to "max" different evenings, best first, with no place in two of them,
+// so "not this one" always offers something new.
+export function planEvenings(food: Pick[], experiences: Pick[], when: When, now = new Date(), max = 4): Plan[] {
   const firsts = food.filter((p) => p.kind === "EAT" || p.kind === "DRINK");
   const afters = [...experiences, ...food.filter((p) => p.kind === "DRINK")];
-  const found: { best: { plan: Plan; score: number } | null } = { best: null };
+  const found: { plan: Plan; score: number }[] = [];
 
   // Tonight starts soon; the weekend plan is for Saturday (or Sunday) evening.
   const day = new Date(now);
@@ -65,8 +67,7 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
     if (firstAt < earliest) return;
     if (!openUntil(first, firstAt, 60) || !openUntil(second, secondAt, AFTER_MINUTES)) return;
     const score = km + bonus + (VERDICT_SCORE[first.verdict] ?? 1) + (VERDICT_SCORE[second.verdict] ?? 1) + (first.fetaNote !== undefined || second.fetaNote !== undefined ? -1 : 0);
-    if (found.best && score >= found.best.score) return;
-    found.best = {
+    found.push({
       score,
       plan: {
         stops: [
@@ -78,7 +79,7 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
         mode: t.mode,
         day: when === "tonight" ? "Tonight" : new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(firstAt),
       },
-    };
+    });
   };
 
   for (const a of firsts) {
@@ -103,7 +104,19 @@ export function planEvening(food: Pick[], experiences: Pick[], when: When, now =
       consider(b, a, before, dinner, km, t, 0.5);
     }
   }
-  return found.best?.plan ?? null;
+  const used = new Set<string>();
+  const plans: Plan[] = [];
+  for (const { plan } of found.sort((x, y) => x.score - y.score)) {
+    if (plans.length >= max) break;
+    if (plan.stops.some((s) => used.has(s.pick.placeId))) continue;
+    plan.stops.forEach((s) => used.add(s.pick.placeId));
+    plans.push(plan);
+  }
+  return plans;
+}
+
+export function planEvening(food: Pick[], experiences: Pick[], when: When, now = new Date()): Plan | null {
+  return planEvenings(food, experiences, when, now, 1)[0] ?? null;
 }
 
 export function clock(d: Date) {

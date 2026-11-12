@@ -5,14 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
-import { clock, planEvening } from "@/lib/plan";
+import { clock, planEvenings } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
 
 // Found near a dinner pick, kept while the app is open so reopening the
 // sheet makes no new search.
 const nearKept = new Map<string, Promise<Pick[]>>();
 
-// "Plan my evening": two stops close together, with times, ready to send.
+// "Plan my evening": up to 4 different evenings, each two stops close
+// together, with times, ready to send.
 // The picks on screen first; if none pair up (experiences are often across
 // town), one search for something close to the best dinner.
 export default function PlanSheet({
@@ -30,11 +31,12 @@ export default function PlanSheet({
   when: "tonight" | "weekend";
   onClose: () => void;
 }) {
-  const onScreen = useMemo(() => (loading ? null : planEvening(food, experiences, when)), [loading, food, experiences, when]);
+  const onScreen = useMemo(() => (loading ? [] : planEvenings(food, experiences, when)), [loading, food, experiences, when]);
+  const [choice, setChoice] = useState(0);
   const dinner = food.find((p) => p.kind === "EAT" && p.lat !== undefined) ?? food.find((p) => p.lat !== undefined);
   const nearKey = dinner ? `${when}|${dinner.placeId}` : "";
   const [near, setNear] = useState<{ key: string; picks: Pick[] } | null>(null);
-  const searching = !loading && !onScreen && !!dinner && near?.key !== nearKey;
+  const searching = !loading && onScreen.length === 0 && !!dinner && near?.key !== nearKey;
 
   useEffect(() => {
     if (!searching || !dinner) return;
@@ -49,7 +51,8 @@ export default function PlanSheet({
     };
   }, [searching, dinner, nearKey, food, experiences, when, cityId]);
 
-  const plan = onScreen ?? (near?.key === nearKey && dinner ? planEvening(food, near.picks, when) : null);
+  const plans = onScreen.length > 0 ? onScreen : near?.key === nearKey && dinner ? planEvenings(food, near.picks, when) : [];
+  const plan = plans[Math.min(choice, plans.length - 1)] ?? null;
   const [a, b] = plan ? plan.stops : [null, null];
   return (
     <>
@@ -74,6 +77,15 @@ export default function PlanSheet({
             <p className={styles.title}>
               {plan.day}, <strong>sorted.</strong>
             </p>
+            {plans.length > 1 && (
+              <div className={styles.options} role="tablist" aria-label="Plans">
+                {plans.map((p, i) => (
+                  <button key={i} type="button" role="tab" aria-selected={plan === p} className={plan === p ? styles.optionOn : ""} onClick={() => setChoice(i)}>
+                    Plan {i + 1}
+                  </button>
+                ))}
+              </div>
+            )}
             <ol className={styles.stops}>
               {plan.stops.map((stop, i) => (
                 <li key={stop.pick.placeId}>
@@ -117,6 +129,11 @@ export default function PlanSheet({
                 })),
               }}
             />
+            {plans.length > 1 && (
+              <button type="button" className={styles.another} onClick={() => setChoice((choice + 1) % plans.length)}>
+                Not this one? See plan {((plans.indexOf(plan) + 1) % plans.length) + 1}
+              </button>
+            )}
             <a
               className={styles.directions}
               href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(b!.pick.name)}${b!.pick.event ? "" : `&destination_place_id=${b!.pick.placeId}`}&waypoints=${encodeURIComponent(a!.pick.name)}${a!.pick.event ? "" : `&waypoint_place_ids=${a!.pick.placeId}`}`}

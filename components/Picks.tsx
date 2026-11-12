@@ -100,13 +100,12 @@ export default function Picks() {
   const slot = slots[key];
 
   const load = useCallback(
-    async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string; label: string }) => {
+    async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string }) => {
       if (!origin) return;
       const k = `${originKey(origin)}|${w}:${c}`;
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
       const reply = await fetchPicks(c, w, origin, false, tweak && { tweaks: tweak.tweaks, note: tweak.note });
       const at = Date.now();
-      const tweakBanner = tweak && reply.picks?.length ? `${tweak.label}: here are ${reply.picks.length} new ones.` : undefined;
       setSlots((s) => ({
         ...s,
         [k]: {
@@ -114,7 +113,7 @@ export default function Picks() {
           picks: (reply.picks ?? []).map((p) => ({ ...p, checkedAt: at })),
           spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
           saved: [],
-          banner: reply.banner ?? tweakBanner,
+          banner: reply.banner,
           notice: reply.notice ?? reply.error,
         },
       }));
@@ -122,11 +121,11 @@ export default function Picks() {
     [origin],
   );
 
-  function tweak(tweaks: string[], label: string, note?: string) {
+  function tweak(tweaks: string[], note?: string) {
     saveTweakLines(tweaks);
     setSheet(null);
     setTweakNote("");
-    load(when, category, { tweaks, note, label });
+    load(when, category, { tweaks, note });
   }
 
   // "Show me more": the next 8 from the backup, or a new search once the
@@ -347,11 +346,12 @@ export default function Picks() {
                     <span className={styles.rowName}>{p.name}</span>
                     <span className={styles.rowWhy}>{p.because}</span>
                     <span className={styles.rowMeta}>
-                      {[where(p), p.event ? p.chips[0] : null, verdictText(p)].filter(Boolean).join(" · ")}
+                      {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
+                      {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>Worth a detour</span>}
                     </span>
+                    {/* Google's credit, short; opening hours and the full verdict are in Details. */}
                     {!p.event && (
                       <span className={styles.rowGoogle}>
-                        {p.googleLine.split(" · ").filter((part) => !part.startsWith("checked") && part !== "Google Maps").join(" · ")} ·{" "}
                         <a href={p.mapsUri} target="_blank" rel="noopener noreferrer" translate="no" onClick={(e) => e.stopPropagation()}>
                           Google Maps
                         </a>
@@ -410,7 +410,7 @@ export default function Picks() {
                 <p className={styles.sheetSub}>Pick one and I&apos;ll find new ones.</p>
                 <div className={styles.reasons}>
                   {TWEAK_OPTIONS.filter((t) => t.id !== "kids" || withKids).map((t) => (
-                    <button key={t.id} type="button" onClick={() => tweak([t.id], t.label)}>
+                    <button key={t.id} type="button" onClick={() => tweak([t.id])}>
                       {t.label}
                     </button>
                   ))}
@@ -419,7 +419,7 @@ export default function Picks() {
                   className={styles.sayIt}
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (tweakNote.trim()) tweak([], `"${tweakNote.trim()}"`, tweakNote.trim());
+                    if (tweakNote.trim()) tweak([], tweakNote.trim());
                   }}
                 >
                   <input value={tweakNote} onChange={(e) => setTweakNote(e.target.value)} placeholder='Or say it, e.g. "rooftop with a view"' aria-label="Say what you want" maxLength={200} />

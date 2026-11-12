@@ -340,3 +340,26 @@
   color: var(--bg);
   font-size: 13px;
 }
+
+.feedbackText {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.shotBtn {
+  display: block;
+  margin-top: 8px;
+}
+
+.shot {
+  width: 90px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--inkRGB), 0.12);
+}
+
+.shotBig {
+  width: 100%;
+  border-radius: 14px;
+}

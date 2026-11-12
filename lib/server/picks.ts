@@ -93,6 +93,15 @@ export type StoredPick = {
 export const SHOW = 8;
 // Very popular places allowed among the 8 shown ("New to you" rule).
 const MAX_POPULAR = 2;
+// Places of one cuisine allowed among the 8 shown, so favourites are mixed.
+const MAX_SAME_CUISINE = 2;
+
+// A specific cuisine from Google's main type ("indian_restaurant"), not a
+// general one ("restaurant", "cafe", "bar").
+function cuisineOf(c: Candidate) {
+  const t = c.place.primaryType ?? "";
+  return /_restaurant$/.test(t) && !/^(fine_dining|fast_food|family|casual)/.test(t) ? t : null;
+}
 
 // Sent to the phone for one card.
 export type Pick = StoredPick & {
@@ -205,13 +214,14 @@ const DOING_SIDE_PHRASES: Record<string, string> = {
 
 // Food & drinks search words from the user's tweaks, cuisines and taste
 // cards, searched alongside everything popular nearby. Empty means popular only.
-export function foodPhrases(taste: Taste, tweaks: Tweak[] = []): string[] {
+export function foodPhrases(taste: Taste, tweaks: Tweak[] = [], city?: City): string[] {
   const veg = needsDietCheck(taste.answers) ? "vegetarian " : "";
   const sober = taste.answers.drinks === "no_alcohol";
   const fromTweaks = tweaks.map((t) => TWEAK_PHRASES[t]).filter(Boolean) as string[];
   const fromSwipes: string[] = [];
   for (const id of taste.yes) {
-    const cuisine = id.startsWith("cuisine_") ? CUISINE_PHRASES[id.slice(8)] : null;
+    // "Local food" means this country's food: "traditional Germany food" in Berlin.
+    const cuisine = id === "cuisine_local" && city ? `traditional ${city.countryName} food` : id.startsWith("cuisine_") ? CUISINE_PHRASES[id.slice(8)] : null;
     if (cuisine) fromSwipes.push(`${veg}${cuisine}`);
   }
   for (const id of taste.yes) {
@@ -517,6 +527,7 @@ Places marked FETA PICK are the founder's own favourites: rank one of them highl
 
 Rank all of them that genuinely suit them, best first (leave out any that don't). Rules:
 - Prefer finds over the obvious: at most ${MAX_POPULAR} places marked VERY POPULAR in the top ${SHOW}, and not first.
+- Mix their favourites: at most ${MAX_SAME_CUISINE} places of the same cuisine in the top ${SHOW}, and if they named several cuisines, cover as many of them as the places allow.
 - "because": one line, at most 110 characters, starting "Because you", tied to something they said or liked above that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
@@ -579,6 +590,9 @@ export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHO
   const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count) => {
     if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
     if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= MAX_POPULAR) return;
+    // A mix: at most 2 of the same cuisine (Google's type, e.g. indian_restaurant) among the first 8.
+    const kind = cuisineOf(candidate);
+    if (!allowExtraPopular && kind && chosen.length < SHOW && chosen.filter((c) => cuisineOf(c.candidate) === kind).length >= MAX_SAME_CUISINE) return;
     chosen.push({ candidate, ranked: r });
   };
   const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;

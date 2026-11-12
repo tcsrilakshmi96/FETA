@@ -11,7 +11,7 @@ import {
   switchToExistingAccount,
   takeReconfirmAge,
 } from "@/lib/auth";
-import { saveAgeConfirmed, saveConsent } from "@/lib/db";
+import { restoreFromAccount, saveAgeConfirmed, saveConsent } from "@/lib/db";
 import styles from "./SignIn.module.css";
 
 type Step = "google" | "consent";
@@ -40,13 +40,16 @@ export default function SignIn() {
     }
     // Supabase reads Google's one-time code from the address first, so tidy
     // the address only after that.
-    isSignedIn().then((signedIn) => {
+    isSignedIn().then(async (signedIn) => {
       window.history.replaceState(null, "", "/sign-in");
       if (!signedIn) return;
       if (takeReconfirmAge()) saveAgeConfirmed();
-      setStep("consent");
+      // Someone who already set Feta up gets their answers back and goes
+      // straight to their picks; consent was given the first time.
+      if (await restoreFromAccount()) router.replace("/picks");
+      else setStep("consent");
     });
-  }, [toast]);
+  }, [toast, router]);
 
   function goBack() {
     if (step === "google") router.push("/");

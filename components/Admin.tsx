@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminFeedback from "@/components/AdminFeedback";
 import AdminImport from "@/components/AdminImport";
 import AdminWeekend from "@/components/AdminWeekend";
 import { useToast } from "@/components/Toast";
@@ -26,7 +27,7 @@ export default function Admin() {
   const [note, setNote] = useState("");
   const [places, setPlaces] = useState<FetaPlace[]>([]);
   const [editing, setEditing] = useState<{ id: string; note: string } | null>(null);
-  const [tab, setTab] = useState<"picks" | "weekend" | "instagram">("picks");
+  const [tab, setTab] = useState<"picks" | "weekend" | "instagram" | "feedback">("picks");
 
   async function refresh() {
     const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").order("created_at", { ascending: false });
@@ -125,6 +126,7 @@ export default function Admin() {
             ["picks", "Feta picks"],
             ["weekend", "Weekend plans"],
             ["instagram", "From Instagram"],
+            ["feedback", "Feedback"],
           ] as const
         ).map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? styles.on : ""} onClick={() => setTab(id)}>
@@ -134,6 +136,7 @@ export default function Admin() {
       </div>
       {tab === "weekend" && <AdminWeekend />}
       {tab === "instagram" && <AdminImport onAdded={refresh} />}
+      {tab === "feedback" && <AdminFeedback />}
       {tab === "picks" && (
       <>
       <p className={styles.sub}>Your own places. One shows up in someone&apos;s 3 whenever it fits their hard filters, with your note.</p>

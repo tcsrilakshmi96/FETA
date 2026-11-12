@@ -1,9 +1,44 @@
 "use client";
 
-import type { City } from "@/lib/cities";
-import type { Answers } from "@/lib/onboarding";
+import { loadCity, saveCity, type City } from "@/lib/cities";
+import { saveAnswers, type Answers } from "@/lib/onboarding";
 import { currentUserId, supabase } from "@/lib/supabase";
-import type { ProfileLine, Swipe } from "@/lib/swipes";
+import { saveProfileLines, saveSwipes, type ProfileLine, type Swipe } from "@/lib/swipes";
+
+// Someone who has done the setup on this phone goes straight to their picks.
+export function setUpOnThisPhone() {
+  try {
+    return !!loadCity() && localStorage.getItem("feta.profileLines") !== null;
+  } catch {
+    return false;
+  }
+}
+
+// A returning person on a new phone (or after signing in with Google):
+// their city, answers, taste cards and lines come back from their account,
+// so they don't answer everything again. False if they never finished setup.
+export async function restoreFromAccount(): Promise<boolean> {
+  const userId = await currentUserId();
+  if (!userId) return false;
+  const db = supabase();
+  const [{ data: profile }, { data: a }, { data: swipes }, { data: lines }] = await Promise.all([
+    db.from("profiles").select("city_id").eq("id", userId).maybeSingle(),
+    db.from("answers").select("*").maybeSingle(),
+    db.from("swipes").select("card_id, verdict"),
+    db.from("profile_lines").select("line_key, text, source").is("removed_at", null).in("source", ["answers", "swipes"]),
+  ]);
+  if (!profile?.city_id || !a?.diet) return false;
+  const city = await fetch(`/api/cities?id=${encodeURIComponent(profile.city_id)}`)
+    .then((r) => r.json() as Promise<{ city: City | null }>)
+    .then((r) => r.city)
+    .catch(() => null);
+  if (!city) return false;
+  saveCity(city);
+  saveAnswers({ diet: a.diet, halal: a.halal, distance: a.distance, spend: a.spend, spendCurrency: a.spend_currency, who: a.who ?? [], drinks: a.drinks, interests: a.interests ?? [] } as Answers);
+  saveSwipes((swipes ?? []).map((s) => ({ cardId: s.card_id, verdict: s.verdict })) as Swipe[]);
+  saveProfileLines((lines ?? []).map((l) => ({ id: l.line_key, text: l.text, source: l.source })) as ProfileLine[]);
+  return true;
+}
 
 // Saves to the database. The screens never wait on these: if a save fails
 // (say, on a bad connection) the copy on the phone still lets the flow

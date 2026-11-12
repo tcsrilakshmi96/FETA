@@ -136,3 +136,31 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+/* Plan 1–4: different evenings, no place repeated. */
+.options {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.options button {
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.options .optionOn {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.another {
+  min-height: 42px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--roseText);
+}

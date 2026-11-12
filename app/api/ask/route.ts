@@ -7,6 +7,7 @@ import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/p
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 import { weekendSaturday } from "@/lib/weekend";
+import { buildItinerary, type Itinerary } from "@/lib/server/itinerary";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 export const maxDuration = 60;
@@ -22,6 +23,7 @@ type VeniceReply = {
   reply?: string;
   learned?: ({ text?: string; about?: string | null } | string)[];
   weekend?: string | null;
+  itinerary?: { place?: string | null; days?: number; start?: string | null; note?: string } | null;
   trip?: { place?: string; dates?: string } | null;
   search?: {
     category?: string;
@@ -42,6 +44,7 @@ export type AskReply = {
   notice?: string;
   options?: string[]; // tap-able answers to a question Feta just asked
   weekend?: { id: string; text: string } | null; // added to their weekend plan
+  itinerary?: Itinerary | null; // a full day (or up to 3), stop by stop
 };
 
 // Who a learned line is about, for the People group on You.
@@ -86,8 +89,9 @@ Reply with only a JSON object:
  "weekend": null, or a short phrase (under 8 words) when they say something they want to do or try this weekend, e.g. "Pottery class with my sister", "Brunch somewhere new". It goes on their weekend plan.
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
  "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase capturing what they want, e.g. "romantic, quiet, live jazz"} once you know enough to suggest places.
+ "itinerary": null, or {"place": the city or area, or null for where they are now, "days": 1 to 3, "start": the first day as YYYY-MM-DD (today if they don't say), "note": a short phrase of what they want, e.g. "food and art, relaxed"} when they want an itinerary, a day plan or a plan for a whole day or trip. It gives them a stop-by-stop plan (breakfast, morning, lunch, afternoon, dinner, a drink).
  "why": true if they ask why a pick was chosen.}
-How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
+How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. For an itinerary, ask at most 2 quick questions first (which days, and what they'd love to fit in) unless they already said, then set "itinerary" with "search" null and say you're putting the day together. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
 You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. Never say food is safe for an allergy or a diet.`;
 
   let parsed: VeniceReply;
@@ -150,7 +154,32 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
     .slice(0, 4);
   // A trip mentioned without a search still gets 3 places there, unless
   // Feta is still asking about it.
-  const s = parsed.why ? null : (parsed.search ?? (parsed.trip?.place && options.length === 0 ? { category: "food_drinks", place: parsed.trip.place } : null));
+  const plan = parsed.why ? null : (parsed.itinerary ?? null);
+  const s = parsed.why || plan ? null : (parsed.search ?? (parsed.trip?.place && options.length === 0 ? { category: "food_drinks", place: parsed.trip.place } : null));
+  let itinerary: Itinerary | null = null;
+  if (plan) {
+    // Food & drinks and experiences there, through the same hard filters,
+    // then arranged into a day in code (Venice never sees the places).
+    const origin = await withCosts(db, "ask", () => resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity));
+    if (!origin || isMainlandChina(origin.city)) {
+      notice = origin ? `Feta can't check places in mainland China yet, so I can't plan a day there.` : `I couldn't find ${plan.place} on the map. Try a nearby city?`;
+    } else {
+      const ask = (category: "food_drinks" | "experiences") =>
+        withCosts(db, "ask", () =>
+          runPicks(token, { category, when: "weekend", origin, note: (plan.note ?? "").slice(0, 120), ...(tripLabel ? { trip: tripLabel } : {}) }),
+        ).then((r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>);
+      const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);
+      const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.city.timeZone }).format(new Date());
+      const start = /^\d{4}-\d{2}-\d{2}$/.test(plan.start ?? "") && plan.start! >= today ? plan.start! : today;
+      const place = origin.source === "area" ? origin.label : origin.city.name;
+      itinerary = buildItinerary(all, { start, days: Math.round(plan.days ?? 1), place });
+      if (!itinerary.days.some((d) => d.stops.length > 0)) {
+        itinerary = null;
+        notice = "I couldn't find enough open places to plan a full day there. Try another area or day?";
+      }
+    }
+  }
   if (s) {
     const origin = await withCosts(db, "ask", () => resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity));
     if (origin && isMainlandChina(origin.city)) {
@@ -185,11 +214,14 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
         added,
         trip: tripLabel,
         weekend,
+        ...(itinerary
+          ? { itinerary: { title: itinerary.title, days: itinerary.days.map((d) => ({ label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, because: st.pick.because })) })) } }
+          : {}),
       },
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, weekend, ...(notice ? { notice } : {}), ...(options.length && !s ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, ...(notice ? { notice } : {}), ...(options.length && !s ? { options } : {}) } satisfies AskReply);
 }
 
 // Where to search: a city anywhere in the world (by name, from Feta's own

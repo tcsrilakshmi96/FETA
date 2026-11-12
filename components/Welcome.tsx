@@ -1,14 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { saveAgeConfirmed } from "@/lib/db";
+import { restoreFromAccount, saveAgeConfirmed, setUpOnThisPhone } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import styles from "./Welcome.module.css";
 
 export default function Welcome() {
   const [isAdult, setIsAdult] = useState(false);
   const router = useRouter();
+
+  // Returning people skip the setup: straight to their picks, from this
+  // phone's copy or, if this phone is already signed in, from their account.
+  useEffect(() => {
+    if (setUpOnThisPhone()) {
+      router.replace("/picks");
+      return;
+    }
+    supabase()
+      .auth.getSession()
+      .then(({ data }) => (data.session ? restoreFromAccount() : false))
+      .then((restored) => restored && router.replace("/picks"));
+  }, [router]);
 
   return (
     <main className={styles.screen}>

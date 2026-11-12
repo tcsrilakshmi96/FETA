@@ -123,19 +123,14 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const wide = body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: "city" } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
-  // 1. Reuse recent picks: re-check the ones shown live (not the backups,
-  //    which would cost more than a new search). If more than 2 have
-  //    closed, top up with a fresh search below.
-  let kept: { stored: StoredPick[]; picks: Pick[] } = { stored: [], picks: [] };
-  let keptBanner: string | null = null;
+  // 1. Recent picks for the same place come back the same: one fresh search
+  //    (one search returns 20 places, cheaper than re-checking 8 one by
+  //    one), with the places shown last time first, in the same order and
+  //    with the same words, as long as they still pass the hard filters.
+  const kept: { stored: StoredPick[]; picks: Pick[] } = { stored: [], picks: [] };
   const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
-  if (latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date()) {
-    const before = firstShown(latest);
-    const shown = await showStored(before, latest.banner, { taste, body, city, origin, exclude, needsDiet });
-    if (shown.picks.length >= Math.max(1, before.length - 2)) return json(shown.reply);
-    kept = shown;
-    keptBanner = latest.banner;
-  }
+  const previous = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date() ? firstShown(latest) : [];
+  const keptBanner: string | null = previous.length ? latest!.banner : null;
 
   // 2. Daily cost limits: searches, and today's estimated spend.
   const [{ data: counts }, spent] = await Promise.all([
@@ -162,6 +157,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   for (const k of kept.stored) exclude.add(k.placeId);
   const need = SHOW - kept.picks.length;
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
+  // The same search words as last time, so the same places come back.
+  const rotation = previous.length ? Math.max(0, todaysSets - 1) : todaysSets;
 
   // Experiences also look for this week's events, at the same time.
   const eventsSearch =
@@ -175,7 +172,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const drops = emptyDrops();
   let pool: Candidate[];
   try {
-    pool = await gatherCandidates({ taste: effective, tweaks, body, city, origin, exclude, needsDiet, need, rotation: todaysSets, drops });
+    pool = await gatherCandidates({ taste: effective, tweaks, body, city, origin, exclude, needsDiet, need, rotation, drops });
   } catch (error) {
     console.error(error);
     if (body.category === "food_drinks" && kept.picks.length === 0) {
@@ -200,7 +197,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof chooseWithGemini>>);
   const [allEvents, ranked] = await Promise.all([eventsSearch, ranking]);
-  const events = allEvents.slice(0, Math.min(2, need));
+  // Events shown last time stay while they're still on.
+  const prevEvents: EventPick[] = previous
+    .filter((p): p is StoredPick & { event: EventInfo } => !!p.event && !exclude.has(p.placeId) && eventStillOn(p.event, body.when, city))
+    .map((stored) => ({ stored, venue: null }));
+  const events = [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, Math.min(2, need));
   if (pool.length === 0 && events.length === 0) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
     console.log("No picks", { category: body.category, when: body.when, drops });
@@ -220,8 +221,12 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     const entry = at >= 0 ? chosen.splice(at, 1)[0] : { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null };
     chosen.splice(Math.min(2, room - 1, chosen.length), 0, entry);
   }
+  const prevOrder = new Map(previous.map((p, i) => [p.placeId, i]));
+  if (prevOrder.size) chosen.sort((a, b) => (prevOrder.get(a.candidate.place.id) ?? 99) - (prevOrder.get(b.candidate.place.id) ?? 99));
   const shownCount = Math.min(room, chosen.length);
   const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }, i) => {
+    const before = previous.find((p) => p.placeId === candidate.place.id);
+    if (before) return { ...before, ...(i >= room ? { spare: true } : {}) };
     // The last pick shown says "Skip unless…" when there is a real compromise.
     const weakest = i === shownCount - 1 && kept.picks.length + events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
     const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
@@ -305,7 +310,7 @@ async function gatherCandidates(ctx: {
 
   // What they asked for in their own words (Tweak sheet or Ask Feta) leads.
   const asked = (ctx.body.note ?? "").trim();
-  const base = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks) : searchPhrases(body.category, taste, ctx.tweaks);
+  const base = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks, city) : searchPhrases(body.category, taste, ctx.tweaks);
   const phrases = asked ? [asked, ...base.filter((p) => p !== asked)] : base;
   const pick = (i: number) => (asked && i === 0 ? asked : phrases.length ? phrases[(ctx.rotation + i) % phrases.length] : null);
   const first = pick(0);
