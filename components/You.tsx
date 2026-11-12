@@ -16,6 +16,7 @@ import { showNumber } from "@/lib/phone";
 import {
   aboutOf,
   addLine,
+  cachedProfile,
   deleteMyData,
   editLine,
   loadAppearance,
@@ -56,7 +57,7 @@ const fixed = (line: Line) => line.source === "answers" || line.source === "swip
 export default function You() {
   const router = useRouter();
   const toast = useToast();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(cachedProfile);
   const [appearance, setAppearanceState] = useState<Appearance>("auto");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cityName, setCityName] = useState("");
@@ -83,7 +84,18 @@ export default function You() {
     });
   }, [toast]);
 
-  if (!profile) return <main className={styles.screen} />;
+  if (!profile)
+    return (
+      <>
+        <main className={styles.screen}>
+          <h1 className={styles.title}>
+            What Feta knows <strong>about you</strong>
+          </h1>
+          <p className={styles.sub}>Getting your profile…</p>
+        </main>
+        <TabBar active="you" />
+      </>
+    );
 
   const everyday = profile.lines.filter((l) => !l.trip);
   const mine = everyday.filter((l) => !aboutOf(l));

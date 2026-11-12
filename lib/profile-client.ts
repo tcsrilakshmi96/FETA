@@ -28,18 +28,24 @@ export type Profile = {
   email: string | null; // null while not signed in with Google
 };
 
+// The last profile loaded, so You opens instantly when you come back to it
+// (it refreshes straight after).
+let lastProfile: Profile | null = null;
+export const cachedProfile = () => lastProfile;
+
 export async function loadProfile(): Promise<Profile | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const db = supabase();
+  // The session is read on the phone, not asked of the server.
   const [{ data: lines }, { data: profile }, { data: auth }, { data: actions }] = await Promise.all([
     db.from("profile_lines").select("id, text, source, trip, line_key").is("removed_at", null).order("created_at"),
     db.from("profiles").select("consent_location, consent_public_reviews, whatsapp_number").eq("id", userId).maybeSingle(),
-    db.auth.getUser(),
+    db.auth.getSession().then(({ data }) => ({ data: { user: data.session?.user ?? null } })),
     db.from("pick_actions").select("place_id, action").in("action", ["saved", "been"]),
   ]);
   const been = new Set((actions ?? []).filter((a) => a.action === "been").map((a) => a.place_id));
-  return {
+  lastProfile = {
     lines: (lines ?? []).map(({ line_key, ...l }) => ({ ...l, key: line_key })) as Line[],
     consent: { location: !!profile?.consent_location, publicReviews: !!profile?.consent_public_reviews },
     places: {
@@ -49,6 +55,7 @@ export async function loadProfile(): Promise<Profile | null> {
     whatsapp: profile?.whatsapp_number ?? null,
     email: auth.user && !auth.user.is_anonymous ? (auth.user.email ?? null) : null,
   };
+  return lastProfile;
 }
 
 // Removing a line stops picks using it (it is kept, marked removed).

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import styles from "./TabBar.module.css";
 
@@ -15,6 +15,7 @@ const TABS = [
 // Floating glass tab bar.
 export default function TabBar({ active }: { active: (typeof TABS)[number]["id"] }) {
   const router = useRouter();
+  const path = usePathname();
   return (
     <>
       <div className={styles.fade} aria-hidden="true" />
@@ -35,7 +36,8 @@ export default function TabBar({ active }: { active: (typeof TABS)[number]["id"]
               className={`${styles.item} ${tab.id === active ? styles.active : ""}`}
               aria-current={tab.id === active ? "page" : undefined}
               onClick={() => {
-                if (tab.id !== active && tab.href) router.push(tab.href);
+                // Home is lit on a picks list too; tapping it goes back Home.
+                if (tab.href && path !== tab.href) router.push(tab.href);
               }}
             >
               <span className={styles.label}>{tab.label}</span>

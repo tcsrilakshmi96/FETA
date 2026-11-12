@@ -47,12 +47,43 @@
   color: var(--roseText);
 }
 
+.right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Light / dark, a moon or sun that spins in. */
+.look {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(var(--surf), 0.7);
+  color: var(--ink);
+  font-size: 15px;
+  letter-spacing: 0;
+  display: grid;
+  place-items: center;
+}
+
+.look span {
+  display: block;
+  animation: spinIn 0.5s var(--ease-spring);
+}
+
+@keyframes spinIn {
+  from { transform: rotate(-120deg) scale(0.4); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
 .area {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.18em;
   color: rgba(var(--inkRGB), 0.65);
-  max-width: 60%;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

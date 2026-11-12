@@ -23,7 +23,7 @@ type VeniceReply = {
   reply?: string;
   learned?: ({ text?: string; about?: string | null } | string)[];
   weekend?: string | null;
-  itinerary?: { place?: string | null; days?: number; start?: string | null; note?: string } | null;
+  itinerary?: { place?: string | null; days?: number; start?: string | null; who?: string; note?: string } | null;
   trip?: { place?: string; dates?: string } | null;
   search?: {
     category?: string;
@@ -89,9 +89,9 @@ Reply with only a JSON object:
  "weekend": null, or a short phrase (under 8 words) when they say something they want to do or try this weekend, e.g. "Pottery class with my sister", "Brunch somewhere new". It goes on their weekend plan.
  "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
  "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase capturing what they want, e.g. "romantic, quiet, live jazz"} once you know enough to suggest places.
- "itinerary": null, or {"place": the city or area, or null for where they are now, "days": 1 to 3, "start": the first day as YYYY-MM-DD (today if they don't say), "note": a short phrase of what they want, e.g. "food and art, relaxed"} when they want an itinerary, a day plan or a plan for a whole day or trip. It gives them a stop-by-stop plan (breakfast, morning, lunch, afternoon, dinner, a drink).
+ "itinerary": null, or {"place": the city or area, or null for where they are now, "days": 1 to 3, "start": the first day as YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": a short phrase of the mood and must-dos, e.g. "romantic, food and art, slow mornings"} once you have the basics for an itinerary, a day plan or a plan for a whole day or trip. It gives them a stop-by-stop plan (breakfast, morning, lunch, afternoon, dinner, a drink).
  "why": true if they ask why a pick was chosen.}
-How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. For an itinerary, ask at most 2 quick questions first (which days, and what they'd love to fit in) unless they already said, then set "itinerary" with "search" null and say you're putting the day together. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
+How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. For an itinerary, get the basics right first, one question at a time with tap-able "options", skipping anything they already said or you already know: 1) who it's with (just me, partner, friends, family, with kids), 2) which day or days and how many (if they named a day like "Saturday", take the coming one and don't ask again), 3) the mood or anything they'd love to fit in (e.g. "Slow and foodie", "Packed with sights", "Some nightlife", "Surprise me"). At most 3 questions, even if they're vague. Only then set "itinerary" (with "search" null) and say you're putting the plan together. If they say "just plan it", plan straight away with sensible guesses. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
 You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. Never say food is safe for an allergy or a diet.`;
 
   let parsed: VeniceReply;
@@ -164,9 +164,14 @@ You can search anywhere in the world except mainland China (Hong Kong and Macau 
     if (!origin || isMainlandChina(origin.city)) {
       notice = origin ? `Feta can't check places in mainland China yet, so I can't plan a day there.` : `I couldn't find ${plan.place} on the map. Try a nearby city?`;
     } else {
+      // Who it's with shapes the search: groups and kids are tweaks; a
+      // partner or family goes into the note.
+      const who = plan.who ?? "";
+      const tweaks = who === "friends" ? ["groups"] : who === "kids" ? ["kids"] : [];
+      const note = [who === "partner" ? "with my partner" : who === "family" ? "with family" : "", plan.note ?? ""].filter(Boolean).join(", ").slice(0, 120);
       const ask = (category: "food_drinks" | "experiences") =>
         withCosts(db, "ask", () =>
-          runPicks(token, { category, when: "weekend", origin, note: (plan.note ?? "").slice(0, 120), ...(tripLabel ? { trip: tripLabel } : {}) }),
+          runPicks(token, { category, when: "weekend", origin, tweaks, note, ...(tripLabel ? { trip: tripLabel } : {}) }),
         ).then((r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>);
       const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);
       const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
