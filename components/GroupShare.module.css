@@ -178,3 +178,78 @@
   font-weight: 500;
   text-decoration: none;
 }
+
+/* "Let the group choose": one card per plan, with its votes. */
+.nameBox {
+  width: 100%;
+  height: 46px;
+  margin-top: 16px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 99px;
+  outline: none;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.options {
+  list-style: none;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.option {
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(var(--surf), 0.8);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.optionMine {
+  border-color: var(--rose);
+}
+
+.optionHead {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.leading {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--saffron);
+  color: var(--inkFixed);
+  letter-spacing: 0.08em;
+}
+
+.optionStop {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.option button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px;
+  border-radius: 99px;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.mapsNote {
+  margin-top: 10px;
+  font: 400 11px Roboto, Arial, sans-serif;
+  color: rgba(var(--inkRGB), 0.55);
+}

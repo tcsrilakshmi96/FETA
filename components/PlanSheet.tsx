@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
-import { clock, planEvenings } from "@/lib/plan";
+import { logEvent } from "@/lib/db";
+import { clock, planEvenings, type Plan } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
 
 // Found near a dinner pick, kept while the app is open so reopening the
@@ -16,6 +17,25 @@ const nearKept = new Map<string, Promise<Pick[]>>();
 // together, with times, ready to send.
 // The picks on screen first; if none pair up (experiences are often across
 // town), one search for something close to the best dinner.
+// One plan as share data: place IDs, times, event links and Feta-pick notes
+// (never diet or the personal reason).
+function sharePlan(p: Plan) {
+  return {
+    title: p.day,
+    travel: { km: p.km, minutes: p.minutes, mode: p.mode },
+    country: p.stops[0].pick.country,
+    stops: p.stops.map((s) => ({
+      placeId: s.pick.placeId,
+      kind: s.pick.kind,
+      time: s.time.toISOString(),
+      ...(s.pick.fetaNote !== undefined ? { fetaNote: s.pick.fetaNote } : {}),
+      ...(s.pick.event
+        ? { event: { title: s.pick.event.title, venueName: s.pick.event.venueName, date: s.pick.event.date, time: s.pick.event.time, url: s.pick.event.url, site: s.pick.event.site } }
+        : {}),
+    })),
+  };
+}
+
 // Directions to the second stop via the first, by exact coordinates (with
 // place IDs), so Google Maps can't land on a different place of that name.
 function directionsForBoth(first: Pick, second: Pick) {
@@ -119,6 +139,18 @@ export default function PlanSheet({
             <p className={styles.attribution}>
               Places and photos: <span translate="no">Google Maps</span>
             </p>
+            {plans.length > 1 && (
+              <SendToGroup
+                kind="choice"
+                label={`Let the group choose (${Math.min(3, plans.length)} plans)`}
+                message={`${plan.day}: ${Math.min(3, plans.length)} plans from Feta.`}
+                payload={{
+                  title: plan.day,
+                  country: plan.stops[0].pick.country,
+                  options: plans.slice(0, 3).map((p) => sharePlan(p)),
+                }}
+              />
+            )}
             <SendToGroup
               kind="plan"
               message={`${plan.day}: ${a!.pick.name} at ${clock(a!.time)}, then ${b!.pick.name} at ${clock(b!.time)}.`}
@@ -145,6 +177,7 @@ export default function PlanSheet({
             <a
               className={styles.directions}
               href={directionsForBoth(a!.pick, b!.pick)}
+              onClick={() => logEvent("plan_directions", a!.pick.placeId)}
               target="_blank"
               rel="noopener noreferrer"
             >

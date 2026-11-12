@@ -4,6 +4,26 @@ import { cityAt, saveCity } from "@/lib/cities";
 import { saveCityToDb } from "@/lib/db";
 import { originFromGps, saveOrigin, type Origin } from "@/lib/origin";
 
+// Arrived somewhere new (the phone is in a different city from the one Feta
+// knew): Home greets the first evening there. Kept for the visit only.
+const NEW_CITY_KEY = "feta.newCity";
+
+export function markNewCity(name: string) {
+  try {
+    sessionStorage.setItem(NEW_CITY_KEY, name);
+  } catch {
+    // Just no greeting.
+  }
+}
+
+export function newCityName(): string | null {
+  try {
+    return sessionStorage.getItem(NEW_CITY_KEY);
+  } catch {
+    return null;
+  }
+}
+
 // "Use my location" is kept only for the visit, so reopening Feta (say from
 // WhatsApp) fell back to the whole city and measured from its centre. If
 // this phone already allows Feta its location, use it again quietly, once
@@ -25,6 +45,7 @@ export async function nearMeIfAllowed(current: Origin): Promise<Origin | null> {
   if (city.id !== current.city.id) {
     saveCity(city);
     saveCityToDb(city);
+    markNewCity(city.name);
   }
   const origin = originFromGps(point.lat, point.lng, city);
   saveOrigin(origin);

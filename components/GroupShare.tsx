@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatDistance } from "@/lib/cities";
 import { clock } from "@/lib/plan";
-import { castVote, loadShare, loadVotes, type SharePayload, type ShareStop } from "@/lib/share-client";
+import { castVote, loadShare, loadVotes, type ChoicePayload, type ShareKind, type SharePayload, type ShareStop, type Vote } from "@/lib/share-client";
 import styles from "./GroupShare.module.css";
 
 type Live = { name: string; area: string; mapsUri: string; photo: string | null };
@@ -14,22 +14,25 @@ type Live = { name: string; area: string; mapsUri: string; photo: string | null 
 // with no sign-up. Place details are fetched live from Google.
 export default function GroupShare() {
   const { slug } = useParams<{ slug: string }>();
-  const [share, setShare] = useState<{ kind: "pick" | "plan"; payload: SharePayload } | null | "missing">(null);
+  const [share, setShare] = useState<{ kind: ShareKind; payload: SharePayload & ChoicePayload } | null | "missing">(null);
   const [live, setLive] = useState<Record<string, Live>>({});
-  const [votes, setVotes] = useState<{ name: string | null; vote: "yes" | "no" }[]>([]);
+  const [votes, setVotes] = useState<{ name: string | null; vote: Vote }[]>([]);
   const [name, setName] = useState("");
-  const [mine, setMine] = useState<"yes" | "no" | null>(null);
+  const [mine, setMine] = useState<Vote | null>(null);
 
   useEffect(() => {
     loadShare(slug).then(async (s) => {
       if (!s) return setShare("missing");
       setShare(s);
       setVotes(await loadVotes(slug));
+      // A choice of plans shows names and areas only (no photos: each costs).
+      const choice = s.kind === "choice";
+      const stops = choice ? (s.payload.options ?? []).flatMap((o) => o.stops) : s.payload.stops;
       const found = await Promise.all(
-        s.payload.stops
+        stops
           .filter((st) => !st.event)
           .map(async (st) => {
-            const r = await fetch(`/api/place/${encodeURIComponent(st.placeId)}`);
+            const r = await fetch(`/api/place/${encodeURIComponent(st.placeId)}${choice ? "?lite=1" : ""}`);
             return r.ok ? ([st.placeId, (await r.json()) as Live] as const) : null;
           }),
       );
@@ -43,7 +46,7 @@ export default function GroupShare() {
     }
   }, [slug]);
 
-  async function vote(choice: "yes" | "no") {
+  async function vote(choice: Vote) {
     setMine(choice);
     try {
       localStorage.setItem("feta.voterName", name);
@@ -66,9 +69,64 @@ export default function GroupShare() {
   }
 
   const { payload } = share;
+  const label = (st: ShareStop) => st.event?.title ?? live[st.placeId]?.name ?? "…";
+
+  // "Let the group choose": each plan with its votes; the leader is marked.
+  if (share.kind === "choice") {
+    const options = payload.options ?? [];
+    const count = (i: number) => votes.filter((v) => v.vote === String(i + 1));
+    const top = Math.max(0, ...options.map((_, i) => count(i).length));
+    return (
+      <main className={styles.screen}>
+        <p className={styles.from}>{`Plans for ${payload.title.toLowerCase()}`} · Feta</p>
+        <h1 className={styles.title}>
+          Which one <strong>are we doing?</strong>
+        </h1>
+        <input className={styles.nameBox} value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name (so they know)" aria-label="Your name" maxLength={40} />
+        <ol className={styles.options}>
+          {options.map((o, i) => {
+            const n = count(i);
+            const leading = n.length > 0 && n.length === top;
+            const v = String(i + 1) as Vote;
+            return (
+              <li key={i} className={`${styles.option} ${mine === v ? styles.optionMine : ""}`}>
+                <p className={styles.optionHead}>
+                  <span>Plan {i + 1}</span>
+                  {leading && <span className={styles.leading}>Leading</span>}
+                </p>
+                {o.stops.map((st) => (
+                  <p key={st.placeId} className={styles.optionStop}>
+                    {st.time && <span className={styles.time}>{clock(new Date(st.time))}</span>}
+                    <strong>{label(st)}</strong>
+                    <span className={styles.area}>{st.event ? st.event.venueName : live[st.placeId]?.area}</span>
+                  </p>
+                ))}
+                <button type="button" className={mine === v ? styles.yesOn : styles.yes} onClick={() => vote(v)}>
+                  {mine === v ? "Your vote ✓" : "This one"}
+                </button>
+                {n.length > 0 && (
+                  <p className={styles.tally}>
+                    <strong>{n.length}</strong> {n.some((x) => x.name) && `: ${n.map((x) => x.name || "someone").join(", ")}`}
+                  </p>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <p className={styles.mapsNote}>
+          Places from <span translate="no">Google Maps</span>.
+        </p>
+        <div className={styles.footer}>
+          <p>Feta plans your evening, chosen for your taste.</p>
+          <Link href="/" className={styles.cta}>
+            Get your own picks
+          </Link>
+        </div>
+      </main>
+    );
+  }
   const yes = votes.filter((v) => v.vote === "yes");
   const no = votes.filter((v) => v.vote === "no");
-  const label = (st: ShareStop) => st.event?.title ?? live[st.placeId]?.name ?? "…";
 
   return (
     <main className={styles.screen}>
@@ -144,7 +202,7 @@ export default function GroupShare() {
       </section>
 
       <div className={styles.footer}>
-        <p>Feta picks 3 places for tonight, chosen for your taste.</p>
+        <p>Feta plans your evening, chosen for your taste.</p>
         <Link href="/" className={styles.cta}>
           Get your own picks
         </Link>

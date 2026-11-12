@@ -549,8 +549,22 @@ const SIDE_WORDS: Record<string, RegExp> = {
   circle: /\b(run club|trivia|meetup|community)\b/i,
 };
 
-export function reasonFits(because: string, taste: Taste) {
-  return !taste.no.some((id) => SIDE_WORDS[id]?.test(because) && !taste.yes.some((y) => SIDE_WORDS[y]?.test(because)));
+// A card's phrase only fits some kinds of place: "hole-in-the-wall" isn't a
+// patisserie, a "buzzing bar" isn't a biryani house (testers saw both).
+const SIDE_PLACES: Record<string, RegExp> = {
+  hole_in_wall: /restaurant|food|meal|diner|street/,
+  dressed_up: /restaurant|fine_dining|wine_bar|cocktail_bar/,
+  buzzing: /bar|pub|night_club|brewery|lounge/,
+  quiet_cafe: /cafe|coffee|tea_house|bakery|book_store/,
+  buzzing_sober: /cafe|coffee|tea_house|live_music|performing_arts/,
+};
+
+export function reasonFits(because: string, taste: Taste, place?: Place) {
+  const rejected = taste.no.some((id) => SIDE_WORDS[id]?.test(because) && !taste.yes.some((y) => SIDE_WORDS[y]?.test(because)));
+  if (rejected) return false;
+  const type = place?.primaryType ?? "";
+  // A side they chose, mentioned for a place it doesn't describe.
+  return !place || !type || !taste.yes.some((id) => SIDE_WORDS[id]?.test(because) && SIDE_PLACES[id] && !SIDE_PLACES[id].test(type));
 }
 
 export function tasteSummary(taste: Taste, city: City) {
@@ -619,7 +633,7 @@ Every place below already fits their diet, budget, distance, drinks and opening 
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
-${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place), and list every such place's number in "nonVeg".\n\n` : ""}Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
+${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${MAX_POPULAR} places marked VERY POPULAR in the top ${SHOW}, and not first.

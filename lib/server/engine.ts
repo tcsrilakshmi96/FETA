@@ -269,7 +269,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       kind: kindOf(candidate.place, body.category),
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-      because: r?.because && reasonFits(r.because, taste) ? r.because : fallbackBecause(taste, candidate.place, kindOf(candidate.place, body.category)),
+      because: r?.because && reasonFits(r.because, taste, candidate.place) ? r.because : fallbackBecause(taste, candidate.place, kindOf(candidate.place, body.category)),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
       ...(i >= room ? { spare: true } : {}),
     };
@@ -394,7 +394,7 @@ function fallbackBecause(taste: Taste, place?: Place, kind?: string) {
   const type = place?.primaryType ?? "";
   const cuisine = taste.yes.find((y) => y.startsWith("cuisine_") && CUISINE_TYPES[y.slice(8)]?.test(type));
   if (cuisine) return `Because ${sideById(cuisine, taste.answers)?.label ?? "it"} is one of your favourites.`;
-  const side = taste.yes.find((y) => KIND_SIDES[kind ?? ""]?.includes(y));
+  const side = taste.yes.find((y) => KIND_SIDES[kind ?? ""]?.includes(y) && (!place || reasonFits(sideById(y, taste.answers)?.label ?? "", { ...taste, no: [] }, place)));
   const label = side ? sideById(side, taste.answers)?.label : null;
   if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
   return "Because it fits what you told me.";

@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import { cityAt, isMainlandChina, loadCity, saveCity, type City } from "@/lib/cities";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { saveCityToDb, saveLocationConsent } from "@/lib/db";
+import { markNewCity } from "@/lib/near-me";
 import { originFromArea, originFromCity, originFromGps, saveOrigin } from "@/lib/origin";
 import styles from "./Location.module.css";
 
@@ -80,6 +81,7 @@ export default function Location() {
         }
         if (here.id !== city?.id) {
           switchCity(here);
+          markNewCity(here.name);
           toast(`You're in ${here.name}, so picks are from here.`);
         }
         if (isMainlandChina(here)) {

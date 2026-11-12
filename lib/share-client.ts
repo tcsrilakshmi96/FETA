@@ -22,7 +22,12 @@ export type SharePayload = {
   country?: string; // for km or miles
 };
 
-export async function createShare(kind: "pick" | "plan", payload: SharePayload): Promise<string | null> {
+// "Let the group choose": 2-3 plans; friends vote for one ("1", "2", "3").
+export type ChoicePayload = { title: string; options: SharePayload[]; country?: string };
+export type ShareKind = "pick" | "plan" | "choice";
+export type Vote = "yes" | "no" | "1" | "2" | "3";
+
+export async function createShare(kind: ShareKind, payload: SharePayload | ChoicePayload): Promise<string | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await supabase().from("shares").insert({ user_id: userId, kind, payload }).select("slug").single();
@@ -35,13 +40,13 @@ export async function createShare(kind: "pick" | "plan", payload: SharePayload):
 
 export async function loadShare(slug: string) {
   const { data } = await supabase().rpc("get_share", { share_slug: slug });
-  const row = (data ?? [])[0] as { kind: "pick" | "plan"; payload: SharePayload } | undefined;
+  const row = (data ?? [])[0] as { kind: ShareKind; payload: SharePayload & ChoicePayload } | undefined;
   return row ?? null;
 }
 
 export async function loadVotes(slug: string) {
   const { data } = await supabase().rpc("share_votes_for", { share_slug: slug });
-  return (data ?? []) as { name: string | null; vote: "yes" | "no" }[];
+  return (data ?? []) as { name: string | null; vote: Vote }[];
 }
 
 // A random id kept in this browser, so a friend's vote can change but not repeat.
@@ -58,7 +63,7 @@ function voterId() {
   }
 }
 
-export async function castVote(slug: string, name: string, vote: "yes" | "no") {
+export async function castVote(slug: string, name: string, vote: Vote) {
   const { error } = await supabase().rpc("cast_vote", { share_slug: slug, voter_id: voterId(), voter_name: name, choice: vote });
   if (error) console.error("Vote failed", error.message);
   return !error;

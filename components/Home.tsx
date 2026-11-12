@@ -8,7 +8,7 @@ import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { formatDistance } from "@/lib/cities";
-import { nearMeIfAllowed } from "@/lib/near-me";
+import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
@@ -84,6 +84,8 @@ export default function Home() {
   const day = cityDay(city.timeZone);
   // On a Saturday or Sunday morning the weekend tab is about today.
   const today = when === "weekend" && day.weekend && day.hour < 16;
+  // Just arrived in a new city: the first evening there.
+  const arrived = when === "tonight" && newCityName() === city.name;
   const open = (c: Category) => router.push(`/picks?c=${c}${when === "weekend" ? "&w=weekend" : ""}`);
   const where = (p: Pick) => [p.rating ? `★ ${p.rating.toFixed(1)}` : null, p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
   const plan = plans[0];
@@ -113,7 +115,7 @@ export default function Home() {
           <>
             <PickPhoto photo={top.photo} className="kenburns" />
             <span className={styles.shade} />
-            <span className={styles.count}>{wide ? `${slot.picks.length} picks ›` : `${slot.picks.length} ›`}</span>
+            <span className={styles.count}>{wide ? "See all ›" : "All ›"}</span>
             {badge && (
               <span className={styles.date}>
                 {badge.day}
@@ -149,7 +151,15 @@ export default function Home() {
             </span>
           </p>
           <h1 className={styles.mast}>
-            {today ? "Today" : when === "tonight" ? "Tonight" : "This weekend"}, <i key={when}>made for you.</i>
+            {arrived ? (
+              <>
+                First night in {city.name}, <i key={when}>sorted.</i>
+              </>
+            ) : (
+              <>
+                {today ? "Today" : when === "tonight" ? "Tonight" : "This weekend"}, <i key={when}>made for you.</i>
+              </>
+            )}
           </h1>
           <div className={styles.seg} role="tablist" aria-label="When">
             {(["tonight", "weekend"] as const).map((w) => (
@@ -168,7 +178,7 @@ export default function Home() {
               className={`${styles.tile} ${styles.plan}`}
               onClick={() => (today ? router.push(`/ask?q=${encodeURIComponent(`Plan my whole day today in ${origin.source === "area" ? origin.label : city.name}`)}`) : setPlanOpen(true))}
             >
-              <span className={styles.kick}>✦ {today ? "YOUR DAY" : when === "tonight" ? "YOUR EVENING" : "YOUR WEEKEND"}</span>
+              <span className={styles.kick}>✦ {today ? "YOUR DAY" : arrived ? "YOUR FIRST EVENING" : when === "tonight" ? "YOUR EVENING" : "YOUR WEEKEND"}</span>
               <span className={styles.tileTitle}>
                 {today
                   ? "Plan my whole day"

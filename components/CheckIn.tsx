@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
+import { logEvent } from "@/lib/db";
 import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./CheckIn.module.css";
@@ -34,6 +35,7 @@ export default function CheckIn() {
 
   function answer(verdict: Verdict) {
     saveBeen(ask!.placeId, { verdict, visits: "once", category: ask!.category ?? undefined });
+    logEvent("checkin", ask!.placeId);
     if (dietName && verdict !== "not_for_me" && ask!.category === "food_drinks") setStep("diet");
     else done("Thanks. That makes your next picks better.");
   }

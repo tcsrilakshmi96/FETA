@@ -240,3 +240,11 @@ export function saveTweakLines(tweaks: string[]) {
       ),
   );
 }
+
+// "Acted on a pick" (directions, booking, Google Maps, website, sending it
+// to the group, a check-in), for retention numbers. Place IDs only.
+export type PickEvent = "directions" | "book" | "maps" | "website" | "share" | "plan_share" | "choice_share" | "plan_directions" | "checkin";
+
+export function logEvent(kind: PickEvent, placeId?: string, cityId?: string) {
+  return run("event", (userId) => supabase().from("pick_events").insert({ user_id: userId, kind, place_id: placeId ?? null, city_id: cityId ?? null }));
+}

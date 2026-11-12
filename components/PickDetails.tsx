@@ -1,6 +1,7 @@
 "use client";
 
 import PickPhoto from "@/components/PickPhoto";
+import { logEvent } from "@/lib/db";
 import { useEffect, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
@@ -117,22 +118,22 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
 
         <div className={styles.actions}>
           {/* Booking (India) or tickets lead; else Naver in Korea, else Google Maps. */}
-          <a className={styles.primary} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer">
+          <a className={styles.primary} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent(pick.book ? "book" : "maps", pick.placeId)}>
             {pick.book?.label ?? (pick.naverUri ? "Open in Naver Map" : "Open in Google Maps")}
           </a>
-          <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer">
+          <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("directions", pick.placeId)}>
             Directions
           </a>
           <button type="button" onClick={onSave}>
             ♥ Save
           </button>
           {(pick.book || pick.naverUri) && (
-            <a className={pick.website && !pick.event ? "" : styles.wide} href={pick.mapsUri} target="_blank" rel="noopener noreferrer">
+            <a className={pick.website && !pick.event ? "" : styles.wide} href={pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("maps", pick.placeId)}>
               <span translate="no">Google Maps</span>
             </a>
           )}
           {pick.website && !pick.event && (
-            <a className={pick.book || pick.naverUri ? "" : styles.wide} href={pick.website} target="_blank" rel="noopener noreferrer">
+            <a className={pick.book || pick.naverUri ? "" : styles.wide} href={pick.website} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("website", pick.placeId)}>
               Website
             </a>
           )}
