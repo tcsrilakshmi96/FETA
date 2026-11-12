@@ -104,7 +104,47 @@ const MAX_SAME_CUISINE = 2;
 // general one ("restaurant", "cafe", "bar").
 function cuisineOf(c: Candidate) {
   const t = c.place.primaryType ?? "";
-  return /_restaurant$/.test(t) && !/^(fine_dining|fast_food|family|casual)/.test(t) ? t : null;
+  if (!/_restaurant$/.test(t) || /^(fine_dining|fast_food|family|casual|breakfast|brunch|buffet)/.test(t)) return null;
+  // Pizza counts as Italian, sushi and ramen as Japanese, and so on, so the
+  // cap can't be dodged by a sub-type (testers: 7 of 8 were Italian).
+  for (const [group, re] of CUISINE_GROUPS) if (re.test(t)) return group;
+  return t;
+}
+
+const CUISINE_GROUPS: [string, RegExp][] = [
+  ["italian", /^(italian|pizza)_/],
+  ["japanese", /^(japanese|sushi|ramen)_/],
+  ["middle_eastern", /^(middle_eastern|lebanese|turkish|mediterranean|afghani)_/],
+];
+
+// Google place types for each favourite cuisine on the taste cards, so one
+// Nearby Search can look for all of them together.
+export const CUISINE_PLACE_TYPES: Record<string, string[]> = {
+  south_indian: ["indian_restaurant"],
+  north_indian: ["indian_restaurant"],
+  regional: ["indian_restaurant"],
+  indian: ["indian_restaurant"],
+  indo_chinese: ["chinese_restaurant"],
+  italian: ["italian_restaurant", "pizza_restaurant"],
+  japanese: ["japanese_restaurant", "sushi_restaurant", "ramen_restaurant"],
+  korean: ["korean_restaurant"],
+  thai: ["thai_restaurant"],
+  middle_eastern: ["middle_eastern_restaurant", "lebanese_restaurant", "turkish_restaurant", "mediterranean_restaurant"],
+  mexican: ["mexican_restaurant"],
+  bakery: ["bakery", "dessert_shop"],
+  healthy: ["vegan_restaurant", "vegetarian_restaurant"],
+};
+
+// The place types their taste asks for: favourite cuisines, plus bars or
+// cafés from the this-or-that cards. Empty if they eat anything.
+export function tastePlaceTypes(taste: Taste) {
+  const types = new Set<string>();
+  for (const y of taste.yes) if (y.startsWith("cuisine_")) for (const t of CUISINE_PLACE_TYPES[y.slice(8)] ?? []) types.add(t);
+  if (types.size === 0) return [];
+  if (needsDietCheck(taste.answers)) types.add("vegetarian_restaurant");
+  if (taste.yes.includes("buzzing") && taste.answers.drinks !== "no_alcohol") ["bar", "pub"].forEach((t) => types.add(t));
+  if (taste.yes.includes("quiet_cafe") || taste.yes.includes("buzzing_sober")) ["cafe", "coffee_shop"].forEach((t) => types.add(t));
+  return [...types];
 }
 
 // Sent to the phone for one card.
@@ -231,14 +271,16 @@ const DOING_SIDE_PHRASES: Record<string, string> = {
 
 // Food & drinks search words from the user's tweaks, cuisines and taste
 // cards, searched alongside everything popular nearby. Empty means popular only.
-export function foodPhrases(taste: Taste, tweaks: Tweak[] = [], city?: City): string[] {
+// withoutCuisines: the cuisines are searched by place type instead (all at
+// once), so only "Local food" stays a phrase.
+export function foodPhrases(taste: Taste, tweaks: Tweak[] = [], city?: City, withoutCuisines = false): string[] {
   const veg = needsDietCheck(taste.answers) ? "vegetarian " : "";
   const sober = taste.answers.drinks === "no_alcohol";
   const fromTweaks = tweaks.map((t) => TWEAK_PHRASES[t]).filter(Boolean) as string[];
   const fromSwipes: string[] = [];
   for (const id of taste.yes) {
     // "Local food" means this country's food: "traditional Germany food" in Berlin.
-    const cuisine = id === "cuisine_local" && city ? `traditional ${city.countryName} food` : id.startsWith("cuisine_") ? CUISINE_PHRASES[id.slice(8)] : null;
+    const cuisine = id === "cuisine_local" && city ? `traditional ${city.countryName} food` : id.startsWith("cuisine_") && !withoutCuisines ? CUISINE_PHRASES[id.slice(8)] : null;
     if (cuisine) fromSwipes.push(`${veg}${cuisine}`);
   }
   for (const id of taste.yes) {
@@ -648,12 +690,12 @@ export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHO
   const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
   const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
-  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count) => {
+  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count, anyCuisine = false) => {
     if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
     if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= MAX_POPULAR) return;
     // A mix: at most 2 of the same cuisine (Google's type, e.g. indian_restaurant) among the first 8.
     const kind = cuisineOf(candidate);
-    if (!allowExtraPopular && kind && chosen.length < SHOW && chosen.filter((c) => cuisineOf(c.candidate) === kind).length >= MAX_SAME_CUISINE) return;
+    if (!anyCuisine && kind && chosen.length < SHOW && chosen.filter((c) => cuisineOf(c.candidate) === kind).length >= MAX_SAME_CUISINE) return;
     chosen.push({ candidate, ranked: r });
   };
   const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;
@@ -669,6 +711,8 @@ export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHO
   }
   for (const c of candidates) add(c, rankedOf(c), false);
   for (const c of candidates) add(c, rankedOf(c), true);
+  // Only if there is nothing else: a third of the same cuisine.
+  for (const c of candidates) add(c, rankedOf(c), true, count, true);
   return chosen;
 }
 
@@ -710,7 +754,8 @@ function chips(c: Candidate, taste: Taste, city: City): string[] {
   const out: string[] = [];
   const diet = taste.answers.diet;
   if (c.place.servesVegetarianFood === true) {
-    if (diet === "jain" || diet === "vegan") out.push("Veg options · not confirmed, check with staff");
+    if (diet === "jain") out.push("Jain: ask for no onion, garlic or root veg · not confirmed");
+    else if (diet === "vegan") out.push("Vegan options · not confirmed, check with staff");
     else if (needsDietCheck(taste.answers)) out.push("Veg-friendly ✓");
   }
   // Google has no halal data, so it is never claimed, only flagged honestly.

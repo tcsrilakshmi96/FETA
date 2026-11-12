@@ -71,7 +71,8 @@ export async function placeNotes(place: Place, kind: "EAT" | "DRINK" | "DO", who
   const seen = new Set<string>();
   const sources = ((candidate?.groundingMetadata?.groundingChunks ?? []) as Chunk[])
     .map((c) => ({ title: (c.maps?.title ?? "").replace(/ - Google Maps$/, ""), uri: c.maps?.uri ?? "" }))
-    .filter((s) => s.uri && !seen.has(s.uri) && seen.add(s.uri))
+    // One line per place: Google sometimes cites the same place twice.
+    .filter((s) => s.uri && !seen.has(s.title.toLowerCase()) && seen.add(s.title.toLowerCase()))
     .slice(0, 2);
   return { items, sources, ...(dietSignal && !/^none\b/i.test(dietSignal) ? { dietSignal: dietSignal.slice(0, 100) } : {}) };
 }

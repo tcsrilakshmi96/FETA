@@ -25,6 +25,7 @@ import {
   tasteSummary,
   unknownPriceOk,
   takePicks,
+  tastePlaceTypes,
   SHOW,
   tonightMeansNow,
   applyTweaks,
@@ -339,18 +340,25 @@ async function gatherCandidates(ctx: {
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: ctx.needsDiet, regionCode: city.country };
   const text = (query: string, radiusKm: number) =>
     searchPlaces({ ...common, query, radiusKm, openNow: body.when === "tonight" && tonightMeansNow(city) });
-  const nearby = (radiusKm: number) => searchNearby({ ...common, types: FOOD_DRINK_TYPES, radiusKm, rank: "POPULARITY" });
+  const nearby = (radiusKm: number, types = FOOD_DRINK_TYPES) => searchNearby({ ...common, types, radiusKm, rank: "POPULARITY" });
+  // Their favourite cuisines (and bars or cafés from the cards) in one
+  // Nearby Search, so every cuisine they chose can come up.
+  const tasteTypes = body.category === "food_drinks" ? tastePlaceTypes(taste) : [];
 
   // What they asked for in their own words (Tweak sheet or Ask Feta) leads.
   const asked = (ctx.body.note ?? "").trim();
-  const base = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks, city) : searchPhrases(body.category, taste, ctx.tweaks);
+  const base = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks, city, tasteTypes.length > 0) : searchPhrases(body.category, taste, ctx.tweaks);
   const phrases = asked ? [asked, ...base.filter((p) => p !== asked)] : base;
   const pick = (i: number) => (asked && i === 0 ? asked : phrases.length ? phrases[(ctx.rotation + i) % phrases.length] : null);
   const first = pick(0);
   const second = phrases.length > 1 ? pick(1) : null;
   const searches: Promise<Place[]>[] =
     body.category === "food_drinks"
-      ? [nearby(limit), ...(first ? [text(first, limit)] : [])]
+      ? // Their cuisines (one search for all of them), then their words or
+        // a card's phrase ("small local favourite"), else what's popular.
+        tasteTypes.length > 0
+        ? [nearby(limit, tasteTypes), first ? text(first, limit) : nearby(limit)]
+        : [nearby(limit), ...(first ? [text(first, limit)] : [])]
       : [text(first ?? "things to do", limit), ...(second ? [text(second, limit)] : [])];
   const settled = await Promise.allSettled(searches);
   if (settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
