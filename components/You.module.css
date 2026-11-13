@@ -58,6 +58,14 @@
   color: rgba(var(--inkRGB), 0.5);
 }
 
+/* An icon, not the word (testers, 13 Nov 2026). */
+.removeIcon {
+  width: 36px;
+  border-radius: 50%;
+  background: rgba(var(--inkRGB), 0.06);
+  font-size: 12px;
+}
+
 .empty {
   margin-top: 14px;
   padding: 12px 0;

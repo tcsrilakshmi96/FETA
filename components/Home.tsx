@@ -7,6 +7,7 @@ import FirstTime from "@/components/FirstTime";
 import LetsGo from "@/components/LetsGo";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
+import QuickQuestions from "@/components/QuickQuestions";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import { formatDistance } from "@/lib/cities";
@@ -358,6 +359,7 @@ export default function Home() {
               <span className={styles.tileSub}>Start a trip ›</span>
             </button>
           )}
+          <QuickQuestions />
         </div>
       </main>
       <CheckIn />

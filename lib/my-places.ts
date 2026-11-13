@@ -44,15 +44,17 @@ export async function saveBeen(
 }
 
 // A saved place from 1 to 14 days ago that they haven't told Feta about,
-// and haven't been asked about in the last week. One at a time.
-export async function nextCheckin(): Promise<{ placeId: string; category: string | null } | null> {
+// and haven't been asked about in the last week. One at a time, and only
+// for the city they're in (testers: asked about Bengaluru on a first night
+// in Dubai).
+export async function nextCheckin(cityId?: string): Promise<{ placeId: string; category: string | null } | null> {
   if (!(await currentUserId())) return null;
   const now = Date.now();
   const db = supabase();
   const [{ data: saved }, { data: been }] = await Promise.all([
     db
       .from("pick_actions")
-      .select("place_id, category, checkin_asked_at")
+      .select("place_id, category, checkin_asked_at, city_id")
       .eq("action", "saved")
       .lt("created_at", new Date(now - 20 * 3600 * 1000).toISOString())
       .gt("created_at", new Date(now - 14 * 86400 * 1000).toISOString())
@@ -63,7 +65,11 @@ export async function nextCheckin(): Promise<{ placeId: string; category: string
   const done = new Set((been ?? []).map((b) => b.place_id));
   const weekAgo = now - 7 * 86400 * 1000;
   const next = (saved ?? []).find(
-    (s) => !s.place_id.startsWith("event:") && !done.has(s.place_id) && (!s.checkin_asked_at || new Date(s.checkin_asked_at).getTime() < weekAgo),
+    (s) =>
+      !s.place_id.startsWith("event:") &&
+      !done.has(s.place_id) &&
+      (!cityId || !s.city_id || s.city_id === cityId) &&
+      (!s.checkin_asked_at || new Date(s.checkin_asked_at).getTime() < weekAgo),
   );
   return next ? { placeId: next.place_id, category: next.category } : null;
 }

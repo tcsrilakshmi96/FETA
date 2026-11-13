@@ -5,17 +5,10 @@ import { useRouter } from "next/navigation";
 import AddPlace from "@/components/AddPlace";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
-import {
-  loadWhatsApp,
-  markBeen,
-  removeFromList,
-  saveListNote,
-  saveWhatsApp,
-} from "@/lib/db";
+import { markBeen, removeFromList, saveListNote } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
-import { CALLING_CODES, codeFor, fullNumber, showNumber } from "@/lib/phone";
 import { saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
@@ -47,10 +40,6 @@ export default function Lists() {
   const [items, setItems] = useState<ListItem[] | null>(null);
   const [open, setOpen] = useState<ListItem | null>(null);
   const [note, setNote] = useState("");
-  const [whatsApp, setWhatsApp] = useState<string | null>(null);
-  const [number, setNumber] = useState("");
-  const [callingCode, setCallingCode] = useState("91");
-  const [country, setCountry] = useState<string | undefined>(undefined);
   const [wishes, setWishes] = useState<Wish[]>([]);
   const [wish, setWish] = useState("");
   const [adding, setAdding] = useState(false);
@@ -63,12 +52,9 @@ export default function Lists() {
     const here = loadOrigin();
     /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
     setOrigin(here);
-    setCountry(here?.city.country);
-    setCallingCode(codeFor(here?.city.country).code);
     setSaturday(thisSaturday());
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchLists(here).then((list) => live && setItems(list ?? []));
-    loadWhatsApp().then((n) => live && setWhatsApp(n));
     loadWishes().then((w) => live && setWishes(w));
     return () => {
       live = false;
@@ -144,14 +130,11 @@ export default function Lists() {
     else toast("Couldn't add that just now. Try again.");
   }
 
-  const full = fullNumber(callingCode, number);
-  const validNumber = full !== null;
-
   return (
     <>
       <main className={styles.screen}>
         <h1 className={styles.title}>
-          My <strong>lists</strong>
+          <strong>Saved</strong>
         </h1>
         <div className={styles.segment} role="tablist">
           <span
@@ -189,13 +172,10 @@ export default function Lists() {
           </button>
         )}
 
-        {tab === "want" && items !== null && (
+        {/* This weekend shows once something is on it (testers: Lists had too much going on). */}
+        {tab === "want" && items !== null && (ticked.length > 0 || wishes.length > 0) && (
           <section className={styles.weekend}>
             <p className={styles.wkLabel}>THIS WEEKEND</p>
-            <p className={styles.wkText}>
-              Open a saved place below and tap “Plan it for this weekend”, or type what you feel like doing.{" "}
-              {whatsApp ? "Your plan comes on WhatsApp on Friday." : "Add your number at the bottom to get the plan on WhatsApp."}
-            </p>
             {(ticked.length > 0 || wishes.length > 0) && (
               <ul className={styles.wkChips}>
                 {ticked.map((i) => (
@@ -300,7 +280,7 @@ export default function Lists() {
                       >
                         {[
                           item.area,
-                          item.distanceKm !== null && formatDistance(item.distanceKm, country),
+                          item.distanceKm !== null && formatDistance(item.distanceKm, origin?.city.country),
                           item.event?.when,
                         ]
                           .filter(Boolean)
@@ -321,76 +301,6 @@ export default function Lists() {
           </>
         )}
 
-        {items !== null && (
-          <section className={styles.whatsapp}>
-            <p className={styles.waTitle}>
-              Want your weekend plan on WhatsApp?
-            </p>
-            {whatsApp ? (
-              <>
-                <p className={styles.waText}>
-                  We&apos;ll send it to {showNumber(whatsApp)} on Fridays. Only used for this.
-                </p>
-                <button
-                  type="button"
-                  className={styles.waRemove}
-                  onClick={() => {
-                    saveWhatsApp(null);
-                    setWhatsApp(null);
-                    toast("Number removed");
-                  }}
-                >
-                  Remove my number
-                </button>
-              </>
-            ) : (
-              <>
-                <p className={styles.waText}>
-                  A short plan for Saturday and Sunday, from your lists and
-                  picks. Only used for this, and you can remove it any time.
-                </p>
-                <form
-                  className={styles.waForm}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!full) return;
-                    saveWhatsApp(full);
-                    setWhatsApp(full);
-                    setNumber("");
-                    toast("You're on the weekend plan list");
-                  }}
-                >
-                  <label className={styles.waField}>
-                    <select value={callingCode} onChange={(e) => setCallingCode(e.target.value)} aria-label="Country code">
-                      {CALLING_CODES.map((c) => (
-                        <option key={c.country} value={c.code}>
-                          {c.name} +{c.code}
-                        </option>
-                      ))}
-                    </select>
-                    <span aria-hidden="true">+{callingCode}</span>
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      autoComplete="tel-national"
-                      placeholder="Your number"
-                      aria-label="WhatsApp number"
-                      value={number}
-                      onChange={(e) => setNumber(e.target.value)}
-                    />
-                  </label>
-                  <button
-                    type="submit"
-                    className={styles.waBtn}
-                    disabled={!validNumber}
-                  >
-                    Send it
-                  </button>
-                </form>
-              </>
-            )}
-          </section>
-        )}
       </main>
       <TabBar active="lists" />
       {adding && origin && (
@@ -428,7 +338,7 @@ export default function Lists() {
             <p className={styles.sheetSub}>
               {[
                 open.area,
-                open.distanceKm !== null && formatDistance(open.distanceKm, country),
+                open.distanceKm !== null && formatDistance(open.distanceKm, origin?.city.country),
                 open.event?.when,
               ]
                 .filter(Boolean)

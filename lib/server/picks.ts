@@ -559,11 +559,14 @@ export function whyNothing(drops: DropCounts, answers: Answers, when: When, coun
   const reasons: Record<string, string> = {
     far: `The places that fit you are more than ${formatDistance(limit * 2, country)} away.`,
     price: "The places near you are above your usual spend.",
-    diet: "Nothing near you is confirmed by Google to serve vegetarian food.",
+    diet: needsDietCheck(answers) ? "Nothing near you is confirmed by Google to serve vegetarian food." : "The places near you are mostly about food you skip.",
     hours: when === "tonight" ? "The places that fit you nearby are closed right now." : "The places that fit you nearby aren't open at the weekend.",
     alcohol: "The places near you are mostly bars, and you said no alcohol.",
   };
-  return `${top[1] > 0 ? reasons[top[0]] : "Everything near you was already saved or skipped."} ${tail}`;
+  // Nothing failed a filter: they were shops, hotels, the other category,
+  // or places already saved, skipped or been to (testers saw "already saved
+  // or skipped" when they had saved nothing).
+  return `${top[1] > 0 ? reasons[top[0]] : "None of the places near you fit this right now."} ${tail}`;
 }
 
 // ---------- Gemini chooses and explains ----------

@@ -169,7 +169,7 @@ export default function Swipes() {
       {/* The next pair's photos, loaded early so each card appears at once. */}
       <div className={styles.preload} aria-hidden="true">
         {cards.slice(index + 1, index + 2).flatMap((c) =>
-          c.type === "pair" ? [c.a.image, c.b.image].map((src) => <Image key={src} src={src} alt="" width={10} height={10} sizes="430px" />) : [],
+          c.type === "pair" ? [c.a.image, c.b.image].map((src, i) => <Image key={`${c.id}-${i}`} src={src} alt="" width={10} height={10} sizes="430px" />) : [],
         )}
       </div>
     </main>

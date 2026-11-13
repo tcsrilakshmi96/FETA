@@ -1,0 +1,48 @@
+.card {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(255, 79, 123, 0.12);
+  animation: var(--kf-up) 0.5s var(--ease-enter) both;
+}
+
+.kick {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--roseText);
+}
+
+.kick button {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.q {
+  margin: 4px 0 10px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chips button {
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: var(--sheet);
+  font-size: 13px;
+}

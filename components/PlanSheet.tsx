@@ -4,6 +4,7 @@ import { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
+import WhatsAppBox from "@/components/WhatsAppBox";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
@@ -186,6 +187,7 @@ export default function PlanSheet({
             </a>
           </>
         )}
+        <WhatsAppBox />
         <button type="button" className={styles.close} onClick={onClose}>
           Close
         </button>
