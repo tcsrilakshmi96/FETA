@@ -1,80 +1,107 @@
 .screen {
   position: absolute;
   inset: 0;
+  display: flex;
+  flex-direction: column;
   animation: var(--kf-in) 0.4s ease-out;
 }
 
-/* Photo: inset 8 px, radius 40, bottom 236 px left free for the controls. */
+/* Photo across the top, fading into the page; the photos cross-fade. */
 .photo {
-  position: absolute;
-  inset: 8px 8px 236px 8px;
-  border-radius: 40px;
+  position: relative;
+  flex: 1 1 56%;
+  min-height: 240px;
   overflow: hidden;
   background: #5a3a30;
 }
 
 .photo img {
   object-fit: cover;
-  animation: var(--kf-kb) 14s ease-in-out infinite alternate;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+  animation: var(--kf-kb) 18s ease-in-out infinite alternate;
+}
+
+.photo .photoOn {
+  opacity: 1;
 }
 
 .scrim {
   position: absolute;
-  inset: auto 0 0 0;
-  height: 60%;
-  background: linear-gradient(rgba(26, 22, 22, 0), rgba(26, 22, 22, 0.85));
+  inset: 0;
+  background: linear-gradient(rgba(26, 22, 22, 0.18), rgba(26, 22, 22, 0) 30%, rgba(var(--bgRGB), 0) 62%, var(--bg));
 }
 
 .look {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 48px;
+  left: 18px;
   z-index: 2;
 }
 
-.promise {
+.skip {
   position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 26px;
-  color: var(--onPhoto);
-  animation: var(--kf-up) 0.9s var(--ease-enter) 0.2s both;
+  top: 48px;
+  right: 18px;
+  z-index: 2;
+  padding: 7px 14px;
+  border-radius: 99px;
+  background: rgba(255, 243, 238, 0.88);
+  color: var(--inkFixed);
+  font-size: 13px;
 }
 
-.wordmark {
-  font-size: 30px;
+.body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 24px 28px;
+}
+
+/* Each card's words slide in, one after another. */
+.text > * {
+  animation: textIn 0.55s var(--ease-enter) both;
+}
+
+.text > :nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.text > :nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+@keyframes textIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.kick {
+  font-size: 10.5px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--roseText);
 }
 
 .headline {
-  margin-top: 16px;
-  font-size: 36px;
+  margin-top: 8px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 34px;
   font-weight: 300;
   line-height: 1.04;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
-.headline strong {
+.headline em {
   font-weight: 500;
 }
 
-.controls {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  animation: var(--kf-up) 0.9s var(--ease-enter) 0.45s both;
-}
-
-.intro {
-  font-size: 14px;
+.sub {
+  margin-top: 12px;
+  font-size: 15px;
   line-height: 1.45;
-  color: rgba(var(--inkRGB), 0.7);
+  color: rgba(var(--inkRGB), 0.65);
 }
 
 /* 18+ row: the whole row is the tap target (44 px tall). */
@@ -83,7 +110,7 @@
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  margin: -9px 0;
+  margin-top: 12px;
   text-align: left;
   font-size: 14.5px;
 }
@@ -105,4 +132,44 @@
   background: var(--rose);
   color: var(--inkFixed);
   transform: scale(1.08);
+}
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 18px 0 16px;
+  min-height: 32px;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dots button {
+  width: 8px;
+  height: 8px;
+  border-radius: 8px;
+  background: rgba(var(--inkRGB), 0.15);
+  transition: width 0.3s, background 0.3s;
+}
+
+.dots .dotOn {
+  width: 22px;
+  background: var(--rose);
+}
+
+.back {
+  min-height: 44px;
+  padding: 0 4px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text > *,
+  .photo img {
+    animation: none;
+  }
 }

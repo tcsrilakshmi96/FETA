@@ -188,6 +188,17 @@ export function mainlyNonVeg(place: Place) {
   return NON_VEG_TYPES.includes(place.primaryType ?? "") || NON_VEG_WORDS.test(place.displayName?.text ?? "");
 }
 
+// "No beef" / "No pork" (they eat meat otherwise): places that are mainly
+// about it are dropped by type and name; Gemini is told too. Never a promise.
+const AVOID_WORDS: Record<string, RegExp> = {
+  beef: /\b(beef|steaks?|steakhouse|brisket)\b/i,
+  pork: /\b(pork|bacon|pig|lechon|tonkatsu|carnitas|char siu|charcuterie)\b/i,
+};
+
+export function mainlyAvoided(place: Place, avoid: string[] = []) {
+  return avoid.some((a) => (a === "beef" && place.primaryType === "steak_house") || AVOID_WORDS[a]?.test(place.displayName?.text ?? ""));
+}
+
 export function needsDietCheck(answers: Answers) {
   return VEG_DIETS.includes(answers.diet ?? "");
 }
@@ -203,6 +214,11 @@ export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] 
     phrases.push("everything nearby");
   } else {
     const map: Record<string, string> = {
+      karaoke: "karaoke bar",
+      rooftops: "rooftop bar",
+      board_games: "board game cafe",
+      dancing: "dance club or salsa night",
+      hidden_bars: "speakeasy bar",
       live_music: "live music venue",
       comedy: "comedy club",
       art_culture: "art gallery",
@@ -213,7 +229,7 @@ export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] 
       games_sports: "board game cafe",
     };
     for (const id of answers.interests) {
-      if (id === "nightlife" && !drinks) continue;
+      if (["nightlife", "rooftops", "hidden_bars"].includes(id) && !drinks) continue;
       if (map[id]) phrases.push(map[id]);
     }
     // How they like to spend time (the experience cards) comes first.
@@ -433,6 +449,10 @@ export function applyHardFilters(
       drop("diet");
       continue;
     }
+    if (opts.category === "food_drinks" && mainlyAvoided(place, answers.avoid)) {
+      drop("diet");
+      continue;
+    }
     if (answers.drinks === "no_alcohol" && place.types?.some((t) => ALCOHOL_TYPES.includes(t))) {
       drop("alcohol");
       continue;
@@ -613,6 +633,7 @@ export function tasteSummary(taste: Taste, city: City) {
   const multi = (id: string, values: string[]) => values.map((v) => label(id, v, city)).filter(Boolean).join(", ");
   return [
     a.diet && `Eats: ${label("diet", a.diet, city)}${a.halal ? ", halal only" : ""}`,
+    a.avoid?.length && `Doesn't eat: ${a.avoid.join(", ")} (avoid places mainly about it)`,
     a.distance && `Distance: ${label("distance", a.distance, city)}`,
     a.spend && `Spend per person: ${label("spend", a.spend, city)}`,
     a.who.length > 0 && `Usually goes out with: ${multi("who", a.who)}`,

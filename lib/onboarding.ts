@@ -7,7 +7,7 @@ import { spendLabels, type Currency } from "@/lib/currency";
 export type Option = { id: string; label: string };
 
 export type Question = {
-  id: keyof Omit<Answers, "halal" | "spendCurrency">;
+  id: keyof Omit<Answers, "halal" | "spendCurrency" | "avoid">;
   title: string;
   why: string;
   options: Option[];
@@ -26,6 +26,8 @@ export type Answers = {
   who: string[];
   drinks: string | null;
   interests: string[];
+  // Foods they skip though they eat meat ("beef", "pork"; testers, 13 Nov 2026).
+  avoid: string[];
 };
 
 export const EMPTY_ANSWERS: Answers = {
@@ -37,7 +39,13 @@ export const EMPTY_ANSWERS: Answers = {
   who: [],
   drinks: null,
   interests: [],
+  avoid: [],
 };
+
+export const AVOID_OPTIONS: Option[] = [
+  { id: "beef", label: "No beef" },
+  { id: "pork", label: "No pork" },
+];
 
 export const QUESTIONS: Question[] = [
   {
@@ -105,19 +113,25 @@ export const QUESTIONS: Question[] = [
   {
     id: "interests",
     title: "What are you into?",
-    why: "Why we ask: this shapes your Do and Event picks.",
+    why: "Why we ask: this shapes the things to do Feta finds for you.",
+    // The setup shows all of these (14 Nov 2026: karaoke and the rest added
+    // after testers found their favourites missing).
     options: [
+      { id: "karaoke", label: "Karaoke" },
       { id: "live_music", label: "Live music" },
-      { id: "comedy", label: "Comedy" },
-      { id: "art_culture", label: "Art and culture" },
+      { id: "comedy", label: "Stand-up comedy" },
+      { id: "rooftops", label: "Rooftops" },
+      { id: "board_games", label: "Board games" },
+      { id: "dancing", label: "Dancing" },
+      { id: "art_culture", label: "Art and galleries" },
+      { id: "games_sports", label: "Sports to play" },
+      { id: "hidden_bars", label: "Hidden bars" },
       { id: "outdoors", label: "Outdoors" },
       { id: "workshops", label: "Workshops" },
-      { id: "nightlife", label: "Nightlife" },
       { id: "markets", label: "Markets" },
-      { id: "games_sports", label: "Games and sports" },
+      { id: "nightlife", label: "Nightlife" },
     ],
     multi: true,
-    max: 4,
   },
 ];
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import FirstWhere from "@/components/FirstWhere";
 import { useToast } from "@/components/Toast";
 import { cityAt, isMainlandChina, loadCity, saveCity, type City } from "@/lib/cities";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
@@ -19,6 +20,7 @@ export default function Location() {
   const router = useRouter();
   const toast = useToast();
   const [city, setCity] = useState<City | null>(null);
+  const [first, setFirst] = useState(false);
   const [state, setState] = useState<State>("ask");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -28,13 +30,14 @@ export default function Location() {
 
   useEffect(() => {
     const saved = loadCity();
+    /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
+    // The last setup step: no city yet, so ask where Feta should look.
     if (!saved) {
-      router.replace("/city");
+      setFirst(true);
       return;
     }
     // Next.js restores this screen as it was left when you come back to it,
     // so start fresh each time: no stuck "Finding you…", sheet closed.
-    /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
     setCity(saved);
     setState("ask");
     setSheetOpen(false);
@@ -123,6 +126,7 @@ export default function Location() {
     router.push("/home");
   }
 
+  if (first) return <FirstWhere />;
   if (!city) return null;
 
   return (

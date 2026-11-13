@@ -11,7 +11,7 @@ import {
   switchToExistingAccount,
   takeReconfirmAge,
 } from "@/lib/auth";
-import { restoreFromAccount, saveAgeConfirmed, saveConsent } from "@/lib/db";
+import { restoreFromAccount, saveAgeConfirmed, saveConsent, setUpOnThisPhone } from "@/lib/db";
 import styles from "./SignIn.module.css";
 
 type Step = "google" | "consent";
@@ -65,13 +65,15 @@ export default function SignIn() {
     }
   }
 
+  // Sign-in now comes after the first picks (founder, 14 Nov 2026), so this
+  // screen is mostly reached on the way back from Google.
   function finish() {
     saveConsent(consent);
-    router.push("/city");
+    router.push(setUpOnThisPhone() ? "/home" : "/start");
   }
 
   function notNow() {
-    router.push("/city");
+    router.push(setUpOnThisPhone() ? "/home" : "/start");
     toast("No problem. Sign in later from You.");
   }
 

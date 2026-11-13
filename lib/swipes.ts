@@ -270,6 +270,7 @@ export function pickedUpLines(answers: Answers, swipes: Swipe[], currency: Curre
     ...yesLines.slice(2),
     line("drinks", answers.drinks ? DRINK_LINES[answers.drinks] : null),
     line("diet", answers.diet && answers.diet !== "everything" ? `${DIET_LINES[answers.diet]}${answers.halal ? ", halal only" : ""}` : answers.halal ? "Halal only" : null),
+    line("avoid", answers.avoid?.length ? `Doesn't eat ${listOf(answers.avoid)}` : null),
   ].filter((l): l is ProfileLine => !!l);
 }
 

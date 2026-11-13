@@ -44,6 +44,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
         who: a.who ?? [],
         drinks: a.drinks,
         interests: a.interests ?? [],
+        avoid: a.avoid ?? [],
       }
     : EMPTY_ANSWERS;
   const swipes = swipesRes.data ?? [];

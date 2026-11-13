@@ -72,6 +72,23 @@ export function isSmallCity(id: string | undefined | null): boolean {
   return !!row && row[7] < 300000;
 }
 
+// A starting guess before they say where they are: the biggest city in the
+// phone's time zone (for search suggestions and prices; never stored).
+// Old names some phones still report.
+const ZONE_ALIASES: Record<string, string> = {
+  "Asia/Calcutta": "Asia/Kolkata", "Asia/Saigon": "Asia/Ho_Chi_Minh", "Asia/Katmandu": "Asia/Kathmandu",
+  "Asia/Rangoon": "Asia/Yangon", "Europe/Kiev": "Europe/Kyiv", "Asia/Dacca": "Asia/Dhaka", "Asia/Thimbu": "Asia/Thimphu",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires", "Australia/ACT": "Australia/Sydney", "Australia/NSW": "Australia/Sydney",
+  "US/Eastern": "America/New_York", "US/Central": "America/Chicago", "US/Mountain": "America/Denver", "US/Pacific": "America/Los_Angeles",
+};
+
+export function cityForTimeZone(timeZone: string): City | null {
+  const zone = ZONE_ALIASES[timeZone] ?? timeZone;
+  let best: Row | null = null;
+  for (const row of rows) if (row[6] === zone && (!best || row[7] > best[7])) best = row;
+  return best ? toCity(best) : null;
+}
+
 // The city someone is in: the biggest city within a few km (so a point in
 // a suburb counts as the city), else the nearest one at all.
 export function cityAt(point: { lat: number; lng: number }): City | null {

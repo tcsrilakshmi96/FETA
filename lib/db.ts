@@ -2,6 +2,7 @@
 
 import { loadCity, saveCity, type City } from "@/lib/cities";
 import { saveAnswers, type Answers } from "@/lib/onboarding";
+import { saveName, saveWants, type Want } from "@/lib/profile";
 import { currentUserId, supabase } from "@/lib/supabase";
 import { saveProfileLines, saveSwipes, type ProfileLine, type Swipe } from "@/lib/swipes";
 
@@ -22,19 +23,22 @@ export async function restoreFromAccount(): Promise<boolean> {
   if (!userId) return false;
   const db = supabase();
   const [{ data: profile }, { data: a }, { data: swipes }, { data: lines }] = await Promise.all([
-    db.from("profiles").select("city_id").eq("id", userId).maybeSingle(),
+    db.from("profiles").select("city_id, first_name, wants").eq("id", userId).maybeSingle(),
     db.from("answers").select("*").maybeSingle(),
     db.from("swipes").select("card_id, verdict"),
     db.from("profile_lines").select("line_key, text, source").is("removed_at", null).in("source", ["answers", "swipes"]),
   ]);
-  if (!profile?.city_id || !a?.diet) return false;
+  // Someone who skipped food never answered the diet question.
+  if (!profile?.city_id || !a) return false;
   const city = await fetch(`/api/cities?id=${encodeURIComponent(profile.city_id)}`)
     .then((r) => r.json() as Promise<{ city: City | null }>)
     .then((r) => r.city)
     .catch(() => null);
   if (!city) return false;
   saveCity(city);
-  saveAnswers({ diet: a.diet, halal: a.halal, distance: a.distance, spend: a.spend, spendCurrency: a.spend_currency, who: a.who ?? [], drinks: a.drinks, interests: a.interests ?? [] } as Answers);
+  saveAnswers({ diet: a.diet, halal: a.halal, distance: a.distance, spend: a.spend, spendCurrency: a.spend_currency, who: a.who ?? [], drinks: a.drinks, interests: a.interests ?? [], avoid: a.avoid ?? [] } as Answers);
+  if (profile.first_name) saveName(profile.first_name);
+  if (profile.wants?.length) saveWants(profile.wants as Want[]);
   saveSwipes((swipes ?? []).map((s) => ({ cardId: s.card_id, verdict: s.verdict })) as Swipe[]);
   saveProfileLines((lines ?? []).map((l) => ({ id: l.line_key, text: l.text, source: l.source })) as ProfileLine[]);
   return true;
@@ -123,8 +127,18 @@ export function saveAnswersToDb(answers: Answers) {
       who: answers.who,
       drinks: answers.drinks,
       interests: answers.interests,
+      avoid: answers.avoid ?? [],
       updated_at: new Date().toISOString(),
     }),
+  );
+}
+
+export function saveProfileBasicsToDb(firstName: string, wants: Want[]) {
+  return run("name and wants", (userId) =>
+    supabase()
+      .from("profiles")
+      .update({ first_name: firstName || null, wants, updated_at: new Date().toISOString() })
+      .eq("id", userId),
   );
 }
 

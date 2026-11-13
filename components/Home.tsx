@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
+import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import ThemeToggle from "@/components/ThemeToggle";
 import { formatDistance } from "@/lib/cities";
@@ -200,6 +201,7 @@ export default function Home() {
         </div>
       </main>
       <CheckIn />
+      <SaveTaste ready={!!food && !food.loading} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       {planOpen && (
         <PlanSheet when={when} cityId={city.id} loading={!food || food.loading || !exp || exp.loading} food={food?.picks ?? []} experiences={exp?.picks ?? []} onClose={() => setPlanOpen(false)} />
