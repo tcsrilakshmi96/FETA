@@ -282,6 +282,10 @@ export default function You() {
   return (
     <>
       <main className={styles.screen}>
+        {/* You opens from the round button on Home (no tab since 14 Nov 2026). */}
+        <button type="button" className={styles.home} onClick={() => router.push("/home")}>
+          ‹ Home
+        </button>
         <h1 className={styles.title}>
           What Feta knows <strong>about you</strong>
         </h1>
@@ -310,16 +314,23 @@ export default function You() {
           <button
             type="button"
             className={styles.chipLink}
+            onClick={() => router.push("/start?from=you")}
+          >
+            What I want from Feta
+          </button>
+          <button
+            type="button"
+            className={styles.chipLink}
             onClick={() => router.push("/questions?from=you")}
           >
-            Change my answers
+            Change my preferences
           </button>
           <button
             type="button"
             className={styles.chipLink}
             onClick={() => router.push("/swipes?from=you")}
           >
-            Redo taste cards
+            More taste cards
           </button>
           <button
             type="button"

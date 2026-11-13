@@ -4,16 +4,18 @@ import { usePathname, useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import styles from "./TabBar.module.css";
 
+// Three tabs (Anj's flow, 14 Nov 2026): Picks + Style (Home), Saved and Ask
+// Feta. You (preferences and account) opens from the round button on Home.
 const TABS = [
-  { id: "home", label: "Home", href: "/home" },
-  { id: "lists", label: "Lists", href: "/lists" },
+  { id: "home", label: "Picks + Style", href: "/home" },
+  { id: "lists", label: "Saved", href: "/lists" },
   { id: "ask", label: "Ask", href: "/ask" },
-  { id: "style", label: "Style", href: "/style" },
-  { id: "you", label: "You", href: "/you" },
 ] as const;
 
 // Floating glass tab bar.
-export default function TabBar({ active }: { active: (typeof TABS)[number]["id"] }) {
+export default function TabBar({ active: page }: { active: "home" | "lists" | "ask" | "style" | "you" }) {
+  // Style lives with the picks, so its tab is lit there too.
+  const active = page === "style" ? "home" : page;
   const router = useRouter();
   const path = usePathname();
   return (

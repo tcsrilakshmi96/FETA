@@ -14,11 +14,13 @@ export default function Start() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [wants, setWants] = useState<Want[]>(["food", "do"]);
+  const [fromYou, setFromYou] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- saved on this phone, only readable in the browser */
     setName(loadName());
     setWants(loadWants());
+    setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -31,7 +33,7 @@ export default function Start() {
     saveName(first);
     saveWants(wants);
     saveProfileBasicsToDb(first, wants);
-    router.push("/questions");
+    router.push(fromYou ? "/you" : "/questions");
   }
 
   return (
@@ -72,7 +74,7 @@ export default function Start() {
       </div>
       <div className={styles.grow} />
       <button type="button" className="btn-primary" disabled={wants.length === 0} onClick={next}>
-        Continue
+        {fromYou ? "Save" : "Continue"}
       </button>
     </main>
   );

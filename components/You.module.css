@@ -372,3 +372,10 @@
 .settings > .section:first-child {
   margin-top: 6px;
 }
+
+.home {
+  min-height: 44px;
+  margin: -8px 0 6px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.6);
+}
