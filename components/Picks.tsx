@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import PickDetails, { GoogleLine, SearchChip } from "@/components/PickDetails";
+import LetsGo from "@/components/LetsGo";
+import PickDetails, { GoogleLine, kindLabel, SearchChip } from "@/components/PickDetails";
+import PlanAround from "@/components/PlanAround";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
-import { savePickAction, saveTweakLines } from "@/lib/db";
+import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
@@ -19,10 +21,11 @@ const SHOW = 8;
 const CATEGORY_KEY = "feta.category";
 const SKIP_REASONS = ["Too far", "Too pricey", "Not my vibe", "Been there"];
 
-// The Tweak sheet. Ids match TWEAKS on the server.
+// The Tweak sheet: pick any, tap again to undo. Ids match TWEAKS on the server.
 const TWEAK_OPTIONS = [
   { id: "quieter", label: "Somewhere quieter" },
   { id: "cheaper", label: "Cheaper" },
+  { id: "fancier", label: "Fancier" },
   { id: "closer", label: "Closer" },
   { id: "outdoors", label: "Outdoors" },
   { id: "open_later", label: "Open later" },
@@ -30,7 +33,21 @@ const TWEAK_OPTIONS = [
   { id: "kids", label: "Good with kids" },
 ];
 
-type Sheet = { type: "details"; pick: Pick } | { type: "reason"; pick: Pick } | { type: "tweak" } | { type: "plan" } | null;
+type Sheet =
+  | { type: "details"; pick: Pick }
+  | { type: "reason"; pick: Pick }
+  | { type: "tweak" }
+  | { type: "plan" }
+  | { type: "go"; pick: Pick }
+  | { type: "around"; pick: Pick }
+  | null;
+
+// A tweak in force for a list, and the list from before it, so undoing the
+// last tweak brings the everyday picks straight back (no new search).
+type Tweaked = { tweaks: string[]; note?: string; base: Slot };
+
+// Cheaper and Fancier pull opposite ways, so only one at a time.
+const OPPOSITE: Record<string, string> = { cheaper: "fancier", fancier: "cheaper" };
 
 // Google's stars, e.g. "★ 4.5 (1.2k)", credited with the Google Maps line.
 const stars = (p: Pick) =>
@@ -51,7 +68,10 @@ export default function Picks() {
   }, [slots]);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tweakNote, setTweakNote] = useState("");
+  const [tweakPick, setTweakPick] = useState<string[]>([]);
+  const [tweaked, setTweaked] = useState<Record<string, Tweaked>>({});
   const [withKids, setWithKids] = useState(false);
+  const [compact, setCompact] = useState(false);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -91,10 +111,36 @@ export default function Picks() {
   );
 
   function tweak(tweaks: string[], note?: string) {
-    saveTweakLines(tweaks);
+    const base = tweaked[key]?.base ?? slots[key];
     setSheet(null);
     setTweakNote("");
+    if (tweaks.length === 0 && !note) {
+      undoAll();
+      return;
+    }
+    const before = tweaked[key]?.tweaks ?? [];
+    saveTweakLines(tweaks.filter((t) => !before.includes(t)));
+    removeTweakLines(before.filter((t) => !tweaks.includes(t)));
+    if (base) setTweaked((all) => ({ ...all, [key]: { tweaks, note, base } }));
     load(when, category, { tweaks, note });
+  }
+
+  // Back to the everyday list, as it was.
+  function undoAll() {
+    const t = tweaked[key];
+    if (!t) return;
+    removeTweakLines(t.tweaks);
+    setSlots((s) => ({ ...s, [key]: t.base }));
+    setTweaked((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
+  }
+
+  function undoOne(id: string | null) {
+    const t = tweaked[key];
+    if (!t) return;
+    const tweaks = id ? t.tweaks.filter((x) => x !== id) : t.tweaks;
+    const note = id ? t.note : undefined;
+    if (tweaks.length === 0 && !note) undoAll();
+    else tweak(tweaks, note);
   }
 
   // "Show me more": the next 8 from the backup, or a new search once the
@@ -163,6 +209,15 @@ export default function Picks() {
     setSheet({ type: "reason", pick });
   }
 
+  // "Been there": off the list, into Been, and Feta leans towards places
+  // they don't know yet (testers: "I know Bombay, show me others").
+  function been(pick: Pick) {
+    savePickAction(pick.placeId, "been", { category, cityId: city!.id });
+    setSlots((s) => ({ ...s, [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    setSheet(null);
+    toast("Moved to Been. Feta will show you places you don't know yet.");
+  }
+
   function giveReason(pick: Pick, reason: string) {
     if (reason === "Been there") savePickAction(pick.placeId, "been", { category, cityId: city!.id });
     savePickAction(pick.placeId, "skipped", { reason, category, cityId: city!.id });
@@ -173,10 +228,12 @@ export default function Picks() {
   const isSaved = (p: Pick) => !!slot?.saved.includes(p.placeId);
   const where = (p: Pick) => [stars(p), p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
 
+  const active = tweaked[key];
   return (
     <main className={styles.screen}>
-      <div className={styles.scroll}>
-      <div className={styles.head}>
+      {/* The header shrinks to one line once the list scrolls (testers: it took 40% of the screen). */}
+      <div className={styles.scroll} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
+      <div className={`${styles.head} ${compact ? styles.compact : ""}`}>
         <div className={styles.top}>
           <div className={styles.segment} role="tablist" aria-label="When">
             <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
@@ -197,17 +254,36 @@ export default function Picks() {
             ‹
           </button>
           <h1 className={styles.title}>
-            {category === "food_drinks" ? "Food & drinks" : "Experiences"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+            {category === "food_drinks" ? "Food & drinks" : "Things to do"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
           </h1>
         </div>
 
         <div className={styles.tools}>
-          <button type="button" className={styles.tool} onClick={() => setSheet({ type: "tweak" })}>
+          <button
+            type="button"
+            className={styles.tool}
+            onClick={() => {
+              setTweakPick(active?.tweaks ?? []);
+              setTweakNote(active?.note ?? "");
+              setSheet({ type: "tweak" });
+            }}
+          >
             ⚙ Tweak
           </button>
           <button type="button" className={styles.tool} onClick={() => setSheet({ type: "plan" })}>
             ✦ Plan my evening
           </button>
+          {/* Tweaks in force: tap ✕ to undo one. */}
+          {active?.tweaks.map((t) => (
+            <button key={t} type="button" className={`${styles.tool} ${styles.toolOn}`} onClick={() => undoOne(t)} aria-label={`Undo ${t}`}>
+              {TWEAK_OPTIONS.find((o) => o.id === t)?.label ?? t} ✕
+            </button>
+          ))}
+          {active?.note && (
+            <button type="button" className={`${styles.tool} ${styles.toolOn}`} onClick={() => undoOne(null)} aria-label="Undo">
+              “{active.note.slice(0, 24)}” ✕
+            </button>
+          )}
         </div>
       </div>
 
@@ -246,7 +322,7 @@ export default function Picks() {
             <button type="button" className={styles.photo} onClick={() => setSheet({ type: "details", pick: hero })} aria-label={`${hero.name}: details`}>
               <PickPhoto photo={hero.photo} className="kenburns" />
               <span className={styles.scrim} />
-              <span className={styles.kind}>{hero.kind}</span>
+              <span className={styles.kind}>{kindLabel(hero.kind)}</span>
               {hero.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
               {hero.photo && (
                 <span className={styles.credit}>
@@ -280,6 +356,11 @@ export default function Picks() {
               <button type="button" className={styles.details} onClick={() => setSheet({ type: "details", pick: hero })}>
                 Details
               </button>
+              {(hero.kind === "EAT" || hero.kind === "DRINK") && (
+                <button type="button" className={styles.details} onClick={() => setSheet({ type: "around", pick: hero })}>
+                  Plan around this
+                </button>
+              )}
               <button type="button" aria-label="Save" className={`${styles.round} ${styles.save}`} onClick={() => save(hero)}>
                 {isSaved(hero) ? "✓" : "♥"}
               </button>
@@ -317,6 +398,18 @@ export default function Picks() {
                         {p.photo && ` · Photo: ${p.photo.credit}`}
                       </span>
                     )}
+                    {!p.event && (
+                      <button
+                        type="button"
+                        className={styles.rowBeen}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          been(p);
+                        }}
+                      >
+                        Been there
+                      </button>
+                    )}
                   </span>
                 </div>
                 <button type="button" aria-label={`Save ${p.name}`} className={`${styles.rowSave} ${isSaved(p) ? styles.rowSaved : ""}`} onClick={() => save(p)}>
@@ -343,7 +436,22 @@ export default function Picks() {
           onClose={() => setSheet(null)}
           onSave={() => save(sheet.pick)}
           onSkip={() => skip(sheet.pick)}
+          onGo={() => setSheet({ type: "go", pick: sheet.pick })}
+          onBeen={sheet.pick.event ? undefined : () => been(sheet.pick)}
         />
+      )}
+
+      {sheet?.type === "go" && (
+        <LetsGo
+          pick={sheet.pick}
+          cityId={city.id}
+          onClose={() => setSheet(null)}
+          onWhatsAfter={sheet.pick.kind === "EAT" || sheet.pick.kind === "DRINK" ? () => setSheet({ type: "around", pick: sheet.pick }) : undefined}
+        />
+      )}
+
+      {sheet?.type === "around" && (
+        <PlanAround anchor={sheet.pick} experiences={expSlot?.picks ?? []} when={when} cityId={city.id} onClose={() => setSheet(null)} />
       )}
 
       {sheet?.type === "plan" && (
@@ -357,7 +465,7 @@ export default function Picks() {
         />
       )}
 
-      {sheet && sheet.type !== "details" && sheet.type !== "plan" && (
+      {(sheet?.type === "tweak" || sheet?.type === "reason") && (
         <>
           <div className={styles.dim} onClick={() => setSheet(null)} />
           <div className={styles.sheet} role="dialog" aria-label={sheet.type === "tweak" ? "Tweak these" : "Why not?"}>
@@ -366,10 +474,18 @@ export default function Picks() {
                 <h2 className={styles.sheetTitle}>
                   Tweak <strong>these</strong>
                 </h2>
-                <p className={styles.sheetSub}>Pick one and I&apos;ll find new ones.</p>
+                <p className={styles.sheetSub}>Tap as many as you like. Tap again to undo.</p>
                 <div className={styles.reasons}>
                   {TWEAK_OPTIONS.filter((t) => t.id !== "kids" || withKids).map((t) => (
-                    <button key={t.id} type="button" onClick={() => tweak([t.id])}>
+                    <button
+                      key={t.id}
+                      type="button"
+                      aria-pressed={tweakPick.includes(t.id)}
+                      className={tweakPick.includes(t.id) ? styles.reasonOn : ""}
+                      onClick={() =>
+                        setTweakPick(tweakPick.includes(t.id) ? tweakPick.filter((x) => x !== t.id) : [...tweakPick.filter((x) => x !== OPPOSITE[t.id]), t.id])
+                      }
+                    >
                       {t.label}
                     </button>
                   ))}
@@ -378,14 +494,19 @@ export default function Picks() {
                   className={styles.sayIt}
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (tweakNote.trim()) tweak([], tweakNote.trim());
+                    tweak(tweakPick, tweakNote.trim() || undefined);
                   }}
                 >
                   <input value={tweakNote} onChange={(e) => setTweakNote(e.target.value)} placeholder='Or say it, e.g. "rooftop with a view"' aria-label="Say what you want" maxLength={200} />
-                  <button type="submit" aria-label="Find new ones" disabled={!tweakNote.trim()}>
-                    ↑
-                  </button>
                 </form>
+                <button
+                  type="button"
+                  className={`btn-primary ${styles.tweakGo}`}
+                  disabled={tweakPick.length === 0 && !tweakNote.trim() && !active}
+                  onClick={() => tweak(tweakPick, tweakNote.trim() || undefined)}
+                >
+                  {tweakPick.length === 0 && !tweakNote.trim() && active ? "Back to my usual picks" : "Show new places"}
+                </button>
               </>
             ) : (
               <>

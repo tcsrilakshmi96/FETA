@@ -12,7 +12,25 @@ import styles from "./PickDetails.module.css";
 // the live Google line, why it's yours, what to order or highlights (from
 // Google Maps reviews, with the sources Google requires), and the actions.
 
-export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: Pick; onClose: () => void; onSave: () => void; onSkip?: () => void }) {
+// Plain words for the kind of pick (testers: "EAT" and "DO" meant nothing).
+const KIND_LABELS: Record<string, string> = { EAT: "Food", DRINK: "Drinks", DO: "To do", EVENT: "Event" };
+export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
+
+export default function PickDetails({
+  pick,
+  onClose,
+  onSave,
+  onSkip,
+  onGo,
+  onBeen,
+}: {
+  pick: Pick;
+  onClose: () => void;
+  onSave: () => void;
+  onSkip?: () => void;
+  onGo?: () => void;
+  onBeen?: () => void;
+}) {
   const [notes, setNotes] = useState<PlaceNotes | null>(null);
 
   useEffect(() => {
@@ -32,7 +50,7 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
       <div className={styles.sheet} role="dialog" aria-label={pick.name}>
         <div className={styles.hero}>
           <PickPhoto photo={pick.photo} />
-          <span className={styles.kind}>{pick.kind}</span>
+          <span className={styles.kind}>{kindLabel(pick.kind)}</span>
           {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
           {pick.photo && (
             <span className={styles.credit}>
@@ -116,9 +134,14 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
           </>
         )}
 
+        {onGo && (
+          <button type="button" className={`btn-primary ${styles.go}`} onClick={onGo}>
+            Let&apos;s go
+          </button>
+        )}
         <div className={styles.actions}>
           {/* Booking (India) or tickets lead; else Naver in Korea, else Google Maps. */}
-          <a className={styles.primary} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent(pick.book ? "book" : "maps", pick.placeId)}>
+          <a className={`${styles.primary} ${onGo ? styles.quiet : ""}`} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent(pick.book ? "book" : "maps", pick.placeId)}>
             {pick.book?.label ?? (pick.naverUri ? "Open in Naver Map" : "Open in Google Maps")}
           </a>
           <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("directions", pick.placeId)}>
@@ -158,6 +181,11 @@ export default function PickDetails({ pick, onClose, onSave, onSkip }: { pick: P
             }}
           />
         </div>
+        {onBeen && (
+          <button type="button" className={styles.close} onClick={onBeen}>
+            Been there
+          </button>
+        )}
         {onSkip && (
           <button type="button" className={styles.close} onClick={onSkip}>
             Not for me

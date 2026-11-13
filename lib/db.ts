@@ -235,6 +235,7 @@ export async function loadWhatsApp(): Promise<string | null> {
 const TWEAK_LINES: Record<string, string> = {
   quieter: "Likes quieter places",
   cheaper: "Keeping spend down lately",
+  fancier: "Likes somewhere nicer now and then",
   closer: "Prefers places close by",
   outdoors: "Likes being outdoors",
   open_later: "Often out late",
@@ -252,6 +253,15 @@ export function saveTweakLines(tweaks: string[]) {
         rows.map((t) => ({ user_id: userId, line_key: `tweak:${t}`, text: TWEAK_LINES[t], source: "tweaks", removed_at: null })),
         { onConflict: "user_id,line_key" },
       ),
+  );
+}
+
+// Undoing a tweak takes its line back out (testers: one tap left a line for good).
+export function removeTweakLines(tweaks: string[]) {
+  const keys = tweaks.filter((t) => TWEAK_LINES[t]).map((t) => `tweak:${t}`);
+  if (keys.length === 0) return Promise.resolve();
+  return run("tweak lines", (userId) =>
+    supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("user_id", userId).in("line_key", keys),
   );
 }
 

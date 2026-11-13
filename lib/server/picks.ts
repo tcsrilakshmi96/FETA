@@ -30,12 +30,13 @@ export type Taste = {
 
 // ---------- Tweaks ----------
 
-export const TWEAKS = ["quieter", "cheaper", "closer", "outdoors", "open_later", "groups", "kids"] as const;
+export const TWEAKS = ["quieter", "cheaper", "fancier", "closer", "outdoors", "open_later", "groups", "kids"] as const;
 export type Tweak = (typeof TWEAKS)[number];
 
 export const TWEAK_LABELS: Record<Tweak, string> = {
   quieter: "Somewhere quieter",
   cheaper: "Cheaper",
+  fancier: "Fancier: dressier, more polished places",
   closer: "Closer",
   outdoors: "Outdoors",
   open_later: "Open later",
@@ -43,13 +44,18 @@ export const TWEAK_LABELS: Record<Tweak, string> = {
   kids: "Good with kids",
 };
 
-// Cheaper, Closer and Open later change the hard filters for this search;
+// Cheaper, Fancier (testers, 13 Nov 2026: "show fancier places"), Closer and
+// Open later change the hard filters for this search;
 // the rest steer the search words and Gemini's choice.
 export function applyTweaks(taste: Taste, tweaks: Tweak[]): Taste {
   const answers = { ...taste.answers };
   if (tweaks.includes("cheaper")) {
     const level = /^level_(\d)$/.exec(answers.spend ?? "");
     answers.spend = level ? `level_${Math.max(1, Number(level[1]) - 1)}` : "level_2";
+  }
+  if (tweaks.includes("fancier")) {
+    const level = /^level_(\d)$/.exec(answers.spend ?? "");
+    answers.spend = level ? `level_${Math.min(5, Number(level[1]) + 1)}` : "level_4";
   }
   if (tweaks.includes("closer")) {
     answers.distance = answers.distance === "city" ? "ride_5km" : answers.distance === "ride_5km" ? "walk_2km" : "closer_1km";
@@ -59,6 +65,7 @@ export function applyTweaks(taste: Taste, tweaks: Tweak[]): Taste {
 
 const TWEAK_PHRASES: Partial<Record<Tweak, string>> = {
   quieter: "quiet cafe",
+  fancier: "upscale restaurant",
   outdoors: "outdoor seating restaurant",
   groups: "restaurant good for groups",
   kids: "family friendly restaurant",

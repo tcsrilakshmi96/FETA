@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
-import PickDetails from "@/components/PickDetails";
+import LetsGo from "@/components/LetsGo";
+import PickDetails, { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useToast } from "@/components/Toast";
 import { savePickAction } from "@/lib/db";
@@ -31,6 +32,7 @@ export default function Ask() {
   const [trip, setTrip] = useState<string | null>(null);
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [detail, setDetail] = useState<Pick | null>(null);
+  const [going, setGoing] = useState<Pick | null>(null);
   const toast = useToast();
   const listRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
@@ -142,7 +144,7 @@ export default function Ask() {
                       <PickPhoto photo={p.photo} />
                       <span className={styles.miniScrim} />
                       <span className={styles.miniText}>
-                        <span className={styles.miniKind} style={{ display: "block" }}>{p.kind}</span>
+                        <span className={styles.miniKind} style={{ display: "block" }}>{kindLabel(p.kind)}</span>
                         <span className={styles.miniName}>{p.name}</span>
                         <span className={styles.miniArea} style={{ display: "block" }}>{p.area}</span>
                       </span>
@@ -235,6 +237,12 @@ export default function Ask() {
       </div>
 
       <div className={styles.prompts}>
+        {/* Surprise me leads (testers: it takes the deciding off you). */}
+        {!lastOptions && (
+          <button type="button" className={styles.surprise} onClick={() => send("Surprise me tonight")} disabled={thinking}>
+            🎲 Surprise me
+          </button>
+        )}
         {(lastOptions ?? PROMPTS).map((p) => (
           <button key={p} type="button" onClick={() => send(p)} disabled={thinking}>
             {p}
@@ -266,8 +274,13 @@ export default function Ask() {
             });
             toast("Saved to Want to try");
           }}
+          onGo={() => {
+            setGoing(detail);
+            setDetail(null);
+          }}
         />
       )}
+      {going && <LetsGo pick={going} cityId={origin?.city.id ?? ""} onClose={() => setGoing(null)} />}
     </main>
   );
 }

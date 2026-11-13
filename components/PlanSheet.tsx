@@ -1,5 +1,6 @@
 "use client";
 
+import { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
@@ -19,7 +20,7 @@ const nearKept = new Map<string, Promise<Pick[]>>();
 // town), one search for something close to the best dinner.
 // One plan as share data: place IDs, times, event links and Feta-pick notes
 // (never diet or the personal reason).
-function sharePlan(p: Plan) {
+export function sharePlan(p: Plan) {
   return {
     title: p.day,
     travel: { km: p.km, minutes: p.minutes, mode: p.mode },
@@ -38,7 +39,7 @@ function sharePlan(p: Plan) {
 
 // Directions to the second stop via the first, by exact coordinates (with
 // place IDs), so Google Maps can't land on a different place of that name.
-function directionsForBoth(first: Pick, second: Pick) {
+export function directionsForBoth(first: Pick, second: Pick) {
   const spot = (p: Pick) => (p.lat !== undefined && p.lng !== undefined ? `${p.lat},${p.lng}` : encodeURIComponent(p.event ? `${p.event.venueName}` : p.name));
   const ids = (key: string, p: Pick) => (p.event ? "" : `&${key}=${p.placeId}`);
   return `https://www.google.com/maps/dir/?api=1&destination=${spot(second)}${ids("destination_place_id", second)}&waypoints=${spot(first)}${ids("waypoint_place_ids", first)}`;
@@ -128,7 +129,7 @@ export default function PlanSheet({
                       <PickPhoto photo={stop.pick.photo} />
                     </span>
                     <span className={styles.text}>
-                      <span className={styles.kind}>{stop.pick.kind}</span>
+                      <span className={styles.kind}>{kindLabel(stop.pick.kind)}</span>
                       <strong>{stop.pick.name}</strong>
                       <span className={styles.area}>{stop.pick.area}</span>
                     </span>
