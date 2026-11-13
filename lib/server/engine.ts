@@ -309,8 +309,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     const today = cityCalendar(city.timeZone).today;
     // Photos are fetched by the phone only once a card is on screen.
     const fresh = [
-      ...events.map((e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue })),
-      ...chosen.map(({ candidate }, i) => buildPick(candidate, placeStored[i], { taste, when: body.when, city })),
+      ...events.map((e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue, wholeCity: body.origin.source === "city" })),
+      ...chosen.map(({ candidate }, i) => buildPick(candidate, placeStored[i], { taste, when: body.when, city, wholeCity: body.origin.source === "city" })),
     ];
     const shownFresh = fresh.filter((p) => !p.spare);
     return json({ picks: [...kept.picks, ...shownFresh], spares: fresh.filter((p) => p.spare), ...(banner ? { banner } : {}) });
@@ -424,7 +424,7 @@ async function showStored(
       .filter((s) => !ctx.exclude.has(s.placeId) && eventStillOn(s.event, ctx.body.when, ctx.city))
       .map(async (s) => {
         const venue = s.event.venuePlaceId ? await placeDetails(s.event.venuePlaceId, false, true) : null;
-        return buildEventPick(s, { taste: ctx.taste, city: ctx.city, today, venue });
+        return buildEventPick(s, { taste: ctx.taste, city: ctx.city, today, venue, wholeCity: ctx.body.origin.source === "city" });
       }),
   );
   const live = await Promise.all(placeStored.map((s) => placeDetails(s.placeId, ctx.needsDiet)));
@@ -434,7 +434,7 @@ async function showStored(
   const placePicks = await Promise.all(
     placeStored
       .filter((s) => byId.has(s.placeId))
-      .map((s) => buildPick(byId.get(s.placeId)!, s, { taste: ctx.taste, when: ctx.body.when, city: ctx.city })),
+      .map((s) => buildPick(byId.get(s.placeId)!, s, { taste: ctx.taste, when: ctx.body.when, city: ctx.city, wholeCity: ctx.body.origin.source === "city" })),
   );
   const picks = [...eventPicksShown, ...placePicks];
   const keptIds = new Set(picks.map((p) => p.placeId));

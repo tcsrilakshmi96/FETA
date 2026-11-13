@@ -587,12 +587,25 @@ const SIDE_PLACES: Record<string, RegExp> = {
   buzzing_sober: /cafe|coffee|tea_house|live_music|performing_arts/,
 };
 
+// The price says more than the type: "dressed-up" only for fine dining or a
+// pricier place (a cheap Mughlai restaurant got it, testers 13 Nov 2026),
+// "hole-in-the-wall" never for an expensive one.
+const SIDE_PRICE: Record<string, (level: number | undefined, type: string) => boolean> = {
+  dressed_up: (level, type) => type === "fine_dining_restaurant" || (level ?? 0) >= 3,
+  hole_in_wall: (level) => (level ?? 1) <= 2,
+};
+
 export function reasonFits(because: string, taste: Taste, place?: Place) {
   const rejected = taste.no.some((id) => SIDE_WORDS[id]?.test(because) && !taste.yes.some((y) => SIDE_WORDS[y]?.test(because)));
   if (rejected) return false;
   const type = place?.primaryType ?? "";
+  const level = PRICE_LEVELS[place?.priceLevel ?? ""];
   // A side they chose, mentioned for a place it doesn't describe.
-  return !place || !type || !taste.yes.some((id) => SIDE_WORDS[id]?.test(because) && SIDE_PLACES[id] && !SIDE_PLACES[id].test(type));
+  return (
+    !place ||
+    !type ||
+    !taste.yes.some((id) => SIDE_WORDS[id]?.test(because) && ((SIDE_PLACES[id] && !SIDE_PLACES[id].test(type)) || (SIDE_PRICE[id] && !SIDE_PRICE[id](level, type))))
+  );
 }
 
 export function tasteSummary(taste: Taste, city: City) {
@@ -799,8 +812,28 @@ function googleLine(place: Place, when: When, city: City) {
   return `${open} · checked just now · Google Maps`;
 }
 
+// Whether a place's price is at their spend level, not just under it, so the
+// ✓ never claims a match for a much cheaper place (testers, 13 Nov 2026).
+function spendMatches(place: Place, answers: Answers, city: City) {
+  const match = /^level_(\d)$/.exec(answers.spend ?? "");
+  if (!match) return false;
+  const level = Number(match[1]);
+  const bounds = spendBounds(city.currency);
+  const range = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
+  if (Number.isFinite(range)) {
+    const low = level > 1 ? bounds[level - 2] : 0;
+    const high = level <= 4 ? bounds[level - 1] : Infinity;
+    return range >= low * 0.8 && range <= high;
+  }
+  const google = PRICE_LEVELS[place.priceLevel ?? ""];
+  const max = MAX_PRICE_LEVEL[answers.spend ?? ""];
+  return google !== undefined && max !== undefined && google <= max && google >= max - 1;
+}
+
 // Matched chips are written by code from verified facts, never by the AI.
-function chips(c: Candidate, taste: Taste, city: City): string[] {
+// With "Anywhere in <city>" there is no distance chip: kilometres from the
+// city's centre point mean nothing to them.
+function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): string[] {
   const out: string[] = [];
   const diet = taste.answers.diet;
   if (c.place.servesVegetarianFood === true) {
@@ -813,8 +846,8 @@ function chips(c: Candidate, taste: Taste, city: City): string[] {
     out.push("Halal · not confirmed, check with staff");
   }
   const spend = label("spend", taste.answers.spend, city);
-  if (spend && taste.answers.spend !== "depends" && c.place.priceLevel) out.push(`${spend} ✓`);
-  out.push(`${formatDistance(c.km, city.country)}${c.far ? "" : " ✓"}`);
+  if (spend && isMainlyFoodOrDrink(c.place) && spendMatches(c.place, taste.answers, city)) out.push(`${spend} ✓`);
+  if (!wholeCity) out.push(`${formatDistance(c.km, city.country)}${c.far ? "" : " ✓"}`);
   return out;
 }
 
@@ -842,7 +875,7 @@ function lazyPhoto(uri: string | null | undefined, name: string | undefined, cre
 export function buildPick(
   c: Candidate,
   stored: StoredPick,
-  opts: { taste: Taste; when: When; city: City; photo?: string | null },
+  opts: { taste: Taste; when: When; city: City; photo?: string | null; wholeCity?: boolean },
 ): Pick {
   const p = c.place;
   const name = p.displayName?.text ?? "This place";
@@ -852,8 +885,8 @@ export function buildPick(
     ...stored,
     name,
     area: areaName(p, opts.city),
-    distanceKm: Math.round(c.km * 10) / 10,
-    chips: chips(c, opts.taste, opts.city),
+    distanceKm: opts.wholeCity ? 0 : Math.round(c.km * 10) / 10,
+    chips: chips(c, opts.taste, opts.city, opts.wholeCity),
     googleLine: googleLine(p, opts.when, opts.city),
     rating: p.rating,
     ratingCount: p.userRatingCount,
@@ -897,11 +930,11 @@ function eventWhen(e: EventInfo, today: string) {
 
 export function buildEventPick(
   stored: StoredPick & { event: EventInfo },
-  opts: { taste: Taste; city: City; today: string; venue: Place | null; photo?: string | null },
+  opts: { taste: Taste; city: City; today: string; venue: Place | null; photo?: string | null; wholeCity?: boolean },
 ): Pick {
   const e = stored.event;
   const limit = distanceLimitKm(opts.taste.answers);
-  const km = e.distanceKm;
+  const km = opts.wholeCity ? undefined : e.distanceKm;
   const maxSpend = spendUpperBound(opts.taste.answers, opts.city);
   const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${formatDistance(km, opts.city.country)}${km <= limit ? " ✓" : ""}`].filter(Boolean) as string[];
   const destination = e.venuePlaceId
