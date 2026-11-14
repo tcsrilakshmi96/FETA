@@ -441,3 +441,19 @@
   background: var(--ink);
   color: var(--bg);
 }
+
+.trips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.trips button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 99px;
+  background: rgba(255, 176, 32, 0.22);
+  font-size: 14px;
+  font-weight: 500;
+}

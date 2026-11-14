@@ -10,6 +10,7 @@ import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
+import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
 
@@ -45,6 +46,7 @@ export default function Lists() {
   const [adding, setAdding] = useState(false);
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [saturday, setSaturday] = useState("");
+  const [trips, setTrips] = useState<{ id: string; title: string }[]>([]);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
@@ -56,6 +58,7 @@ export default function Lists() {
     /* eslint-enable react-hooks/set-state-in-effect */
     fetchLists(here).then((list) => live && setItems(list ?? []));
     loadWishes().then((w) => live && setWishes(w));
+    loadTrips().then((t) => live && setTrips(t));
     return () => {
       live = false;
     };
@@ -161,6 +164,17 @@ export default function Lists() {
           </button>
         </div>
         <p className={styles.private}>Private. Only you can see these.</p>
+
+        {/* Trips planned in Ask Feta, to pick up again. */}
+        {tab === "want" && trips.length > 0 && (
+          <div className={styles.trips}>
+            {trips.map((t) => (
+              <button key={t.id} type="button" onClick={() => router.push(`/ask?trip=${t.id}`)}>
+                ✈ {t.title} ›
+              </button>
+            ))}
+          </div>
+        )}
 
         {tab === "been" && items !== null && (
           <button type="button" className={styles.addPlace} onClick={() => setAdding(true)}>

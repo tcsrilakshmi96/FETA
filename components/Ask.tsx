@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import LetsGo from "@/components/LetsGo";
 import PickDetails, { kindLabel } from "@/components/PickDetails";
+import ItineraryView from "@/components/ItineraryView";
 import PickPhoto from "@/components/PickPhoto";
+import TripCard from "@/components/TripCard";
 import { useToast } from "@/components/Toast";
 import { savePickAction } from "@/lib/db";
 import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
@@ -17,7 +19,7 @@ import styles from "./Ask.module.css";
 
 type Message =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; weekendUndone?: boolean };
+  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; weekendUndone?: boolean; tripId?: string | null };
 
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
@@ -43,10 +45,15 @@ export default function Ask() {
     // "Ask Feta about Shanghai" arrives with a starting message, ready to send.
     setInput(new URLSearchParams(window.location.search).get("q")?.slice(0, 200) ?? "");
     /* eslint-enable react-hooks/set-state-in-effect */
+    // A saved trip opened from Saved: its card at the end of the chat.
+    const openTrip = new URLSearchParams(window.location.search).get("trip");
     loadChat().then((past) => {
-      if (past.length === 0) return;
+      const shown = openTrip ? past.map((m) => (m.tripId === openTrip ? { ...m, tripId: null } : m)) : past;
+      const opened = openTrip ? [{ id: nextId.current++, role: "assistant", text: "Here's your trip. Change anything, or carry on where you left off.", tripId: openTrip } as Message] : [];
+      if (shown.length === 0 && opened.length === 0) return;
       setMessages([
-        ...past.map((m) => ({ id: nextId.current++, role: m.role, text: m.content }) as Message),
+        ...shown.map((m) => ({ id: nextId.current++, role: m.role, text: m.content, tripId: m.tripId }) as Message),
+        ...opened,
       ]);
       setTrip(past.map((m) => m.trip).filter(Boolean).pop() ?? null);
     });
@@ -66,13 +73,16 @@ export default function Ask() {
     setThinking(false);
     if (reply.trip) setTrip(reply.trip);
     const text2 = reply.notice && reply.picks.length === 0 ? `${reply.reply}\n${reply.notice}` : reply.reply;
-    setMessages((m) => [...m, { id: nextId.current++, role: "assistant", text: text2, reply }]);
+    setMessages((m) => [...m, { id: nextId.current++, role: "assistant", text: text2, reply, tripId: reply.tripId ?? null }]);
   }
 
   // When Feta has just asked a question, its tap-able answers replace the
   // usual prompts.
   const last = messages[messages.length - 1];
   const lastOptions = !thinking && last?.role === "assistant" && last.reply?.options?.length ? last.reply.options : null;
+
+  const lastTripCard = new Map<string, number>();
+  for (const m of messages) if (m.role === "assistant" && m.tripId) lastTripCard.set(m.tripId, m.id);
 
   function patch(id: number, change: Partial<Extract<Message, { role: "assistant" }>>) {
     setMessages((all) => all.map((m) => (m.id === id && m.role === "assistant" ? { ...m, ...change } : m)));
@@ -105,37 +115,9 @@ export default function Ask() {
         {messages.map((m) => (
           <div key={m.id} className={styles.msg}>
             <div className={`${styles.bubble} ${m.role === "user" ? styles.fromMe : styles.fromFeta}`}>{m.text}</div>
-            {m.role === "assistant" && m.reply?.itinerary && (
-              <div className={styles.itinerary}>
-                <p className={styles.itTitle}>{m.reply.itinerary.title}</p>
-                {m.reply.itinerary.days.map((d) => (
-                  <div key={d.date} className={styles.itDay}>
-                    {m.reply!.itinerary!.days.length > 1 && <p className={styles.itDayLabel}>{d.label}</p>}
-                    <ol className={styles.itStops}>
-                      {d.stops.map((st) => (
-                        <li key={st.pick.placeId}>
-                          {st.travel && <span className={styles.itTravel}>{st.travel}</span>}
-                          <button type="button" className={styles.itStop} onClick={() => setDetail(st.pick)}>
-                            <span className={styles.itTime}>{st.time}</span>
-                            <span className={styles.itPic}>
-                              <PickPhoto photo={st.pick.photo} />
-                            </span>
-                            <span className={styles.itText}>
-                              <span className={styles.itSlot}>{st.slot}</span>
-                              <span className={styles.itName}>{st.pick.name}</span>
-                              <span className={styles.itArea}>{st.pick.area}</span>
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                ))}
-                <p className={styles.attribution}>
-                  Places and photos: <span translate="no">Google Maps</span>. Tap a stop for hours and directions.
-                </p>
-              </div>
-            )}
+            {m.role === "assistant" && m.reply?.itinerary && <ItineraryView itinerary={m.reply.itinerary} onStop={setDetail} />}
+            {/* One card per trip: the latest one, after an edit. */}
+            {m.role === "assistant" && m.tripId && lastTripCard.get(m.tripId) === m.id && <TripCard key={`${m.tripId}-${m.id}`} id={m.tripId} home={origin?.city ?? null} onStop={setDetail} />}
             {m.role === "assistant" && m.reply && m.reply.picks.length > 0 && (
               <>
                 <div className={styles.minis}>

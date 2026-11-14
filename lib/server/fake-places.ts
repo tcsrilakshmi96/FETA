@@ -36,7 +36,10 @@ function make(lat: number, lng: number, n: number, food: boolean): Place {
 
 export function fakeSearch(lat: number, lng: number, query: string, food: boolean): Place[] {
   const offset = [...query].reduce((a, c) => a + c.charCodeAt(0), 0) % 7;
-  return Array.from({ length: 20 }, (_, i) => make(lat, lng, i + offset * 20, food));
+  const places = Array.from({ length: 20 }, (_, i) => make(lat, lng, i + offset * 20, food));
+  // Hotel searches (the trip planner) find made-up hotels.
+  if (/hotel|inn|ryokan/i.test(query)) return places.map((p) => ({ ...p, primaryType: "hotel", types: ["hotel", "lodging"], displayName: { text: p.displayName!.text.replace(/\(test .*\)/, "(test hotel)") } }));
+  return places;
 }
 
 export function fakeDetails(id: string): Place | null {

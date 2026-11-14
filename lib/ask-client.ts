@@ -25,12 +25,13 @@ export async function askFeta(message: string, origin: Origin | null): Promise<A
 }
 
 // Earlier messages (text only; place cards are shown live, not stored).
-export async function loadChat(): Promise<{ role: "user" | "assistant"; content: string; trip: string | null }[]> {
+export async function loadChat(): Promise<{ role: "user" | "assistant"; content: string; trip: string | null; tripId: string | null }[]> {
   await currentUserId();
   const { data } = await supabase()
     .from("chat_messages")
     .select("role, content, extras")
     .order("id", { ascending: false })
     .limit(30);
-  return (data ?? []).reverse().map((m) => ({ role: m.role, content: m.content, trip: m.extras?.trip ?? null }));
+  // A trip card comes back from its saved trip.
+  return (data ?? []).reverse().map((m) => ({ role: m.role, content: m.content, trip: m.extras?.trip ?? null, tripId: m.extras?.trip_id ?? null }));
 }

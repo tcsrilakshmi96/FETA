@@ -1,0 +1,309 @@
+/* The trip planner card in Ask Feta. */
+.card {
+  margin-top: 10px;
+  padding: 16px;
+  border-radius: 24px;
+  background: var(--sheet);
+  box-shadow: 0 8px 26px rgba(60, 20, 30, 0.08);
+}
+
+.kick {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--roseText);
+}
+
+.title {
+  margin-top: 4px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.step {
+  margin: 18px 0 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.cities {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.city {
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--field);
+}
+
+.cityHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cityHead strong {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-fraunces), serif;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.num {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.nights {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.nights button,
+.moves button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sheet);
+  font-size: 13px;
+}
+
+.nights button:disabled,
+.moves button:disabled {
+  opacity: 0.35;
+}
+
+.story {
+  margin-top: 6px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.cityTools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.focus {
+  min-width: 0;
+  font-size: 11.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.moves {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.primary,
+.secondary {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 99px;
+  font-size: 14.5px;
+  font-weight: 500;
+}
+
+.primary {
+  background: var(--rose);
+  color: var(--inkFixed);
+}
+
+.secondary {
+  background: rgba(var(--inkRGB), 0.07);
+  color: var(--ink);
+}
+
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.6;
+}
+
+.summary {
+  font-family: var(--font-fraunces), serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.legs {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  list-style: none;
+}
+
+.legs li {
+  display: flex;
+  gap: 10px;
+  font-size: 13.5px;
+}
+
+.legs small {
+  display: block;
+  font-size: 12px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.tip {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 176, 32, 0.16);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ask {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chips button {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 13px;
+}
+
+.chips .on {
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.stayCity {
+  margin-top: 10px;
+}
+
+.stayCityName {
+  font-family: var(--font-fraunces), serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.stay {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--inkRGB), 0.1);
+}
+
+.stayOn {
+  border-color: var(--rose);
+  box-shadow: inset 0 0 0 1px var(--rose);
+}
+
+.stayPic {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(var(--inkRGB), 0.08);
+}
+
+.stayPic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stayText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13.5px;
+}
+
+.stayText strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stayText small {
+  font-size: 11.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.stayText a {
+  color: inherit;
+}
+
+.choose {
+  flex: none;
+  min-height: 34px;
+  padding: 0 11px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-size: 12.5px;
+}
+
+.stayOn .choose {
+  background: var(--rose);
+  color: var(--inkFixed);
+}
+
+.link {
+  min-height: 36px;
+  margin-top: 6px;
+  font-size: 13px;
+  text-decoration: underline;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.dayCity {
+  margin-top: 4px;
+}
