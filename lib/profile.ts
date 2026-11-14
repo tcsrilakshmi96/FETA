@@ -17,12 +17,13 @@ export const WANTS: { id: Want; label: string; sub: string; image: string | null
 const WANTS_KEY = "feta.wants";
 const NAME_KEY = "feta.name";
 
-export function loadWants(): Want[] {
+// People set up before this was asked want food and things to do.
+export function loadWants(fallback: Want[] = ["food", "do"]): Want[] {
   try {
     const saved = localStorage.getItem(WANTS_KEY);
-    return saved ? (JSON.parse(saved) as Want[]) : ["food", "do"];
+    return saved ? (JSON.parse(saved) as Want[]) : fallback;
   } catch {
-    return ["food", "do"];
+    return fallback;
   }
 }
 

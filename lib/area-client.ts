@@ -27,8 +27,9 @@ export function newAreaSession() {
   return crypto.randomUUID();
 }
 
-export async function suggestAreas(input: string, city: City, session: string): Promise<AreaSuggestion[]> {
-  const r = await call<{ suggestions: AreaSuggestion[] }>({ input, lat: city.lat, lng: city.lng, country: city.country, session });
+// Near the city; anywhere in the world when `anywhere` (places they love).
+export async function suggestAreas(input: string, city: City, session: string, anywhere = false): Promise<AreaSuggestion[]> {
+  const r = await call<{ suggestions: AreaSuggestion[] }>({ input, lat: city.lat, lng: city.lng, country: anywhere ? "" : city.country, session });
   return r?.suggestions ?? [];
 }
 

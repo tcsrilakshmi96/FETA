@@ -126,7 +126,15 @@ export default function Location() {
     router.push("/home");
   }
 
-  if (first) return <FirstWhere />;
+  if (first)
+    return (
+      <FirstWhere
+        onCity={(c) => {
+          setCity(c);
+          setFirst(false);
+        }}
+      />
+    );
   if (!city) return null;
 
   return (
@@ -176,6 +184,9 @@ export default function Location() {
             </button>
             <button type="button" className={styles.secondary} onClick={() => setSheetOpen(true)}>
               Type an area instead
+            </button>
+            <button type="button" className={styles.secondary} onClick={anywhere}>
+              Anywhere in {city.name}
             </button>
           </>
         )}

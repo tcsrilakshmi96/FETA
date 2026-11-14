@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import { cityAt, findCities, isMainlandChina, saveCity, type City } from "@/lib/cities";
 import { saveCityToDb, saveLocationConsent } from "@/lib/db";
-import { originFromCity, originFromGps, saveOrigin } from "@/lib/origin";
+import { originFromGps, saveOrigin } from "@/lib/origin";
 import styles from "./Setup.module.css";
 
 // The last setup step (Anj's flow: location once people know why): where
 // Feta should look. Their location (one-time, never stored; the city
 // follows it), or a city typed in, say for a trip. An exact area can be
 // chosen later from the area pill on Home.
-export default function FirstWhere() {
+export default function FirstWhere({ onCity }: { onCity: (city: City) => void }) {
   const router = useRouter();
   const toast = useToast();
   const [query, setQuery] = useState("");
@@ -75,8 +75,9 @@ export default function FirstWhere() {
       setChina(city);
       return;
     }
-    saveOrigin(originFromCity(city));
-    router.push("/home");
+    // Then where in the city: their location, an area, or anywhere in it
+    // (testers: "it only asked for the city, so how is it near me?").
+    onCity(city);
   }
 
   if (china) {

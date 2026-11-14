@@ -16,6 +16,16 @@ import styles from "./PickDetails.module.css";
 const KIND_LABELS: Record<string, string> = { EAT: "Food", DRINK: "Drinks", DO: "To do", EVENT: "Event" };
 export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
 
+// The verdict in words. With "Anywhere in <city>" Feta doesn't know where
+// they are, so no "detour" or "nearby" (testers: "a detour from where?").
+export function verdictLabel(p: Pick) {
+  if (p.verdict === "Skip unless") return `Skip unless ${p.skipUnless ?? "you're curious"}`;
+  const anywhere = !p.event && !p.distanceKm;
+  if (anywhere && p.verdict === "Worth a detour") return "One of the best";
+  if (anywhere && p.verdict === "Good if you're nearby") return "A good pick";
+  return p.verdict;
+}
+
 export default function PickDetails({
   pick,
   onClose,
@@ -42,7 +52,7 @@ export default function PickDetails({
     };
   }, [pick]);
 
-  const verdict = pick.verdict === "Skip unless" ? `Skip unless ${pick.skipUnless ?? "you're curious"}` : pick.verdict;
+  const verdict = verdictLabel(pick);
 
   return (
     <>

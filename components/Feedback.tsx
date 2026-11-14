@@ -22,17 +22,16 @@ export default function Feedback() {
   async function send() {
     if (!message.trim() || state === "sending") return;
     setState("sending");
-    const screenshot = attach ? await captureScreen() : null;
-    const userId = await currentUserId();
-    const { error } = userId
-      ? await supabase().from("feedback").insert({
-          user_id: userId,
-          message: message.trim().slice(0, 2000),
-          screen: pathname,
-          screenshot,
-          user_agent: navigator.userAgent.slice(0, 300),
-        })
-      : { error: { message: "no account" } };
+    // Quick and dependable (testers: slow, and twice it didn't go): the
+    // screenshot gets at most 2.5 seconds, and if the message doesn't go with
+    // it, it goes again without it.
+    const [screenshot, userId] = await Promise.all([
+      attach ? Promise.race([captureScreen(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500))]) : null,
+      currentUserId(),
+    ]);
+    const row = { user_id: userId, message: message.trim().slice(0, 2000), screen: pathname, user_agent: navigator.userAgent.slice(0, 300) };
+    let { error } = userId ? await supabase().from("feedback").insert({ ...row, screenshot }) : { error: { message: "no account" } };
+    if (error && userId && screenshot) ({ error } = await supabase().from("feedback").insert(row));
     if (error) {
       console.error("Sending feedback failed", error.message);
       setState("failed");

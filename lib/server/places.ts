@@ -192,7 +192,8 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
       input,
       sessionToken: session,
       languageCode: "en",
-      includedRegionCodes: [country.toLowerCase()],
+      // No country for "places you love": they can be anywhere in the world.
+      ...(country ? { includedRegionCodes: [country.toLowerCase()] } : {}),
       locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 40000 } },
     }),
   });

@@ -12,7 +12,10 @@
   flex: 1 1 56%;
   min-height: 240px;
   overflow: hidden;
-  background: #5a3a30;
+  /* Fades into whatever is behind the page, so there's no hard edge
+     (founder, 14 Nov 2026). */
+  -webkit-mask-image: linear-gradient(#000 62%, transparent);
+  mask-image: linear-gradient(#000 62%, transparent);
 }
 
 .photo img {
@@ -29,7 +32,7 @@
 .scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(rgba(26, 22, 22, 0.18), rgba(26, 22, 22, 0) 30%, rgba(var(--bgRGB), 0) 62%, var(--bg));
+  background: linear-gradient(rgba(26, 22, 22, 0.18), rgba(26, 22, 22, 0) 30%);
 }
 
 .look {
@@ -52,6 +55,7 @@
 }
 
 .body {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   padding: 0 24px 28px;

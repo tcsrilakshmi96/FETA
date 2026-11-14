@@ -10,9 +10,14 @@
   animation: var(--kf-in) 0.35s ease-out;
 }
 
+/* On a short phone the screen scrolls; nothing in it gets squashed (the
+   Continue button was shrinking to a sliver, testers 14 Nov 2026). */
+.screen > * {
+  flex-shrink: 0;
+}
+
 .grow {
-  flex: 1;
-  min-height: 20px;
+  flex: 1 0 20px;
 }
 
 .top {

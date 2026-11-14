@@ -85,7 +85,7 @@ export default function Questions() {
     let live = true;
     const t = setTimeout(async () => {
       session.current ||= newAreaSession();
-      const found = await suggestAreas(typed.trim(), city, session.current);
+      const found = await suggestAreas(typed.trim(), city, session.current, true);
       if (live) setSuggestions(found.filter((s) => !loved.some((l) => l.placeId === s.placeId)));
     }, 350);
     return () => {

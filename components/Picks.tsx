@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LetsGo from "@/components/LetsGo";
-import PickDetails, { GoogleLine, kindLabel, SearchChip } from "@/components/PickDetails";
+import PickDetails, { GoogleLine, kindLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
 import PlanAround from "@/components/PlanAround";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
@@ -53,7 +53,6 @@ const OPPOSITE: Record<string, string> = { cheaper: "fancier", fancier: "cheaper
 const stars = (p: Pick) =>
   p.rating ? `★ ${p.rating.toFixed(1)}${p.ratingCount ? ` (${p.ratingCount >= 1000 ? `${(p.ratingCount / 1000).toFixed(1).replace(/\.0$/, "")}k` : p.ratingCount})` : ""}` : null;
 
-const verdictText = (p: Pick) => (p.verdict === "Skip unless" ? `Skip unless ${p.skipUnless ?? "you're curious"}` : p.verdict);
 
 export default function Picks() {
   const router = useRouter();
@@ -333,7 +332,7 @@ export default function Picks() {
                 <span className={styles.name}>{hero.name}</span>
                 <span className={styles.meta}>
                   <span className={styles.where}>{where(hero)}</span>
-                  <span className={styles.verdict}>{verdictText(hero)}</span>
+                  <span className={styles.verdict}>{verdictLabel(hero)}</span>
                 </span>
                 <span className={styles.because}>{hero.because}</span>
                 {hero.fetaNote && <span className={styles.fetaNote}>“{hero.fetaNote}”</span>}
@@ -387,7 +386,7 @@ export default function Picks() {
                     <span className={styles.rowWhy}>{p.because}</span>
                     <span className={styles.rowMeta}>
                       {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
-                      {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>Worth a detour</span>}
+                      {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>{verdictLabel(p)}</span>}
                     </span>
                     {/* Google's credit, short; opening hours and the full verdict are in Details. */}
                     {!p.event && (

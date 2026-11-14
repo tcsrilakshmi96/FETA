@@ -87,7 +87,6 @@ export default function Home() {
       return;
     }
     /* eslint-disable react-hooks/set-state-in-effect -- the origin and answers are only readable in the browser */
-    if (cityDay(saved.city.timeZone).weekend) setWhen("weekend");
     setWants(loadWants());
     setName(loadName());
     try {
@@ -329,20 +328,16 @@ export default function Home() {
             {cover(lead, leadSlot, true)}
             {cover(lead === "food_drinks" ? "experiences" : "food_drinks", lead === "food_drinks" ? exp : food, false)}
 
-            <button
-              type="button"
-              className={`${styles.tile} ${styles.plan}`}
-              onClick={() => (today ? router.push(`/ask?q=${encodeURIComponent(`Plan my whole day today in ${origin.source === "area" ? origin.label : city.name}`)}`) : setPlanOpen(true))}
-            >
-              <span className={styles.kick}>✦ {today ? "YOUR DAY" : arrived ? "YOUR FIRST EVENING" : when === "tonight" ? "YOUR EVENING" : "YOUR WEEKEND"}</span>
+            {/* Always Plan my evening (testers: a weekend-morning "Plan my whole
+                day" jumped to chat, and Plan my evening seemed missing). */}
+            <button type="button" className={`${styles.tile} ${styles.plan}`} onClick={() => setPlanOpen(true)}>
+              <span className={styles.kick}>✦ {arrived ? "YOUR FIRST EVENING" : "PLAN MY EVENING"}</span>
               <span className={styles.tileTitle}>
-                {today
-                  ? "Plan my whole day"
-                  : plan
-                    ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
-                    : "Dinner and something nearby"}
+                {plan
+                  ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
+                  : "Dinner and something nearby"}
               </span>
-              <span className={styles.tileSub}>{today ? "Breakfast to drinks ›" : plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
+              <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
             </button>
 
             <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>

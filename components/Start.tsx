@@ -13,13 +13,14 @@ import styles from "./Setup.module.css";
 export default function Start() {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [wants, setWants] = useState<Want[]>(["food", "do"]);
+  const [wants, setWants] = useState<Want[]>([]);
   const [fromYou, setFromYou] = useState(false);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- saved on this phone, only readable in the browser */
     setName(loadName());
-    setWants(loadWants());
+    // Nothing ticked to begin with (testers: "why are these already clicked?").
+    setWants(loadWants([]));
     setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);

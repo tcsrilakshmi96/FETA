@@ -22,7 +22,8 @@ export async function POST(request: Request) {
       return Response.json(at ? { location: at } : { error: "Not found" }, { status: at ? 200 : 404 });
     }
     const input = (body.input ?? "").trim().slice(0, 80);
-    if (input.length < 2 || !Number.isFinite(body.lat) || !Number.isFinite(body.lng) || !/^[A-Z]{2}$/.test(body.country ?? "")) {
+    // An empty country searches everywhere (places you love can be abroad).
+    if (input.length < 2 || !Number.isFinite(body.lat) || !Number.isFinite(body.lng) || !/^([A-Z]{2})?$/.test(body.country ?? "")) {
       return Response.json({ suggestions: [] });
     }
     return Response.json({ suggestions: await suggestAreas(input, { lat: body.lat!, lng: body.lng! }, body.country!, session) });
