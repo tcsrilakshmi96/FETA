@@ -90,12 +90,12 @@ export default function PlanAround({ anchor, experiences, when, cityId, onClose 
             <a
               className={`btn-primary ${styles.go}`}
               style={{ display: "grid", placeItems: "center", textDecoration: "none" }}
-              href={directionsForBoth(chosen.stops[0].pick, chosen.stops[1].pick)}
+              href={directionsForBoth(chosen.stops[0].pick, chosen.stops[1].pick, chosen.mode)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => logEvent("plan_directions", chosen.stops[0].pick.placeId, cityId)}
             >
-              Directions for both
+              Route between the two
             </a>
             <div style={{ marginTop: 10 }}>
               <SendToGroup kind="plan" message={`${chosen.day}: ${chosen.stops.map((s) => s.pick.name).join(", then ")}. Planned with Feta.`} payload={sharePlan(chosen)} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import ItineraryView from "@/components/ItineraryView";
 import PickPhoto from "@/components/PickPhoto";
 import { useToast } from "@/components/Toast";
@@ -8,6 +9,7 @@ import type { City } from "@/lib/cities";
 import { formatMoney } from "@/lib/currency";
 import type { Pick } from "@/lib/picks-client";
 import type { Itinerary } from "@/lib/server/itinerary";
+import type { SavedDay } from "@/lib/server/trip";
 import { hotelBudgets, loadTrip, tripAction, type DaysReply, type Stay, type Trip, type TripTransport } from "@/lib/trip-client";
 import styles from "./TripCard.module.css";
 
@@ -22,7 +24,7 @@ const WHO: Record<string, string> = { solo: "on your own", partner: "with your p
 
 const hours = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60}` : ""}`);
 
-export default function TripCard({ id, home, onStop }: { id: string; home: City | null; onStop: (pick: Pick) => void }) {
+export default function TripCard({ id, home, onStop, page = false }: { id: string; home: City | null; onStop: (pick: Pick) => void; page?: boolean }) {
   const toast = useToast();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [cities, setCities] = useState<Trip["cities"]>([]);
@@ -91,14 +93,18 @@ export default function TripCard({ id, home, onStop }: { id: string; home: City 
   }
 
   async function planDays(index: number) {
-    const done = (days[index] ?? []).reduce((n, it) => n + it.days.length, 0);
+    const done = (trip!.days?.[String(index)] ?? []).length;
     const chosenId = trip!.stays[String(index)]?.chosen;
     const hotel = stays?.[index]?.find((s) => s.placeId === chosenId);
     setBusy(`days-${index}`);
     const r = await tripAction<DaysReply>({ id, action: "days", index, fromDay: done, hotel: hotel ? { lat: hotel.lat, lng: hotel.lng } : null });
     setBusy(null);
     if (!r?.itinerary) return toast(r?.notice ?? "Couldn't plan those days just now. Try again.");
-    setDays((d) => ({ ...d, [index]: [...(d[index] ?? []), r.itinerary!] }));
+    const it = r.itinerary;
+    setDays((d) => ({ ...d, [index]: [...(d[index] ?? []), it] }));
+    // Kept on the trip (the server saved the same days).
+    const kept: SavedDay[] = it.days.map((d) => ({ date: d.date, label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, travel: st.travel })) }));
+    setTrip((t) => t && { ...t, days: { ...(t.days ?? {}), [String(index)]: [...((t.days ?? {})[String(index)] ?? []), ...kept] } });
   }
 
   const transport = trip.transport;
@@ -194,6 +200,11 @@ export default function TripCard({ id, home, onStop }: { id: string; home: City 
           <p className={styles.step}>3 · Where to stay</p>
           {!stays ? (
             <>
+              {/* Hotels chosen before, by name (read live). */}
+              {cities.map((c, i) => {
+                const chosen = trip.stays[String(i)]?.chosen;
+                return chosen ? <ChosenHotel key={`${c.name}-hotel`} city={c.name} placeId={chosen} /> : null;
+              })}
               <p className={styles.ask}>{trip.hotel_budget ? "Show hotels again for your budget?" : "Hotel budget per night?"}</p>
               <div className={styles.chips}>
                 {hotelBudgets(currency).map((b) => (
@@ -256,10 +267,16 @@ export default function TripCard({ id, home, onStop }: { id: string; home: City 
           <p className={styles.step}>4 · Day by day</p>
           <p className={styles.hint}>Real places for each city, open on those days{stays ? ", near the hotel you choose" : ""}. One city at a time.</p>
           {cities.map((c, i) => {
-            const planned = (days[i] ?? []).reduce((n, it) => n + it.days.length, 0);
+            const saved = trip.days?.[String(i)] ?? [];
+            const planned = saved.length;
             const next = Math.min(c.nights, planned + 3);
+            const fresh = new Set((days[i] ?? []).flatMap((it) => it.days.map((d) => d.date)));
             return (
               <div key={`${c.name}-days`} className={styles.dayCity}>
+                {/* Days planned before: kept as place IDs, names read when opened. */}
+                {saved.filter((d) => !fresh.has(d.date)).map((d) => (
+                  <SavedDayRow key={d.date} city={c.name} day={d} />
+                ))}
                 {(days[i] ?? []).map((it, k) => (
                   <ItineraryView key={k} itinerary={it} onStop={onStop} />
                 ))}
@@ -272,6 +289,107 @@ export default function TripCard({ id, home, onStop }: { id: string; home: City 
             );
           })}
         </>
+      )}
+
+      {/* Everything is kept as they go; this says so, and where to find it. */}
+      {!page && (
+        <div className={styles.saveRow}>
+          <button type="button" className={styles.primary} onClick={() => toast("Saved. It's in Saved, under your trips.")}>
+            Save trip
+          </button>
+          <Link href={`/trip/${id}`} className={styles.open}>
+            Open the full trip ›
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChosenHotel({ city, placeId }: { city: string; placeId: string }) {
+  const [hotel, setHotel] = useState<{ name: string; mapsUri: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/place/${encodeURIComponent(placeId)}?lite=1`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => live && setHotel(p))
+      .catch(() => null);
+    return () => {
+      live = false;
+    };
+  }, [placeId]);
+  return (
+    <p className={styles.chosenHotel}>
+      🏨 {city}:{" "}
+      {hotel ? (
+        <a href={hotel.mapsUri} target="_blank" rel="noopener noreferrer">
+          {hotel.name}
+        </a>
+      ) : (
+        "…"
+      )}
+    </p>
+  );
+}
+
+// A day planned earlier: collapsed, and opened on tap (each stop's name is
+// read live from Google Maps, so nothing is fetched until they look).
+function SavedDayRow({ city, day }: { city: string; day: SavedDay }) {
+  const [open, setOpen] = useState(false);
+  const [names, setNames] = useState<Record<string, { name: string; area: string; mapsUri: string }>>({});
+
+  async function show() {
+    setOpen(!open);
+    if (open || Object.keys(names).length) return;
+    const found = await Promise.all(
+      day.stops.map((st) =>
+        fetch(`/api/place/${encodeURIComponent(st.placeId)}?lite=1`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((p) => (p ? ([st.placeId, p] as const) : null))
+          .catch(() => null),
+      ),
+    );
+    setNames(Object.fromEntries(found.filter(Boolean) as [string, { name: string; area: string; mapsUri: string }][]));
+  }
+
+  return (
+    <div className={styles.savedDay}>
+      <button type="button" className={styles.savedHead} onClick={show} aria-expanded={open}>
+        <span>
+          {city} · {day.label}
+        </span>
+        <small>
+          {day.stops.length} stops {open ? "▴" : "▾"}
+        </small>
+      </button>
+      {open && (
+        <ol className={styles.savedStops}>
+          {day.stops.map((st) => {
+            const n = names[st.placeId];
+            return (
+              <li key={st.placeId}>
+                {st.travel && <small className={styles.savedTravel}>{st.travel}</small>}
+                <span className={styles.savedTime}>{st.time}</span>
+                <span>
+                  <small>{st.slot}</small>
+                  {n ? (
+                    <a href={n.mapsUri} target="_blank" rel="noopener noreferrer">
+                      {n.name}
+                    </a>
+                  ) : (
+                    "…"
+                  )}
+                  {n?.area && <small>{n.area}</small>}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      {open && (
+        <p className={styles.hint}>
+          Places from <span translate="no">Google Maps</span>.
+        </p>
       )}
     </div>
   );

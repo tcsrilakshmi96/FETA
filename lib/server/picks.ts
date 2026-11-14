@@ -26,6 +26,12 @@ export type Taste = {
   // Places they've been and rated (My places, check-in): counts, and their
   // own words about ones they loved or didn't.
   places?: { loved: number; regulars: number; notForThem: number; lovedNotes: string[]; dislikedNotes: string[] };
+  // Places they love (place IDs, newest first), and, for the picks only, what
+  // those places are like, read live from Google for this search (never
+  // stored, never sent to Venice).
+  lovedIds?: string[];
+  lovedPlaces?: string[];
+  lovedTypes?: string[];
 };
 
 // ---------- Tweaks ----------
@@ -656,6 +662,8 @@ export function tasteSummary(taste: Taste, city: City) {
     taste.lines.length > 0 && `What they like: ${taste.lines.join("; ")}`,
     taste.saved?.length && `Places they saved lately, and why: ${taste.saved.join(" | ")}`,
     taste.skipped?.length && `Why they skipped places lately: ${taste.skipped.join(", ")}`,
+    taste.lovedPlaces?.length &&
+      `Places they love (find new places like these in spirit, price and vibe; never these themselves): ${taste.lovedPlaces.join("; ")}`,
     taste.places?.lovedNotes.length && `What they love about places they keep going to, in their words: ${taste.places.lovedNotes.join(" | ")}`,
     taste.places?.dislikedNotes.length && `Why places weren't for them, in their words: ${taste.places.dislikedNotes.join(" | ")}`,
     taste.places && taste.places.loved + taste.places.notForThem > 0 &&

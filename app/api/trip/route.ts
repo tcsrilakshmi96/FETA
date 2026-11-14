@@ -1,7 +1,7 @@
 import { cityById } from "@/lib/server/cities";
 import { withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
-import { cleanRoute, estimateTransport, findStays, planCityDays, type Stay, type Trip } from "@/lib/server/trip";
+import { cleanRoute, estimateTransport, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 export const maxDuration = 60;
@@ -41,8 +41,8 @@ export async function POST(request: Request) {
     // Edited on the phone: the cities they kept, in their order, with their
     // nights. Getting around and hotels are worked out again after a change.
     const kept = cleanRoute({ cities: (body.cities ?? []).map((c) => ({ name: c.name, country: c.country, nights: c.nights, story: c.story, focus: c.focus })) }).cities;
-    await save({ cities: kept, transport: null, stays: {} });
-    return Response.json({ trip: { ...trip, cities: kept, transport: null, stays: {} } });
+    await save({ cities: kept, transport: null, stays: {}, days: {} });
+    return Response.json({ trip: { ...trip, cities: kept, transport: null, stays: {}, days: {} } });
   }
 
   if (body.action === "transport") {
@@ -74,6 +74,16 @@ export async function POST(request: Request) {
     const fromDay = Math.max(0, Math.min(city.nights - 1, Math.round(Number(body.fromDay) || 0)));
     const hotel = Number.isFinite(body.hotel?.lat) && Number.isFinite(body.hotel?.lng) ? { lat: body.hotel!.lat!, lng: body.hotel!.lng! } : null;
     const result = await withCosts(db, "trip", () => planCityDays({ token, trip, index, fromDay, hotel }));
+    // Kept on the trip, so it shows when they open the trip again.
+    if (result.itinerary) {
+      const kept: SavedDay[] = result.itinerary.days.map((d) => ({
+        date: d.date,
+        label: d.label,
+        stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, ...(st.travel ? { travel: st.travel } : {}) })),
+      }));
+      const before = (trip.days ?? {})[String(index)] ?? [];
+      await save({ days: { ...(trip.days ?? {}), [String(index)]: [...before.filter((d) => !kept.some((k) => k.date === d.date)), ...kept] } });
+    }
     return Response.json(result);
   }
 

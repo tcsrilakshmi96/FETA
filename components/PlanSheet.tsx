@@ -38,12 +38,14 @@ export function sharePlan(p: Plan) {
   };
 }
 
-// Directions to the second stop via the first, by exact coordinates (with
+// The way from the first stop to the second, by exact coordinates (with
 // place IDs), so Google Maps can't land on a different place of that name.
-export function directionsForBoth(first: Pick, second: Pick) {
+// (Via a waypoint from wherever the phone was, it looked like a random
+// route, testers 14 Nov 2026.)
+export function directionsForBoth(first: Pick, second: Pick, mode: "walk" | "ride" = "walk") {
   const spot = (p: Pick) => (p.lat !== undefined && p.lng !== undefined ? `${p.lat},${p.lng}` : encodeURIComponent(p.event ? `${p.event.venueName}` : p.name));
   const ids = (key: string, p: Pick) => (p.event ? "" : `&${key}=${p.placeId}`);
-  return `https://www.google.com/maps/dir/?api=1&destination=${spot(second)}${ids("destination_place_id", second)}&waypoints=${spot(first)}${ids("waypoint_place_ids", first)}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${spot(first)}${ids("origin_place_id", first)}&destination=${spot(second)}${ids("destination_place_id", second)}&travelmode=${mode === "walk" ? "walking" : "driving"}`;
 }
 
 export default function PlanSheet({
@@ -178,12 +180,12 @@ export default function PlanSheet({
             )}
             <a
               className={styles.directions}
-              href={directionsForBoth(a!.pick, b!.pick)}
+              href={directionsForBoth(a!.pick, b!.pick, plan.mode)}
               onClick={() => logEvent("plan_directions", a!.pick.placeId)}
               target="_blank"
               rel="noopener noreferrer"
             >
-              Directions for both
+              Route between the two
             </a>
           </>
         )}

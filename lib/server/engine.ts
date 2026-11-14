@@ -98,6 +98,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   if (!userId) return json({ error: "Not signed in" }, 401);
 
   const [taste, actionsRes] = await Promise.all([loadTaste(db, body.trip), db.from("pick_actions").select("place_id")]);
+  // Their favourite places shape food searches (not "Show me more", which keeps the same words).
+  if (body.category === "food_drinks" && !body.more) await describeLoved(taste);
   const answers = taste.answers;
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
@@ -344,7 +346,9 @@ async function gatherCandidates(ctx: {
   const nearby = (radiusKm: number, types = FOOD_DRINK_TYPES) => searchNearby({ ...common, types, radiusKm, rank: "POPULARITY" });
   // Their favourite cuisines (and bars or cafés from the cards) in one
   // Nearby Search, so every cuisine they chose can come up.
-  const tasteTypes = body.category === "food_drinks" ? tastePlaceTypes(taste) : [];
+  // Plus the kinds of place they love (a brewery, a cocktail bar), from
+  // "Name a few places you love".
+  const tasteTypes = body.category === "food_drinks" ? [...new Set([...tastePlaceTypes(taste), ...(taste.lovedTypes ?? [])])].slice(0, 12) : [];
 
   // What they asked for in their own words (Tweak sheet or Ask Feta) leads.
   const asked = (ctx.body.note ?? "").trim();
@@ -572,4 +576,26 @@ async function fetaCandidates(ctx: {
     city: ctx.city,
   });
   return [...found, ...passed.filter((c) => !c.far).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }))];
+}
+
+// What their favourite places are like (founder, 14 Nov 2026: "Name a few
+// places you love" didn't shape anything). Up to 3, read live for each new
+// food search (about ₹1.7 each), so Gemini can find places in the same
+// spirit and price, and the search includes their kinds of place.
+const PRICE_WORDS: Record<string, string> = {
+  PRICE_LEVEL_INEXPENSIVE: "inexpensive",
+  PRICE_LEVEL_MODERATE: "mid-priced",
+  PRICE_LEVEL_EXPENSIVE: "pricey",
+  PRICE_LEVEL_VERY_EXPENSIVE: "very expensive",
+};
+
+async function describeLoved(taste: Taste) {
+  const ids = (taste.lovedIds ?? []).filter((id) => !id.startsWith("event:"));
+  if (ids.length === 0) return;
+  const places = (await Promise.all(ids.map((id) => placeDetails(id, false).catch(() => null)))).filter((p): p is Place => !!p);
+  taste.lovedPlaces = places.map((p) => {
+    const about = [p.primaryType?.replace(/_/g, " "), p.priceLevel && PRICE_WORDS[p.priceLevel], p.rating && `★${p.rating}`].filter(Boolean).join(", ");
+    return `${p.displayName?.text ?? "A place"}${about ? ` (${about})` : ""}`;
+  });
+  taste.lovedTypes = places.map((p) => p.primaryType ?? "").filter((t) => t.endsWith("_restaurant") || FOOD_DRINK_TYPES.includes(t));
 }

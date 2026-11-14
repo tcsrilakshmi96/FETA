@@ -27,7 +27,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
     db.from("swipes").select("card_id, verdict"),
     db.from("pick_actions").select("action, reason, because").order("created_at", { ascending: false }).limit(20),
     // Places they've been, how it was and in their own words (My places and check-in).
-    db.from("pick_actions").select("verdict, visits, note, category").eq("action", "been").not("verdict", "is", null).order("created_at", { ascending: false }).limit(40),
+    db.from("pick_actions").select("place_id, verdict, visits, note, category").eq("action", "been").not("verdict", "is", null).order("created_at", { ascending: false }).limit(40),
   ]);
   const been = beenRes.error ? [] : (beenRes.data ?? []);
   // The "because" column arrives with a later migration; without it this
@@ -62,5 +62,6 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
       lovedNotes: been.filter((b) => b.verdict === "loved" && b.note).slice(0, 6).map((b) => b.note as string),
       dislikedNotes: been.filter((b) => b.verdict === "not_for_me" && b.note).slice(0, 4).map((b) => b.note as string),
     },
+    lovedIds: been.filter((b) => b.verdict === "loved").slice(0, 3).map((b) => b.place_id as string),
   };
 }

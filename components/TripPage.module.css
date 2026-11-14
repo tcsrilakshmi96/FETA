@@ -1,0 +1,30 @@
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 50px 16px 40px;
+  animation: var(--kf-in) 0.35s ease-out;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.back,
+.chat {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.back {
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.chat {
+  padding: 0 14px;
+  border-radius: 99px;
+  background: rgba(255, 176, 32, 0.22);
+  font-weight: 500;
+}

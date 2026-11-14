@@ -29,6 +29,9 @@ export type Stay = {
   lat?: number;
   lng?: number;
 };
+// A planned day as kept on the trip: place IDs, times and Feta's words.
+export type SavedDay = { date: string; label: string; stops: { time: string; slot: string; placeId: string; kind: string; travel?: string }[] };
+
 export type Trip = {
   id: string;
   title: string;
@@ -39,6 +42,7 @@ export type Trip = {
   transport: TripTransport | null;
   hotel_budget: string | null;
   stays: Record<string, { shown: string[]; chosen: string | null }>;
+  days?: Record<string, SavedDay[]>;
 };
 
 // What Venice returns for a route.

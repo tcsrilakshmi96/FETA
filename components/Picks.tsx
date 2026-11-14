@@ -82,15 +82,17 @@ export default function Picks() {
     setOrigin(saved);
     setWithKids(loadAnswers().who.includes("family_kids"));
     // Opened from a Home cover: /picks?c=experiences&w=weekend.
+    // Both ways, every time: Next.js can bring this screen back as it was
+    // left (testers: Food & drinks kept opening Things to do).
     const params = new URLSearchParams(window.location.search);
-    if (params.get("w") === "weekend") setWhen("weekend");
+    setWhen(params.get("w") === "weekend" ? "weekend" : "tonight");
     let c = params.get("c");
     try {
       c ??= localStorage.getItem(CATEGORY_KEY);
     } catch {
       // Defaults to Food & drinks.
     }
-    if (c === "experiences") setCategory("experiences");
+    setCategory(c === "experiences" ? "experiences" : "food_drinks");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [router]);
 

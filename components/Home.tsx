@@ -347,13 +347,12 @@ export default function Home() {
             </button>
           </div>
 
-          {wants.includes("trip") && (
-            <button type="button" className={`${styles.tile} ${styles.trip}`} onClick={() => router.push(`/ask?q=${encodeURIComponent("Plan a trip for me")}`)}>
-              <span className={styles.kick}>✈ PLAN A TRIP</span>
-              <span className={styles.tileTitle}>Where to next? Feta plans it day by day</span>
-              <span className={styles.tileSub}>Start a trip ›</span>
-            </button>
-          )}
+          {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}
+          <button type="button" className={`${styles.tile} ${styles.trip}`} onClick={() => router.push(`/ask?q=${encodeURIComponent("Plan a trip for me")}`)}>
+            <span className={styles.kick}>✈ PLAN A TRIP</span>
+            <span className={styles.tileTitle}>Where to next? Feta plans it day by day</span>
+            <span className={styles.tileSub}>Start a trip ›</span>
+          </button>
           <QuickQuestions />
         </div>
       </main>

@@ -307,3 +307,92 @@
 .dayCity {
   margin-top: 4px;
 }
+
+.saveRow {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.open {
+  margin-top: 8px;
+  min-height: 36px;
+  font-size: 13.5px;
+  color: var(--roseText);
+  text-decoration: none;
+}
+
+/* Days planned before, collapsed until opened. */
+.savedDay {
+  margin-top: 6px;
+  border-radius: 14px;
+  background: var(--field);
+}
+
+.savedHead {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.savedHead small {
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.savedStops {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+  list-style: none;
+}
+
+.savedStops li {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  column-gap: 8px;
+  font-size: 13.5px;
+}
+
+.savedStops li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.savedStops small {
+  font-size: 11.5px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.savedStops a {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.savedTravel {
+  grid-column: 1 / -1;
+}
+
+.savedTime {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--roseText);
+}
+
+.chosenHotel {
+  margin-bottom: 6px;
+  font-size: 13.5px;
+}
+
+.chosenHotel a {
+  color: var(--ink);
+  font-weight: 500;
+}

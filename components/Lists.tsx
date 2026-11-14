@@ -169,7 +169,7 @@ export default function Lists() {
         {tab === "want" && trips.length > 0 && (
           <div className={styles.trips}>
             {trips.map((t) => (
-              <button key={t.id} type="button" onClick={() => router.push(`/ask?trip=${t.id}`)}>
+              <button key={t.id} type="button" onClick={() => router.push(`/trip/${t.id}`)}>
                 ✈ {t.title} ›
               </button>
             ))}
