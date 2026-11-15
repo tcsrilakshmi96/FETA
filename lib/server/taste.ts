@@ -23,7 +23,7 @@ export async function userIdFor(db: SupabaseClient, token: string) {
 export async function loadTaste(db: SupabaseClient, trip?: string | null): Promise<Taste> {
   const [answersRes, linesRes, swipesRes, actionsRes, beenRes] = await Promise.all([
     db.from("answers").select("*").maybeSingle(),
-    db.from("profile_lines").select("text, trip").is("removed_at", null),
+    db.from("profile_lines").select("text, trip, source, line_key").is("removed_at", null),
     db.from("swipes").select("card_id, verdict"),
     db.from("pick_actions").select("action, reason, because").order("created_at", { ascending: false }).limit(20),
     // Places they've been, how it was and in their own words (My places and check-in).
@@ -48,9 +48,15 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
       }
     : EMPTY_ANSWERS;
   const swipes = swipesRes.data ?? [];
+  const lines = (linesRes.data ?? []).filter((l) => !l.trip || (trip && l.trip === trip));
+  // Their own words: typed at setup ("Something else", "Anything else"),
+  // added in You, or learned in chat. Lines about the people they go out
+  // with only count when those people come along (chat says so).
+  const own = lines.filter((l) => !String(l.line_key ?? "").startsWith("people:") && (["food_other", "loves_other"].includes(l.line_key) || ["you", "chat"].includes(l.source)));
   return {
     answers,
-    lines: (linesRes.data ?? []).filter((l) => !l.trip || (trip && l.trip === trip)).map((l) => l.text),
+    lines: lines.map((l) => l.text),
+    own: own.map((l) => l.text).slice(0, 12),
     yes: swipes.filter((s) => s.verdict === "yes").map((s) => s.card_id),
     no: swipes.filter((s) => s.verdict === "no").map((s) => s.card_id),
     saved: actions.filter((a) => a.action === "saved" && a.because).slice(0, 5).map((a) => a.because as string),

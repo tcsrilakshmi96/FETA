@@ -13,6 +13,7 @@ import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catal
 import { searchCities } from "@/lib/server/cities";
 import { curate, pickFrom } from "@/lib/server/curate";
 import { mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -47,7 +48,7 @@ const PERSONAS: Persona[] = [
     answers: { diet: "vegetarian" },
     yes: ["cuisine_thai", "cuisine_korean", "hole_in_wall"],
     lines: ["Also loves SE Asian"],
-    covers: ["cuisine_thai", "cuisine_korean"],
+    covers: ["cuisine_thai", "cuisine_korean", "said_0"],
     half: true,
     never: /Gangnam BBQ|Kebab|Biryani|Smoke House|Coastal Catch|Wings|Pork/,
     some: /Lemongrass|Seoul Kitchen|Pho Saigon|Burma Lane/,
@@ -126,6 +127,16 @@ const PERSONAS: Persona[] = [
     min: 8,
   },
   {
+    name: "Typed in You: into pickleball and stand-up (weekend)",
+    city: "Bengaluru",
+    category: "experiences",
+    when: "weekend",
+    answers: { interests: ["art_culture"] },
+    lines: ["Into pickleball", "Loves stand-up comedy nights"],
+    covers: ["interest_art_culture", "said_0", "said_1"],
+    some: /Smash Pickleball/,
+  },
+  {
     name: "Asked in chat: rooftop dinner",
     city: "Bengaluru",
     category: "food_drinks",
@@ -142,10 +153,11 @@ async function run(p: Persona) {
   const taste: Taste = {
     answers: { ...base, ...p.answers },
     lines: p.lines ?? [],
+    own: p.lines ?? [],
     yes: p.yes ?? [],
     no: [],
   };
-  const extra: never[] = [];
+  const extra = await readTaste(taste, city, p.category);
   const found = await curate({
     taste,
     city,

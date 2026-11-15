@@ -7,6 +7,7 @@ import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
+import { readTaste } from "@/lib/server/taste-reader";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -185,6 +186,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // place that passed is kept, in order, as backup.
   let found: CurateResult;
   try {
+    const extra = await readTaste(effective, city, body.category);
     found = await curate({
       taste: effective,
       city,
@@ -197,6 +199,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       needsDiet,
       need,
       rotation,
+      extra,
       favourites: (pool) => fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }),
     });
   } catch (error) {
