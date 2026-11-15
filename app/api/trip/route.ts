@@ -41,8 +41,11 @@ export async function POST(request: Request) {
     // Edited on the phone: the cities they kept, in their order, with their
     // nights. Getting around and hotels are worked out again after a change.
     const kept = cleanRoute({ cities: (body.cities ?? []).map((c) => ({ name: c.name, country: c.country, nights: c.nights, story: c.story, focus: c.focus })) }).cities;
-    await save({ cities: kept, transport: null, stays: {}, days: {} });
-    return Response.json({ trip: { ...trip, cities: kept, transport: null, stays: {}, days: {} } });
+    // "30 days in Japan" follows the nights they kept ("22 days in Japan").
+    const nights = kept.reduce((n, c) => n + c.nights, 0);
+    const title = trip.title.replace(/^\d+ (days|nights)/i, `${nights} days`);
+    await save({ title, cities: kept, transport: null, stays: {}, days: {} });
+    return Response.json({ trip: { ...trip, title, cities: kept, transport: null, stays: {}, days: {} } });
   }
 
   if (body.action === "transport") {
