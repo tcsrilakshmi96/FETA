@@ -100,7 +100,7 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
 // Which intents to search this time, and whether Food & drinks also looks
 // at what's popular nearby. What they asked for right now is always
 // searched; if they chose more than fit, the rest take turns across sets.
-export function planSearches(intents: Intent[], opts: { category: Category; rotation: number }) {
+export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend" }) {
   const now = intents.filter((i) => i.source === "asked" || i.source === "tweak");
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
   const room = Math.max(0, MAX_SEARCHES - now.length);
@@ -113,7 +113,7 @@ export function planSearches(intents: Intent[], opts: { category: Category; rota
   const sides = intents.filter((i) => !i.explicit).slice(0, Math.max(0, left));
   const fallback: Intent[] =
     !food && searched.length + sides.length === 0
-      ? DEFAULT_DOING.slice(0, 2).map((q) => ({ id: `default_${q}`, label: q, reason: "", query: q, def: { searches: [q] }, explicit: false, source: "side", food: false }))
+      ? DEFAULT_DOING[opts.when].slice(0, MAX_SEARCHES).map((q) => ({ id: `default_${q}`, label: q, reason: "", query: q, def: { searches: [q], foodDrink: true }, explicit: false, source: "side", food: false }))
       : [];
   return { searched: [...searched, ...sides, ...fallback], broad };
 }

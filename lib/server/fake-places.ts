@@ -146,8 +146,8 @@ export function fakeSearch(lat: number, lng: number, query: string, food: boolea
   }
   const words = tokens(query);
   const scored = CATALOGUE.map((row, i) => {
-    const hay = `${row[0]} ${row[1]} ${row[2].join(" ")} ${row[3]}`.toLowerCase().replace(/_/g, " ");
-    const score = words.length ? words.filter((w) => hay.includes(w)).length : FOODISH.test(row[1]) === food ? 1 : 0;
+    const hay = `${row[0]} ${row[1]} ${row[2].join(" ")} ${row[3]}`.toLowerCase().replace(/_/g, " ").split(/[^a-z]+/);
+    const score = words.length ? words.filter((w) => hay.some((h) => h.startsWith(w))).length : FOODISH.test(row[1]) === food ? 1 : 0;
     return { i, score, count: row[7] };
   }).filter((s) => s.score > 0);
   scored.sort((a, b) => b.score - a.score || b.count - a.count);

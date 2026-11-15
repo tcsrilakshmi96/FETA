@@ -95,5 +95,9 @@ export const TWEAK_SEARCH: Record<string, { food: string; doing: string }> = {
   kids: { food: "family friendly restaurant", doing: "things to do with kids" },
 };
 
-// When someone hasn't said what they're into.
-export const DEFAULT_DOING = ["art gallery", "park", "museum"];
+// When someone hasn't said what they're into: evening things tonight
+// (galleries and parks close), daytime ones at the weekend.
+export const DEFAULT_DOING: Record<"tonight" | "weekend", string[]> = {
+  tonight: ["live music venue", "comedy show", "escape room or bowling", "theatre"],
+  weekend: ["art gallery", "park", "museum", "workshop or class"],
+};

@@ -69,7 +69,7 @@ const POOL_MAX = 30;
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
   const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra });
-  const plan = planSearches(intents, { category, rotation: input.rotation });
+  const plan = planSearches(intents, { category, rotation: input.rotation, when });
 
   // 2. Find.
   const limit = distanceLimitKm(taste.answers);

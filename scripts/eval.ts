@@ -120,6 +120,13 @@ const PERSONAS: Persona[] = [
     rule: noBar,
   },
   {
+    name: "Things to do, nothing chosen, tonight: evening things, not closed galleries",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: {},
+    min: 3,
+  },
+  {
     name: "Nothing chosen yet: still 8 good places",
     city: "Bengaluru",
     category: "food_drinks",
