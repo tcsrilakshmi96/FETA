@@ -120,8 +120,11 @@ export default function Home() {
     [food, exp, when],
   );
 
-  const wantsFood = wants.includes("food") || wants.includes("trip");
-  const wantsDo = wants.includes("do") || wants.includes("trip");
+  // A trip alone doesn't count as wanting either (founder, 15 Nov 2026:
+  // "I didn't choose things to do but it asked"): those questions come the
+  // first time they open that category.
+  const wantsFood = wants.includes("food");
+  const wantsDo = wants.includes("do");
   // What they want leads as the big tile; the other stays, smaller.
   const lead: Category = wantsFood || !wantsDo ? "food_drinks" : "experiences";
   const options = useMemo(() => {

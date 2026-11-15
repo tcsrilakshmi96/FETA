@@ -75,8 +75,10 @@ export default function Questions() {
         .catch(() => null);
   }, []);
 
-  const food = wants.includes("food") || wants.includes("trip");
-  const doing = wants.includes("do") || wants.includes("trip");
+  // Only what they chose: a trip alone asks neither (they're asked the
+  // first time they open that category on Home).
+  const food = wants.includes("food");
+  const doing = wants.includes("do");
   const steps: Step[] = ["basics", "loves", ...(food || doing ? (["taste", "vibe"] as Step[]) : [])];
   const current = steps[Math.min(step, steps.length - 1)];
   const currency = city?.currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
