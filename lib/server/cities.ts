@@ -103,3 +103,11 @@ export function cityAt(point: { lat: number; lng: number }): City | null {
   const row = biggestClose ?? nearest?.row;
   return row ? toCity(row) : null;
 }
+
+// A country's name ("Japan", "Viet Nam"), for telling a trip to a whole
+// country from a trip to one city.
+let countryNames: Set<string> | null = null;
+export function isCountryName(name: string) {
+  countryNames ??= new Set(Object.values(countries).map(([n]) => fold(n)));
+  return countryNames.has(fold(name.split(",")[0]));
+}

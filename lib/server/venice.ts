@@ -7,7 +7,9 @@ const MODEL = "claude-haiku-5-5";
 
 export type ChatTurn = { role: "system" | "user" | "assistant"; content: string };
 
-export async function veniceJson<T>(messages: ChatTurn[]): Promise<T> {
+// maxTokens: a trip route with many cities needs room (a cut-off reply
+// loses the route).
+export async function veniceJson<T>(messages: ChatTurn[], maxTokens = 1500): Promise<T> {
   const res = await fetch("https://api.venice.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.VENICE_API_KEY}` },
@@ -16,9 +18,9 @@ export async function veniceJson<T>(messages: ChatTurn[]): Promise<T> {
       messages,
       response_format: { type: "json_object" },
       venice_parameters: { include_venice_system_prompt: false },
-      max_tokens: 1500,
+      max_tokens: maxTokens,
     }),
-    signal: AbortSignal.timeout(20000),
+    signal: AbortSignal.timeout(maxTokens > 1500 ? 35000 : 20000),
   });
   if (!res.ok) throw new Error(`Venice failed: ${res.status} ${await res.text()}`);
   const data = await res.json();

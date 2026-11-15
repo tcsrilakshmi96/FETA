@@ -1,13 +1,14 @@
 import { isMainlandChina, type City } from "@/lib/cities";
-import { cityAt, cityById, searchCities } from "@/lib/server/cities";
+import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
 import { withCosts } from "@/lib/server/costs";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
+import { planDays } from "@/lib/server/plan-days";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 import { weekendSaturday } from "@/lib/weekend";
-import { buildItinerary, type Itinerary } from "@/lib/server/itinerary";
+import type { Itinerary } from "@/lib/server/itinerary";
 import { cleanRoute, type RouteIn, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
@@ -72,44 +73,51 @@ export async function POST(request: Request) {
 
   const here = body.origin ?? null;
   const homeCity = cityById(here?.city?.id);
-  const [taste, { data: history }] = await Promise.all([
+  const [taste, { data: history }, { data: lastTripMessage }] = await Promise.all([
     loadTaste(db),
-    db.from("chat_messages").select("role, content, extras").order("id", { ascending: false }).limit(12),
+    db.from("chat_messages").select("role, content, extras").order("id", { ascending: false }).limit(16),
+    // The trip being planned in this chat, however long ago it started, so
+    // changes ("less Tokyo, more Kyoto") edit it.
+    db.from("chat_messages").select("extras").not("extras->>trip_id", "is", null).order("id", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const past = (history ?? []).reverse();
-  // The trip being planned in this chat, if any, so changes ("less Tokyo,
-  // more Kyoto") edit it.
-  const currentTripId = past.map((m) => m.extras?.trip_id as string | undefined).filter(Boolean).pop() ?? null;
+  const currentTripId = (lastTripMessage?.extras?.trip_id as string | undefined) ?? null;
   const { data: currentTrip } = currentTripId ? await db.from("trips").select("*").eq("id", currentTripId).maybeSingle<Trip>() : { data: null };
 
   const today = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: homeCity?.timeZone ?? "UTC" }).format(new Date());
-  const system = `You are Feta, a warm, honest friend who picks places to eat and drink and things to do. You talk briefly, like a friend texting.
+  const system = `You are Feta: a friend with great taste who helps one person decide where to eat and drink, what to do, and how to plan days out and trips. Talk like a thoughtful friend texting: short, warm, specific, honest, no hype, no emoji. Think about what they actually want, use everything you know about them below (and say so: "You love Thai, so…"), and give real opinions and advice. Ask only what you genuinely need to do it well, one question at a time with tap-able "options", and act once you can; if they're in a hurry or say "just pick", act straight away with sensible guesses.
+
 Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countryName}${here?.source === "area" ? ` (${here.label})` : ""}.` : "They haven't said where they are."}
 
 What Feta knows about them:
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
+${currentTrip ? `\nThe trip you're planning together: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}. It's saved in Saved; its card has the next steps (getting around, hotels, then day plans for each city, which are kept with the trip). For day plans in its cities, point them to the card's "plan days" buttons instead of sending an itinerary.\n` : ""}
+Besides talking, you can do one of these per reply (leave the others null). Feta's own search finds the real places, checked against their diet, budget, distance and opening hours; you never name places yourself.
+- "search": places to eat or drink, or things to do, now or this weekend: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz"}. Feta shows the best 3.
+- "itinerary": a stop-by-stop plan for 1 to 3 days in one city or area: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
+- "route": a trip to a country or region, to several cities, or for more than 3 days: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
-{"reply": 1 or 2 short, plain sentences (a question counts as one). No hype, no emoji.
- "options": when "reply" asks a question, 2 to 4 short answers they can tap (each under 5 words, e.g. "Quiet and cosy", "Something lively", "Surprise me"); otherwise [].
- "learned": at most 3 new, lasting things worth remembering, each {"text": a short plain line, "about": null for them, or "partner", "family", "friends" or "kids" when it is about the people they go out with (e.g. {"text": "Partner loves live music", "about": "partner"}, {"text": "Parents prefer early dinners", "about": "family"})}. Their taste, budget or plans count too. [] if nothing new. Never labels or personality types, never health or allergy details.
- "weekend": null, or a short phrase (under 8 words) when they say something they want to do or try this weekend, e.g. "Pottery class with my sister", "Brunch somewhere new". It goes on their weekend plan.
- "trip": null, or {"place": city or region, "dates": short dates like "14–18 Dec"} if they are planning a trip.
- "search": null, or {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": a short phrase capturing what they want, e.g. "romantic, quiet, live jazz"} once you know enough to suggest places.
- "itinerary": null, or {"place": the city or area, or null for where they are now, "days": 1 to 3, "start": the first day as YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": a short phrase of the mood and must-dos, e.g. "romantic, food and art, slow mornings"} once you have the basics for an itinerary, a day plan or a plan for a whole day or trip. It gives them a stop-by-stop plan (breakfast, morning, lunch, afternoon, dinner, a drink).
- "route": null, or for a trip to a country or region, to several cities, or longer than 3 days: {"title": e.g. "30 days in Japan", "start": the first day as YYYY-MM-DD (a month alone, like "April", means the 1st of the coming one), "who": "solo", "partner", "friends", "family" or "kids", "edit": true when this changes the current trip below, "cities": [{"name": a city or town, "country": its country, "nights": a number, "story": two short sentences on why it's worth it for them: what makes it special (its history or character) and what they'll feel there, tied to their taste, who they're with and the season, "focus": 3 to 6 words, e.g. "temples, tea houses, slow mornings"}]} in a sensible travelling order, the nights adding up to the trip length.
- "why": true if they ask why a pick was chosen.}
-How to talk: like a friend who plans well. For a plan that matters (a date night, a birthday, an anniversary, family visiting, friends in town, a trip), get to know it first: ask one question at a time, at most 3 in total, before searching. Good things to ask: who it's with and what they're like, the mood they want, food or activity, budget, when. Skip anything you already know from above or from the chat, and use what you know ("Your partner loves live music, so a jazz bar after dinner?"). If they say "just suggest", "surprise me" or seem in a hurry, search straight away. For an itinerary, get the basics right first, one question at a time with tap-able "options", skipping anything they already said or you already know: 1) who it's with (just me, partner, friends, family, with kids), 2) which day or days and how many (if they named a day like "Saturday", take the coming one and don't ask again), 3) the mood or anything they'd love to fit in (e.g. "Slow and foodie", "Packed with sights", "Some nightlife", "Surprise me"). At most 3 questions, even if they're vague. Only then set "itinerary" (with "search" null) and say you're putting the plan together. A trip to a country or region, to several cities, or longer than 3 days is a route, not an itinerary: after the same basics (who, when and for how long, the mood), set "route" (with "itinerary" and "search" null) and say in "reply" that here's a route they can change, and then you'll sort out getting around and where to stay. Never ask where they are now for a trip; it's about the destination. When they ask to change the current trip (more or fewer nights, add or drop a city, a different order), set "route" again with "edit": true and every city. When they're happy with it or ask to save it, set "route" to null: it's already saved, so say it's in Saved, under their trips, and that the trip card has the next steps. If they say "just plan it", plan straight away with sensible guesses. Quick everyday asks ("coffee near me", "something cheaper tonight", "3 more") need no questions: search straight away. When you set "search", "options" is [] and "reply" says you're finding 3 and, in a few words, what you're looking for. While you are still asking, "search" is null and "trip" may be set.
-${currentTrip ? `The current trip being planned: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}.
-` : ""}You can search anywhere in the world except mainland China (Hong Kong and Macau are fine): for mainland China, set "search" to null and give up to 3 ideas from what you know in "reply" (up to 4 short sentences), saying they are less reliable than usual and to check before going. Never say food is safe for an allergy or a diet.`;
+{"reply": what you say, 1 to 3 short sentences,
+ "options": 2 to 4 tap-able answers (under 5 words each) when you ask a question, else [],
+ "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line, "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
+ "weekend": null, or a short phrase when they mention something they want to do this weekend,
+ "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
+ "search": null or as above, "itinerary": null or as above, "route": null or as above,
+ "why": true if they ask why a pick was chosen}
+Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong or Macau): no search, itinerary or route; give up to 3 ideas from what you know in "reply", saying they're less reliable than usual.`;
 
   let parsed: VeniceReply;
   try {
-    parsed = await veniceJson<VeniceReply>([
-      { role: "system", content: system },
-      ...past.map((m) => ({ role: m.role, content: m.content }) as ChatTurn),
-      { role: "user", content: message },
-    ]);
+    parsed = await veniceJson<VeniceReply>(
+      [
+        { role: "system", content: system },
+        // What Feta offered to tap counts as part of what it said.
+        ...past.map((m) => ({ role: m.role, content: m.extras?.options?.length ? `${m.content}\n(Options: ${(m.extras.options as string[]).join(" / ")})` : m.content }) as ChatTurn),
+        { role: "user", content: message },
+      ],
+      3000,
+    );
   } catch (error) {
     console.error(error);
     return Response.json({ reply: "I couldn't think just now. Try again in a moment.", picks: [], added: [], trip: null } satisfies AskReply);
@@ -161,15 +169,43 @@ ${currentTrip ? `The current trip being planned: ${currentTrip.title}${currentTr
     .map((o) => o.trim().slice(0, 40))
     .filter(Boolean)
     .slice(0, 4);
-  // A trip mentioned without a search still gets 3 places there, unless
-  // Feta is still asking about it.
-  // A route (a country, several cities or a long trip) becomes a trip card;
-  // edits change the trip already being planned.
+  // What to do with the reply. The model decides, except for one thing code
+  // checks (founder, 15 Nov 2026: trips kept ending in restaurant cards): a
+  // whole country, or more than 3 days, is always a trip route, never a
+  // search or a day plan for one point on the map.
+  const wantsRoute =
+    !parsed.why &&
+    !parsed.route?.cities?.length &&
+    ((parsed.itinerary && ((parsed.itinerary.days ?? 1) > 3 || isCountryName(parsed.itinerary.place ?? ""))) ||
+      (parsed.search && tripLabel && isCountryName(parsed.search.place ?? parsed.trip?.place ?? "")));
+  if (wantsRoute) {
+    const route = await routeFor(past, message, system).catch((error) => {
+      console.error(error);
+      return null;
+    });
+    if (route?.cities?.length) {
+      parsed = { ...parsed, route, itinerary: null, search: null };
+      reply = "Here's a route you can change. Then we'll sort out getting around and where to stay.";
+    } else {
+      parsed = { ...parsed, itinerary: null, search: null };
+      notice = "I couldn't put the route together just now. Ask me again?";
+    }
+  }
+
+  // A route becomes a trip card; edits change the trip already being planned.
   let tripId: string | null = null;
   const route = parsed.why ? null : parsed.route?.cities?.length ? cleanRoute(parsed.route) : null;
   if (route && route.cities.length > 0) {
     const fields = { ...route, home_currency: homeCity?.currency ?? null, transport: null, stays: {}, days: {}, updated_at: new Date().toISOString() };
-    if (parsed.route?.edit && currentTrip) {
+    // The same trip sent again keeps everything planned so far; a changed
+    // one (mostly the same cities) edits it; somewhere else is a new trip.
+    const key = (c: { name: string; nights: number }) => `${c.name.toLowerCase()}:${c.nights}`;
+    const unchanged = currentTrip && currentTrip.cities.map(key).join() === route.cities.map(key).join();
+    const names = new Set((currentTrip?.cities ?? []).map((c) => c.name.toLowerCase()));
+    const overlap = route.cities.filter((c) => names.has(c.name.toLowerCase())).length / route.cities.length;
+    if (unchanged) {
+      tripId = currentTrip.id;
+    } else if (currentTrip && (parsed.route?.edit || overlap >= 0.5)) {
       await db.from("trips").update(fields).eq("id", currentTrip.id);
       tripId = currentTrip.id;
     } else {
@@ -178,35 +214,37 @@ ${currentTrip ? `The current trip being planned: ${currentTrip.title}${currentTr
       tripId = data?.id ?? null;
     }
   }
+  // Day plans for a city on the trip being planned belong on its card
+  // (kept with the trip), not in a separate plan.
+  const askedPlace = (parsed.itinerary?.place ?? "").toLowerCase().trim();
+  const tripCity =
+    currentTrip && askedPlace
+      ? (currentTrip.cities.find((c) => askedPlace.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(askedPlace)) ??
+        (currentTrip.title.toLowerCase().includes(askedPlace) || isCountryName(askedPlace) ? currentTrip.cities[0] : null))
+      : null;
+  if (!tripId && currentTrip && tripCity) {
+    tripId = currentTrip.id;
+    reply = `Tap “plan days” under ${tripCity.name} on your trip card and I'll plan them stop by stop, near your hotel if you've chosen one.`;
+  }
   const plan = parsed.why || tripId ? null : (parsed.itinerary ?? null);
-  const s = parsed.why || plan || tripId ? null : (parsed.search ?? (parsed.trip?.place && options.length === 0 ? { category: "food_drinks", place: parsed.trip.place } : null));
+  let s = parsed.why || plan || tripId ? null : (parsed.search ?? null);
+  // A search of a whole country finds one point on the map: ask for a city.
+  if (s && isCountryName(s.place ?? "")) {
+    notice = `Which city in ${s.place}? Feta looks one city at a time.`;
+    s = null;
+  }
   let itinerary: Itinerary | null = null;
   if (plan) {
-    // Food & drinks and experiences there, through the same hard filters,
-    // then arranged into a day in code (Venice never sees the places).
     const origin = await withCosts(db, "ask", () => resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity));
     if (!origin || isMainlandChina(origin.city)) {
       notice = origin ? `Feta can't check places in mainland China yet, so I can't plan a day there.` : `I couldn't find ${plan.place} on the map. Try a nearby city?`;
     } else {
-      // Who it's with shapes the search: groups and kids are tweaks; a
-      // partner or family goes into the note.
-      const who = plan.who ?? "";
-      const tweaks = who === "friends" ? ["groups"] : who === "kids" ? ["kids"] : [];
-      const note = [who === "partner" ? "with my partner" : who === "family" ? "with family" : "", plan.note ?? ""].filter(Boolean).join(", ").slice(0, 120);
-      const ask = (category: "food_drinks" | "experiences") =>
-        withCosts(db, "ask", () =>
-          runPicks(token, { category, when: "weekend", origin, tweaks, note, ...(tripLabel ? { trip: tripLabel } : {}) }),
-        ).then((r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>);
-      const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);
-      const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.city.timeZone }).format(new Date());
       const start = /^\d{4}-\d{2}-\d{2}$/.test(plan.start ?? "") && plan.start! >= today ? plan.start! : today;
-      const place = origin.source === "area" ? origin.label : origin.city.name;
-      itinerary = buildItinerary(all, { start, days: Math.round(plan.days ?? 1), place });
-      if (!itinerary.days.some((d) => d.stops.length > 0)) {
-        itinerary = null;
-        notice = "I couldn't find enough open places to plan a full day there. Try another area or day?";
-      }
+      itinerary = await withCosts(db, "ask", () =>
+        planDays(token, { origin, start, days: plan.days ?? 1, who: plan.who, focus: plan.note, trip: tripLabel ?? undefined, place: origin.source === "area" ? origin.label : origin.city.name }),
+      );
+      if (!itinerary) notice = "I couldn't find enough open places to plan a full day there. Try another area or day?";
     }
   }
   if (s) {
@@ -245,6 +283,7 @@ ${currentTrip ? `The current trip being planned: ${currentTrip.title}${currentTr
         added,
         trip: tripLabel,
         weekend,
+        ...(options.length && !s && !tripId ? { options } : {}),
         ...(tripId ? { trip_id: tripId } : {}),
         ...(itinerary
           ? { itinerary: { title: itinerary.title, days: itinerary.days.map((d) => ({ label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, because: st.pick.because })) })) } }
@@ -273,4 +312,18 @@ async function resolvePlace(name: string | null, here: Origin | null, home: City
   // Goa, Bali or Kyoto) means the whole place around it.
   const source = city.id === home?.id ? "area" : "city";
   return { lat: found.lat, lng: found.lng, label: source === "area" ? name.slice(0, 60) : `Anywhere in ${name.slice(0, 50)}`, source, city };
+}
+
+// A trip route when the chat asked for a search or a day plan of a whole
+// country or a long stay: the same conversation, asked for the route only.
+async function routeFor(past: { role: string; content: string }[], message: string, system: string): Promise<RouteIn | null> {
+  const reply = await veniceJson<{ route?: RouteIn | null }>(
+    [
+      { role: "system", content: `${system}\n\nThis time, reply with only {"route": …} for the trip they're planning, as described above.` },
+      ...past.map((m) => ({ role: m.role, content: m.content }) as ChatTurn),
+      { role: "user", content: message },
+    ],
+    3000,
+  );
+  return reply.route ?? null;
 }

@@ -1,8 +1,8 @@
 import "server-only";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, searchCities } from "@/lib/server/cities";
-import { runPicks } from "@/lib/server/engine";
-import { buildItinerary, type Itinerary } from "@/lib/server/itinerary";
+import type { Itinerary } from "@/lib/server/itinerary";
+import { planDays } from "@/lib/server/plan-days";
 import { bestPhoto, findDestination, searchPlaces, type Place } from "@/lib/server/places";
 import { photoRef } from "@/lib/server/photo-ref";
 import type { Pick } from "@/lib/server/picks";
@@ -174,23 +174,21 @@ export async function planCityDays(opts: {
   if (isMainlandChina(at.city)) return { itinerary: null, notice: `Feta can't check places in mainland China yet, so I can't plan days in ${c.name}.` };
   const point = opts.hotel ?? at;
   const origin = { lat: point.lat, lng: point.lng, label: `Anywhere in ${c.name}`, source: "city" as const, city: at.city };
-  const who = opts.trip.who ?? "";
-  const tweaks = who === "friends" ? ["groups"] : who === "kids" ? ["kids"] : [];
-  const note = [who === "partner" ? "with my partner" : who === "family" ? "with family" : "", c.focus].filter(Boolean).join(", ").slice(0, 120);
-  const label = `${c.name} · ${opts.trip.title}`.slice(0, 60);
-  const ask = (category: "food_drinks" | "experiences") =>
-    runPicks(opts.token, { category, when: "weekend", origin, tweaks, note, trip: label }).then(
-      (r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>,
-    );
-  const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);
-  const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
   // The first day in this city: the trip's start plus the nights before it.
   const before = opts.trip.cities.slice(0, opts.index).reduce((n, x) => n + x.nights, 0) + opts.fromDay;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: at.city.timeZone }).format(new Date());
   const startDate = new Date(`${opts.trip.start_date && opts.trip.start_date >= today ? opts.trip.start_date : today}T12:00:00Z`);
   startDate.setUTCDate(startDate.getUTCDate() + before);
   const days = Math.min(3, c.nights - opts.fromDay);
-  const itinerary = buildItinerary(all, { start: startDate.toISOString().slice(0, 10), days, place: c.name });
-  if (!itinerary.days.some((d) => d.stops.length > 0)) return { itinerary: null, notice: `I couldn't find enough open places to plan those days in ${c.name}.` };
+  const itinerary = await planDays(opts.token, {
+    origin,
+    start: startDate.toISOString().slice(0, 10),
+    days,
+    who: opts.trip.who,
+    focus: c.focus,
+    trip: `${c.name} · ${opts.trip.title}`.slice(0, 60),
+    place: c.name,
+  });
+  if (!itinerary) return { itinerary: null, notice: `I couldn't find enough open places to plan those days in ${c.name}.` };
   return { itinerary };
 }
