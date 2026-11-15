@@ -152,3 +152,11 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+/* Under "Recommend it to people like you?". */
+.small {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.6);
+}

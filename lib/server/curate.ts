@@ -174,7 +174,8 @@ function roundRobin(cands: Candidate[], searched: Intent[]): Candidate[] {
 }
 
 // The picks, in ranking order. Steps: each explicit intent's best place
-// (the promise, even if it's very popular); one Feta favourite; places for
+// (the promise, even if it's very popular); one Feta favourite (the
+// founder's, or loved by Feta users with a similar taste); places for
 // what they asked for up to half; then the ranking. Never two branches of
 // one chain, at most popularCap very popular places, and a few of one kind
 // at most (more of one kind when they asked for only one or two things).
@@ -215,7 +216,8 @@ export function selectPicks(
     if (chosen.some((c) => pool[c].intents?.includes(intent.id))) continue;
     take(order.find((i) => pool[i].intents?.includes(intent.id) && can(i, { popular: false })));
   }
-  if (!chosen.some((c) => pool[c].fetaNote !== undefined)) take(order.find((i) => pool[i].fetaNote !== undefined && !isPopular(i) && can(i)));
+  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0;
+  if (!chosen.some(favourite)) take(order.find((i) => favourite(i) && !isPopular(i) && can(i)));
   const half = Math.ceil(room / 2);
   for (const i of order) if (chosen.filter(forExplicit).length < half && forExplicit(i) && can(i)) take(i);
   for (const i of order) if (can(i)) take(i);

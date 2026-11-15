@@ -16,6 +16,11 @@ import styles from "./PickDetails.module.css";
 const KIND_LABELS: Record<string, string> = { EAT: "Food", DRINK: "Drinks", DO: "To do", EVENT: "Event" };
 export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
 
+// Feta Favourites: how many Feta users recommend it (never who).
+export function lovedLabel(n?: number) {
+  return n ? `♥ Loved by ${n} Feta ${n === 1 ? "user" : "users"}` : null;
+}
+
 // The verdict in words. With "Anywhere in <city>" Feta doesn't know where
 // they are, so no "detour" or "nearby" (testers: "a detour from where?").
 export function verdictLabel(p: Pick) {
@@ -83,6 +88,7 @@ export default function PickDetails({
             <p className={styles.fetaNote}>“{pick.fetaNote}”</p>
           </>
         )}
+        {lovedLabel(pick.lovedBy) && <p className={styles.loved}>{lovedLabel(pick.lovedBy)}</p>}
         <p className={styles.label}>WHY IT&apos;S YOURS</p>
         <p className={styles.because}>{pick.because}</p>
         <div className={styles.chips}>

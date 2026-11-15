@@ -273,3 +273,11 @@
   width: 100%;
   margin-top: 18px;
 }
+
+/* Feta Favourites: "♥ Loved by 2 Feta users". */
+.loved {
+  margin-top: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--roseText);
+}

@@ -24,6 +24,7 @@ import {
   type Swipe,
 } from "@/lib/swipes";
 import { forgetPicks } from "@/lib/picks-store";
+import RecommendAsk from "@/components/RecommendAsk";
 import styles from "./Setup.module.css";
 
 // Your preferences: at most 4 screens (Anj's flow, 14 Nov 2026), and only
@@ -51,6 +52,8 @@ export default function Questions() {
   const [otherFood, setOtherFood] = useState("");
   const [showOther, setShowOther] = useState(false);
   const [anythingElse, setAnythingElse] = useState("");
+  const [asking, setAsking] = useState(false); // "Recommend them to people like you?"
+  const [asked, setAsked] = useState(false);
   const session = useRef("");
 
   // Answers from an earlier visit, and a city to work with: theirs, or a
@@ -157,7 +160,19 @@ export default function Questions() {
     router.push(fromYou ? "/you" : "/location");
   }
 
-  function next() {
+  // Places they love: ask once whether to recommend them to others.
+  function recommend(yes: boolean) {
+    setAsking(false);
+    setAsked(true);
+    if (yes) loved.forEach((l) => saveBeen(l.placeId, { recommend: true }));
+    next(true);
+  }
+
+  function next(answered = false) {
+    if (current === "loves" && loved.length > 0 && !asked && !answered) {
+      setAsking(true);
+      return;
+    }
     saveAnswersToDb(answers);
     if (step >= steps.length - 1) finish();
     else setStep(step + 1);
@@ -254,7 +269,7 @@ export default function Questions() {
             Name a few places <strong>you love</strong>
           </h1>
           <p className={styles.sub}>Feta looks at what they&apos;re like (the price, the vibe, the food) and finds new places in the same spirit.</p>
-          <p className={styles.hint}>Type a name, tap it to add, then add the next one. Up to 3.</p>
+          <p className={styles.hint}>Type a name, tap it to add, then add the next one. The more you add, the better Feta knows you.</p>
           {loved.length > 0 && (
             <ul className={styles.loved}>
               {loved.map((l) => (
@@ -266,21 +281,19 @@ export default function Questions() {
               ))}
             </ul>
           )}
-          {loved.length > 0 && <p className={styles.count}>{loved.length >= 3 ? "3 of 3 added. That's plenty." : `${loved.length} of 3 added. Add another?`}</p>}
-          {loved.length < 3 && (
-            <input
-              className={styles.field}
-              type="search"
-              autoComplete="off"
-              value={typed}
-              onChange={(e) => {
-                setTyped(e.target.value);
-                if (e.target.value.trim().length < 2) setSuggestions([]);
-              }}
-              placeholder={loved.length ? "Add another place" : "A café, bar or restaurant"}
-              aria-label="A place you love"
-            />
-          )}
+          {loved.length > 0 && <p className={styles.count}>{loved.length} added. Add another?</p>}
+          <input
+            className={styles.field}
+            type="search"
+            autoComplete="off"
+            value={typed}
+            onChange={(e) => {
+              setTyped(e.target.value);
+              if (e.target.value.trim().length < 2) setSuggestions([]);
+            }}
+            placeholder={loved.length ? "Add another place" : "A café, bar or restaurant"}
+            aria-label="A place you love"
+          />
           {suggestions.length > 0 && typed.trim().length >= 2 && (
             <>
               <ul className={styles.suggestions}>
@@ -368,11 +381,12 @@ export default function Questions() {
       )}
 
       <div className={styles.grow} />
-      <button type="button" className="btn-primary" onClick={next}>
+      {asking && <RecommendAsk count={loved.length} onAnswer={recommend} />}
+      <button type="button" className="btn-primary" onClick={() => next()}>
         {step >= steps.length - 1 ? (fromYou ? "Save" : "Next") : "Continue"}
       </button>
       {current === "loves" && loved.length === 0 && (
-        <button type="button" className={styles.ghost} onClick={next}>
+        <button type="button" className={styles.ghost} onClick={() => next()}>
           I&apos;ll add some later
         </button>
       )}

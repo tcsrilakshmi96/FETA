@@ -97,6 +97,7 @@ export type StoredPick = {
   event?: EventInfo;
   fetaNote?: string; // the founder's own words, for a Feta pick
   spare?: boolean; // backup for "Show me more", not shown at first
+  lovedBy?: number; // Feta users who recommend it (counted live, not stored)
 };
 
 // Picks shown at first per category; the rest of the ranked places are
@@ -260,7 +261,8 @@ export function brandOf(name: string) {
 
 // fetaNote: set when this is one of the founder's own places ("Feta pick").
 // intents: what the person asked for that this place is (intents.ts).
-export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[] };
+// lovedBy: how many Feta users recommend it (Feta Favourites).
+export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[]; lovedBy?: number };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -541,6 +543,7 @@ function describe(c: Candidate, i: number, category: Category) {
     p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews`,
     (p.userRatingCount ?? 0) >= POPULAR_REVIEWS && "VERY POPULAR",
     c.fetaNote !== undefined && `FETA PICK, the founder's own favourite${c.fetaNote ? `: "${c.fetaNote}"` : ""}`,
+    c.lovedBy && `FETA FAVOURITE, loved by ${c.lovedBy} Feta ${c.lovedBy === 1 ? "user" : "users"} with a similar taste`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -581,7 +584,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
           mix: "",
         }[noveltyLean(opts.taste)]
       : ""
-  }Places marked FETA PICK are the founder's own favourites: rank one of them highly when it fits, and its "because" may mention why it's a favourite.
+  }Places marked FETA PICK are the founder's own favourites, and FETA FAVOURITE ones were loved by other Feta users with a similar taste: rank one of them highly when it fits, and its "because" may mention it.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.

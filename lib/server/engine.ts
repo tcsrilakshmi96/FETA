@@ -282,8 +282,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       ...events.map((e) => buildEventPick(e.stored, { taste, city, today, venue: e.venue, wholeCity: body.origin.source === "city" })),
       ...chosen.map(({ candidate }, i) => buildPick(candidate, placeStored[i], { taste, when: body.when, city, wholeCity: body.origin.source === "city" })),
     ];
-    const shownFresh = fresh.filter((p) => !p.spare);
-    return json({ picks: [...kept.picks, ...shownFresh], spares: fresh.filter((p) => p.spare), ...(banner ? { banner } : {}) });
+    const counts = await loveCounts(db, fresh.map((p) => p.placeId)).catch(() => new Map<string, number>());
+    const withLove = fresh.map((p) => (counts.get(p.placeId) ? { ...p, lovedBy: counts.get(p.placeId) } : p));
+    return json({ picks: [...kept.picks, ...withLove.filter((p) => !p.spare)], spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}) });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
@@ -434,11 +435,15 @@ function nearName(city: City, o: Body["origin"]) {
   return o.source === "area" ? `${o.label.slice(0, 60)}, ${city.name}` : city.name;
 }
 
-// The founder's places in this city for this category. Ones already found
-// by the search cost nothing; at most FETA_LOOKUPS others (chosen at random,
-// so each gets a turn) are checked live against the person's hard filters.
-// Only place IDs and her notes are stored.
+// Feta's own favourites in this city for this category: the founder's
+// places (with her note) and places other Feta users loved and recommended
+// (founder, 15 Nov 2026), people with a similar taste first. Ones the
+// search already found cost nothing; a few others are checked live
+// against the same hard filters: one of the founder's, at random so each
+// gets a turn, and up to 2 from people with a similar taste. Only place IDs,
+// her notes and counts are stored or shared.
 const FETA_LOOKUPS = 1;
+const COMMUNITY_LOOKUPS = 2;
 
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
@@ -451,22 +456,25 @@ async function fetaCandidates(ctx: {
   pool: Candidate[];
 }): Promise<Candidate[]> {
   const kinds = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
-  const { data, error } = await ctx.db
-    .from("founder_places")
-    .select("place_id, note")
-    .eq("city_id", ctx.city.id)
-    .eq("active", true)
-    .in("kind", kinds)
-    .limit(500);
-  if (error || !data?.length) return [];
-  const notes = new Map(data.map((f) => [f.place_id as string, f.note as string]));
-  const found = ctx.pool.filter((c) => notes.has(c.place.id)).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }));
-  const others = data
-    .map((f) => f.place_id as string)
-    .filter((id) => !ctx.exclude.has(id) && !found.some((c) => c.place.id === id))
-    .sort(() => Math.random() - 0.5)
-    .slice(0, FETA_LOOKUPS);
-  const places = (await Promise.all(others.map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
+  const [founder, community] = await Promise.all([
+    ctx.db.from("founder_places").select("place_id, note").eq("city_id", ctx.city.id).eq("active", true).in("kind", kinds).limit(500),
+    ctx.db.rpc("feta_favourites", { p_city: ctx.city.id, p_category: ctx.body.category }),
+  ]);
+  const notes = new Map((founder.data ?? []).map((f) => [f.place_id as string, f.note as string]));
+  const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
+  if (notes.size === 0 && loved.size === 0) return [];
+  const mark = (c: Candidate): Candidate => ({
+    ...c,
+    ...(notes.has(c.place.id) ? { fetaNote: notes.get(c.place.id) } : {}),
+    ...(loved.has(c.place.id) ? { lovedBy: loved.get(c.place.id)!.lovers } : {}),
+  });
+  const found = ctx.pool.filter((c) => notes.has(c.place.id) || loved.has(c.place.id)).map(mark);
+  const fresh = (id: string) => !ctx.exclude.has(id) && !found.some((c) => c.place.id === id);
+  const lookups = [
+    ...[...notes.keys()].filter(fresh).sort(() => Math.random() - 0.5).slice(0, FETA_LOOKUPS),
+    ...[...loved.values()].filter((c) => c.similar > 0 && fresh(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
+  ];
+  const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
   const passed = applyHardFilters(places, {
     taste: ctx.taste,
     category: ctx.body.category,
@@ -475,7 +483,15 @@ async function fetaCandidates(ctx: {
     exclude: ctx.exclude,
     city: ctx.city,
   });
-  return [...found, ...passed.filter((c) => !c.far).map((c) => ({ ...c, fetaNote: notes.get(c.place.id) }))];
+  return [...found, ...passed.filter((c) => !c.far).map(mark)];
+}
+
+// How many Feta users recommend each pick, shown on the card.
+async function loveCounts(db: SupabaseClient, ids: string[]) {
+  const places = ids.filter((id) => !id.startsWith("event:"));
+  if (!places.length) return new Map<string, number>();
+  const { data } = await db.rpc("feta_love_counts", { p_place_ids: places });
+  return new Map(((data ?? []) as { place_id: string; lovers: number }[]).map((r) => [r.place_id, r.lovers]));
 }
 
 // What their favourite places are like (founder, 14 Nov 2026: "Name a few

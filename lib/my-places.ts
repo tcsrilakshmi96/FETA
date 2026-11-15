@@ -27,7 +27,7 @@ export const categoryOf = (types: string[] = []) => (types.some((t) => FOOD_TYPE
 
 export async function saveBeen(
   placeId: string,
-  fields: { visits?: Visits | null; verdict?: Verdict | null; note?: string; dietOk?: boolean | null; category?: string; cityId?: string },
+  fields: { visits?: Visits | null; verdict?: Verdict | null; note?: string; dietOk?: boolean | null; category?: string; cityId?: string; recommend?: boolean },
 ) {
   const userId = await currentUserId();
   if (!userId) return false;
@@ -38,6 +38,9 @@ export async function saveBeen(
   if (fields.dietOk !== undefined) row.diet_ok = fields.dietOk;
   if (fields.category) row.category = fields.category;
   if (fields.cityId) row.city_id = fields.cityId;
+  // Feta Favourites: recommended to others with a similar taste (only the
+  // place and a count are shared, never who).
+  if (fields.recommend !== undefined) row.recommend = fields.recommend;
   const { error } = await supabase().from("pick_actions").upsert(row, { onConflict: "user_id,place_id,action" });
   if (error) console.error("Saving place failed", error.message);
   return !error;

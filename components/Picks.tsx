@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LetsGo from "@/components/LetsGo";
-import PickDetails, { GoogleLine, kindLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
+import PickDetails, { GoogleLine, kindLabel, lovedLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
 import PlanAround from "@/components/PlanAround";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
@@ -339,6 +339,7 @@ export default function Picks() {
                 </span>
                 <span className={styles.because}>{hero.because}</span>
                 {hero.fetaNote && <span className={styles.fetaNote}>“{hero.fetaNote}”</span>}
+                {lovedLabel(hero.lovedBy) && <span className={styles.loved}>{lovedLabel(hero.lovedBy)}</span>}
                 <span className={styles.chips}>
                   {hero.chips.map((chip) => (
                     <span key={chip}>{chip}</span>
@@ -389,6 +390,7 @@ export default function Picks() {
                   <span className={styles.rowText}>
                     <span className={styles.rowName}>{p.name}</span>
                     <span className={styles.rowWhy}>{p.because}</span>
+                    {lovedLabel(p.lovedBy) && <span className={styles.rowLoved}>{lovedLabel(p.lovedBy)}</span>}
                     <span className={styles.rowMeta}>
                       {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
                       {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>{verdictLabel(p)}</span>}

@@ -18,6 +18,7 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
   const [visits, setVisits] = useState<Visits | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [note, setNote] = useState("");
+  const [recommend, setRecommend] = useState<boolean | null>(null); // Feta Favourites
   const [saving, setSaving] = useState(false);
   const session = useRef("");
 
@@ -46,7 +47,7 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
   async function save() {
     if (!chosen || !verdict) return;
     setSaving(true);
-    const ok = await saveBeen(chosen.placeId, { visits: visits ?? "once", verdict, note, category: categoryOf(chosen.types), cityId: city.id });
+    const ok = await saveBeen(chosen.placeId, { visits: visits ?? "once", verdict, note, category: categoryOf(chosen.types), cityId: city.id, recommend: verdict === "loved" && recommend === true });
     setSaving(false);
     if (ok) onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
   }
@@ -106,6 +107,20 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
                 </button>
               ))}
             </div>
+            {verdict === "loved" && (
+              <>
+                <p className={styles.label}>RECOMMEND IT TO PEOPLE LIKE YOU?</p>
+                <div className={styles.chips}>
+                  <button type="button" className={recommend === true ? styles.on : ""} onClick={() => setRecommend(true)}>
+                    Yes, a Feta Favourite
+                  </button>
+                  <button type="button" className={recommend === false ? styles.on : ""} onClick={() => setRecommend(false)}>
+                    Keep it to me
+                  </button>
+                </div>
+                <p className={styles.small}>Only the place is shared with Feta users who have a similar taste, never your name.</p>
+              </>
+            )}
             <p className={styles.label}>HOW OFTEN?</p>
             <div className={styles.chips}>
               {VISITS.map((v) => (
