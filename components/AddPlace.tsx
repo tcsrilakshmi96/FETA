@@ -47,7 +47,7 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
   async function save() {
     if (!chosen || !verdict) return;
     setSaving(true);
-    const ok = await saveBeen(chosen.placeId, { visits: visits ?? "once", verdict, note, category: categoryOf(chosen.types), cityId: city.id, recommend: verdict === "loved" && recommend === true });
+    const ok = await saveBeen(chosen.placeId, { visits: visits ?? "once", verdict, note, category: categoryOf(chosen.types), cityId: city.id, ...(verdict === "loved" && recommend === true ? { recommend: true } : {}) });
     setSaving(false);
     if (ok) onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
   }

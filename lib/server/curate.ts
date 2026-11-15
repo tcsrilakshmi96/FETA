@@ -221,6 +221,9 @@ export function selectPicks(
   const half = Math.ceil(room / 2);
   for (const i of order) if (chosen.filter(forExplicit).length < half && forExplicit(i) && can(i)) take(i);
   for (const i of order) if (can(i)) take(i);
+  // Short of places: one more of what they asked for beats a famous place
+  // they didn't (live check, 15 Nov 2026: a Thai lover in London got Dishoom).
+  for (const i of order) if (forExplicit(i) && can(i, { kinds: false })) take(i);
   for (const i of order) if (can(i, { popular: false })) take(i);
   for (const i of order) if (can(i, { popular: false, kinds: false })) take(i);
 

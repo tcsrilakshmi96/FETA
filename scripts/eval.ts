@@ -206,7 +206,8 @@ async function run(p: Persona) {
   const popular = shown.filter((c) => isPopular(c.candidate) && !isFor(c.candidate)).length;
   const lessKnownLeft = found.pool.filter((c) => !isPopular(c) && !shown.some((s) => s.candidate === c)).length;
   if (popular > popularCap(taste) && lessKnownLeft > 0) fails.push(`${popular} very popular places while ${lessKnownLeft} less-known ones were left`);
-  return { fails, names, forChoices, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => i.query) };
+  const reasons = shown.map((c) => `${c.candidate.place.displayName?.text} [${c.candidate.place.primaryType}${c.candidate.place.servesVegetarianFood === undefined ? ", veg unknown" : ""}] ${(c.candidate.intents ?? []).join(" ")} — ${c.ranked?.because ?? ""}`);
+  return { fails, names, forChoices, reasons, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => i.query) };
 }
 
 // Every choice on screen has search words (lib/server/catalog.ts).
@@ -226,12 +227,15 @@ async function main() {
     failed++;
     console.log(`✗ Choices with no search words: ${gaps.join(", ")}`);
   } else console.log("✓ Every choice on screen has search words");
-  for (const p of PERSONAS) {
+  // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
+  const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
+  for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {
     const r = await run(p);
     if (r.fails.length) failed++;
     console.log(`${r.fails.length ? "✗" : "✓"} ${p.name}`);
     console.log(`    searched: ${r.searched.join(" | ")}`);
     console.log(`    picks (${r.forChoices}/${r.names.length} for their choices): ${r.names.join(", ")}`);
+    if (LIVE) r.reasons.forEach((x) => console.log(`      · ${x}`));
     if (r.missing.length) console.log(`    said none found: ${r.missing.join(", ")}`);
     for (const f of r.fails) console.log(`    ✗ ${f}`);
   }
