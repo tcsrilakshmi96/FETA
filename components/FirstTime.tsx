@@ -4,7 +4,7 @@ import { useState } from "react";
 import { loadCity } from "@/lib/cities";
 import { detectCurrency } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
-import { QUESTIONS, loadAnswers, saveAnswers } from "@/lib/onboarding";
+import { QUESTIONS, isVegDiet, loadAnswers, saveAnswers } from "@/lib/onboarding";
 import { loadName, loadWants, saveWants, type Want } from "@/lib/profile";
 import { MAX_CUISINES, cuisinesFor, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, type ProfileLine } from "@/lib/swipes";
 import styles from "./Sheet.module.css";
@@ -18,7 +18,7 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
   const [cuisines, setCuisines] = useState<string[]>(() => loadSwipes().filter((s) => s.cardId.startsWith("cuisine_") && s.verdict === "yes").map((s) => s.cardId.slice(8)));
   const [own, setOwn] = useState("");
   const city = loadCity();
-  const veg = ["vegetarian", "vegetarian_eggs", "jain", "vegan"].includes(answers.diet ?? "");
+  const veg = isVegDiet(answers.diet);
   const options = cuisinesFor(city?.country, veg);
 
   function save() {

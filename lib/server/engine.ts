@@ -5,37 +5,28 @@ import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
-import { placeDetails, searchNearby, searchPlaces, type Place } from "@/lib/server/places";
+import { placeDetails, type Place } from "@/lib/server/places";
+import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyHardFilters,
   FOOD_DRINK_TYPES,
-  emptyDrops,
   whyNothing,
   buildEventPick,
   compromiseFor,
   buildPick,
-  chooseWithGemini,
   distanceLimitKm,
   kindOf,
   needsDietCheck,
-  searchPhrases,
   spendUpperBound,
   tasteSummary,
   unknownPriceOk,
-  takePicks,
-  tastePlaceTypes,
   SHOW,
-  tonightMeansNow,
   applyTweaks,
-  foodPhrases,
   TWEAKS,
-  POPULAR_REVIEWS,
   popularCap,
-  reasonFits,
   type Candidate,
-  type DropCounts,
   type Tweak,
   type EventInfo,
   type Category,
@@ -44,7 +35,6 @@ import {
   type Taste,
   type When,
 } from "@/lib/server/picks";
-import { sideById } from "@/lib/swipes";
 
 // Cost guards (founder can change these in Vercel without a code change).
 // Alpha: 600 new searches a day across everyone, 20 per person (each
@@ -183,87 +173,57 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   after(() => eventsFull);
   const eventsSearch = Promise.race([eventsFull, new Promise<EventPick[]>((resolve) => setTimeout(() => resolve([]), EVENTS_WAIT_MS))]);
 
-  const drops = emptyDrops();
-  let pool: Candidate[];
+  // Events shown last time stay while they're still on; new ones wait a
+  // few seconds at most (see above).
+  const prevEvents: EventPick[] = previous
+    .filter((p): p is StoredPick & { event: EventInfo } => !!p.event && !exclude.has(p.placeId) && eventStillOn(p.event, body.when, city))
+    .map((stored) => ({ stored, venue: null }));
+  const allEventsPromise = eventsSearch;
+
+  // Places: what they want, found, filtered, ranked, and the promise kept
+  // (curate.ts). Up to 2 events first, then places to make 8; every other
+  // place that passed is kept, in order, as backup.
+  let found: CurateResult;
   try {
-    pool = await gatherCandidates({ taste: effective, tweaks, body, city, origin, exclude, needsDiet, need, rotation, drops });
+    found = await curate({
+      taste: effective,
+      city,
+      origin,
+      category: body.category,
+      when: body.when,
+      tweaks,
+      note,
+      exclude,
+      needsDiet,
+      need,
+      rotation,
+      favourites: (pool) => fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }),
+    });
   } catch (error) {
     console.error(error);
     if (body.category === "food_drinks" && kept.picks.length === 0) {
       return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     }
-    pool = [];
+    found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
-
-  // The founder's own places ("Feta picks") that pass the same hard filters.
-  const feta = await fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }).catch((error) => {
-    console.error(error);
-    return [] as Candidate[];
-  });
-  pool = [...feta, ...pool.filter((c) => !feta.some((f) => f.place.id === c.place.id))].slice(0, 24);
-
-  // Rank places while the event search is still running.
-  const ranking =
-    pool.length > 0
-      ? chooseWithGemini({ candidates: pool, taste: effective, city, category: body.category, when: body.when, tweaks, note }).catch((error) => {
-          console.error(error);
-          return [] as Awaited<ReturnType<typeof chooseWithGemini>>;
-        })
-      : Promise.resolve([] as Awaited<ReturnType<typeof chooseWithGemini>>);
-  const [allEvents, rankedAll] = await Promise.all([eventsSearch, ranking]);
-  // Mainly meat or fish places Gemini flagged leave the pool for vegetarians.
-  const flagged = new Set((rankedAll as { nonVeg?: string[] }).nonVeg ?? []);
-  let ranked = rankedAll;
-  if (flagged.size) {
-    const kept = pool.filter((c) => !flagged.has(c.place.id));
-    ranked = rankedAll.map((r) => ({ ...r, index: kept.indexOf(pool[r.index]) })).filter((r) => r.index >= 0);
-    pool = kept;
-  }
-  // Events shown last time stay while they're still on.
-  const prevEvents: EventPick[] = previous
-    .filter((p): p is StoredPick & { event: EventInfo } => !!p.event && !exclude.has(p.placeId) && eventStillOn(p.event, body.when, city))
-    .map((stored) => ({ stored, venue: null }));
+  const allEvents = await allEventsPromise;
   const events = [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, Math.min(2, need));
-  if (pool.length === 0 && events.length === 0) {
+  const room = Math.max(0, need - events.length);
+  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste) }) };
+  if (result.chosen.length === 0 && events.length === 0) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
-    console.log("No picks", { category: body.category, when: body.when, drops });
-    return json({ picks: [], notice: whyNothing(drops, effective.answers, body.when, city.country) });
+    console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
+    return json({ picks: [], notice: whyNothing(result.drops, effective.answers, body.when, city.country) });
   }
 
-  // Up to 2 events first, then places to make 8; every other place that
-  // passed is kept, in order, as backup. A Feta pick that passed the hard
-  // filters always gets a place in the 8, unless it is a very popular place
-  // (a famous sight is not a find; Gemini may still pick it).
-  const room = Math.max(0, need - events.length);
-  const chosen = takePicks(ranked, pool, pool.length, small, popularCap(taste));
-  const fetaInPool = pool.filter((c) => c.fetaNote !== undefined && (c.place.userRatingCount ?? 0) < POPULAR_REVIEWS);
-  if (fetaInPool.length > 0 && room > 0 && !chosen.slice(0, room).some((c) => c.candidate.fetaNote !== undefined)) {
-    const best = ranked.map((r) => pool[r.index]).find((c) => c && fetaInPool.includes(c)) ?? fetaInPool[0];
-    const at = chosen.findIndex((c) => c.candidate === best);
-    const entry = at >= 0 ? chosen.splice(at, 1)[0] : { candidate: best, ranked: ranked.find((r) => pool[r.index] === best) ?? null };
-    chosen.splice(Math.min(2, room - 1, chosen.length), 0, entry);
-  }
+  // Places shown last time keep their order at the top.
+  const shownCount = result.shown;
   const prevOrder = new Map(previous.map((p, i) => [p.placeId, i]));
-  if (prevOrder.size) chosen.sort((a, b) => (prevOrder.get(a.candidate.place.id) ?? 99) - (prevOrder.get(b.candidate.place.id) ?? 99));
-  // Every favourite cuisine they chose shows up among the 8 when the search
-  // found one: it swaps in for the lowest pick that isn't a Feta pick
-  // (founder's testers: 6 of 8 were Italian, none of their Japanese or Thai).
-  if (!previous.length && body.category === "food_drinks") {
-    for (const y of taste.yes.filter((id) => id.startsWith("cuisine_"))) {
-      const re = CUISINE_TYPES[y.slice(8)];
-      if (!re || chosen.slice(0, room).some((c) => re.test(c.candidate.place.primaryType ?? ""))) continue;
-      const j = chosen.findIndex((c, i) => i >= room && re.test(c.candidate.place.primaryType ?? ""));
-      if (j < 0) continue;
-      let k = Math.min(room, chosen.length) - 1;
-      while (k >= 0 && (chosen[k].candidate.fetaNote !== undefined || Object.values(CUISINE_TYPES).some((r) => r !== re && taste.yes.some((t) => CUISINE_TYPES[t.slice(8)] === r) && r.test(chosen[k].candidate.place.primaryType ?? "") && chosen.slice(0, room).filter((c) => r.test(c.candidate.place.primaryType ?? "")).length === 1))) k--;
-      if (k < 0) continue;
-      [chosen[k], chosen[j]] = [chosen[j], chosen[k]];
-    }
-  }
-  const shownCount = Math.min(room, chosen.length);
+  const byPrev = (list: typeof result.chosen) => (prevOrder.size ? [...list].sort((a, b) => (prevOrder.get(a.candidate.place.id) ?? 99) - (prevOrder.get(b.candidate.place.id) ?? 99)) : list);
+  const chosen = [...byPrev(result.chosen.slice(0, shownCount)), ...result.chosen.slice(shownCount)];
   const placeStored: StoredPick[] = chosen.map(({ candidate, ranked: r }, i) => {
     const before = previous.find((p) => p.placeId === candidate.place.id);
-    if (before) return { ...before, ...(i >= room ? { spare: true } : {}) };
+    if (before) return { ...before, ...(i >= shownCount ? { spare: true } : {}) };
     // The last pick shown says "Skip unless…" when there is a real compromise.
     const weakest = i === shownCount - 1 && kept.picks.length + events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
     const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
@@ -272,9 +232,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       kind: kindOf(candidate.place, body.category),
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-      because: r?.because && reasonFits(r.because, taste, candidate.place) ? r.because : fallbackBecause(taste, candidate.place, kindOf(candidate.place, body.category)),
+      because: becauseFor(candidate, result.intents, taste, kindOf(candidate.place, body.category), r?.because),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
-      ...(i >= room ? { spare: true } : {}),
+      ...(i >= shownCount ? { spare: true } : {}),
     };
   });
   // One "Worth a detour" among the ones shown at most, across events and places.
@@ -287,11 +247,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const farCount = chosen.slice(0, shownCount).filter((c) => c.candidate.far).length;
   const short = shownTotal < 3;
   const whenText = body.when === "tonight" ? "tonight" : "this weekend";
+  // Said plainly when something they asked for found nothing that fits.
+  const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
   const banner = short
     ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}${farCount > 0 ? `, worth a short ride` : ""}. No weak filler.`
     : farCount > 0
       ? `Nothing great right around you ${whenText}. ${farCount === 1 ? "1 is" : `${farCount} are`} worth a short ride.`
-      : keptBanner;
+      : (missing ?? keptBanner);
 
   await db.from("pick_sets").insert({
     user_id: userId,
@@ -322,87 +284,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
 }
 
-// Places to choose from. Food & drinks: everything popular nearby plus a
-// search shaped by the user's taste. Experiences: two phrases from their
-// interests. If fewer than needed pass the hard filters, one wider search
-// ("worth a short ride").
-async function gatherCandidates(ctx: {
-  taste: Taste;
-  tweaks: Tweak[];
-  body: Body;
-  city: City;
-  origin: { lat: number; lng: number };
-  exclude: Set<string>;
-  needsDiet: boolean;
-  need: number;
-  rotation: number;
-  drops: DropCounts;
-}): Promise<Candidate[]> {
-  const { taste, body, city, origin } = ctx;
-  const limit = distanceLimitKm(taste.answers);
-  const common = { lat: origin.lat, lng: origin.lng, needsDiet: ctx.needsDiet, regionCode: city.country };
-  const text = (query: string, radiusKm: number) =>
-    searchPlaces({ ...common, query, radiusKm, openNow: body.when === "tonight" && tonightMeansNow(city) });
-  const nearby = (radiusKm: number, types = FOOD_DRINK_TYPES) => searchNearby({ ...common, types, radiusKm, rank: "POPULARITY" });
-  // Their favourite cuisines (and bars or cafés from the cards) in one
-  // Nearby Search, so every cuisine they chose can come up.
-  // Plus the kinds of place they love (a brewery, a cocktail bar), from
-  // "Name a few places you love".
-  const tasteTypes = body.category === "food_drinks" ? [...new Set([...tastePlaceTypes(taste), ...(taste.lovedTypes ?? [])])].slice(0, 12) : [];
-
-  // What they asked for in their own words (Tweak sheet or Ask Feta) leads.
-  const asked = (ctx.body.note ?? "").trim();
-  const base = body.category === "food_drinks" ? foodPhrases(taste, ctx.tweaks, city, tasteTypes.length > 0) : searchPhrases(body.category, taste, ctx.tweaks);
-  const phrases = asked ? [asked, ...base.filter((p) => p !== asked)] : base;
-  const pick = (i: number) => (asked && i === 0 ? asked : phrases.length ? phrases[(ctx.rotation + i) % phrases.length] : null);
-  const first = pick(0);
-  const second = phrases.length > 1 ? pick(1) : null;
-  const searches: Promise<Place[]>[] =
-    body.category === "food_drinks"
-      ? // Their cuisines (one search for all of them), then their words or
-        // a card's phrase ("small local favourite"), else what's popular.
-        tasteTypes.length > 0
-        ? [nearby(limit, tasteTypes), first ? text(first, limit) : nearby(limit)]
-        : [nearby(limit), ...(first ? [text(first, limit)] : [])]
-      : [text(first ?? "things to do", limit), ...(second ? [text(second, limit)] : [])];
-  const settled = await Promise.allSettled(searches);
-  if (settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
-  const seen = new Map<string, Place>();
-  const addAll = (list: Place[]) => list.forEach((p) => seen.has(p.id) || seen.set(p.id, p));
-  settled.forEach((r) => r.status === "fulfilled" && addAll(r.value));
-
-  const filter = () => {
-    Object.assign(ctx.drops, emptyDrops());
-    return applyHardFilters([...seen.values()], { taste, category: body.category, when: body.when, origin, exclude: ctx.exclude, city }, ctx.drops);
-  };
-  let passed = filter();
-  if (passed.filter((c) => !c.far).length < ctx.need && limit < 15) {
-    const wider = await (body.category === "food_drinks" ? nearby(limit * 2) : text(first ?? "things to do", limit * 2)).catch(() => [] as Place[]);
-    addAll(wider);
-    passed = filter();
-  }
-  const near = passed.filter((c) => !c.far);
-  return (near.length >= ctx.need ? near : passed).slice(0, 24);
-}
-
-// When Gemini's reason is missing or leans on something they turned down: a
-// plain reason that fits this place (its cuisine, or what kind of place it
-// is), never a side that has nothing to do with it.
-const CUISINE_TYPES: Record<string, RegExp> = {
-  italian: /italian|pizza/, japanese: /japanese|sushi|ramen/, korean: /korean/, thai: /thai/, mexican: /mexican/,
-  middle_eastern: /middle_eastern|lebanese|turkish|mediterranean/, indian: /indian/, south_indian: /indian/, north_indian: /indian/,
-  bakery: /bakery|dessert|cafe/, healthy: /vegan|vegetarian|salad/,
-};
-const KIND_SIDES: Record<string, string[]> = { DRINK: ["buzzing", "buzzing_sober", "quiet_cafe"], EAT: ["hole_in_wall", "dressed_up", "quiet_cafe"] };
-
-function fallbackBecause(taste: Taste, place?: Place, kind?: string) {
-  const type = place?.primaryType ?? "";
-  const cuisine = taste.yes.find((y) => y.startsWith("cuisine_") && CUISINE_TYPES[y.slice(8)]?.test(type));
-  if (cuisine) return `Because ${sideById(cuisine, taste.answers)?.label ?? "it"} is one of your favourites.`;
-  const side = taste.yes.find((y) => KIND_SIDES[kind ?? ""]?.includes(y) && (!place || reasonFits(sideById(y, taste.answers)?.label ?? "", { ...taste, no: [] }, place)));
-  const label = side ? sideById(side, taste.answers)?.label : null;
-  if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
-  return "Because it fits what you told me.";
+function listOf(words: string[]) {
+  return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} or ${words[words.length - 1]}`;
 }
 
 // Shows a saved set again with live Google details, dropping anything that
@@ -433,7 +316,9 @@ async function showStored(
   );
   const live = await Promise.all(placeStored.map((s) => placeDetails(s.placeId, ctx.needsDiet)));
   const places = live.filter((p): p is Place => !!p);
-  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city });
+  // A bar or café shown as a thing to do (karaoke, a rooftop) was checked
+  // against what they asked for when it was chosen.
+  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
   const placePicks = await Promise.all(
     placeStored
@@ -511,7 +396,7 @@ async function eventPicks(ctx: {
         kind: "EVENT" as const,
         verdict: c.verdict && ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(c.verdict) ? c.verdict : "Good if you're nearby",
         ...(c.verdict === "Skip unless" && c.skipUnless ? { skipUnless: c.skipUnless } : {}),
-        because: c.because?.startsWith("Because you") && reasonFits(c.because, taste) ? c.because : fallbackBecause(taste),
+        because: becauseFor(null, [], taste, "EVENT", c.because),
         event: {
           title: e.title,
           venueName: e.venueName,

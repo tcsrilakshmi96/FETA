@@ -2,9 +2,10 @@ import "server-only";
 
 import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
-import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
+import { isVegDiet, optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { track } from "@/lib/server/costs";
-import { FAKE } from "@/lib/server/fake-places";
+import { FAKE, fakeRank } from "@/lib/server/fake-places";
+import type { Intent } from "@/lib/server/intents";
 import { photoRef } from "@/lib/server/photo-ref";
 import { bestPhoto, type Place } from "@/lib/server/places";
 import { sideById } from "@/lib/swipes";
@@ -69,14 +70,6 @@ export function applyTweaks(taste: Taste, tweaks: Tweak[]): Taste {
   return { ...taste, answers, openLate: tweaks.includes("open_later") };
 }
 
-const TWEAK_PHRASES: Partial<Record<Tweak, string>> = {
-  quieter: "quiet cafe",
-  fancier: "upscale restaurant",
-  outdoors: "outdoor seating restaurant",
-  groups: "restaurant good for groups",
-  kids: "family friendly restaurant",
-};
-
 // An event found on the web. Its details come from the event's own listing
 // (not Google Maps), so they can be kept with the set.
 export type EventInfo = {
@@ -110,55 +103,6 @@ export type StoredPick = {
 export const SHOW = 8;
 // Very popular places allowed among the 8 shown ("New to you" rule).
 const MAX_POPULAR = 2;
-// Places of one cuisine allowed among the 8 shown, so favourites are mixed.
-const MAX_SAME_CUISINE = 2;
-
-// A specific cuisine from Google's main type ("indian_restaurant"), not a
-// general one ("restaurant", "cafe", "bar").
-function cuisineOf(c: Candidate) {
-  const t = c.place.primaryType ?? "";
-  if (!/_restaurant$/.test(t) || /^(fine_dining|fast_food|family|casual|breakfast|brunch|buffet)/.test(t)) return null;
-  // Pizza counts as Italian, sushi and ramen as Japanese, and so on, so the
-  // cap can't be dodged by a sub-type (testers: 7 of 8 were Italian).
-  for (const [group, re] of CUISINE_GROUPS) if (re.test(t)) return group;
-  return t;
-}
-
-const CUISINE_GROUPS: [string, RegExp][] = [
-  ["italian", /^(italian|pizza)_/],
-  ["japanese", /^(japanese|sushi|ramen)_/],
-  ["middle_eastern", /^(middle_eastern|lebanese|turkish|mediterranean|afghani)_/],
-];
-
-// Google place types for each favourite cuisine on the taste cards, so one
-// Nearby Search can look for all of them together.
-export const CUISINE_PLACE_TYPES: Record<string, string[]> = {
-  south_indian: ["indian_restaurant"],
-  north_indian: ["indian_restaurant"],
-  regional: ["indian_restaurant"],
-  indian: ["indian_restaurant"],
-  indo_chinese: ["chinese_restaurant"],
-  italian: ["italian_restaurant", "pizza_restaurant"],
-  japanese: ["japanese_restaurant", "sushi_restaurant", "ramen_restaurant"],
-  korean: ["korean_restaurant"],
-  thai: ["thai_restaurant"],
-  middle_eastern: ["middle_eastern_restaurant", "lebanese_restaurant", "turkish_restaurant", "mediterranean_restaurant"],
-  mexican: ["mexican_restaurant"],
-  bakery: ["bakery", "dessert_shop"],
-  healthy: ["vegan_restaurant", "vegetarian_restaurant"],
-};
-
-// The place types their taste asks for: favourite cuisines, plus bars or
-// cafés from the this-or-that cards. Empty if they eat anything.
-export function tastePlaceTypes(taste: Taste) {
-  const types = new Set<string>();
-  for (const y of taste.yes) if (y.startsWith("cuisine_")) for (const t of CUISINE_PLACE_TYPES[y.slice(8)] ?? []) types.add(t);
-  if (types.size === 0) return [];
-  if (needsDietCheck(taste.answers)) types.add("vegetarian_restaurant");
-  if (taste.yes.includes("buzzing") && taste.answers.drinks !== "no_alcohol") ["bar", "pub"].forEach((t) => types.add(t));
-  if (taste.yes.includes("quiet_cafe") || taste.yes.includes("buzzing_sober")) ["cafe", "coffee_shop"].forEach((t) => types.add(t));
-  return [...types];
-}
 
 // Sent to the phone for one card.
 export type Pick = StoredPick & {
@@ -188,8 +132,6 @@ export type Pick = StoredPick & {
 
 // ---------- What to search for ----------
 
-const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
-
 // Places that serve some veg food but are mainly about meat or fish (a
 // steakhouse, a biryani or kebab house) are not picks for vegetarians
 // (founder's decision, 12 Nov 2026, "Option B"); Gemini also flags ones
@@ -213,92 +155,29 @@ export function mainlyAvoided(place: Place, avoid: string[] = []) {
 }
 
 export function needsDietCheck(answers: Answers) {
-  return VEG_DIETS.includes(answers.diet ?? "");
+  return isVegDiet(answers.diet);
 }
 
-// Experiences search phrases from the user's interests and swipes. Each new
-// set for the same slot rotates to the next phrase, so "Show me more" feels
-// different. (Food & drinks searches everything nearby instead.)
-export function searchPhrases(category: Category, taste: Taste, tweaks: Tweak[] = []): string[] {
-  const { answers, yes } = taste;
-  const drinks = answers.drinks !== "no_alcohol";
-  const phrases: string[] = [];
-  if (category === "food_drinks") {
-    phrases.push("everything nearby");
-  } else {
-    const map: Record<string, string> = {
-      karaoke: "karaoke bar",
-      rooftops: "rooftop bar",
-      board_games: "board game cafe",
-      dancing: "dance club or salsa night",
-      hidden_bars: "speakeasy bar",
-      live_music: "live music venue",
-      comedy: "comedy club",
-      art_culture: "art gallery",
-      outdoors: "park",
-      workshops: "workshop studio",
-      nightlife: "nightclub",
-      markets: "market",
-      games_sports: "board game cafe",
-    };
-    for (const id of answers.interests) {
-      if (["nightlife", "rooftops", "hidden_bars"].includes(id) && !drinks) continue;
-      if (map[id]) phrases.push(map[id]);
-    }
-    // How they like to spend time (the experience cards) comes first.
-    const doing = yes.map((id) => DOING_SIDE_PHRASES[id]).filter(Boolean);
-    phrases.unshift(...doing);
-    if (yes.includes("night_out_sober")) phrases.push("live music venue");
-    if (phrases.length === 0) phrases.push("art gallery", "park", "museum");
-    if (tweaks.includes("outdoors")) phrases.unshift("park");
-    if (tweaks.includes("kids")) phrases.unshift("things to do with kids");
-    if (tweaks.includes("groups")) phrases.unshift("group activity");
-    if (tweaks.includes("quieter")) phrases.unshift("museum");
+// Pescatarians: places mainly about meat (fish and seafood are fine).
+const MEAT_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "hamburger_restaurant", "korean_barbecue_restaurant", "brazilian_restaurant"];
+const MEAT_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|burgers?|wings|beef|pork|lamb|churrasc\w*|rotisserie)\b/i;
+
+export function mainlyMeat(place: Place) {
+  return MEAT_TYPES.includes(place.primaryType ?? "") || MEAT_WORDS.test(place.displayName?.text ?? "");
+}
+
+// Diet as a hard filter (founder, 15 Nov 2026): vegetarian diets need
+// Google's "serves vegetarian food"; in India, where most places do, a
+// place with no answer either way passes too, with a "not confirmed" chip.
+// Places mainly about meat or fish never pass.
+export function dietOk(place: Place, answers: Answers, country: string) {
+  if (isVegDiet(answers.diet)) {
+    if (mainlyNonVeg(place) || place.servesVegetarianFood === false) return false;
+    return place.servesVegetarianFood === true || country === "IN";
   }
-  return [...new Set(phrases)];
+  if (answers.diet === "pescatarian" && mainlyMeat(place)) return false;
+  return !mainlyAvoided(place, answers.avoid);
 }
-
-// Search words for each taste card answer (lib/swipes.ts). Old card ids
-// (before 11 Nov 2026) still count for people who swiped then.
-const CUISINE_PHRASES: Record<string, string> = {
-  south_indian: "south indian restaurant",
-  north_indian: "north indian restaurant",
-  indo_chinese: "chinese restaurant",
-  regional: "regional indian thali restaurant",
-  local: "local cuisine restaurant",
-  indian: "indian restaurant",
-  italian: "italian restaurant",
-  japanese: "japanese restaurant",
-  korean: "korean restaurant",
-  thai: "thai restaurant",
-  middle_eastern: "middle eastern restaurant",
-  mexican: "mexican restaurant",
-  bakery: "bakery and desserts",
-  healthy: "healthy bowls and salads",
-};
-const FOOD_SIDE_PHRASES: Record<string, string> = {
-  hole_in_wall: "small local favourite, one famous dish",
-  dressed_up: "fine dining restaurant",
-  quiet_cafe: "quiet cafe",
-  buzzing: "lively bar with music",
-  buzzing_sober: "cafe with live music",
-  street_food: "street food",
-  spicy_regional: "spicy regional food",
-  local_breakfast: "local favourite restaurant",
-  night_out: "cocktail bar",
-  night_out_sober: "dessert cafe",
-};
-const DOING_SIDE_PHRASES: Record<string, string> = {
-  dance: "dance class",
-  make: "pottery workshop",
-  play: "badminton court",
-  unwind: "book cafe",
-  crowd: "live music venue",
-  circle: "community meetup",
-  hands_on: "pottery workshop",
-  get_moving: "dance class or sports",
-  slow_down: "pottery workshop or book cafe",
-};
 
 // How adventurous they are with food (research, 13 Nov 2026): the novelty
 // card, or, when they didn't choose a side, what they do: keep going back
@@ -320,28 +199,6 @@ export function noveltyLean(taste: Taste): NoveltyLean {
 export function popularCap(taste: Taste) {
   const lean = noveltyLean(taste);
   return lean === "new" ? 1 : lean === "familiar" ? 3 : MAX_POPULAR;
-}
-
-// Food & drinks search words from the user's tweaks, cuisines and taste
-// cards, searched alongside everything popular nearby. Empty means popular only.
-// withoutCuisines: the cuisines are searched by place type instead (all at
-// once), so only "Local food" stays a phrase.
-export function foodPhrases(taste: Taste, tweaks: Tweak[] = [], city?: City, withoutCuisines = false): string[] {
-  const veg = needsDietCheck(taste.answers) ? "vegetarian " : "";
-  const sober = taste.answers.drinks === "no_alcohol";
-  const fromTweaks = tweaks.map((t) => TWEAK_PHRASES[t]).filter(Boolean) as string[];
-  const fromSwipes: string[] = [];
-  for (const id of taste.yes) {
-    // "Local food" means this country's food: "traditional Germany food" in Berlin.
-    const cuisine = id === "cuisine_local" && city ? `traditional ${city.countryName} food` : id.startsWith("cuisine_") && !withoutCuisines ? CUISINE_PHRASES[id.slice(8)] : null;
-    if (cuisine) fromSwipes.push(`${veg}${cuisine}`);
-  }
-  for (const id of taste.yes) {
-    const phrase = FOOD_SIDE_PHRASES[id];
-    if (!phrase || (sober && ["buzzing", "night_out"].includes(id))) continue;
-    fromSwipes.push(["quiet_cafe", "buzzing", "buzzing_sober", "night_out", "night_out_sober"].includes(id) ? phrase : `${veg}${phrase}`);
-  }
-  return [...new Set([...fromTweaks, ...fromSwipes])];
 }
 
 // ---------- Hard filters, enforced in code ----------
@@ -401,7 +258,8 @@ export function brandOf(name: string) {
 }
 
 // fetaNote: set when this is one of the founder's own places ("Feta pick").
-export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string };
+// intents: what the person asked for that this place is (intents.ts).
+export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[] };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -412,11 +270,12 @@ export function emptyDrops(): DropCounts {
 
 // Returns places that pass every hard filter. Unknown price passes only for
 // spend levels 1–3 (up to ₹1,500 in India): small places with no price on
-// Google are usually cheap (founder's decision). Unknown diet info fails for
-// vegetarian diets; unknown hours fail.
+// Google are usually cheap (founder's decision). Diet: dietOk. Unknown hours
+// fail. foodDrinkOk: a bar or café that Experiences keeps because it is the
+// thing to do (karaoke, a rooftop, board games).
 export function applyHardFilters(
   places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City },
+  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean },
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
@@ -433,7 +292,7 @@ export function applyHardFilters(
       opts.exclude.has(place.id) ||
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
-      (opts.category === "experiences" && isMainlyFoodOrDrink(place)) ||
+      (opts.category === "experiences" && isMainlyFoodOrDrink(place) && !opts.foodDrinkOk?.(place)) ||
       NEVER_PICKS.includes(place.primaryType ?? "")
     ) {
       drop("other");
@@ -458,15 +317,12 @@ export function applyHardFilters(
       continue;
     }
     // Diet applies to food and drinks only (Google has no diet data for, say, a park).
-    if (opts.category === "food_drinks" && needsDietCheck(answers) && (place.servesVegetarianFood !== true || mainlyNonVeg(place))) {
+    if (opts.category === "food_drinks" && !dietOk(place, answers, opts.city.country)) {
       drop("diet");
       continue;
     }
-    if (opts.category === "food_drinks" && mainlyAvoided(place, answers.avoid)) {
-      drop("diet");
-      continue;
-    }
-    if (answers.drinks === "no_alcohol" && place.types?.some((t) => ALCOHOL_TYPES.includes(t))) {
+    // A restaurant that also has a bar is fine for someone who doesn't drink.
+    if (answers.drinks === "no_alcohol" && ALCOHOL_TYPES.includes(place.primaryType ?? "")) {
       drop("alcohol");
       continue;
     }
@@ -565,7 +421,7 @@ export function whyNothing(drops: DropCounts, answers: Answers, when: When, coun
   const reasons: Record<string, string> = {
     far: `The places that fit you are more than ${formatDistance(limit * 2, country)} away.`,
     price: "The places near you are above your usual spend.",
-    diet: needsDietCheck(answers) ? "Nothing near you is confirmed by Google to serve vegetarian food." : "The places near you are mostly about food you skip.",
+    diet: needsDietCheck(answers) ? "Nothing that fits near you has vegetarian food confirmed on Google." : "The places near you are mostly about food you skip.",
     hours: when === "tonight" ? "The places that fit you nearby are closed right now." : "The places that fit you nearby aren't open at the weekend.",
     alcohol: "The places near you are mostly bars, and you said no alcohol.",
   };
@@ -689,7 +545,7 @@ function describe(c: Candidate, i: number, category: Category) {
     .join(" · ");
 }
 
-type Ranked = { index: number; verdict: Verdict; skipUnless?: string; because: string };
+export type Ranked = { index: number; verdict: Verdict; skipUnless?: string; because: string; serves?: string[] };
 
 export async function chooseWithGemini(opts: {
   candidates: Candidate[];
@@ -699,8 +555,10 @@ export async function chooseWithGemini(opts: {
   when: When;
   tweaks?: Tweak[];
   note?: string;
+  intents?: Intent[];
 }): Promise<Ranked[]> {
   const { candidates, category, when, city } = opts;
+  const wanted = (opts.intents ?? []).filter((i) => i.explicit);
   const asked = [...(opts.tweaks ?? []).map((t) => TWEAK_LABELS[t]), ...(opts.note ? [`"${opts.note}"`] : [])];
   const prompt = `You are Feta, a friend with great taste who picks places for one person in ${city.name}, ${city.countryName}.
 
@@ -710,6 +568,7 @@ ${tasteSummary(opts.taste, city)}
 They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${when === "tonight" ? "tonight" : "this weekend"}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
 Every place below already fits their diet, budget, distance, drinks and opening hours, so choose on taste and fit.
 
+${wanted.length ? `What they want most (id in brackets): ${wanted.map((i) => `[${i.id}] ${i.label}`).join("; ")}.\n` : ""}
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
@@ -725,7 +584,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
-- Mix their favourites: at most ${MAX_SAME_CUISINE} places of the same cuisine in the top ${SHOW}, and if they named several cuisines, cover as many of them as the places allow.
+${wanted.length ? `- Cover what they want most: the best place for each id above near the top, and most of the top ${SHOW} for those things, mixed rather than one kind.\n- "serves": the ids above that this place genuinely is (a Thai restaurant is [cuisine_thai]; a karaoke bar is [interest_karaoke]). [] if none.` : "- Mix kinds of place rather than several of one kind."}
 - "because": one line, at most 110 characters, starting "Because you", tied to something they chose or liked above (never something under "Said no to") that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
@@ -733,7 +592,8 @@ Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best fi
   - "Skip unless" when it only fits part of what they like, with "skipUnless" finishing the sentence in at most 7 words (e.g. "you want somewhere loud"). Use it whenever a place is a compromise.
 - No hype words.`;
 
-  if (FAKE) throw new Error("Test mode: no Gemini ranking");
+  // Test mode: a simple ranking in code, so the rest of the steps still run.
+  if (FAKE) return fakeRank(candidates, wanted);
   track("gemini_rank");
   const res = await fetch(
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
@@ -757,6 +617,7 @@ Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best fi
                     verdict: { type: "STRING", enum: ["Worth a detour", "Good if you're nearby", "Skip unless"] },
                     skipUnless: { type: "STRING" },
                     because: { type: "STRING" },
+                    serves: { type: "ARRAY", items: { type: "STRING" } },
                   },
                   required: ["index", "verdict", "because"],
                 },
@@ -780,42 +641,6 @@ Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best fi
   ) as Ranked[] & { nonVeg?: string[] };
   out.nonVeg = [...nonVeg].filter((i) => candidates[i]).map((i) => candidates[i].place.id);
   return out;
-}
-
-// Orders places in Gemini's ranking, with at most MAX_POPULAR very popular
-// places among the first SHOW. A small city never gets weak filler: only
-// places Gemini rated a real fit count (a "Skip unless" fills in only to
-// reach 2). A bigger city fills up with the next best places that passed
-// the hard filters (their verdict then says honestly what the compromise
-// is). Without a ranking (Gemini down), it uses the filtered places in order.
-export function takePicks(ranked: Ranked[], candidates: Candidate[], count = SHOW, small = false, maxPopular = MAX_POPULAR): { candidate: Candidate; ranked: Ranked | null }[] {
-  const chosen: { candidate: Candidate; ranked: Ranked | null }[] = [];
-  const isPopular = (c: Candidate) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
-  const brand = (c: Candidate) => brandOf(c.place.displayName?.text ?? c.place.id);
-  const add = (candidate: Candidate, r: Ranked | null, allowExtraPopular: boolean, upTo = count, anyCuisine = false) => {
-    if (!candidate || chosen.length >= upTo || chosen.some((c) => c.candidate === candidate || brand(c.candidate) === brand(candidate))) return;
-    if (!allowExtraPopular && isPopular(candidate) && chosen.length < SHOW && chosen.filter((c) => isPopular(c.candidate)).length >= maxPopular) return;
-    // A mix: at most 2 of the same cuisine (Google's type, e.g. indian_restaurant) among the first 8.
-    const kind = cuisineOf(candidate);
-    if (!anyCuisine && kind && chosen.length < SHOW && chosen.filter((c) => cuisineOf(c.candidate) === kind).length >= MAX_SAME_CUISINE) return;
-    chosen.push({ candidate, ranked: r });
-  };
-  const rankedOf = (c: Candidate) => ranked.find((r) => candidates[r.index] === c) ?? null;
-  // At most one "Worth a detour" per set.
-  let detours = 0;
-  ranked = ranked.map((r) => (r.verdict === "Worth a detour" && detours++ > 0 ? { ...r, verdict: "Good if you're nearby" as const } : r));
-  if (ranked.length > 0) {
-    const good = ranked.filter((r) => r.verdict !== "Skip unless");
-    for (const r of good) add(candidates[r.index], r, false);
-    for (const r of good) add(candidates[r.index], r, true);
-    for (const r of ranked) add(candidates[r.index], r, true, small ? Math.min(2, count) : count);
-    if (small) return chosen;
-  }
-  for (const c of candidates) add(c, rankedOf(c), false);
-  for (const c of candidates) add(c, rankedOf(c), true);
-  // Only if there is nothing else: a third of the same cuisine.
-  for (const c of candidates) add(c, rankedOf(c), true, count, true);
-  return chosen;
 }
 
 // ---------- Building a card ----------
@@ -875,10 +700,11 @@ function spendMatches(place: Place, answers: Answers, city: City) {
 function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): string[] {
   const out: string[] = [];
   const diet = taste.answers.diet;
-  if (c.place.servesVegetarianFood === true) {
+  if (needsDietCheck(taste.answers) && isMainlyFoodOrDrink(c.place)) {
+    const confirmed = c.place.servesVegetarianFood === true;
     if (diet === "jain") out.push("Jain: ask for no onion, garlic or root veg · not confirmed");
     else if (diet === "vegan") out.push("Vegan options · not confirmed, check with staff");
-    else if (needsDietCheck(taste.answers)) out.push("Veg-friendly ✓");
+    else out.push(confirmed ? "Veg-friendly ✓" : "Veg options · not confirmed, check with staff");
   }
   // Google has no halal data, so it is never claimed, only flagged honestly.
   if (taste.answers.halal && c.place.types?.some((t) => t.includes("restaurant") || t.includes("food") || t === "cafe")) {

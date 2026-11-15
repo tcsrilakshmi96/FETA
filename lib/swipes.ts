@@ -1,4 +1,4 @@
-import { optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
+import { isVegDiet, optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
 import type { Currency } from "@/lib/currency";
 
 // The 6 taste cards (founder's decision, 11 Nov 2026): 3 for food and
@@ -43,7 +43,6 @@ const SOUTH_ASIA = ["IN", "LK", "NP", "BD", "PK", "BT", "MV"];
 // Photos showing meat, fish or egg have a vegetarian version, shown to
 // vegetarian, vegan and Jain users (testers: egg and fish photos broke trust).
 const VEG_PHOTOS = ["bowl", "fine-dining", "indo-chinese", "japanese", "korean", "mexican", "middle-eastern", "thai", "world-street", "world-spicy"];
-const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
 const photo = (name: string, veg: boolean) => `/swipes/${veg && VEG_PHOTOS.includes(name) ? `veg-${name}` : name}.jpg`;
 
 export function cuisinesFor(country?: string, veg = false): Cuisine[] {
@@ -73,7 +72,7 @@ export function cuisinesFor(country?: string, veg = false): Cuisine[] {
 export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
   const home = !country || SOUTH_ASIA.includes(country);
   const sober = answers.drinks === "no_alcohol";
-  const veg = VEG_DIETS.includes(answers.diet ?? "");
+  const veg = isVegDiet(answers.diet);
   return [
     { type: "cuisines", id: "cuisines", options: cuisinesFor(country, veg) },
     {

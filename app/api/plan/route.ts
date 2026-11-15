@@ -1,7 +1,8 @@
 import { cityById } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
 import { photoUri, bestPhoto, searchPlaces, type Place } from "@/lib/server/places";
-import { applyHardFilters, buildPick, kindOf, searchPhrases, type Candidate, type Category, type Pick, type When } from "@/lib/server/picks";
+import { allIntents } from "@/lib/server/intents";
+import { applyHardFilters, buildPick, kindOf, needsDietCheck, type Candidate, type Category, type Pick, type When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 
 export const maxDuration = 30;
@@ -36,10 +37,12 @@ export async function POST(request: Request) {
     for (const a of actions ?? []) exclude.add(a.place_id as string);
     const origin = { lat, lng };
     const afterDinner = taste.answers.drinks === "no_alcohol" ? "dessert cafe" : "cocktail bar";
-    const doing = searchPhrases("experiences", taste)[0] ?? "live music";
+    // The thing to do they'd most like (a karaoke bar counts as one).
+    const top = allIntents(taste, { category: "experiences", city, tweaks: [], rotation: 0 }).find((i) => i.source === "interest" || i.source === "side");
+    const doing = top?.query ?? "live music";
     const search = (query: string, category: Category) =>
-      searchPlaces({ query, lat, lng, radiusKm: NEAR_KM, openNow: false, needsDiet: false, regionCode: city.country, count: 10 })
-        .then((places) => applyHardFilters(places, { taste, category, when, origin, exclude, city }).filter((c) => c.km <= NEAR_KM))
+      searchPlaces({ query, lat, lng, radiusKm: NEAR_KM, openNow: false, needsDiet: category === "food_drinks" && needsDietCheck(taste.answers), regionCode: city.country, count: 10 })
+        .then((places) => applyHardFilters(places, { taste, category, when, origin, exclude, city, foodDrinkOk: () => !!top?.def.foodDrink }).filter((c) => c.km <= NEAR_KM))
         .catch((error) => {
           console.error(error);
           return [] as Candidate[];

@@ -42,6 +42,13 @@ export const EMPTY_ANSWERS: Answers = {
   avoid: [],
 };
 
+// Diets that need vegetarian food (one list for the screens and the search).
+export const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
+
+export function isVegDiet(diet: string | null | undefined) {
+  return VEG_DIETS.includes(diet ?? "");
+}
+
 export const AVOID_OPTIONS: Option[] = [
   { id: "beef", label: "No beef" },
   { id: "pork", label: "No pork" },

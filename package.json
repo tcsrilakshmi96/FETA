@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "eval": "FAKE_PLACES=1 node --conditions=react-server --import tsx scripts/eval.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import { track } from "@/lib/server/costs";
-import { FAKE, fakeDetails, fakeSearch } from "@/lib/server/fake-places";
+import { FAKE, fakeDetails, fakeNearby, fakeSearch } from "@/lib/server/fake-places";
 
 // Google Places API (New), called only from Feta's server so the key stays
 // private. Results are used for this request and never stored, apart from
@@ -119,7 +119,7 @@ export async function searchNearby(opts: {
   needsDiet: boolean;
   regionCode: string;
 }): Promise<Place[]> {
-  if (FAKE) return fakeSearch(opts.lat, opts.lng, opts.types.join(), true);
+  if (FAKE) return fakeNearby(opts.lat, opts.lng, opts.types);
   const res = await fetch(`${BASE}/places:searchNearby`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet)),

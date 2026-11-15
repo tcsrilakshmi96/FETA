@@ -8,7 +8,7 @@ import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
-import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, loadAnswers, optionsFor, saveAnswers, type Answers } from "@/lib/onboarding";
+import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, type Answers } from "@/lib/onboarding";
 import { loadWants, type Want } from "@/lib/profile";
 import {
   MAX_CUISINES,
@@ -34,7 +34,6 @@ import styles from "./Setup.module.css";
 type Step = "basics" | "loves" | "taste" | "vibe";
 type Loved = { placeId: string; name: string; detail: string };
 
-const VEG_DIETS = ["vegetarian", "vegetarian_eggs", "jain", "vegan"];
 const q = (id: string) => QUESTIONS.find((x) => x.id === id)!;
 
 export default function Questions() {
@@ -77,7 +76,7 @@ export default function Questions() {
   const steps: Step[] = ["basics", "loves", ...(food || doing ? (["taste", "vibe"] as Step[]) : [])];
   const current = steps[Math.min(step, steps.length - 1)];
   const currency = city?.currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const veg = VEG_DIETS.includes(answers.diet ?? "");
+  const veg = isVegDiet(answers.diet);
 
   // Places they love: Google suggestions as they type, a moment after they stop.
   useEffect(() => {
