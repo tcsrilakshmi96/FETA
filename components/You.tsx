@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import TabBar from "@/components/TabBar";
+import TellFeta from "@/components/TellFeta";
 import { useToast } from "@/components/Toast";
 import {
   readGoogleReturn,
@@ -293,6 +294,7 @@ export default function You() {
         <p className={styles.sub}>
           Your picks and Ask Feta (the 🧀) work from this. Change anything, and picks follow.
         </p>
+        <TellFeta hint="e.g. Burmese food, pickleball, quiet rooftops" onAdded={async () => setProfile(await loadProfile())} />
 
         {mine.length === 0 && (
           <p className={styles.empty}>

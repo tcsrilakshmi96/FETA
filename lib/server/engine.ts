@@ -94,12 +94,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const answers = taste.answers;
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
-  const originKey =
+  // The taste fingerprint means a changed taste (a new line, new answers)
+  // searches again instead of showing the last picks.
+  const originKey = `${
     body.origin.source === "gps"
       ? `gps:${city.id}`
       : body.origin.source === "area"
         ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
-        : `city:${city.id}`;
+        : `city:${city.id}`
+  }|t:${tasteFingerprint(taste)}`;
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
   const small = isSmallCity(city.id);
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
@@ -285,6 +288,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
   }
+}
+
+// A short hash of everything that shapes a search.
+function tasteFingerprint(t: Taste) {
+  const a = t.answers;
+  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], t.lovedIds ?? []]);
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(36);
 }
 
 function listOf(words: string[]) {

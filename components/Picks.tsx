@@ -8,6 +8,7 @@ import PlanAround from "@/components/PlanAround";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
+import TellFeta from "@/components/TellFeta";
 import { useToast } from "@/components/Toast";
 import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
@@ -367,6 +368,8 @@ export default function Picks() {
               </button>
             </div>
           </div>
+
+          <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />
 
           {rest.length > 0 && <p className={styles.section}>{rest.length} MORE THAT FIT</p>}
           <ul className={styles.rows}>

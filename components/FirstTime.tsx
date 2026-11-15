@@ -7,6 +7,7 @@ import { saveAnswersToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipe
 import { QUESTIONS, isVegDiet, loadAnswers, saveAnswers } from "@/lib/onboarding";
 import { loadName, loadWants, saveWants, type Want } from "@/lib/profile";
 import { MAX_CUISINES, cuisinesFor, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, type ProfileLine } from "@/lib/swipes";
+import { forgetPicks } from "@/lib/picks-store";
 import styles from "./Sheet.module.css";
 
 // The first time someone opens a category they didn't pick at setup, its
@@ -21,25 +22,28 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
   const veg = isVegDiet(answers.diet);
   const options = cuisinesFor(city?.country, veg);
 
-  function save() {
+  // Saved before the search runs again, so it uses these answers.
+  async function save() {
     saveAnswers(answers);
-    saveAnswersToDb(answers);
+    const saving: Promise<unknown>[] = [saveAnswersToDb(answers)];
     const swipes = food
       ? [...loadSwipes().filter((s) => !s.cardId.startsWith("cuisine_")), ...options.map((c) => ({ cardId: `cuisine_${c.id}`, verdict: cuisines.includes(c.id) ? ("yes" as const) : ("no" as const) }))]
       : loadSwipes();
     if (food) {
       saveSwipes(swipes);
-      saveSwipesToDb(swipes);
+      saving.push(saveSwipesToDb(swipes));
     }
     const lines: ProfileLine[] = [
       ...pickedUpLines(answers, swipes, city?.currency ?? detectCurrency(), city?.country),
       ...(own.trim() ? [{ id: food ? "food_other" : "loves_other", text: `${food ? "Also loves" : "Loves"} ${own.trim().slice(0, 100)}`, source: "answers" as const }] : []),
     ];
     saveProfileLines(lines);
-    saveProfileLinesToDb(lines, []);
+    saving.push(saveProfileLinesToDb(lines, []));
     const wants = [...new Set<Want>([...loadWants(), want])];
     saveWants(wants);
-    saveProfileBasicsToDb(loadName(), wants);
+    saving.push(saveProfileBasicsToDb(loadName(), wants));
+    await Promise.all(saving);
+    forgetPicks();
     onDone();
   }
 

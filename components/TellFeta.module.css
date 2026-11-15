@@ -1,0 +1,42 @@
+/* "Tell Feta what you like": on the picks list and at the top of You. */
+.box {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 20px;
+  background: rgba(var(--inkRGB), 0.05);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(var(--surf), 0.85);
+  font-size: 16px;
+}
+
+.send {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 18px;
+}
+
+.send:disabled {
+  opacity: 0.4;
+}

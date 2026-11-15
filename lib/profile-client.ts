@@ -1,5 +1,6 @@
 "use client";
 
+import { forgetPicks } from "@/lib/picks-store";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // The You screen: plain profile lines, privacy choices and the account.
@@ -58,16 +59,20 @@ export async function loadProfile(): Promise<Profile | null> {
   return lastProfile;
 }
 
-// Removing a line stops picks using it (it is kept, marked removed).
+// Removing a line stops picks using it (it is kept, marked removed). Any
+// change to lines also drops the picks kept on the phone, so the next open
+// searches with the new taste.
 export async function removeLine(id: string) {
   const { error } = await supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("id", id);
   if (error) console.error("Removing line failed", error.message);
+  forgetPicks();
 }
 
 // Editing a line: picks and chat use the new words from now on.
 export async function editLine(id: string, text: string) {
   const { error } = await supabase().from("profile_lines").update({ text: text.trim().slice(0, 80) }).eq("id", id);
   if (error) console.error("Editing line failed", error.message);
+  forgetPicks();
 }
 
 // "Add something" on You, about them or about someone they go out with.
@@ -81,6 +86,7 @@ export async function addLine(text: string, about: Person | null): Promise<Line 
     .select("id, text, source, trip")
     .single();
   if (error) console.error("Adding line failed", error.message);
+  forgetPicks();
   return data ? ({ ...data, key } as Line) : null;
 }
 

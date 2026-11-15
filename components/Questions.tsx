@@ -23,6 +23,7 @@ import {
   type ProfileLine,
   type Swipe,
 } from "@/lib/swipes";
+import { forgetPicks } from "@/lib/picks-store";
 import styles from "./Setup.module.css";
 
 // Your preferences: at most 4 screens (Anj's flow, 14 Nov 2026), and only
@@ -134,15 +135,15 @@ export default function Questions() {
     setSwipes((all) => [...all.filter((s) => s.cardId !== card.a.id && s.cardId !== card.b.id), ...pairSwipes(card, choice)]);
   }
 
-  function finish() {
+  // Saved before the next search runs, so it uses these answers.
+  async function finish() {
     // Every cuisine shown counts: the chosen ones yes, the rest no.
     const cuisineIds = cuisinesFor(city?.country, veg).map((c) => c.id);
     const all = food
       ? [...swipes.filter((s) => !s.cardId.startsWith("cuisine_")), ...cuisineIds.map((id) => ({ cardId: `cuisine_${id}`, verdict: swipes.some((s) => s.cardId === `cuisine_${id}` && s.verdict === "yes") ? ("yes" as const) : ("no" as const) }))]
       : swipes;
     saveSwipes(all);
-    saveSwipesToDb(all);
-    saveAnswersToDb(answers);
+    const saving: Promise<unknown>[] = [saveSwipesToDb(all), saveAnswersToDb(answers)];
     // Plain lines for You, plus anything they typed in their own words.
     const own: ProfileLine[] = [
       otherFood.trim() && { id: "food_other", text: `Also loves ${otherFood.trim().slice(0, 60)}`, source: "answers" as const },
@@ -150,7 +151,9 @@ export default function Questions() {
     ].filter(Boolean) as ProfileLine[];
     const lines = [...pickedUpLines(answers, all, currency, city?.country), ...own];
     saveProfileLines(lines);
-    saveProfileLinesToDb(lines, []);
+    saving.push(saveProfileLinesToDb(lines, []));
+    await Promise.all(saving);
+    forgetPicks();
     router.push(fromYou ? "/you" : "/location");
   }
 

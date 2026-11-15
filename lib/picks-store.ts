@@ -26,6 +26,11 @@ const inflight = new Map<string, Promise<Slot>>();
 
 const stillOpen = (p: Pick) => !p.closesAt || new Date(p.closesAt).getTime() > Date.now();
 
+// Their taste changed (a new line, new answers): the next open searches again.
+export function forgetPicks() {
+  kept = null;
+}
+
 export function slotKey(origin: Origin, when: When, category: Category) {
   return `${originKey(origin)}|${when}:${category}`;
 }
