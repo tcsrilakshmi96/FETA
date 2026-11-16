@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Caveat } from "next/font/google";
 import LetsGo from "@/components/LetsGo";
 import PickDetails, { lovedLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
@@ -16,6 +17,9 @@ import styles from "./FetaPicksSheet.module.css";
 // "Feta Picks near you" (founder, 16 Nov 2026): the founder's own places
 // (★ with her note) and places Feta users with a similar taste love, that
 // fit their diet and budget, nearest first.
+// The founder's notes, handwritten.
+const hand = Caveat({ subsets: ["latin"], weight: ["600"] });
+
 export default function FetaPicksSheet({ origin, when, onClose }: { origin: Origin; when: When; onClose: () => void }) {
   const toast = useToast();
   const [picks, setPicks] = useState<Pick[] | null>(null);
@@ -51,24 +55,33 @@ export default function FetaPicksSheet({ origin, when, onClose }: { origin: Orig
         <p className={sheet.sub}>Feta&apos;s own favourites and places people with your taste love. All fit your diet and budget.</p>
         {picks === null && <p className={styles.empty}>Finding them…</p>}
         {picks?.length === 0 && <p className={styles.empty}>{notice ?? `No Feta Picks in ${origin.city.name} that fit you yet.`}</p>}
-        <ul className={styles.list}>
-          {(picks ?? []).map((p) => (
-            <li key={p.placeId}>
-              <button type="button" className={styles.row} onClick={() => setOpen(p)}>
-                <span className={styles.pic}>
-                  <PickPhoto photo={p.photo} />
-                </span>
-                <span className={styles.text}>
+        {/* Polaroids, swiped sideways (founder, 16 Nov 2026): the founder's
+            note in handwriting, so they read like a friend's recommendations. */}
+        <ul className={styles.deck}>
+          {(picks ?? []).map((p) => {
+            const mine = p.fetaNote !== undefined;
+            const closed = p.googleLine?.startsWith("Closed now");
+            return (
+              <li key={p.placeId}>
+                <button type="button" className={styles.polaroid} onClick={() => setOpen(p)}>
+                  <span className={styles.pic}>
+                    <PickPhoto photo={p.photo} />
+                    <span className={styles.badge}>{mine ? "★ FETA PICK" : lovedLabel(p.lovedBy) ?? "♥ Loved by Feta users"}</span>
+                  </span>
                   <strong>{p.name}</strong>
-                  {p.fetaNote ? <span className={styles.note}>★ “{p.fetaNote}”</span> : p.fetaNote !== undefined ? <span className={styles.note}>★ Feta pick</span> : null}
-                  {lovedLabel(p.lovedBy) && <span className={styles.loved}>{lovedLabel(p.lovedBy)}</span>}
+                  {mine ? (
+                    <span className={`${hand.className} ${styles.note}`}>{p.fetaNote ? `${p.fetaNote} – S` : "One of my favourites – S"}</span>
+                  ) : (
+                    <span className={styles.why}>Loved by people with a taste like yours</span>
+                  )}
                   <small>
-                    {[p.area, p.distanceKm ? formatDistance(p.distanceKm, p.country) : null].filter(Boolean).join(" · ")} · <span translate="no">Google Maps</span>
+                    {[p.distanceKm ? formatDistance(p.distanceKm, p.country) : p.area, closed ? "Closed now" : null].filter(Boolean).join(" · ")} · <span translate="no">Google Maps</span>
+                    {p.photo && ` · Photo: ${p.photo.credit}`}
                   </small>
-                </span>
-              </button>
-            </li>
-          ))}
+                </button>
+              </li>
+            );
+          })}
         </ul>
         <button type="button" className={sheet.ghost} onClick={onClose}>
           Close

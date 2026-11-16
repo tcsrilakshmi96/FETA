@@ -54,6 +54,14 @@
   min-width: 0;
 }
 
+/* The Feta Picks star and the round You button. */
+.buttons {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 /* Preferences and account: a round button with their initial. */
 .acct {
   flex: none;
@@ -491,12 +499,3 @@
   }
 }
 
-/* "Feta Picks near you" (founder, 16 Nov 2026). */
-.feta {
-  width: 100%;
-  min-height: 96px;
-  margin-top: 12px;
-  background: var(--rose);
-  color: var(--inkFixed);
-  animation-delay: 0.42s;
-}

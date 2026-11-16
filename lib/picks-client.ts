@@ -138,3 +138,12 @@ export async function fetchFetaPicks(origin: Origin, when: When): Promise<PicksR
     return { picks: [], notice: "No connection just now. Try again in a moment." };
   }
 }
+
+// Whether the founder has places in this city, so the star's arrival on
+// Home only says "Feta Picks in <city>" when there are some. Read from
+// Feta's own list: no Google call, free.
+export async function hasFetaPicks(cityId: string): Promise<boolean> {
+  await currentUserId(); // the list is readable once signed in
+  const { count } = await supabase().from("founder_places").select("place_id", { count: "exact", head: true }).eq("city_id", cityId).eq("active", true);
+  return (count ?? 0) > 0;
+}

@@ -6,6 +6,7 @@
   --ink: #1a1616;
   --inkRGB: 26, 22, 22;
   --sheet: #ffffff;
+  --polaroid: #ffffff;
   --surf: 255, 255, 255;
   --field: #f7f4f2;
   --roseText: #c81e52;
@@ -41,6 +42,7 @@
     --ink: #f5ece7;
     --inkRGB: 245, 236, 231;
     --sheet: #241e1f;
+    --polaroid: #2e2728;
     --surf: 46, 39, 40;
     --field: #2e2728;
     --roseText: #ff8aa8;
@@ -56,6 +58,7 @@
   --ink: #f5ece7;
   --inkRGB: 245, 236, 231;
   --sheet: #241e1f;
+  --polaroid: #2e2728;
   --surf: 46, 39, 40;
   --field: #2e2728;
   --roseText: #ff8aa8;
