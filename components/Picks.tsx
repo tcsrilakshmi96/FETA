@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import CheesePull from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
 import PickDetails, { GoogleLine, kindLabel, lovedLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
 import PlanAround from "@/components/PlanAround";
@@ -9,6 +10,7 @@ import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
 import TellFeta from "@/components/TellFeta";
+import type { PillPart } from "@/components/TopPill";
 import { useToast } from "@/components/Toast";
 import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
@@ -72,6 +74,7 @@ export default function Picks() {
   const [tweaked, setTweaked] = useState<Record<string, Tweaked>>({});
   const [withKids, setWithKids] = useState(false);
   const [compact, setCompact] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -145,23 +148,46 @@ export default function Picks() {
     else tweak(tweaks, note);
   }
 
-  // "Show me more": the next 8 from the backup, or a new search once the
-  // backup has run out. New ones go below the ones already shown.
+  // The next places for this list: the next 8 from the backup, or a new
+  // search once the backup has run out.
+  async function nextSet(): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
+    if (slot!.spares.length > 0) return { fresh: slot!.spares.slice(0, SHOW), spares: slot!.spares.slice(SHOW) };
+    const reply = await fetchPicks(category, when, origin!, true);
+    const at = Date.now();
+    return {
+      fresh: (reply.picks ?? []).filter((p) => !slot!.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at })),
+      spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
+      notice: reply.notice,
+    };
+  }
+
+  // "Show me more": new ones go below the ones already shown.
   async function showMore() {
     if (!origin || !slot || slot.more) return;
-    if (slot.spares.length > 0) {
-      setSlots((s) => ({ ...s, [key]: { ...s[key], picks: [...s[key].picks, ...s[key].spares.slice(0, SHOW)], spares: s[key].spares.slice(SHOW) } }));
-      return;
-    }
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const reply = await fetchPicks(category, when, origin, true);
-    const at = Date.now();
-    const fresh = (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at }));
-    if (fresh.length === 0) toast(reply.notice ?? "That's everything that fits right now. Try Tweak.");
-    setSlots((s) => ({
-      ...s,
-      [key]: { ...s[key], more: false, picks: [...s[key].picks, ...fresh], spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })) },
-    }));
+    const next = await nextSet();
+    if (next.fresh.length === 0) toast(next.notice ?? "That's everything that fits right now. Try Tweak.");
+    setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: [...s[key].picks, ...next.fresh], spares: next.spares } }));
+  }
+
+  // Pull down for a fresh set (founder, 16 Nov 2026): the next places
+  // replace the ones on screen, and the pill says what's new.
+  async function freshSet(): Promise<PillPart[]> {
+    if (!origin || !slot || slot.loading || slot.more) return [];
+    setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
+    const next = await nextSet();
+    if (next.fresh.length === 0) {
+      setSlots((s) => ({ ...s, [key]: { ...s[key], more: false } }));
+      return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];
+    }
+    setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: next.fresh, spares: next.spares } }));
+    scroller.current?.scrollTo({ top: 0 });
+    const feta = next.fresh.filter((p) => p.fetaNote !== undefined).length;
+    const loved = next.fresh.filter((p) => p.lovedBy).length;
+    return [
+      { text: `${next.fresh.length} new ${next.fresh.length === 1 ? "pick" : "picks"}`, tone: "count" },
+      ...(feta ? [{ text: `★ ${feta} Feta ${feta === 1 ? "Pick" : "Picks"}`, tone: "star" as const }] : loved ? [{ text: `♥ ${loved} loved by Feta users`, tone: "star" as const }] : []),
+    ];
   }
 
   // Each tab and category loads once and then keeps its own progress.
@@ -234,7 +260,7 @@ export default function Picks() {
   return (
     <main className={styles.screen}>
       {/* The header shrinks to one line once the list scrolls (testers: it took 40% of the screen). */}
-      <div className={styles.scroll} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
+      <div ref={scroller} className={styles.scroll} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
       <div className={`${styles.head} ${compact ? styles.compact : ""}`}>
         <div className={styles.top}>
           <div className={styles.segment} role="tablist" aria-label="When">
@@ -435,6 +461,7 @@ export default function Picks() {
       </div>
 
       <TabBar active="home" />
+      <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!!slot && !slot.loading && !slot.more && picks.length > 0} />
 
       {sheet?.type === "details" && (
         <PickDetails
