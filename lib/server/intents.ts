@@ -2,7 +2,7 @@ import "server-only";
 
 import type { City } from "@/lib/cities";
 import { QUESTIONS } from "@/lib/onboarding";
-import { CUISINE_SEARCH, DEFAULT_DOING, INTEREST_SEARCH, SIDE_SEARCH, TWEAK_SEARCH, type SearchDef } from "@/lib/server/catalog";
+import { CUISINE_SEARCH, DAY_PLAN, DEFAULT_DOING, INTEREST_SEARCH, SIDE_SEARCH, TWEAK_SEARCH, type SearchDef } from "@/lib/server/catalog";
 import type { Place } from "@/lib/server/places";
 import { sideById } from "@/lib/swipes";
 import { isVegDiet } from "@/lib/onboarding";
@@ -19,7 +19,7 @@ import type { Category, Taste, Tweak } from "@/lib/server/picks";
 // passes the hard filters, or says plainly that none did. Taste-card sides
 // only steer the search when there's room.
 
-export type IntentSource = "asked" | "tweak" | "cuisine" | "interest" | "typed" | "loved" | "side";
+export type IntentSource = "asked" | "plan" | "tweak" | "cuisine" | "interest" | "typed" | "loved" | "side";
 
 export type Intent = {
   id: string;
@@ -36,7 +36,7 @@ export type Intent = {
 // what's popular nearby when fewer than this many things are asked for.
 export const MAX_SEARCHES = 4;
 
-const PRIORITY: IntentSource[] = ["asked", "tweak", "cuisine", "interest", "typed", "loved", "side"];
+const PRIORITY: IntentSource[] = ["asked", "plan", "tweak", "cuisine", "interest", "typed", "loved", "side"];
 
 function interestLabel(id: string) {
   return QUESTIONS.find((q) => q.id === "interests")?.options.find((o) => o.id === id)?.label ?? id.replace(/_/g, " ");
@@ -47,7 +47,9 @@ const variant = (list: string[], rotation: number) => list[rotation % list.lengt
 // Every intent this person has for one category, before choosing which to
 // search this time. extra: intents read from their own words and the places
 // they love (taste-reader.ts).
-export function allIntents(taste: Taste, opts: { category: Category; city: City; tweaks: Tweak[]; note?: string; rotation: number; extra?: Intent[] }): Intent[] {
+// dayPlan: a day out or a trip city, which needs sights and meals through
+// the day, not only evening places.
+export function allIntents(taste: Taste, opts: { category: Category; city: City; tweaks: Tweak[]; note?: string; rotation: number; extra?: Intent[]; dayPlan?: boolean }): Intent[] {
   const { category, city, rotation } = opts;
   const food = category === "food_drinks";
   const sober = taste.answers.drinks === "no_alcohol";
@@ -59,6 +61,10 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   const out: Intent[] = [];
   const note = (opts.note ?? "").trim();
   if (note) out.push({ id: "asked", label: note, reason: `Because you asked for ${note}.`, query: note, def: { searches: [note] }, explicit: true, source: "asked", food });
+  if (opts.dayPlan) {
+    if (food) for (const p of DAY_PLAN.food) out.push({ id: p.id, label: p.label, reason: `Because a good day there starts with ${p.label}.`, query: vegWord(p.query), def: { searches: [p.query] }, explicit: true, source: "plan", food });
+    else for (const p of DAY_PLAN.doing) out.push({ id: p.id, label: p.label, reason: `Because it's one of the best things to see there.`, query: p.query, def: p.def, explicit: true, source: "plan", food });
+  }
   for (const t of opts.tweaks) {
     const words = TWEAK_SEARCH[t];
     if (!words) continue;
@@ -101,15 +107,17 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
 // at what's popular nearby. What they asked for right now is always
 // searched; if they chose more than fit, the rest take turns across sets.
 export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend" }) {
-  const now = intents.filter((i) => i.source === "asked" || i.source === "tweak");
+  const now = intents.filter((i) => i.source === "asked" || i.source === "plan" || i.source === "tweak");
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
-  const room = Math.max(0, MAX_SEARCHES - now.length);
+  // A day plan searches one more, so their own interests fill the evening.
+  const max = MAX_SEARCHES + (intents.some((i) => i.source === "plan") ? 1 : 0);
+  const room = Math.max(0, max - Math.min(now.length, MAX_SEARCHES));
   const start = chosen.length > room ? (opts.rotation * room) % chosen.length : 0;
   const turn = [...chosen.slice(start), ...chosen.slice(0, start)].slice(0, room);
-  const searched = [...now, ...turn];
+  const searched = [...now.slice(0, MAX_SEARCHES), ...turn];
   const food = opts.category === "food_drinks";
-  const broad = food && searched.length < MAX_SEARCHES;
-  const left = MAX_SEARCHES - searched.length - (broad ? 1 : 0);
+  const broad = food && searched.length < max;
+  const left = max - searched.length - (broad ? 1 : 0);
   const sides = intents.filter((i) => !i.explicit).slice(0, Math.max(0, left));
   const fallback: Intent[] =
     !food && searched.length + sides.length === 0

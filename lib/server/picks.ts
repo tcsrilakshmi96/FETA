@@ -278,7 +278,7 @@ export function emptyDrops(): DropCounts {
 // thing to do (karaoke, a rooftop, board games).
 export function applyHardFilters(
   places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean },
+  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean },
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
@@ -329,10 +329,12 @@ export function applyHardFilters(
       drop("alcohol");
       continue;
     }
+    // A day plan checks each stop's hours for its own day and time (itinerary.ts).
     if (
-      (opts.when === "tonight" && !openTonight(place, opts.city)) ||
+      !opts.anyHours &&
+      ((opts.when === "tonight" && !openTonight(place, opts.city)) ||
       (opts.when === "weekend" && !opensOnWeekend(place)) ||
-      (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city))
+      (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
     ) {
       drop("hours");
       continue;
@@ -560,6 +562,7 @@ export async function chooseWithGemini(opts: {
   tweaks?: Tweak[];
   note?: string;
   intents?: Intent[];
+  dayPlan?: boolean;
 }): Promise<Ranked[]> {
   const { candidates, category, when, city } = opts;
   const wanted = (opts.intents ?? []).filter((i) => i.explicit);
@@ -569,7 +572,7 @@ export async function chooseWithGemini(opts: {
 About them:
 ${tasteSummary(opts.taste, city)}
 
-They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${when === "tonight" ? "tonight" : "this weekend"}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
+They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${opts.dayPlan ? "on a day out exploring the place (breakfast to dinner; the sights matter as much as their usual interests)" : when === "tonight" ? "tonight" : "this weekend"}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
 Every place below already fits their diet, budget, distance, drinks and opening hours, so choose on taste and fit.
 
 ${wanted.length ? `What they want most (id in brackets): ${wanted.map((i) => `[${i.id}] ${i.label}`).join("; ")}.\n` : ""}

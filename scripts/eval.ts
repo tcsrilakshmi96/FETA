@@ -28,6 +28,7 @@ type Persona = {
   lines?: string[];
   tweaks?: Tweak[];
   note?: string;
+  dayPlan?: boolean;
   // Expectations.
   covers?: string[]; // intent ids that must be among the 8
   half?: boolean; // at least half of the 8 are for what they chose
@@ -144,6 +145,26 @@ const PERSONAS: Persona[] = [
     some: /Smash Pickleball/,
   },
   {
+    name: "Day plan (Calicut-style trip day): sights, not only evening places",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: { interests: ["live_music"] },
+    note: "beach and local culture",
+    dayPlan: true,
+    covers: ["plan_sights", "plan_heritage", "plan_outdoors"],
+    some: /Sunset Beach|Old Fort/,
+  },
+  {
+    name: "Day plan food: breakfast and local food as well as favourites",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_thai"],
+    dayPlan: true,
+    covers: ["plan_breakfast", "plan_local", "cuisine_thai"],
+    some: /Morning Dosa House/,
+  },
+  {
     name: "Asked in chat: rooftop dinner",
     city: "Bengaluru",
     category: "food_drinks",
@@ -178,6 +199,7 @@ async function run(p: Persona) {
     need: 8,
     rotation: 0,
     extra,
+    dayPlan: p.dayPlan,
   });
   const picked = pickFrom(found, { room: 8, small: false, popularCap: popularCap(taste) });
   const shown = picked.chosen.slice(0, picked.shown);

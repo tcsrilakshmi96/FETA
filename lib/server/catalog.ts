@@ -95,6 +95,21 @@ export const TWEAK_SEARCH: Record<string, { food: string; doing: string }> = {
   kids: { food: "family friendly restaurant", doing: "things to do with kids" },
 };
 
+// Day plans (a day out, a trip city): the sights and the meals a day
+// needs, beyond the evening things people are into (founder, 16 Nov 2026:
+// "a 3-day itinerary for Calicut gave me all food places").
+export const DAY_PLAN: { food: { id: string; label: string; query: string }[]; doing: { id: string; label: string; query: string; def: SearchDef }[] } = {
+  food: [
+    { id: "plan_breakfast", label: "breakfast", query: "breakfast cafe" },
+    { id: "plan_local", label: "local food", query: "famous local food restaurant" },
+  ],
+  doing: [
+    { id: "plan_sights", label: "the sights", query: "top tourist attractions", def: { searches: ["top tourist attractions"], types: /tourist_attraction|historical|monument|landmark/ } },
+    { id: "plan_heritage", label: "history and culture", query: "museum or heritage site", def: { searches: ["museum or heritage site"], types: /museum|historical|heritage|cultural|art_gallery|temple|church|mosque|palace|fort/ } },
+    { id: "plan_outdoors", label: "the outdoors", query: "beach, park or nature spot", def: { searches: ["beach, park or nature spot"], types: /beach|park|garden|nature|lake|hiking|waterfront/ } },
+  ],
+};
+
 // When someone hasn't said what they're into: evening things tonight
 // (galleries and parks close), daytime ones at the weekend.
 export const DEFAULT_DOING: Record<"tonight" | "weekend", string[]> = {

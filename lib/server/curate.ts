@@ -50,6 +50,7 @@ export type CurateInput = {
   need: number; // places wanted (a wider search runs when fewer pass)
   rotation: number; // later sets search the next words
   extra?: Intent[]; // read from their own words (taste-reader.ts)
+  dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   // The founder's places and other Feta users' favourites, checked against
   // the same hard filters (engine.ts).
   favourites?: (pool: Candidate[]) => Promise<Candidate[]>;
@@ -68,7 +69,7 @@ const POOL_MAX = 30;
 
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
-  const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra });
+  const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan });
   const plan = planSearches(intents, { category, rotation: input.rotation, when });
 
   // 2. Find.
@@ -102,6 +103,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       origin,
       exclude: input.exclude,
       city,
+      anyHours: input.dayPlan,
       foodDrinkOk: (p) => matched(p).some((id) => plan.searched.find((i) => i.id === id)?.def.foodDrink),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
@@ -121,7 +123,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 4. Rank. Places Gemini says are mainly meat or fish leave the pool for
   // vegetarians; what Gemini says a place "serves" confirms (never adds to)
   // what it matched.
-  let ranked = pool.length ? await chooseWithGemini({ candidates: pool, taste, city, category, when, tweaks: input.tweaks, note: input.note, intents: plan.searched }).catch((error) => {
+  let ranked = pool.length ? await chooseWithGemini({ candidates: pool, taste, city, category, when, tweaks: input.tweaks, note: input.note, intents: plan.searched, dayPlan: input.dayPlan }).catch((error) => {
     console.error(error);
     return [] as Ranked[];
   }) : [];

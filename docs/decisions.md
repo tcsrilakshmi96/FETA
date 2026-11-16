@@ -128,3 +128,4 @@ Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved
 ## Decisions after 15 Nov 2026
 
 - 15 Nov 2026 (audit): what people choose decides what is searched (one search per choice, a promise of a spot each), India-lenient vegetarian rule, pescatarian filter, own words and loved places read into searches, "Tell Feta what you like", Feta Favourites from other users with a similar taste, no limit on places you love, a trip alone asks no category questions, chat as a short brief with code deciding trips, a quality check (npm run eval) before every picks change, no stacked patches.
+- 16 Nov 2026: day plans (chat itineraries and trip cities) search sights and meals through the day, not only evening places; founder's "3-day itinerary for Calicut gave all food places".

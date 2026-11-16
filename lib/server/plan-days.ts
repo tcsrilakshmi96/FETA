@@ -25,7 +25,7 @@ export async function planDays(
     experiences: (opts.focus ?? "").slice(0, 120),
   };
   const ask = (category: "food_drinks" | "experiences") =>
-    runPicks(token, { category, when: "weekend", origin: opts.origin, tweaks, note: notes[category], ...(opts.trip ? { trip: opts.trip } : {}) }).then(
+    runPicks(token, { category, when: "weekend", dayPlan: true, origin: opts.origin, tweaks, note: notes[category], ...(opts.trip ? { trip: opts.trip } : {}) }).then(
       (r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>,
     );
   const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);

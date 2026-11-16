@@ -86,6 +86,11 @@ export const CATALOGUE: Row[] = [
   ["Sunday Flea Market", "market", ["point_of_interest"], "flea market night market", null, 0, 4.3, 1500, "day", 3.5, 355],
   ["Escape Room HQ", "escape_room", ["point_of_interest"], "escape room games group activity", null, 2, 4.7, 800, "eve", 1.8, 195],
   ["City Playhouse", "performing_arts_theater", ["point_of_interest"], "theatre plays concert hall", null, 3, 4.5, 2500, "eve", 2.8, 85],
+  // Sights and a breakfast place, for day plans.
+  ["Sunset Beach", "beach", ["tourist_attraction", "natural_feature"], "beach waterfront sunset nature park", null, 0, 4.6, 20000, "day", 3.0, 45],
+  ["Old Fort Heritage Walk", "historical_landmark", ["tourist_attraction"], "heritage historic fort museum top tourist attractions", null, 0, 4.5, 6000, "day", 2.5, 100],
+  ["Spice Market Street", "market", ["tourist_attraction"], "local spice market tourist attractions", null, 0, 4.4, 3000, "day", 2.0, 160],
+  ["Morning Dosa House", "breakfast_restaurant", ["restaurant"], "breakfast dosa local famous food", true, 1, 4.5, 800, "lunch", 1.0, 20],
   // Far away (beyond 5 km), to test distance.
   ["Far Thai Garden", "thai_restaurant", ["restaurant"], "thai", true, 2, 4.8, 900, "eve", 9.0, 60],
   ["Lakeside Karaoke", "bar", [], "karaoke bar", true, 2, 4.7, 600, "late", 11.0, 200],

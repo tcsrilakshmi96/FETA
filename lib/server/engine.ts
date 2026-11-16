@@ -59,6 +59,7 @@ type Body = {
     city: { id: string };
   };
   trip?: string; // trip-only profile lines for this trip count too
+  dayPlan?: boolean; // a day out or a trip city (plan-days.ts): sights and meals through the day
   more?: boolean; // "Show me more", once the backup places run out
   tweaks?: string[]; // from the Tweak sheet
   note?: string; // free text from the Tweak sheet
@@ -95,14 +96,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
   // The taste fingerprint means a changed taste (a new line, new answers)
-  // searches again instead of showing the last picks.
+  // searches again instead of showing the last picks; day plans are kept
+  // apart from everyday picks.
   const originKey = `${
     body.origin.source === "gps"
       ? `gps:${city.id}`
       : body.origin.source === "area"
         ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
         : `city:${city.id}`
-  }|t:${tasteFingerprint(taste)}`;
+  }|t:${tasteFingerprint(taste)}${body.dayPlan ? "|plan" : ""}`;
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
   const small = isSmallCity(city.id);
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
@@ -151,7 +153,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   // 3. New search. "Show me more" and tweaks skip anything shown (or kept
   //    as backup) in the last day; topping up skips what is already kept.
-  if (body.more || tweaked) {
+  // (Not for day plans: asking again for the same days should find them again.)
+  if ((body.more || tweaked) && !body.dayPlan) {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     for (const set of recent ?? []) {
       if (new Date(set.created_at).getTime() > dayAgo) for (const p of set.picks as StoredPick[]) exclude.add(p.placeId);
@@ -203,6 +206,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       need,
       rotation,
       extra,
+      dayPlan: !!body.dayPlan,
       favourites: (pool) => fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }),
     });
   } catch (error) {
