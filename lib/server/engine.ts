@@ -89,11 +89,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const userId = await userIdFor(db, token);
   if (!userId) return json({ error: "Not signed in" }, 401);
 
-  const [taste, actionsRes] = await Promise.all([loadTaste(db, body.trip), db.from("pick_actions").select("place_id")]);
+  const [taste, actionsRes] = await Promise.all([loadTaste(db, body.trip), db.from("pick_actions").select("place_id, action")]);
   // Their favourite places shape food searches (not "Show me more", which keeps the same words).
   if (body.category === "food_drinks" && !body.more) await describeLoved(taste);
   const answers = taste.answers;
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
+  // The founder's own places may come back even if they've been or saved
+  // them (founder, 16 Nov 2026); only a skip keeps one away.
+  const skipped = new Set((actionsRes.data ?? []).filter((r) => r.action === "skipped").map((r) => r.place_id as string));
+  const keptOnly = new Set((actionsRes.data ?? []).filter((r) => r.action !== "skipped").map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
   // The taste fingerprint means a changed taste (a new line, new answers)
   // searches again instead of showing the last picks; day plans are kept
@@ -207,7 +211,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       rotation,
       extra,
       dayPlan: !!body.dayPlan,
-      favourites: (pool) => fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, pool }),
+      favourites: (pool) =>
+        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, pool }),
     });
   } catch (error) {
     console.error(error);
@@ -443,10 +448,10 @@ function nearName(city: City, o: Body["origin"]) {
 // places (with her note) and places other Feta users loved and recommended
 // (founder, 15 Nov 2026), people with a similar taste first. Ones the
 // search already found cost nothing; a few others are checked live
-// against the same hard filters: one of the founder's, at random so each
+// against the same hard filters: three of the founder's, at random so each
 // gets a turn, and up to 2 from people with a similar taste. Only place IDs,
 // her notes and counts are stored or shared.
-const FETA_LOOKUPS = 1;
+const FETA_LOOKUPS = 3; // founder, 16 Nov 2026 (was 1): her places show up more often
 const COMMUNITY_LOOKUPS = 2;
 
 async function fetaCandidates(ctx: {
@@ -456,6 +461,7 @@ async function fetaCandidates(ctx: {
   city: City;
   origin: { lat: number; lng: number };
   exclude: Set<string>;
+  founderExclude: Set<string>; // her places come back even if been or saved
   needsDiet: boolean;
   pool: Candidate[];
 }): Promise<Candidate[]> {
@@ -473,10 +479,10 @@ async function fetaCandidates(ctx: {
     ...(loved.has(c.place.id) ? { lovedBy: loved.get(c.place.id)!.lovers } : {}),
   });
   const found = ctx.pool.filter((c) => notes.has(c.place.id) || loved.has(c.place.id)).map(mark);
-  const fresh = (id: string) => !ctx.exclude.has(id) && !found.some((c) => c.place.id === id);
+  const notFound = (id: string) => !found.some((c) => c.place.id === id);
   const lookups = [
-    ...[...notes.keys()].filter(fresh).sort(() => Math.random() - 0.5).slice(0, FETA_LOOKUPS),
-    ...[...loved.values()].filter((c) => c.similar > 0 && fresh(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
+    ...[...notes.keys()].filter((id) => !ctx.founderExclude.has(id) && notFound(id)).sort(() => Math.random() - 0.5).slice(0, FETA_LOOKUPS),
+    ...[...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id) && notFound(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
   ];
   const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
   const passed = applyHardFilters(places, {
@@ -484,7 +490,7 @@ async function fetaCandidates(ctx: {
     category: ctx.body.category,
     when: ctx.body.when,
     origin: ctx.origin,
-    exclude: ctx.exclude,
+    exclude: new Set(places.filter((p) => !notes.has(p.id) && ctx.exclude.has(p.id)).map((p) => p.id)),
     city: ctx.city,
   });
   return [...found, ...passed.filter((c) => !c.far).map(mark)];

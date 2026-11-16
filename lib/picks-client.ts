@@ -111,3 +111,30 @@ export function fetchPhoto(ref: string): Promise<string | null> {
   uri.then((u) => u || photosKept.delete(ref));
   return uri;
 }
+
+// "Feta Picks near you": the founder's places and Feta users' favourites in
+// their city, nearest first. Kept for an hour on the phone (each opening
+// checks places live, about ₹2 each).
+const fetaKept = new Map<string, { at: number; reply: PicksReply }>();
+
+export async function fetchFetaPicks(origin: Origin, when: When): Promise<PicksReply> {
+  const key = `${origin.city.id}|${origin.lat.toFixed(2)},${origin.lng.toFixed(2)}|${when}`;
+  const hit = fetaKept.get(key);
+  if (hit && Date.now() - hit.at < 3600 * 1000) return hit.reply;
+  await currentUserId();
+  const { data } = await supabase().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { picks: [], notice: "Couldn't sign you in. Check your connection and try again." };
+  try {
+    const res = await fetch("/api/feta-picks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ cityId: origin.city.id, lat: origin.lat, lng: origin.lng, when }),
+    });
+    const reply = (await res.json()) as PicksReply;
+    if (res.ok) fetaKept.set(key, { at: Date.now(), reply });
+    return reply;
+  } catch {
+    return { picks: [], notice: "No connection just now. Try again in a moment." };
+  }
+}

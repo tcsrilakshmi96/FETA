@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
+import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FirstTime from "@/components/FirstTime";
 import LetsGo from "@/components/LetsGo";
 import PickPhoto from "@/components/PickPhoto";
@@ -78,6 +79,7 @@ export default function Home() {
   const [mood, setMood] = useState<Mood | null>(null);
   const [answerAt, setAnswerAt] = useState<number | null>(null);
   const [going, setGoing] = useState<Pick | null>(null);
+  const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you"
   const [firstTime, setFirstTime] = useState<"food" | "do" | null>(null);
 
   useEffect(() => {
@@ -356,6 +358,11 @@ export default function Home() {
             <span className={styles.tileTitle}>Where to next? Feta plans it day by day</span>
             <span className={styles.tileSub}>Start a trip ›</span>
           </button>
+          <button type="button" className={`${styles.tile} ${styles.feta}`} onClick={() => setFetaOpen(true)}>
+            <span className={styles.kick}>★ FETA PICKS NEAR YOU</span>
+            <span className={styles.tileTitle}>Places Feta, and people with your taste, love</span>
+            <span className={styles.tileSub}>See them ›</span>
+          </button>
           <QuickQuestions />
         </div>
       </main>
@@ -398,6 +405,7 @@ export default function Home() {
           }}
         />
       )}
+      {fetaOpen && <FetaPicksSheet origin={origin} when={when} onClose={() => setFetaOpen(false)} />}
       {firstTime && <FirstTime want={firstTime} onClose={() => setFirstTime(null)} onDone={() => firstTimeDone(firstTime)} />}
     </>
   );

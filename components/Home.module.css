@@ -490,3 +490,13 @@
     animation: none;
   }
 }
+
+/* "Feta Picks near you" (founder, 16 Nov 2026). */
+.feta {
+  width: 100%;
+  min-height: 96px;
+  margin-top: 12px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  animation-delay: 0.42s;
+}
