@@ -94,8 +94,8 @@ ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 ${currentTrip ? `\nThe trip you're planning together: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}. It's saved in Saved; its card has the next steps (getting around, hotels, then day plans for each city, which are kept with the trip). For day plans in its cities, point them to the card's "plan days" buttons instead of sending an itinerary.\n` : ""}
 Besides talking, you can do one of these per reply (leave the others null). Feta's own search finds the real places, checked against their diet, budget, distance and opening hours; you never name places yourself.
 - "search": places to eat or drink, or things to do, now or this weekend: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz"}. Feta shows the best 3.
-- "itinerary": a stop-by-stop plan for 1 to 3 days in one city or area: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
-- "route": a trip to a country or region, to several cities, or for more than 3 days: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
+- "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
+- "route": any trip: travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
 {"reply": what you say, 1 to 3 short sentences,
@@ -170,13 +170,22 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     .filter(Boolean)
     .slice(0, 4);
   // What to do with the reply. The model decides, except for one thing code
-  // checks (founder, 15 Nov 2026: trips kept ending in restaurant cards): a
-  // whole country, or more than 3 days, is always a trip route, never a
-  // search or a day plan for one point on the map.
+  // checks (founder, 15–16 Nov 2026: trips ended in restaurant cards, and
+  // "3 days in Calicut" got a day plan with no stay or travel): a whole
+  // country, more than 3 days, or 2 days or more away from where they are,
+  // is always a trip (route, getting there, stays, day plans).
+  const it = parsed.itinerary;
+  const awayFromHome = (place?: string | null) => {
+    if (!place) return false;
+    const [match] = searchCities(place, 1);
+    // A place Feta's city list doesn't know (an area, a region) counts as
+    // away only when they're talking about a trip.
+    return match ? !homeCity || match.id !== homeCity.id : !!tripLabel;
+  };
   const wantsRoute =
     !parsed.why &&
     !parsed.route?.cities?.length &&
-    ((parsed.itinerary && ((parsed.itinerary.days ?? 1) > 3 || isCountryName(parsed.itinerary.place ?? ""))) ||
+    ((it && ((it.days ?? 1) > 3 || isCountryName(it.place ?? "") || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
       (parsed.search && tripLabel && isCountryName(parsed.search.place ?? parsed.trip?.place ?? "")));
   if (wantsRoute) {
     const route = await routeFor(past, message, system).catch((error) => {

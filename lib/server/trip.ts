@@ -69,20 +69,24 @@ export function cleanRoute(route: RouteIn) {
   return { title: (route.title ?? "Your trip").slice(0, 80), start_date: start, who: route.who ?? null, cities };
 }
 
-// Getting around: the legs between the cities in order, by train, flight,
-// bus or ferry, with rough times and costs per person in their currency.
+// Getting around: getting there from home, the legs between the cities in
+// order, and back home, by train, flight, bus or ferry, with rough times and
+// costs per person in their currency (founder, 16 Nov 2026: "the whole
+// thing with stay and travel").
 export async function estimateTransport(trip: Trip, home: City | null): Promise<TripTransport> {
   const currency = trip.home_currency ?? home?.currency ?? "USD";
-  const route = trip.cities.map((c) => `${c.name} (${c.nights} nights)`).join(" → ");
+  const away = home && !trip.cities.some((c) => c.cityId === home.id);
+  const stops = trip.cities.map((c) => `${c.name} (${c.nights} nights)`);
+  const route = (away ? [`${home.name} (home)`, ...stops, `${home.name} (home)`] : stops).join(" → ");
   const reply = await veniceJson<{ legs?: TripLeg[]; tip?: string }>([
     {
       role: "system",
       content: `You plan how travellers get between cities. Reply with only a JSON object:
 {"legs": [{"from": city, "to": city, "mode": "train", "flight", "bus", "ferry" or "car", "minutes": door-to-door travel time as a number, "cost": typical one-way cost per person in ${currency} as a number (economy or standard class, booked a few weeks ahead), "note": under 8 words, e.g. "Shinkansen, covered by a rail pass"}],
  "tip": one short sentence that saves money or hassle on this route (e.g. whether a rail pass pays off), or "".}
-One leg between each pair of cities in the order given, by the way most travellers would go. Rough numbers are fine; never invent precision.`,
+One leg between each pair of places in the order given (including from and back to home when listed), by the way most travellers would go. Rough numbers are fine; never invent precision.`,
     },
-    { role: "user", content: `Route: ${route}.${home ? ` They live in ${home.name}, ${home.countryName}, but only list the legs between these cities.` : ""}` },
+    { role: "user", content: `Route: ${route}.` },
   ]);
   const legs = (reply.legs ?? [])
     .filter((l) => l.from && l.to)
