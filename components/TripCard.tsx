@@ -25,6 +25,22 @@ const WHO: Record<string, string> = { solo: "on your own", partner: "with your p
 const hours = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60}` : ""}`);
 
 export default function TripCard({ id, home, onStop, page = false }: { id: string; home: City | null; onStop: (pick: Pick) => void; page?: boolean }) {
+  // Trips are kept as they go; "Save trip" confirms it, remembered on this phone.
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read from this phone only
+      setSaved((JSON.parse(localStorage.getItem("feta.savedTrips") ?? "[]") as string[]).includes(id));
+    } catch {}
+  }, [id]);
+  function markSaved() {
+    setSaved(true);
+    toast("Saved. It's in Saved, under your trips.");
+    try {
+      const ids = JSON.parse(localStorage.getItem("feta.savedTrips") ?? "[]") as string[];
+      localStorage.setItem("feta.savedTrips", JSON.stringify([...new Set([...ids, id])]));
+    } catch {}
+  }
   const toast = useToast();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [cities, setCities] = useState<Trip["cities"]>([]);
@@ -292,11 +308,17 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
       )}
 
       {/* Everything is kept as they go; this says so, and where to find it. */}
+      {/* Once tapped, the button gives way to where to find it (founder,
+          16 Nov 2026: "after I click Save trip the box still remains"). */}
       {!page && (
         <div className={styles.saveRow}>
-          <button type="button" className={styles.primary} onClick={() => toast("Saved. It's in Saved, under your trips.")}>
-            Save trip
-          </button>
+          {saved ? (
+            <p className={styles.savedNote}>✓ Saved. It&apos;s in Saved, under your trips.</p>
+          ) : (
+            <button type="button" className={styles.primary} onClick={markSaved}>
+              Save trip
+            </button>
+          )}
           <Link href={`/trip/${id}`} className={styles.open}>
             Open the full trip ›
           </Link>
