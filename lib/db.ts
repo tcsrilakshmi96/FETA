@@ -275,3 +275,26 @@ export type PickEvent = "directions" | "book" | "maps" | "website" | "share" | "
 export function logEvent(kind: PickEvent, placeId?: string, cityId?: string) {
   return run("event", (userId) => supabase().from("pick_events").insert({ user_id: userId, kind, place_id: placeId ?? null, city_id: cityId ?? null }));
 }
+
+// Usage (founder, 17 Nov 2026): one row the first time each day this
+// person opens Feta (the UTC day), for unique people and retention. Nothing
+// else is recorded.
+const VISIT_KEY = "feta.visitDay";
+export async function recordVisit() {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    if (localStorage.getItem(VISIT_KEY) === today) return;
+  } catch {
+    // Without storage it's recorded each time; the database keeps one a day.
+  }
+  const userId = await currentUserId();
+  if (!userId) return;
+  const { error } = await supabase().from("visits").insert({ user_id: userId });
+  // Already recorded today (on another tab) is fine.
+  if (error && error.code !== "23505") return console.error("Saving visit failed", error.message);
+  try {
+    localStorage.setItem(VISIT_KEY, today);
+  } catch {
+    // Fine without.
+  }
+}

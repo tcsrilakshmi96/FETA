@@ -61,6 +61,7 @@ Profile lines (`profile_lines`): from answers and taste cards, typed in their ow
 - No scraping of Zomato, District, Swiggy, BookMyShow or Meetup; link out. Published lists only as "Featured in" facts with links.
 - 18+ check, itemised consent with a separate location toggle (off by default; "Use my location" turns it on), consent log, one-tap delete, grievance email. Nothing public by default. Diet never appears on anything shareable. No taste types or labels on people. Instagram data stays on the founder's Mac.
 - Every record carries city, country, time zone and currency.
+- Usage (founder, 17 Nov 2026): one `visits` row per person per day they open Feta (from the tab bar; nothing else recorded). Admin → Usage (`components/AdminUsage.tsx`, `usage_dashboard`, admins only): unique and new people, active today, days a week, retention by join week (day 1 / 7 / 30) for everyone and for people signed in with Google (the reliable one: anonymous accounts are one phone and browser), and the path from first open to coming back. Admins aren't counted. The Monday email gets the same (`people_and_retention`).
 - Cost guards: `PICKS_DAILY_LIMIT`, `PICKS_USER_DAILY_LIMIT`, `DAILY_BUDGET_INR` (Vercel); every paid call is counted (`lib/server/costs.ts`). A new food set costs about ₹12–20 (up to 4 Google searches, loved places read live, Gemini); reused sets cost only live re-checks.
 
 ## Testing

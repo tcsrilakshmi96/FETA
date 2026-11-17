@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
+import { recordVisit } from "@/lib/db";
 import styles from "./TabBar.module.css";
 
 // Three tabs (Anj's flow, 14 Nov 2026): Picks + Style (Home), Saved and Ask
@@ -18,6 +20,10 @@ export default function TabBar({ active: page }: { active: "home" | "lists" | "a
   const active = page === "style" ? "home" : page;
   const router = useRouter();
   const path = usePathname();
+  // The tab bar is on every main screen, so opening Feta counts as a visit.
+  useEffect(() => {
+    recordVisit();
+  }, []);
   return (
     <>
       <div className={styles.fade} aria-hidden="true" />
