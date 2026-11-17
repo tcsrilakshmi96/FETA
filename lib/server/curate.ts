@@ -51,6 +51,7 @@ export type CurateInput = {
   rotation: number; // later sets search the next words
   extra?: Intent[]; // read from their own words (taste-reader.ts)
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
+  searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
   // The founder's places and other Feta users' favourites, checked against
   // the same hard filters (engine.ts).
   favourites?: (pool: Candidate[]) => Promise<Candidate[]>;
@@ -70,7 +71,7 @@ const POOL_MAX = 30;
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
   const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan });
-  const plan = planSearches(intents, { category, rotation: input.rotation, when });
+  const plan = planSearches(intents, { category, rotation: input.rotation, when, max: input.searches });
 
   // 2. Find.
   const limit = distanceLimitKm(taste.answers);

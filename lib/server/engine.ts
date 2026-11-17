@@ -250,6 +250,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
       because: becauseFor(candidate, result.intents, taste, kindOf(candidate.place, body.category), r?.because),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
+      ...(candidate.intents?.length ? { serves: candidate.intents } : {}),
       ...(i >= shownCount ? { spare: true } : {}),
     };
   });

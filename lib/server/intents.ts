@@ -113,15 +113,15 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
 // Which intents to search this time, and whether Food & drinks also looks
 // at what's popular nearby. What they asked for right now is always
 // searched; if they chose more than fit, the rest take turns across sets.
-export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend" }) {
+export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend"; max?: number }) {
   const now = intents.filter((i) => NOW.includes(i.source));
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
   // A day plan searches one more, so their own interests fill the evening.
-  const max = MAX_SEARCHES + (intents.some((i) => i.source === "plan") ? 1 : 0);
-  const room = Math.max(0, max - Math.min(now.length, MAX_SEARCHES));
-  const start = chosen.length > room ? (opts.rotation * room) % chosen.length : 0;
+  const max = opts.max ?? MAX_SEARCHES + (intents.some((i) => i.source === "plan") ? 1 : 0);
+  const room = Math.max(0, max - Math.min(now.length, max));
+  const start = chosen.length > room && room > 0 ? (opts.rotation * room) % chosen.length : 0;
   const turn = [...chosen.slice(start), ...chosen.slice(0, start)].slice(0, room);
-  const searched = [...now.slice(0, MAX_SEARCHES), ...turn];
+  const searched = [...now.slice(0, max), ...turn];
   const food = opts.category === "food_drinks";
   const broad = food && searched.length < max;
   const left = max - searched.length - (broad ? 1 : 0);

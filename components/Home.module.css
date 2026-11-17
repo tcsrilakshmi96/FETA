@@ -126,102 +126,6 @@
   font-size: 32px;
 }
 
-.answer {
-  margin-top: 12px;
-  border-radius: 26px;
-  overflow: hidden;
-  background: var(--sheet);
-  animation: tileIn 0.55s var(--ease-spring) both;
-}
-
-.answerPhoto {
-  position: relative;
-  height: 160px;
-  background: rgba(var(--inkRGB), 0.08);
-}
-
-.answerPhoto img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.answerPhoto b {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  padding: 4px 10px;
-  border-radius: 99px;
-  background: rgba(255, 243, 238, 0.92);
-  color: var(--inkFixed);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-}
-
-.answerText {
-  padding: 14px 16px 12px;
-}
-
-.answerText h2 {
-  font-family: var(--font-fraunces), serif;
-  font-size: 23px;
-  font-weight: 500;
-  line-height: 1.1;
-}
-
-.answerWhy {
-  margin-top: 6px;
-  font-size: 14px;
-  line-height: 1.4;
-}
-
-.answerMeta {
-  margin-top: 8px;
-  font-size: 12px;
-  color: rgba(var(--inkRGB), 0.6);
-}
-
-.answerMeta a {
-  color: inherit;
-}
-
-.answerActs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.answerActs button {
-  min-height: 44px;
-  border-radius: 99px;
-  border: 1px solid rgba(var(--inkRGB), 0.14);
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.answerActs .answerGo {
-  background: var(--rose);
-  border-color: var(--rose);
-  color: var(--inkFixed);
-}
-
-.answerMore {
-  margin-top: 6px;
-  text-align: center;
-  font-size: 12.5px;
-  color: rgba(var(--inkRGB), 0.6);
-}
-
-.answerMore button {
-  min-height: 36px;
-  text-decoration: underline;
-  color: inherit;
-}
-
 .area {
   font-size: 10.5px;
   font-weight: 600;
@@ -493,7 +397,6 @@
   .date,
   .cheese,
   .choose,
-  .answer,
   .shimmer {
     animation: none;
   }

@@ -1,0 +1,184 @@
+/* Choose for me: the cheese rolls, then one place fills the screen. */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  background: var(--bg);
+  overflow: hidden;
+  animation: var(--kf-in) 0.25s ease-out;
+}
+
+.rolling {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 0 32px;
+  text-align: center;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: 19px;
+  line-height: 1.3;
+}
+
+.die {
+  font-size: 72px;
+  line-height: 1;
+  filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.25));
+  animation: roll 0.9s ease-in-out infinite;
+}
+
+@keyframes roll {
+  0% { transform: translateY(0) rotate(-20deg); }
+  45% { transform: translateY(-34px) rotate(160deg); }
+  70% { transform: translateY(0) rotate(320deg) scale(1.08, 0.92); }
+  100% { transform: translateY(0) rotate(340deg); }
+}
+
+.back {
+  padding: 12px 20px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--font-outfit), sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notice {
+  display: flex;
+  gap: 10px;
+}
+
+.quiet {
+  background: rgba(var(--inkRGB), 0.08);
+  color: var(--ink);
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  color: #fff;
+  touch-action: none;
+  transition: transform 0.26s var(--ease-enter), opacity 0.26s;
+  animation: in 0.4s var(--ease-enter);
+}
+
+@keyframes in {
+  from { transform: translateX(60px) scale(0.96); opacity: 0; }
+}
+
+.outLeft { transform: translateX(-120%) rotate(-8deg) !important; opacity: 0; }
+.outDown { transform: translateY(100%) !important; }
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: linear-gradient(160deg, #c66a3d, #5a2a1c);
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0) 22%, rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.82) 80%);
+}
+
+.tag {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 52px);
+  left: 18px;
+  padding: 5px 10px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.45);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.x {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 48px);
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 14px;
+}
+
+.text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + 22px);
+}
+
+.text h2 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 500;
+  font-size: 38px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.text p {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.text small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.text small a {
+  color: inherit;
+}
+
+.acts {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.acts button {
+  padding: 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.acts .go {
+  background: var(--rose);
+}
+
+.hint {
+  text-align: center;
+  font-size: 11.5px;
+  opacity: 0.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .die,
+  .cover { animation: none; }
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

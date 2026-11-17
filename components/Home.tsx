@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
+import ChooseForMe, { type Mood } from "@/components/ChooseForMe";
 import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FetaStar from "@/components/FetaStar";
 import FirstTime from "@/components/FirstTime";
@@ -32,15 +33,11 @@ import sheet from "./Sheet.module.css";
 // The picks are the same ones the lists show, loaded once and shared, so
 // Home costs no extra searches.
 
-type Mood = "new" | "usual" | "surprise";
-const MOODS: { id: Mood; icon: string; label: string; sub: string; kick: string }[] = [
-  { id: "new", icon: "✦", label: "Something new", sub: "A place or food you haven't tried", kick: "SOMETHING NEW" },
-  { id: "usual", icon: "♥", label: "My usual, done really well", sub: "The kind of place you already love", kick: "AN OLD FAVOURITE STYLE" },
-  { id: "surprise", icon: "🎲", label: "Surprise me", sub: "Feta decides", kick: "SURPRISE" },
+const MOODS: { id: Mood; icon: string; label: string; sub: string }[] = [
+  { id: "new", icon: "✦", label: "Something new", sub: "A place you haven't been, for food you love" },
+  { id: "usual", icon: "♥", label: "My usual, done really well", sub: "Most like the places you love" },
+  { id: "surprise", icon: "🎲", label: "Surprise me", sub: "Something you'd love but never chose" },
 ];
-
-// Asked once per visit (kept in this tab only).
-const MOOD_KEY = "feta.mood";
 
 function cityDay(timeZone: string) {
   const now = new Date();
@@ -60,16 +57,6 @@ function eventBadge(p: Pick, timeZone: string) {
   return { day, hour, half: Number.isFinite(h) ? (h < 12 ? "AM" : "PM") : "" };
 }
 
-// The order "Choose for me" offers places in, for the mood: lesser-known
-// first for something new, well-loved first for the usual, shuffled for a
-// surprise. Only the best few of each list are considered.
-function byMood(picks: Pick[], mood: Mood) {
-  const top = picks.filter((p) => p.verdict !== "Skip unless").slice(0, 5);
-  if (mood === "surprise") return [...top].sort(() => Math.random() - 0.5);
-  const known = (p: Pick) => p.ratingCount ?? 500;
-  return [...top].sort((a, b) => (mood === "new" ? known(a) - known(b) : known(b) * (b.rating ?? 4) - known(a) * (a.rating ?? 4)));
-}
-
 export default function Home() {
   const router = useRouter();
   const [origin, setOrigin] = useState<Origin | null>(null);
@@ -79,8 +66,7 @@ export default function Home() {
   const [wants, setWants] = useState<Want[]>(["food", "do"]);
   const [name, setName] = useState("");
   const [moodOpen, setMoodOpen] = useState(false);
-  const [mood, setMood] = useState<Mood | null>(null);
-  const [answerAt, setAnswerAt] = useState<number | null>(null);
+  const [mood, setMood] = useState<Mood | null>(null); // Choose for me's answer is open
   const [going, setGoing] = useState<Pick | null>(null);
   const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you", from the star
   const [firstTime, setFirstTime] = useState<"food" | "do" | null>(null);
@@ -95,12 +81,6 @@ export default function Home() {
     /* eslint-disable react-hooks/set-state-in-effect -- the origin and answers are only readable in the browser */
     setWants(loadWants());
     setName(loadName());
-    try {
-      const m = sessionStorage.getItem(MOOD_KEY);
-      if (m) setMood(m as Mood);
-    } catch {
-      // Asked again, that's all.
-    }
     /* eslint-enable react-hooks/set-state-in-effect */
     // Picks near where they are, not the city centre, when location is
     // allowed; decided before loading, so picks load once.
@@ -133,14 +113,6 @@ export default function Home() {
   const wantsDo = wants.includes("do");
   // What they want leads as the big tile; the other stays, smaller.
   const lead: Category = wantsFood || !wantsDo ? "food_drinks" : "experiences";
-  const options = useMemo(() => {
-    if (!mood) return [];
-    const first = lead === "food_drinks" ? food : exp;
-    const second = lead === "food_drinks" ? exp : food;
-    const otherWanted = lead === "food_drinks" ? wantsDo : wantsFood;
-    return [...byMood(first?.picks ?? [], mood), ...(otherWanted ? byMood(second?.picks ?? [], mood) : [])];
-  }, [mood, lead, food, exp, wantsDo, wantsFood]);
-
   if (!origin) return null;
   const city = origin.city;
   const day = cityDay(city.timeZone);
@@ -150,7 +122,6 @@ export default function Home() {
   const arrived = when === "tonight" && newCityName() === city.name;
   const where = (p: Pick) => [p.rating ? `★ ${p.rating.toFixed(1)}` : null, p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
   const plan = plans[0];
-  const answer = answerAt !== null && options.length ? options[answerAt % options.length] : null;
   const leadSlot = lead === "food_drinks" ? food : exp;
   const nothingYet = !leadSlot || leadSlot.loading;
 
@@ -160,20 +131,9 @@ export default function Home() {
     else router.push(`/picks?c=${c}${when === "weekend" ? "&w=weekend" : ""}`);
   }
 
-  function chooseForMe() {
-    if (mood) setAnswerAt(0);
-    else setMoodOpen(true);
-  }
-
   function pickMood(m: Mood) {
-    setMood(m);
-    try {
-      sessionStorage.setItem(MOOD_KEY, m);
-    } catch {
-      // Asked again next time.
-    }
     setMoodOpen(false);
-    setAnswerAt(0);
+    setMood(m);
   }
 
   // Pull down for a fresh set (founder, 17 Nov 2026: "in the home section
@@ -192,7 +152,6 @@ export default function Home() {
       }
       return out;
     });
-    setAnswerAt(null);
     scroller.current?.scrollTo({ top: 0 });
     return whatsNew(next.flatMap((n) => n.next.fresh));
   }
@@ -296,17 +255,14 @@ export default function Home() {
                 role="tab"
                 aria-selected={when === w}
                 className={when === w ? styles.segOn : ""}
-                onClick={() => {
-                  setWhen(w);
-                  setAnswerAt(null);
-                }}
+                onClick={() => setWhen(w)}
               >
                 {w === "tonight" ? "Tonight" : "This weekend"}
               </button>
             ))}
           </div>
 
-          <button type="button" className={styles.choose} onClick={chooseForMe} disabled={nothingYet}>
+          <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet}>
             <span>
               <strong>Choose for me</strong>
               <small>{nothingYet ? "Finding places first…" : `One answer for ${when === "tonight" ? "tonight" : "this weekend"}. No scrolling.`}</small>
@@ -315,47 +271,6 @@ export default function Home() {
               🧀
             </span>
           </button>
-
-          {answer && mood && (
-            <div className={styles.answer} key={answer.placeId}>
-              <div className={styles.answerPhoto}>
-                <PickPhoto photo={answer.photo} />
-                <b>FETA&apos;S CHOICE · {MOODS.find((m) => m.id === mood)!.kick}</b>
-              </div>
-              <div className={styles.answerText}>
-                <h2>{answer.name}</h2>
-                <p className={styles.answerWhy}>{answer.because}</p>
-                <p className={styles.answerMeta}>
-                  {where(answer)}
-                  {" · "}
-                  {answer.event ? (
-                    answer.chips[0]
-                  ) : (
-                    <a href={answer.mapsUri} target="_blank" rel="noopener noreferrer" translate="no">
-                      Google Maps
-                    </a>
-                  )}
-                </p>
-                <div className={styles.answerActs}>
-                  <button type="button" onClick={() => setAnswerAt((answerAt ?? 0) + 1)}>
-                    Not this one
-                  </button>
-                  <button type="button" className={styles.answerGo} onClick={() => setGoing(answer)}>
-                    Let&apos;s go
-                  </button>
-                </div>
-                <p className={styles.answerMore}>
-                  <button type="button" onClick={() => open(answer.kind === "EAT" || answer.kind === "DRINK" ? "food_drinks" : "experiences")}>
-                    See all options
-                  </button>
-                  {" · "}
-                  <button type="button" onClick={() => setMoodOpen(true)}>
-                    Change mood
-                  </button>
-                </p>
-              </div>
-            </div>
-          )}
 
           <div className={styles.grid} key={when}>
             {cover(lead, leadSlot, true)}
@@ -417,6 +332,23 @@ export default function Home() {
             </div>
           </div>
         </>
+      )}
+      {mood && (
+        <ChooseForMe
+          mood={mood}
+          origin={origin}
+          when={when}
+          lead={lead}
+          lists={[
+            { category: lead, slot: leadSlot },
+            ...((lead === "food_drinks" ? wantsDo : wantsFood) ? [{ category: (lead === "food_drinks" ? "experiences" : "food_drinks") as Category, slot: lead === "food_drinks" ? exp : food }] : []),
+          ]}
+          onClose={() => setMood(null)}
+          onGo={(p) => {
+            setMood(null);
+            setGoing(p);
+          }}
+        />
       )}
       {going && (
         <LetsGo

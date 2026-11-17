@@ -98,6 +98,7 @@ export type StoredPick = {
   fetaNote?: string; // the founder's own words, for a Feta pick
   spare?: boolean; // backup for "Show me more", not shown at first
   lovedBy?: number; // Feta users who recommend it (counted live, not stored)
+  serves?: string[]; // what they shared that it matched ("cuisine_thai", "loved_0"), for Choose for me
 };
 
 // Picks shown at first per category; the rest of the ranked places are

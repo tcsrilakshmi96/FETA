@@ -117,6 +117,26 @@ export function fetchPhoto(ref: string): Promise<string | null> {
 // checks places live, about ₹2 each).
 const fetaKept = new Map<string, { at: number; reply: PicksReply }>();
 
+// "Surprise me": a kind of place they haven't chosen but would likely love,
+// one search (about ₹3–4). tried: kinds already shown; shown: places in
+// their lists, never surprised with.
+export async function fetchSurprise(origin: Origin, when: When, category: Category, tried: string[], shown: string[]): Promise<{ pick?: Pick; kind?: string; notice?: string; tried?: string[] }> {
+  await currentUserId();
+  const { data } = await supabase().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { notice: "Couldn't sign you in. Check your connection and try again." };
+  try {
+    const res = await fetch("/api/surprise", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ category, when, origin, tried, shown }),
+    });
+    return await res.json();
+  } catch {
+    return { notice: "Couldn't reach Feta. Check your connection and try again." };
+  }
+}
+
 // A place on Been changed (rated, noted, removed): the founder's loved
 // places join Feta Picks; the server ignores it for anyone else.
 export async function syncFetaPicks() {
