@@ -13,6 +13,7 @@ import { loadWants, type Want } from "@/lib/profile";
 import {
   MAX_CUISINES,
   cuisinesFor,
+  typedCuisines,
   loadSwipes,
   pairSwipes,
   pickedUpLines,
@@ -142,16 +143,18 @@ export default function Questions() {
 
   // Saved before the next search runs, so it uses these answers.
   async function finish() {
-    // Every cuisine shown counts: the chosen ones yes, the rest no.
-    const cuisineIds = cuisinesFor(city?.country, veg).map((c) => c.id);
+    // Every cuisine shown counts: the chosen ones (ticked or typed) yes, the rest no.
+    const options = cuisinesFor(city?.country, veg);
+    const typed = typedCuisines(otherFood, options);
+    const chosen = (id: string) => typed.ids.includes(id) || swipes.some((s) => s.cardId === `cuisine_${id}` && s.verdict === "yes");
     const all = food
-      ? [...swipes.filter((s) => !s.cardId.startsWith("cuisine_")), ...cuisineIds.map((id) => ({ cardId: `cuisine_${id}`, verdict: swipes.some((s) => s.cardId === `cuisine_${id}` && s.verdict === "yes") ? ("yes" as const) : ("no" as const) }))]
+      ? [...swipes.filter((s) => !s.cardId.startsWith("cuisine_")), ...options.map((c) => ({ cardId: `cuisine_${c.id}`, verdict: chosen(c.id) ? ("yes" as const) : ("no" as const) }))]
       : swipes;
     saveSwipes(all);
     const saving: Promise<unknown>[] = [saveSwipesToDb(all), saveAnswersToDb(answers)];
     // Plain lines for You, plus anything they typed in their own words.
     const own: ProfileLine[] = [
-      otherFood.trim() && { id: "food_other", text: `Also loves ${otherFood.trim().slice(0, 60)}`, source: "answers" as const },
+      typed.rest && { id: "food_other", text: `Also loves ${typed.rest.slice(0, 60)}`, source: "answers" as const },
       anythingElse.trim() && { id: "loves_other", text: `Loves ${anythingElse.trim().slice(0, 100)}`, source: "answers" as const },
     ].filter(Boolean) as ProfileLine[];
     const lines = [...pickedUpLines(answers, all, currency, city?.country), ...own];
@@ -187,7 +190,7 @@ export default function Questions() {
 
   const style = swipeCards(answers, city?.country).find((c) => c.id === "style") as PairCard;
   const styleChoice = (id: string) => swipes.some((s) => s.cardId === id && s.verdict === "yes");
-  const cuisines = cuisinesFor(city?.country, veg).slice(0, 8);
+  const cuisines = cuisinesFor(city?.country, veg);
 
   return (
     <main className={styles.screen} key={current}>

@@ -6,7 +6,7 @@ import { detectCurrency } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { QUESTIONS, isVegDiet, loadAnswers, saveAnswers } from "@/lib/onboarding";
 import { loadName, loadWants, saveWants, type Want } from "@/lib/profile";
-import { MAX_CUISINES, cuisinesFor, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, type ProfileLine } from "@/lib/swipes";
+import { MAX_CUISINES, cuisinesFor, typedCuisines, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, type ProfileLine } from "@/lib/swipes";
 import { forgetPicks } from "@/lib/picks-store";
 import styles from "./Sheet.module.css";
 
@@ -26,8 +26,10 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
   async function save() {
     saveAnswers(answers);
     const saving: Promise<unknown>[] = [saveAnswersToDb(answers)];
+    // A cuisine typed in their own words counts as chosen, like ticking it.
+    const typed = food ? typedCuisines(own, options) : { ids: [], rest: own.trim() };
     const swipes = food
-      ? [...loadSwipes().filter((s) => !s.cardId.startsWith("cuisine_")), ...options.map((c) => ({ cardId: `cuisine_${c.id}`, verdict: cuisines.includes(c.id) ? ("yes" as const) : ("no" as const) }))]
+      ? [...loadSwipes().filter((s) => !s.cardId.startsWith("cuisine_")), ...options.map((c) => ({ cardId: `cuisine_${c.id}`, verdict: cuisines.includes(c.id) || typed.ids.includes(c.id) ? ("yes" as const) : ("no" as const) }))]
       : loadSwipes();
     if (food) {
       saveSwipes(swipes);
@@ -35,7 +37,7 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
     }
     const lines: ProfileLine[] = [
       ...pickedUpLines(answers, swipes, city?.currency ?? detectCurrency(), city?.country),
-      ...(own.trim() ? [{ id: food ? "food_other" : "loves_other", text: `${food ? "Also loves" : "Loves"} ${own.trim().slice(0, 100)}`, source: "answers" as const }] : []),
+      ...(typed.rest ? [{ id: food ? "food_other" : "loves_other", text: `${food ? "Also loves" : "Loves"} ${typed.rest.slice(0, 100)}`, source: "answers" as const }] : []),
     ];
     saveProfileLines(lines);
     saving.push(saveProfileLinesToDb(lines, []));

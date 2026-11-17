@@ -304,7 +304,11 @@
   font-size: 12px;
 }
 
+/* Full width under the 12 tiles. */
 .other {
+  grid-column: 1 / -1;
+  aspect-ratio: auto;
+  min-height: 48px;
   border: 1.5px dashed rgba(var(--inkRGB), 0.2);
   color: var(--ink);
   justify-content: center;

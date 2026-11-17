@@ -58,15 +58,42 @@ export function cuisinesFor(country?: string, veg = false): Cuisine[] {
     c("bakery", "Bakeries & desserts", "bakery"),
     c("healthy", "Bowls & salads", "bowl"),
   ];
+  // At home, Indian and world cuisines in turn, so the grid isn't Indian
+  // first (founder, 18 Nov 2026).
+  const [italian, japanese, korean, thai, middleEastern, mexican, bakery, healthy] = shared;
   return home
     ? [
         c("south_indian", "South Indian", "breakfast"),
+        italian,
         c("north_indian", "North Indian", "spicy"),
+        thai,
+        japanese,
         c("indo_chinese", "Indo-Chinese", "indo-chinese"),
+        mexican,
+        korean,
         c("regional", "Regional Indian", "regional"),
-        ...shared,
+        middleEastern,
+        bakery,
+        healthy,
       ]
     : [c("local", "Local food", "local"), c("indian", "Indian", "spicy"), ...shared.slice(0, 5), c("indo_chinese", "Chinese", "indo-chinese"), ...shared.slice(5)];
+}
+
+// What they typed under "Something else": a cuisine Feta has a tile for
+// ("Mexican", "thai food") counts as chosen, like ticking it; anything else
+// ("Burmese, Parsi") stays in their own words (founder, 18 Nov 2026: typed
+// "Mexican" wasn't treated as a favourite).
+export function typedCuisines(text: string, options: Cuisine[]): { ids: string[]; rest: string } {
+  const words = (s: string) => s.toLowerCase().replace(/&/g, " ").split(/[^a-z]+/).filter((w) => w.length > 2 && !["food", "and", "cuisine", "the"].includes(w));
+  const ids: string[] = [];
+  const rest: string[] = [];
+  for (const part of text.split(/,|\band\b|\//i).map((p) => p.trim()).filter(Boolean)) {
+    const typed = words(part);
+    const match = options.find((o) => typed.length > 0 && typed.every((w) => words(o.label).includes(w) || o.id.split("_").includes(w)));
+    if (match) ids.push(match.id);
+    else rest.push(part);
+  }
+  return { ids: [...new Set(ids)], rest: rest.join(", ") };
 }
 
 export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
