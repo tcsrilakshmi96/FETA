@@ -1,0 +1,185 @@
+// The new-person walk-through (founder, 18 Nov 2026): a browser goes
+// through Feta the way someone new does, on made-up places (₹0), and checks
+// what the quality check can't: that every option is on screen, that what
+// they pick or type is saved, and that it shows in You and on Home.
+// Caught too late before: only 8 of 12 cuisines showed in India, and a typed
+// "Mexican" wasn't a chosen cuisine.
+//
+//   npm run journey
+//
+// Starts its own test server (FAKE_PLACES=1) on port 3100, opens Feta with
+// ?qa=1 so it never counts as a person, and deletes its account at the end.
+// Needs Google Chrome on this Mac.
+import { spawn, type ChildProcess } from "node:child_process";
+import puppeteer, { type Page } from "puppeteer-core";
+import { QUESTIONS } from "@/lib/onboarding";
+import { cuisinesFor } from "@/lib/swipes";
+
+const PORT = 3100;
+const BASE = `http://localhost:${PORT}`;
+const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const DB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+
+const results: { ok: boolean; what: string; detail?: string }[] = [];
+const check = (ok: boolean, what: string, detail?: string) => {
+  results.push({ ok, what, detail });
+  console.log(`${ok ? "✓" : "✗"} ${what}${!ok && detail ? `\n    ${detail}` : ""}`);
+};
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function serverUp() {
+  try {
+    return (await fetch(`${BASE}/privacy`)).ok;
+  } catch {
+    return false;
+  }
+}
+
+async function startServer(): Promise<ChildProcess | null> {
+  if (await serverUp()) return null;
+  const server = spawn("npx", ["next", "dev", "-p", String(PORT)], { env: { ...process.env, FAKE_PLACES: "1", DAILY_BUDGET_INR: "100000", PICKS_USER_DAILY_LIMIT: "1000" }, stdio: "ignore", detached: true });
+  for (let i = 0; i < 90 && !(await serverUp()); i++) await wait(1000);
+  if (!(await serverUp())) {
+    console.error("Couldn't start the test server. Is another `next dev` running in this folder? Stop it and try again.");
+    process.exit(1);
+  }
+  return server;
+}
+
+// Clicks the first button whose words match.
+const click = (p: Page, re: RegExp) =>
+  p.evaluate((src) => {
+    const r = new RegExp(src);
+    const el = [...document.querySelectorAll("button")].find((b) => r.test((b.textContent ?? "").trim()) && !b.disabled);
+    el?.click();
+    return !!el;
+  }, re.source);
+const texts = (p: Page, selector: string) => p.evaluate((s) => [...document.querySelectorAll(s)].map((e) => (e.textContent ?? "").trim()), selector);
+const rest = async (token: string, path: string) => (await fetch(`${DB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${token}` } })).json();
+
+async function main() {
+  const server = await startServer();
+  const browser = await puppeteer.launch({ executablePath: CHROME, headless: true });
+  const p = await browser.newPage();
+  await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  const errors: string[] = [];
+  p.on("pageerror", (e) => errors.push(e.message));
+  let token: string | null = null;
+  try {
+    // Welcome: three cards, 18+, then the name and what they want.
+    await p.goto(`${BASE}/?qa=1`, { waitUntil: "networkidle0" });
+    await click(p, /^Next$/);
+    await wait(300);
+    await click(p, /^Next$/);
+    await wait(300);
+    await click(p, /I'm 18 or older/);
+    await click(p, /Let's start/);
+    await p.waitForSelector("input[aria-label='Your first name']", { timeout: 15000 });
+    check(p.url().includes("/start"), "Welcome leads to the start screen", p.url());
+    await p.type("input[aria-label='Your first name']", "Journey");
+    await click(p, /Places to eat and drink/);
+    await click(p, /Things to do/);
+    await click(p, /^(Continue|Next)/);
+    await p.waitForFunction(() => location.pathname === "/questions", { timeout: 15000 });
+
+    // The questions, screen by screen.
+    const city = await p.evaluate(() => JSON.parse(localStorage.getItem("feta.city") ?? "null") as { country: string; name: string } | null);
+    const expectedCuisines = cuisinesFor(city?.country).map((c) => c.label);
+    const expectedInterests = QUESTIONS.find((q) => q.id === "interests")!.options.map((o) => o.label);
+    const ticked = expectedCuisines.slice(0, 4);
+    const typedKnown = expectedCuisines.find((l) => /mexican/i.test(l)) ?? expectedCuisines[expectedCuisines.length - 1];
+    let sawTaste = false;
+    for (let screen = 0; screen < 6 && p.url().includes("/questions"); screen++) {
+      const heading = (await p.evaluate(() => document.querySelector("h1, h2")?.textContent ?? "")).trim();
+      if (await p.$("[aria-label='Another cuisine'], [class*=cuisines]")) {
+        sawTaste = true;
+        const shown = (await texts(p, "[class*=cuisines] button")).map((t) => t.replace(/^＋\s*/, ""));
+        const missing = expectedCuisines.filter((l) => !shown.includes(l));
+        check(missing.length === 0, `All ${expectedCuisines.length} cuisines are on screen${city ? ` (${city.name})` : ""}`, `missing: ${missing.join(", ")}`);
+        const chips = await texts(p, "button");
+        const missingInterests = expectedInterests.filter((l) => !chips.includes(l));
+        check(missingInterests.length === 0, `All ${expectedInterests.length} things to do are on screen`, `missing: ${missingInterests.join(", ")}`);
+        for (const l of ticked) await click(p, new RegExp(`^${l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+        await click(p, /Something else/);
+        await p.waitForSelector("input[aria-label='Another cuisine']");
+        await p.type("input[aria-label='Another cuisine']", `${typedKnown}, Burmese`);
+        await click(p, /^Live music$/);
+        await click(p, /^Board games$/);
+        const own = await p.$("input[placeholder*='own words'], textarea[placeholder*='own words']");
+        if (own) await own.type("pottery with friends");
+      } else if (/basics/i.test(heading)) {
+        await click(p, /^Everything$/);
+        await p.evaluate(() => (document.querySelectorAll("button[aria-pressed]")[1] as HTMLButtonElement | undefined)?.click());
+        await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Short ride|Walking/.test(b.textContent ?? ""))?.click());
+        await click(p, /^Sometimes$/);
+      }
+      await click(p, /^(Continue|Next|Save)$/);
+      await wait(1500);
+    }
+    check(sawTaste, "The cuisine and things-to-do screen showed up");
+    check(p.url().includes("/location"), "The questions lead to the location screen", p.url());
+
+    // Saved the way they chose it.
+    token = await p.evaluate(() => {
+      const k = Object.keys(localStorage).find((x) => x.includes("auth-token"));
+      return k ? (JSON.parse(localStorage.getItem(k)!).access_token as string) : null;
+    });
+    check(!!token, "A private account was made");
+    if (token) {
+      const lines = (await rest(token, "profile_lines?select=line_key,text&removed_at=is.null")) as { line_key: string; text: string }[];
+      const fav = lines.find((l) => l.line_key === "cuisines")?.text ?? "";
+      check([...ticked, typedKnown].every((l) => fav.includes(l)), `Ticked cuisines and typed "${typedKnown}" are favourites`, `saved: ${fav}`);
+      check(lines.some((l) => l.line_key === "food_other" && /Burmese/.test(l.text) && !new RegExp(typedKnown, "i").test(l.text)), 'Typed "Burmese" is kept in their own words', JSON.stringify(lines));
+      const answers = ((await rest(token, "answers?select=diet,interests,spend")) as { diet: string; interests: string[]; spend: string[] }[])[0];
+      check(answers?.diet === "everything" && answers.interests.includes("live_music") && answers.interests.includes("board_games") && answers.spend.length > 0, "Diet, spend and things to do are saved", JSON.stringify(answers));
+    }
+
+    // Location, then Home with picks in both categories.
+    // "Where should Feta look?": type a city and pick it, then anywhere in it.
+    const cityBox = await p.waitForSelector("input[placeholder^='Type a city']", { timeout: 30000 }).catch(() => null);
+    if (cityBox) {
+      await cityBox.type("Bengaluru");
+      await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /^Bengaluru/.test((b.textContent ?? "").trim())), { timeout: 20000 }).catch(() => null);
+      await click(p, /^Bengaluru/);
+    }
+    await p.waitForFunction(() => location.pathname === "/home" || [...document.querySelectorAll("button")].some((b) => /^Anywhere in /.test(b.textContent ?? "")), { timeout: 20000 }).catch(() => null);
+    await click(p, /^Anywhere in /);
+    if (process.env.JOURNEY_DEBUG) {
+      console.log("location buttons:", await texts(p, "button"));
+      await p.screenshot({ path: "/tmp/journey-location.png" });
+    }
+    await p.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);
+    check(p.url().includes("/home"), "Location leads to Home", p.url());
+    await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+    await wait(3000);
+    const home = await p.evaluate(() => document.body.innerText);
+    check(/Hi Journey/.test(home), "Home says hello by name");
+    check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
+
+    // You shows what they shared.
+    await p.goto(`${BASE}/you`, { waitUntil: "networkidle0" });
+    await wait(2000);
+    const you = await p.evaluate(() => document.body.innerText);
+    check(new RegExp(typedKnown).test(you) && /Burmese/.test(you), `You shows "${typedKnown}" and "Burmese"`, you.slice(0, 400));
+
+    check(errors.length === 0, "No errors on any screen", errors.join(" | "));
+  } catch (error) {
+    check(false, "The walk-through finished", String(error));
+  } finally {
+    if (token) await fetch(`${DB}/rest/v1/rpc/delete_my_data`, { method: "POST", headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}" });
+    await browser.close();
+    if (server?.pid) {
+      try {
+        process.kill(-server.pid);
+      } catch {
+        // Already stopped.
+      }
+    }
+  }
+  const failed = results.filter((r) => !r.ok).length;
+  console.log(failed ? `\n${failed} check(s) failed.` : "\nAll journey checks passed.");
+  process.exit(failed ? 1 : 0);
+}
+
+main();

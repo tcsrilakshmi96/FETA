@@ -66,6 +66,7 @@ Profile lines (`profile_lines`): from answers and taste cards, typed in their ow
 
 ## Testing
 - Test runs in a browser (AI QA, Claude) open Feta with `?qa=1` so they never count as people.
+- `npm run journey` (founder, 18 Nov 2026): a browser walks through Feta as someone new (welcome, name, the questions with options ticked and typed, city, Home, You) on made-up places, ₹0, about 20 seconds, and checks every option is on screen, what they pick or type is saved and shows in You, and Home has picks. Must pass before pushing any change to screens or onboarding (`scripts/journey.ts`; it starts its own test server on port 3100, so stop any other `next dev` in this folder first). When a tester finds a screen bug, add a check for it.
 - `npm run eval`: the quality check (must pass). `FAKE_PLACES=1` dev server: made-up places that look like a real city (`lib/server/fake-places.ts`), fake ranking, no events or photos, ₹0. Chat still calls Venice (a few paise).
 - Live Google only when the change depends on real data: one short run, with her OK, and delete test accounts after.
 
