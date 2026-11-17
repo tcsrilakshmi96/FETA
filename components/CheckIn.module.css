@@ -26,3 +26,19 @@
 .grid button:active {
   transform: scale(0.95);
 }
+
+/* "How was Saturday?": each stop with its answers. */
+.stops {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  list-style: none;
+}
+
+.stops strong {
+  display: block;
+  margin-bottom: 7px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 16px;
+  font-weight: 500;
+}

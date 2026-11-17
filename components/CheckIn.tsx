@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
-import { markAsked, nextCheckin, placeName, saveBeen, type Verdict } from "@/lib/my-places";
+import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
+import { dayName, duePlan, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./Sheet.module.css";
 import own from "./CheckIn.module.css";
@@ -13,6 +14,8 @@ import own from "./CheckIn.module.css";
 // (founder, 14 Nov 2026), so Home itself stays clean. Any answer but "Didn't
 // go" moves it to Been. Jain, vegan and halal users also get "Did it work for
 // your diet?" (counted, never a promise). "Ask me later" asks next visit.
+// After a night planned from Saved, "How was Saturday?" asks about every
+// stop at once, the first visit after that day (founder, 17 Nov 2026).
 const ANSWERS: { id: Verdict | "no"; face: string; label: string }[] = [
   { id: "loved", face: "😍", label: "Loved it" },
   { id: "fine", face: "🙂", label: "It was fine" },
@@ -24,10 +27,17 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
   const toast = useToast();
   const [ask, setAsk] = useState<{ placeId: string; name: string; category: string | null } | null>(null);
   const [step, setStep] = useState<"how" | "diet" | "loved">("how");
+  const [night, setNight] = useState<{ plan: SavedPlan; names: string[] } | null>(null);
 
   useEffect(() => {
     let live = true;
     const t = setTimeout(async () => {
+      const plan = await duePlan(loadCity()?.id);
+      if (plan && live) {
+        const names = await Promise.all(plan.placeIds.map(placeName));
+        if (live) setNight({ plan, names: names.map((n) => n ?? "A place you planned") });
+        return;
+      }
       const next = await nextCheckin(loadCity()?.id);
       if (!next || !live) return;
       const name = await placeName(next.placeId);
@@ -39,6 +49,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     };
   }, []);
 
+  if (night) return <NightCheckIn plan={night.plan} names={night.names} onDone={(message) => (setNight(null), message && toast(message), onDone?.())} />;
   if (!ask) return null;
   const answers = loadAnswers();
   const dietName = answers.diet === "jain" ? "Jain" : answers.diet === "vegan" ? "vegan" : answers.halal ? "halal" : null;
@@ -125,6 +136,54 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
             </button>
           </>
         )}
+      </div>
+    </>
+  );
+}
+
+function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void }) {
+  const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
+  const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
+
+  function done() {
+    const been = Object.entries(answers).filter((a): a is [string, Verdict] => a[1] !== "no");
+    for (const [placeId, verdict] of been) {
+      saveBeen(placeId, { verdict, visits: "once" });
+      logEvent("checkin", placeId);
+    }
+    markPlanChecked(plan.id);
+    onDone(been.length ? "Added to Been. That makes your next picks better." : undefined);
+  }
+
+  return (
+    <>
+      <div className={styles.dim} onClick={() => onDone()} />
+      <div className={styles.sheet} role="dialog" aria-label={`How was ${dayName(plan.day)}?`}>
+        <p className={styles.kick}>Your plan</p>
+        <h2 className={styles.title}>
+          How was <strong>{dayName(plan.day)}?</strong>
+        </h2>
+        <ul className={own.stops}>
+          {plan.placeIds.map((id, i) => (
+            <li key={id}>
+              <strong>{names[i]}</strong>
+              <span className={styles.chips}>
+                {choices.map((c) => (
+                  <button key={c.id} type="button" className={answers[id] === c.id ? styles.on : ""} aria-pressed={answers[id] === c.id} onClick={() => setAnswers((a) => ({ ...a, [id]: c.id }))}>
+                    {c.label}
+                  </button>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className={styles.sub}>Feta remembers this for your next picks.</p>
+        <button type="button" className={`btn-primary ${styles.go}`} onClick={done}>
+          Done
+        </button>
+        <button type="button" className={styles.ghost} onClick={() => onDone()}>
+          Ask me later
+        </button>
       </div>
     </>
   );
