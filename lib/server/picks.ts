@@ -268,6 +268,18 @@ export const DOING_TYPES = [
   "bowling_alley", "amusement_center", "amusement_park", "sports_complex",
 ];
 
+// What a place found by "popular nearby" must mainly be: Google matches
+// the nearby search on any of a place's types, so a mall or a carpet shop
+// tagged "market", or a metro station tagged "landmark", came back for
+// things to do (live check, Bengaluru, 17 Nov 2026).
+const DOING_PRIMARY = /museum|gallery|theat|auditorium|concert_hall|cultural|art_studio|historical|monument|(^|_)park$|garden|hiking|beach|(^|_)market$|aquarium|zoo|bowling|amusement|sports|stadium|arena|planetarium|observation_deck/;
+
+export function mainlyOf(place: Place, category: Category) {
+  if (category === "food_drinks") return isMainlyFoodOrDrink(place);
+  const t = place.primaryType ?? "";
+  return DOING_PRIMARY.test(t) && !/station|transit|parking/.test(t);
+}
+
 // Experiences never show a place that is mainly for eating or drinking
 // (nightclubs still count as an experience).
 function isMainlyFoodOrDrink(place: Place) {

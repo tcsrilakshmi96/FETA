@@ -11,6 +11,7 @@ import {
   emptyDrops,
   DOING_TYPES,
   FOOD_DRINK_TYPES,
+  mainlyOf,
   POPULAR_REVIEWS,
   reasonFits,
   tonightMeansNow,
@@ -78,7 +79,8 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   const limit = distanceLimitKm(taste.answers);
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: input.needsDiet, regionCode: city.country };
   const text = (query: string, radiusKm: number) => searchPlaces({ ...common, query, radiusKm, openNow: when === "tonight" && tonightMeansNow(city) });
-  const nearby = (radiusKm: number) => searchNearby({ ...common, types: category === "food_drinks" ? FOOD_DRINK_TYPES : DOING_TYPES, radiusKm, rank: "POPULARITY" });
+  // What's popular nearby, only places that are mainly that kind of place.
+  const nearby = (radiusKm: number) => searchNearby({ ...common, types: category === "food_drinks" ? FOOD_DRINK_TYPES : DOING_TYPES, radiusKm, rank: "POPULARITY" }).then((r) => r.filter((p) => mainlyOf(p, category)));
   const found = new Map<string, { place: Place; from: Set<string> }>();
   const add = (places: Place[], from: string) =>
     places.forEach((p) => {
