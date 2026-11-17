@@ -115,10 +115,6 @@ export function planEvenings(food: Pick[], experiences: Pick[], when: When, now 
   return plans;
 }
 
-export function planEvening(food: Pick[], experiences: Pick[], when: When, now = new Date()): Plan | null {
-  return planEvenings(food, experiences, when, now, 1)[0] ?? null;
-}
-
 export function clock(d: Date) {
   return new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).format(d);
 }

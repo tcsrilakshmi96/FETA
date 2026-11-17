@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
 import PickDetails, { GoogleLine, kindLabel, lovedLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
-import PlanAround from "@/components/PlanAround";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
@@ -41,7 +40,6 @@ type Sheet =
   | { type: "tweak" }
   | { type: "plan" }
   | { type: "go"; pick: Pick }
-  | { type: "around"; pick: Pick }
   | null;
 
 // A tweak in force for a list, and the list from before it, so undoing the
@@ -366,11 +364,6 @@ export default function Picks() {
               <button type="button" className={styles.details} onClick={() => setSheet({ type: "details", pick: hero })}>
                 Details
               </button>
-              {(hero.kind === "EAT" || hero.kind === "DRINK") && (
-                <button type="button" className={styles.details} onClick={() => setSheet({ type: "around", pick: hero })}>
-                  Plan around this
-                </button>
-              )}
               <button type="button" aria-label="Save" className={`${styles.round} ${styles.save}`} onClick={() => save(hero)}>
                 {isSaved(hero) ? "✓" : "♥"}
               </button>
@@ -460,12 +453,7 @@ export default function Picks() {
           pick={sheet.pick}
           cityId={city.id}
           onClose={() => setSheet(null)}
-          onWhatsAfter={sheet.pick.kind === "EAT" || sheet.pick.kind === "DRINK" ? () => setSheet({ type: "around", pick: sheet.pick }) : undefined}
         />
-      )}
-
-      {sheet?.type === "around" && (
-        <PlanAround anchor={sheet.pick} experiences={expSlot?.picks ?? []} when={when} cityId={city.id} onClose={() => setSheet(null)} />
       )}
 
       {sheet?.type === "plan" && (
