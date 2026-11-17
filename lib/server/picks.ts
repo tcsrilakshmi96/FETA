@@ -28,12 +28,12 @@ export type Taste = {
   // Places they've been and rated (My places, check-in): counts, and their
   // own words about ones they loved or didn't.
   places?: { loved: number; regulars: number; notForThem: number; lovedNotes: string[]; dislikedNotes: string[] };
-  // Places they love (place IDs, newest first), and, for the picks only, what
-  // those places are like, read live from Google for this search (never
-  // stored, never sent to Venice).
-  lovedIds?: string[];
+  // Places they love (place IDs, newest first, with food_drinks or
+  // experiences when known), and, for the picks only, what those places are
+  // like, read live from Google for this search (never stored, never sent
+  // to Venice).
+  loved?: { id: string; category: string | null }[];
   lovedPlaces?: string[];
-  lovedTypes?: string[];
 };
 
 // ---------- Tweaks ----------
@@ -255,6 +255,13 @@ const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "
 export const FOOD_DRINK_TYPES = [
   "restaurant", "cafe", "coffee_shop", "bakery", "tea_house", "juice_shop",
   "dessert_shop", "ice_cream_shop", "bar", "pub", "wine_bar", "cocktail_bar",
+];
+
+// What's popular nearby for Things to do, the same way food looks at
+// popular places to eat and drink when they've chosen few things.
+export const DOING_TYPES = [
+  "tourist_attraction", "art_gallery", "museum", "performing_arts_theater", "cultural_center", "art_studio",
+  "park", "botanical_garden", "hiking_area", "bowling_alley", "amusement_center", "sports_complex",
 ];
 
 // Experiences never show a place that is mainly for eating or drinking
@@ -594,13 +601,11 @@ Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
 ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}${
-    category === "food_drinks"
-      ? {
-          new: "They love trying new things: favour places and cuisines that would be new to them, and lesser-known finds over the obvious.\n\n",
-          familiar: "They like their usual done really well: favour excellent, well-loved versions of their favourite cuisines over novelty.\n\n",
-          mix: "",
-        }[noveltyLean(opts.taste)]
-      : ""
+    {
+      new: `They love trying new things: favour ${category === "food_drinks" ? "places and cuisines" : "places and kinds of thing to do"} that would be new to them, and lesser-known finds over the obvious.\n\n`,
+      familiar: `They like their usual done really well: favour excellent, well-loved versions of ${category === "food_drinks" ? "their favourite cuisines" : "what they're into"} over novelty.\n\n`,
+      mix: "",
+    }[noveltyLean(opts.taste)]
   }Places marked FETA PICK are the founder's own favourites, and FETA FAVOURITE ones were loved by other Feta users with a similar taste: rank one of them highly when it fits, and its "because" may mention it.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:

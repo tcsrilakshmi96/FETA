@@ -9,6 +9,7 @@ import {
   chooseWithGemini,
   distanceLimitKm,
   emptyDrops,
+  DOING_TYPES,
   FOOD_DRINK_TYPES,
   POPULAR_REVIEWS,
   reasonFits,
@@ -77,7 +78,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   const limit = distanceLimitKm(taste.answers);
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: input.needsDiet, regionCode: city.country };
   const text = (query: string, radiusKm: number) => searchPlaces({ ...common, query, radiusKm, openNow: when === "tonight" && tonightMeansNow(city) });
-  const nearby = (radiusKm: number) => searchNearby({ ...common, types: FOOD_DRINK_TYPES, radiusKm, rank: "POPULARITY" });
+  const nearby = (radiusKm: number) => searchNearby({ ...common, types: category === "food_drinks" ? FOOD_DRINK_TYPES : DOING_TYPES, radiusKm, rank: "POPULARITY" });
   const found = new Map<string, { place: Place; from: Set<string> }>();
   const add = (places: Place[], from: string) =>
     places.forEach((p) => {
@@ -110,8 +111,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   };
   let passed = filter();
   if (passed.filter((c) => !c.far).length < input.need && limit < 15) {
-    const widen = category === "food_drinks" ? nearby(limit * 2).then((r) => add(r, "popular")) : plan.searched[0] ? text(plan.searched[0].query, limit * 2).then((r) => add(r, plan.searched[0].id)) : null;
-    if (widen) await widen.catch(() => null);
+    await nearby(limit * 2).then((r) => add(r, "popular")).catch(() => null);
     passed = filter();
   }
   const near = passed.filter((c) => !c.far);

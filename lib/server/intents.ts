@@ -32,7 +32,7 @@ export type Intent = {
   food: boolean; // a kind of food or drink place (cuisine conflicts apply)
 };
 
-// Google searches per new set (about ₹3 each). Food & drinks also looks at
+// Google searches per new set (about ₹3 each). Both categories also look at
 // what's popular nearby when fewer than this many things are asked for.
 export const MAX_SEARCHES = 4;
 
@@ -110,9 +110,10 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   return [...unique.filter((i) => NOW.includes(i.source)), ...shared, ...unique.filter((i) => i.source === "side")];
 }
 
-// Which intents to search this time, and whether Food & drinks also looks
-// at what's popular nearby. What they asked for right now is always
-// searched; if they chose more than fit, the rest take turns across sets.
+// Which intents to search this time, and whether to also look at what's
+// popular nearby (places to eat and drink, or things to do). What they
+// asked for right now is always searched; if they chose more than fit, the
+// rest take turns across sets.
 export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend"; max?: number }) {
   const now = intents.filter((i) => NOW.includes(i.source));
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
@@ -123,12 +124,14 @@ export function planSearches(intents: Intent[], opts: { category: Category; rota
   const turn = [...chosen.slice(start), ...chosen.slice(0, start)].slice(0, room);
   const searched = [...now.slice(0, max), ...turn];
   const food = opts.category === "food_drinks";
-  const broad = food && searched.length < max;
+  const broad = searched.length < max;
   const left = max - searched.length - (broad ? 1 : 0);
   const sides = intents.filter((i) => !i.explicit).slice(0, Math.max(0, left));
+  // Nothing chosen for things to do yet: evening or weekend ideas, as well
+  // as what's popular nearby (popular places at night are often closed).
   const fallback: Intent[] =
     !food && searched.length + sides.length === 0
-      ? DEFAULT_DOING[opts.when].slice(0, MAX_SEARCHES).map((q) => ({ id: `default_${q}`, label: q, reason: "", query: q, def: { searches: [q], foodDrink: true }, explicit: false, source: "side", food: false }))
+      ? DEFAULT_DOING[opts.when].slice(0, Math.max(0, left)).map((q) => ({ id: `default_${q}`, label: q, reason: "", query: q, def: { searches: [q], foodDrink: true }, explicit: false, source: "side", food: false }))
       : [];
   return { searched: [...searched, ...sides, ...fallback], broad };
 }

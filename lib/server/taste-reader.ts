@@ -26,7 +26,7 @@ const HOUR = 3600 * 1000;
 
 export async function readTaste(taste: Taste, city: City, category: Category): Promise<Intent[]> {
   const said = taste.own ?? [];
-  const loved = category === "food_drinks" ? (taste.lovedPlaces ?? []) : [];
+  const loved = taste.lovedPlaces ?? [];
   if (said.length === 0 && loved.length === 0) return [];
   const key = JSON.stringify([city.id, category, said, loved]);
   const hit = memo.get(key);

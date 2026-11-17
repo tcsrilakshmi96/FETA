@@ -13,7 +13,6 @@ import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, si
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyHardFilters,
-  FOOD_DRINK_TYPES,
   whyNothing,
   buildEventPick,
   compromiseFor,
@@ -196,7 +195,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // place that passed is kept, in order, as backup.
   let found: CurateResult;
   try {
-    if (body.category === "food_drinks") await describeLoved(effective, rotation);
+    await describeLoved(effective, rotation, body.category);
     const extra = await readTaste(effective, city, body.category);
     found = await curate({
       taste: effective,
@@ -305,7 +304,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 // A short hash of everything that shapes a search.
 function tasteFingerprint(t: Taste) {
   const a = t.answers;
-  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], t.lovedIds ?? []]);
+  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id)]);
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return (h >>> 0).toString(36);
@@ -521,8 +520,8 @@ const PRICE_WORDS: Record<string, string> = {
 
 const LOVED_READS = 3;
 
-async function describeLoved(taste: Taste, rotation: number) {
-  const all = (taste.lovedIds ?? []).filter((id) => !id.startsWith("event:"));
+async function describeLoved(taste: Taste, rotation: number, category: Category) {
+  const all = (taste.loved ?? []).filter((l) => !l.id.startsWith("event:") && (!l.category || l.category === category)).map((l) => l.id);
   if (all.length === 0) return;
   const start = (rotation * LOVED_READS) % all.length;
   const ids = [...all.slice(start), ...all.slice(0, start)].slice(0, LOVED_READS);
@@ -531,5 +530,4 @@ async function describeLoved(taste: Taste, rotation: number) {
     const about = [p.primaryType?.replace(/_/g, " "), p.priceLevel && PRICE_WORDS[p.priceLevel], p.rating && `★${p.rating}`].filter(Boolean).join(", ");
     return `${p.displayName?.text ?? "A place"}${about ? ` (${about})` : ""}`;
   });
-  taste.lovedTypes = places.map((p) => p.primaryType ?? "").filter((t) => t.endsWith("_restaurant") || FOOD_DRINK_TYPES.includes(t));
 }
