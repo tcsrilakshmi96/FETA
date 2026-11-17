@@ -209,12 +209,14 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
     .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "", types: p.types ?? [] }));
 }
 
-export async function areaLocation(placeId: string, session: string): Promise<{ lat: number; lng: number } | null> {
+// Where a place is (a typed area, or one of the founder's places). The
+// session ends a typed area's autocomplete, which makes that free.
+export async function placeLocation(placeId: string, session?: string): Promise<{ lat: number; lng: number } | null> {
   if (FAKE) {
     const p = fakeDetails(placeId);
     return p?.location ? { lat: p.location.latitude, lng: p.location.longitude } : null;
   }
-  const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}?sessionToken=${encodeURIComponent(session)}`, {
+  const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}${session ? `?sessionToken=${encodeURIComponent(session)}` : ""}`, {
     headers: headers("location"),
   });
   track("places_details_essentials");

@@ -54,7 +54,7 @@ export default function FetaPicksSheet({ origin, when, onClose }: { origin: Orig
         </h2>
         <p className={sheet.sub}>Feta&apos;s own favourites and places people with your taste love. All fit your diet and budget.</p>
         {picks === null && <p className={styles.empty}>Finding them…</p>}
-        {picks?.length === 0 && <p className={styles.empty}>{notice ?? `No Feta Picks in ${origin.city.name} that fit you yet.`}</p>}
+        {picks?.length === 0 && <p className={styles.empty}>{notice ?? `No Feta Picks within your distance in ${origin.city.name} yet.`}</p>}
         {/* Polaroids, swiped sideways (founder, 16 Nov 2026): the founder's
             note in handwriting, so they read like a friend's recommendations. */}
         <ul className={styles.deck}>

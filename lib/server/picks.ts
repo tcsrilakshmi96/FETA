@@ -211,6 +211,13 @@ export function distanceLimitKm(answers: Answers) {
   return DISTANCE_KM[answers.distance ?? ""] ?? 5;
 }
 
+// Up to twice their distance is kept aside for the "worth a short ride"
+// case; with "anywhere in the city", the city is the limit.
+export function tooFar(km: number, answers: Answers) {
+  const limit = distanceLimitKm(answers);
+  return km > limit * 2 || (limit >= 15 && km > limit);
+}
+
 const PRICE_LEVELS: Record<string, number> = {
   PRICE_LEVEL_FREE: 0,
   PRICE_LEVEL_INEXPENSIVE: 1,
@@ -302,8 +309,7 @@ export function applyHardFilters(
       continue;
     }
     const km = distanceKm(opts.origin, { lat: place.location.latitude, lng: place.location.longitude });
-    // Up to twice the limit is kept aside for the "worth a short ride" case.
-    if (km > limit * 2 || (limit >= 15 && km > limit)) {
+    if (tooFar(km, answers)) {
       drop("far");
       continue;
     }

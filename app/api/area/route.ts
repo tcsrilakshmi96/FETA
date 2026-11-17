@@ -1,4 +1,4 @@
-import { areaLocation, suggestAreas } from "@/lib/server/places";
+import { placeLocation, suggestAreas } from "@/lib/server/places";
 import { withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   const session = (body.session ?? "").slice(0, 64);
   return withCosts(db, "area", async () => {
     if (body.placeId) {
-      const at = await areaLocation(body.placeId.slice(0, 300), session);
+      const at = await placeLocation(body.placeId.slice(0, 300), session);
       return Response.json(at ? { location: at } : { error: "Not found" }, { status: at ? 200 : 404 });
     }
     const input = (body.input ?? "").trim().slice(0, 80);

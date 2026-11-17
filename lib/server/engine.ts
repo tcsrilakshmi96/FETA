@@ -8,6 +8,7 @@ import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
 import { readTaste } from "@/lib/server/taste-reader";
+import { founderPlacesNear } from "@/lib/server/feta-places";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -31,6 +32,7 @@ import {
   type Tweak,
   type EventInfo,
   type Category,
+  type Kind,
   type Pick,
   type StoredPick,
   type Taste,
@@ -447,9 +449,10 @@ function nearName(city: City, o: Body["origin"]) {
 // places (with her note) and places other Feta users loved and recommended
 // (founder, 15 Nov 2026), people with a similar taste first. Ones the
 // search already found cost nothing; a few others are checked live
-// against the same hard filters: three of the founder's, at random so each
-// gets a turn, and up to 2 from people with a similar taste. Only place IDs,
-// her notes and counts are stored or shared.
+// against the same hard filters: three of the founder's within reach (at
+// random so each gets a turn; feta-places.ts), and up to 2 from people with
+// a similar taste. Only place IDs, her notes, counts and (for up to 30
+// days) where her places are, are stored.
 const FETA_LOOKUPS = 3; // founder, 16 Nov 2026 (was 1): her places show up more often
 const COMMUNITY_LOOKUPS = 2;
 
@@ -464,12 +467,12 @@ async function fetaCandidates(ctx: {
   needsDiet: boolean;
   pool: Candidate[];
 }): Promise<Candidate[]> {
-  const kinds = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
+  const kinds: Kind[] = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
   const [founder, community] = await Promise.all([
-    ctx.db.from("founder_places").select("place_id, note").eq("city_id", ctx.city.id).eq("active", true).in("kind", kinds).limit(500),
+    founderPlacesNear(ctx.db, { city: ctx.city, kinds, origin: ctx.origin, taste: ctx.taste }),
     ctx.db.rpc("feta_favourites", { p_city: ctx.city.id, p_category: ctx.body.category }),
   ]);
-  const notes = new Map((founder.data ?? []).map((f) => [f.place_id as string, f.note as string]));
+  const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   if (notes.size === 0 && loved.size === 0) return [];
   const mark = (c: Candidate): Candidate => ({
