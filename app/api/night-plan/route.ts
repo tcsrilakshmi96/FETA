@@ -31,14 +31,17 @@ export async function POST(request: Request) {
   if ((await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
 
   return withCosts(db, "night_plan", async () => {
-    const places = await Promise.all(ids.map((id) => placeDetails(id, false).catch(() => null)));
-    return Response.json({ places: places.flatMap((p) => (p?.location ? [nightPlace(p, p.location)] : [])) });
+    // Saved from Things to do: a thing to do, even if Google also calls it
+    // a restaurant (a live-music venue that serves food is not dinner).
+    const [places, { data: saved }] = await Promise.all([Promise.all(ids.map((id) => placeDetails(id, false).catch(() => null))), db.from("pick_actions").select("place_id, category").in("place_id", ids)]);
+    const toDo = new Set((saved ?? []).filter((r) => r.category === "experiences").map((r) => r.place_id as string));
+    return Response.json({ places: places.flatMap((p) => (p?.location ? [nightPlace(p, p.location, toDo.has(p.id))] : [])) });
   });
 }
 
-function nightPlace(p: Place, at: NonNullable<Place["location"]>): NightPlace {
+function nightPlace(p: Place, at: NonNullable<Place["location"]>, toDo: boolean): NightPlace {
   const types = [p.primaryType ?? "", ...(p.types ?? [])].filter(Boolean);
-  const food = types.some((t) => FOOD.test(t));
+  const food = !toDo && types.some((t) => FOOD.test(t));
   const parts = p.addressComponents ?? [];
   const part = (type: string) => parts.find((c) => c.types?.includes(type))?.longText;
   return {
