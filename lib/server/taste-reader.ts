@@ -31,21 +31,21 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
   const hit = memo.get(key);
   let reads = hit && Date.now() - hit.at < HOUR ? hit.reads : null;
   if (!reads) {
-    reads = FAKE ? fakeRead(said, category) : await geminiRead(said, loved, city, category).catch((error) => {
+    reads = FAKE ? fakeRead(said, loved, category) : await geminiRead(said, loved, city, category).catch((error) => {
       console.error(error);
       return [] as Read[];
     });
     memo.set(key, { at: Date.now(), reads });
   }
   const food = category === "food_drinks";
-  return reads.slice(0, 3).map((r, i) => ({
+  return reads.slice(0, 5).map((r, i) => ({
     id: `${r.from}_${i}`,
     label: r.label,
     reason: r.from === "said" ? `Because you said you love ${r.label.toLowerCase()}.` : "Because it's like the places you love.",
     query: r.query,
     // A thing to do that happens in a bar or café ("karaoke", "board games").
     def: { searches: [r.query], foodDrink: !food && AT_A_BAR.test(r.query) },
-    explicit: r.from === "said",
+    explicit: true,
     source: r.from === "said" ? "typed" : "loved",
     food,
   }));
@@ -55,7 +55,7 @@ async function geminiRead(said: string[], loved: string[], city: City, category:
   const what = category === "food_drinks" ? "places to eat or drink" : "things to do (not restaurants)";
   const prompt = `A person in ${city.name}, ${city.countryName} wants ${what}.
 ${said.length ? `In their own words:\n${said.map((s) => `- ${s}`).join("\n")}\n` : ""}${loved.length ? `Places they love:\n${loved.map((s) => `- ${s}`).join("\n")}\n` : ""}
-Turn this into at most 3 Google Maps searches for ${what} that would find what they'd love, most important first.
+Turn this into Google Maps searches for ${what} that would find what they'd love, most important first: at most 3 from their own words and at most 2 from the places they love.
 - From their own words: only the parts about ${what}; skip anything else. Make vague words specific ("SE Asian" → "southeast asian restaurant", "into pickleball" → "pickleball court").
 - From the places they love: what they have in common (cuisine, style, price), as a search for new places like them ("modern south indian cafe"). Never a place's name.
 Reply with only JSON: {"reads": [{"label": 1 to 4 words, e.g. "Southeast Asian", "query": the search, "from": "said" or "loved"}]}. [] if nothing fits.`;
@@ -79,8 +79,11 @@ Reply with only JSON: {"reads": [{"label": 1 to 4 words, e.g. "Southeast Asian",
 }
 
 // Test mode: their words as the search, without the lead-in (things to do
-// only from words that sound like an activity).
-function fakeRead(said: string[], category: Category): Read[] {
+// only from words that sound like an activity), then the kind of place
+// their loved places are ("Brew Lab (coffee shop, mid-priced)").
+function fakeRead(said: string[], loved: string[], category: Category): Read[] {
   const doing = /\b(into|play|playing|class|court|music|karaoke|comedy|games?|hike|dance|dancing)\b/i;
-  return said.filter((s) => category === "food_drinks" || doing.test(s)).map((s) => s.replace(/^(also loves|loves|i love|into|likes)\s+/i, "").trim()).filter(Boolean).map((label) => ({ label, query: category === "food_drinks" ? `${label} restaurant` : label, from: "said" as const }));
+  const words = said.filter((s) => category === "food_drinks" || doing.test(s)).map((s) => s.replace(/^(also loves|loves|i love|into|likes)\s+/i, "").trim()).filter(Boolean).map((label) => ({ label, query: category === "food_drinks" ? `${label} restaurant` : label, from: "said" as const }));
+  const kinds = [...new Set(loved.map((l) => /\(([^,)]+)/.exec(l)?.[1]).filter((k): k is string => !!k))];
+  return [...words, ...kinds.map((k) => ({ label: k, query: k, from: "loved" as const }))];
 }

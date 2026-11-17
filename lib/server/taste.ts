@@ -68,6 +68,6 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
       lovedNotes: been.filter((b) => b.verdict === "loved" && b.note).slice(0, 6).map((b) => b.note as string),
       dislikedNotes: been.filter((b) => b.verdict === "not_for_me" && b.note).slice(0, 4).map((b) => b.note as string),
     },
-    lovedIds: been.filter((b) => b.verdict === "loved").slice(0, 3).map((b) => b.place_id as string),
+    lovedIds: been.filter((b) => b.verdict === "loved").slice(0, 30).map((b) => b.place_id as string),
   };
 }

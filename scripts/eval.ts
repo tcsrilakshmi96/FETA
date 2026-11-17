@@ -26,6 +26,7 @@ type Persona = {
   answers: Partial<Answers>;
   yes?: string[];
   lines?: string[];
+  loved?: string[]; // places they love, as Feta describes them
   tweaks?: Tweak[];
   note?: string;
   dayPlan?: boolean;
@@ -54,6 +55,17 @@ const PERSONAS: Persona[] = [
     never: /Gangnam BBQ|Kebab|Biryani|Smoke House|Coastal Catch|Wings|Pork/,
     some: /Lemongrass|Seoul Kitchen|Pho Saigon|Burma Lane/,
     rule: (n) => (/bbq|barbecue|kebab|biryani|steak|chicken|mutton|seafood|fish/i.test(n) ? "mainly meat or fish for a vegetarian" : null),
+  },
+  {
+    name: "Founder: 4 cuisines ticked and loves cafes: the cafes still shape the first set",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_thai", "cuisine_korean", "cuisine_italian", "cuisine_south_indian"],
+    loved: ["Third Wave Coffee (coffee shop, mid-priced, ★4.5)", "Dyu Art Cafe (cafe, mid-priced, ★4.6)"],
+    covers: ["cuisine_thai", "loved_0"],
+    half: true,
+    some: /Brew Lab|Quiet Pages|Tiffin Roastery/,
   },
   {
     name: "Vegetarian in London, Thai: strict abroad (no 'not sure' places)",
@@ -184,6 +196,7 @@ async function run(p: Persona) {
     own: p.lines ?? [],
     yes: p.yes ?? [],
     no: [],
+    lovedPlaces: p.loved,
   };
   const extra = await readTaste(taste, city, p.category);
   const found = await curate({

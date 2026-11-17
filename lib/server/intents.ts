@@ -14,8 +14,8 @@ import type { Category, Taste, Tweak } from "@/lib/server/picks";
 // every choice they made can be checked against the picks (founder,
 // 15 Nov 2026: "the things they tell Feta must decide what it finds").
 //
-// explicit: something they chose or said (a cuisine, an interest, words
-// they typed, a tweak). Feta promises each a spot among the picks when one
+// explicit: something they chose, said or showed (a cuisine, an interest,
+// words they typed, what the places they love have in common, a tweak). Feta promises each a spot among the picks when one
 // passes the hard filters, or says plainly that none did. Taste-card sides
 // only steer the search when there's room.
 
@@ -36,7 +36,8 @@ export type Intent = {
 // what's popular nearby when fewer than this many things are asked for.
 export const MAX_SEARCHES = 4;
 
-const PRIORITY: IntentSource[] = ["asked", "plan", "tweak", "cuisine", "interest", "typed", "loved", "side"];
+const NOW: IntentSource[] = ["asked", "plan", "tweak"];
+const SHARED: IntentSource[] = ["cuisine", "interest", "typed", "loved"];
 
 function interestLabel(id: string) {
   return QUESTIONS.find((q) => q.id === "interests")?.options.find((o) => o.id === id)?.label ?? id.replace(/_/g, " ");
@@ -96,18 +97,24 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
     const q = variant(def.searches, rotation);
     out.push({ id: `side_${id}`, label, reason: `Because you picked ${label.replace(/^A /, "a ")}.`, query: def.vegWords ? vegWord(q) : q, def, explicit: false, source: "side", food });
   }
-  // One of each, in order of importance.
+  // One of each: what they asked for right now first, then everything
+  // they've shared taken in turn (a cuisine, an interest, their own words,
+  // a place they love, then the next of each), so every set reflects all
+  // of it and nothing they shared is crowded out by a long list of another
+  // kind (founder, 17 Nov 2026: "the more they share the more you are able
+  // to curate"). Taste-card sides last.
   const seen = new Set<string>();
-  return out
-    .filter((i) => !seen.has(i.query.toLowerCase()) && (seen.add(i.query.toLowerCase()), true))
-    .sort((a, b) => PRIORITY.indexOf(a.source) - PRIORITY.indexOf(b.source));
+  const unique = out.filter((i) => !seen.has(i.query.toLowerCase()) && (seen.add(i.query.toLowerCase()), true));
+  const kinds = SHARED.map((s) => unique.filter((i) => i.source === s));
+  const shared = Array.from({ length: Math.max(0, ...kinds.map((k) => k.length)) }, (_, n) => kinds.map((k) => k[n]).filter((i): i is Intent => !!i)).flat();
+  return [...unique.filter((i) => NOW.includes(i.source)), ...shared, ...unique.filter((i) => i.source === "side")];
 }
 
 // Which intents to search this time, and whether Food & drinks also looks
 // at what's popular nearby. What they asked for right now is always
 // searched; if they chose more than fit, the rest take turns across sets.
 export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend" }) {
-  const now = intents.filter((i) => i.source === "asked" || i.source === "plan" || i.source === "tweak");
+  const now = intents.filter((i) => NOW.includes(i.source));
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
   // A day plan searches one more, so their own interests fill the evening.
   const max = MAX_SEARCHES + (intents.some((i) => i.source === "plan") ? 1 : 0);
