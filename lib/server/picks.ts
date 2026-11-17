@@ -2,7 +2,7 @@ import "server-only";
 
 import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
-import { isVegDiet, optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
+import { isVegDiet, optionsFor, QUESTIONS, spendRange, spendText, type Answers } from "@/lib/onboarding";
 import { track } from "@/lib/server/costs";
 import { FAKE, fakeRank } from "@/lib/server/fake-places";
 import type { Intent } from "@/lib/server/intents";
@@ -57,14 +57,15 @@ export const TWEAK_LABELS: Record<Tweak, string> = {
 // the rest steer the search words and Gemini's choice.
 export function applyTweaks(taste: Taste, tweaks: Tweak[]): Taste {
   const answers = { ...taste.answers };
-  if (tweaks.includes("cheaper")) {
-    const level = /^level_(\d)$/.exec(answers.spend ?? "");
-    answers.spend = level ? `level_${Math.max(1, Number(level[1]) - 1)}` : "level_2";
-  }
-  if (tweaks.includes("fancier")) {
-    const level = /^level_(\d)$/.exec(answers.spend ?? "");
-    answers.spend = level ? `level_${Math.min(5, Number(level[1]) + 1)}` : "level_4";
-  }
+  // Cheaper and Fancier move their spend range down or up a level.
+  const shift = (by: number, otherwise: string[]) => {
+    const r = spendRange(answers);
+    if (!r) return otherwise;
+    const clamp = (n: number) => Math.min(5, Math.max(1, n + by));
+    return Array.from({ length: clamp(r.high) - clamp(r.low) + 1 }, (_, i) => `level_${clamp(r.low) + i}`);
+  };
+  if (tweaks.includes("cheaper")) answers.spend = shift(-1, ["level_1", "level_2"]);
+  if (tweaks.includes("fancier")) answers.spend = shift(1, ["level_4", "level_5"]);
   if (tweaks.includes("closer")) {
     answers.distance = answers.distance === "city" ? "ride_5km" : answers.distance === "ride_5km" ? "walk_2km" : "closer_1km";
   }
@@ -227,11 +228,26 @@ const PRICE_LEVELS: Record<string, number> = {
   PRICE_LEVEL_VERY_EXPENSIVE: 4,
 };
 
-// Spend answers that still see places with no price on Google.
-const UNKNOWN_PRICE_OK = new Set(["", "level_1", "level_2", "level_3", "depends"]);
-
 // Highest Google price level (1–4) each spend level allows.
-const MAX_PRICE_LEVEL: Record<string, number> = { level_1: 1, level_2: 1, level_3: 2, level_4: 3, level_5: 4 };
+const MAX_PRICE_LEVEL = [0, 1, 1, 2, 3, 4];
+
+// Where a place's price sits against the range they ticked. Google's
+// actual price range (per person) beats its rough price label; a place
+// with neither is "unknown".
+function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" | "under" | "unknown" {
+  const start = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
+  const google = PRICE_LEVELS[place.priceLevel ?? ""];
+  if (!Number.isFinite(start) && google === undefined) return "unknown";
+  const r = spendRange(answers);
+  if (!r) return "fits";
+  if (Number.isFinite(start)) {
+    const b = spendBounds(city.currency);
+    const low = r.low > 1 ? b[r.low - 2] : 0;
+    const high = r.high <= 4 ? b[r.high - 1] : Infinity;
+    return start > high ? "over" : start < low * 0.8 ? "under" : "fits";
+  }
+  return google > MAX_PRICE_LEVEL[r.high] ? "over" : google < MAX_PRICE_LEVEL[r.low] - 1 ? "under" : "fits";
+}
 
 const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery"];
 
@@ -291,8 +307,6 @@ export function applyHardFilters(
 ): Candidate[] {
   const { answers } = opts.taste;
   const limit = distanceLimitKm(answers);
-  const maxPrice = MAX_PRICE_LEVEL[answers.spend ?? ""] ?? 4;
-  const maxSpend = spendUpperBound(answers, opts.city);
   const out: Candidate[] = [];
   for (const place of places) {
     drops.seen++;
@@ -314,15 +328,8 @@ export function applyHardFilters(
       drop("far");
       continue;
     }
-    // Google's actual price range (per person) beats its rough price label.
-    const level = PRICE_LEVELS[place.priceLevel ?? ""];
-    const range = place.priceRange?.startPrice?.currencyCode === opts.city.currency ? Number(place.priceRange.startPrice.units) : NaN;
-    const overBudget = Number.isFinite(range)
-      ? maxSpend !== null && range > maxSpend
-      : level !== undefined
-        ? level > maxPrice
-        : !UNKNOWN_PRICE_OK.has(answers.spend ?? "");
-    if (overBudget) {
+    const fit = priceFit(place, answers, opts.city);
+    if (fit === "over" || fit === "under" || (fit === "unknown" && !unknownPriceOk(answers))) {
       drop("price");
       continue;
     }
@@ -351,17 +358,17 @@ export function applyHardFilters(
   return out;
 }
 
+// Places with no price on Google pass unless they only go for the pricier levels.
 export function unknownPriceOk(answers: Answers) {
-  return UNKNOWN_PRICE_OK.has(answers.spend ?? "");
+  const r = spendRange(answers);
+  return !r || r.high <= 3;
 }
 
 export function spendUpperBound(answers: Answers, city: City): number | null {
-  const match = /^level_(\d)$/.exec(answers.spend ?? "");
-  if (!match) return null;
+  const r = spendRange(answers);
   // Levels travel: "₹500–1,500" at home means the same kind of place, at
   // local prices, in Lisbon.
-  const level = Number(match[1]);
-  return level <= 4 ? spendBounds(city.currency)[level - 1] : null;
+  return r && r.high <= 4 ? spendBounds(city.currency)[r.high - 1] : null;
 }
 
 // "Tonight" (founder's decision, 11 Nov 2026), in the city's own time:
@@ -519,7 +526,7 @@ export function tasteSummary(taste: Taste, city: City) {
     a.diet && `Eats: ${label("diet", a.diet, city)}${a.halal ? ", halal only" : ""}`,
     a.avoid?.length && `Doesn't eat: ${a.avoid.join(", ")} (avoid places mainly about it)`,
     a.distance && `Distance: ${label("distance", a.distance, city)}`,
-    a.spend && `Spend per person: ${label("spend", a.spend, city)}`,
+    spendText(a, city.currency) && `Spend per person: ${spendText(a, city.currency)}`,
     a.who.length > 0 && `Usually goes out with: ${multi("who", a.who)}`,
     a.drinks && `Drinks: ${label("drinks", a.drinks, city)}`,
     a.interests.length > 0 && `Into: ${multi("interests", a.interests)}`,
@@ -690,24 +697,6 @@ function googleLine(place: Place, when: When, city: City) {
   return `${open} · checked just now · Google Maps`;
 }
 
-// Whether a place's price is at their spend level, not just under it, so the
-// ✓ never claims a match for a much cheaper place (testers, 13 Nov 2026).
-function spendMatches(place: Place, answers: Answers, city: City) {
-  const match = /^level_(\d)$/.exec(answers.spend ?? "");
-  if (!match) return false;
-  const level = Number(match[1]);
-  const bounds = spendBounds(city.currency);
-  const range = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
-  if (Number.isFinite(range)) {
-    const low = level > 1 ? bounds[level - 2] : 0;
-    const high = level <= 4 ? bounds[level - 1] : Infinity;
-    return range >= low * 0.8 && range <= high;
-  }
-  const google = PRICE_LEVELS[place.priceLevel ?? ""];
-  const max = MAX_PRICE_LEVEL[answers.spend ?? ""];
-  return google !== undefined && max !== undefined && google <= max && google >= max - 1;
-}
-
 // Matched chips are written by code from verified facts, never by the AI.
 // With "Anywhere in <city>" there is no distance chip: kilometres from the
 // city's centre point mean nothing to them.
@@ -724,8 +713,9 @@ function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): strin
   if (taste.answers.halal && c.place.types?.some((t) => t.includes("restaurant") || t.includes("food") || t === "cafe")) {
     out.push("Halal · not confirmed, check with staff");
   }
-  const spend = label("spend", taste.answers.spend, city);
-  if (spend && isMainlyFoodOrDrink(c.place) && spendMatches(c.place, taste.answers, city)) out.push(`${spend} ✓`);
+  // The ✓ only when the price is known to be in their range, never for a much cheaper place.
+  const spend = spendRange(taste.answers) && spendText(taste.answers, city.currency);
+  if (spend && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push(`${spend} ✓`);
   if (!wholeCity) out.push(`${formatDistance(c.km, city.country)}${c.far ? "" : " ✓"}`);
   return out;
 }

@@ -1,5 +1,5 @@
 import { usesMiles } from "@/lib/cities";
-import { spendLabels, type Currency } from "@/lib/currency";
+import { spendBounds, spendLabels, formatMoney, type Currency } from "@/lib/currency";
 
 // The 6 onboarding questions. Each option has a stable id (what we store and
 // filter on) and a label (what the user sees), so copy can change safely.
@@ -20,7 +20,8 @@ export type Answers = {
   diet: string | null;
   halal: boolean;
   distance: string | null;
-  spend: string | null;
+  // The levels they ticked ("level_2", "level_3"): a range, or "depends".
+  spend: string[];
   // Currency the spend level was chosen in, so it can be matched elsewhere.
   spendCurrency: Currency | null;
   who: string[];
@@ -34,7 +35,7 @@ export const EMPTY_ANSWERS: Answers = {
   diet: null,
   halal: false,
   distance: null,
-  spend: null,
+  spend: [],
   spendCurrency: null,
   who: [],
   drinks: null,
@@ -83,7 +84,7 @@ export const QUESTIONS: Question[] = [
     // Labels are filled in with the local currency; see optionsFor.
     id: "spend",
     title: "Spend per person?",
-    why: "Why we ask: so a pick never feels like a stretch.",
+    why: "Why we ask: so a pick never feels like a stretch. Tick all that are fine.",
     options: [
       { id: "level_1", label: "" },
       { id: "level_2", label: "" },
@@ -92,6 +93,7 @@ export const QUESTIONS: Question[] = [
       { id: "level_5", label: "" },
       { id: "depends", label: "Depends on the day" },
     ],
+    multi: true,
   },
   {
     id: "who",
@@ -158,10 +160,48 @@ const STORAGE_KEY = "feta.answers";
 export function loadAnswers(): Answers {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { ...EMPTY_ANSWERS, ...JSON.parse(saved) } : EMPTY_ANSWERS;
+    return saved ? withSpendRange({ ...EMPTY_ANSWERS, ...JSON.parse(saved) }) : EMPTY_ANSWERS;
   } catch {
     return EMPTY_ANSWERS;
   }
+}
+
+// Spend per person is a range of the levels they ticked (founder, 17 Nov
+// 2026): the top is the most they'll spend, the bottom the least. "Depends
+// on the day", or nothing ticked, means no limit. An answer saved before
+// was one level meaning "up to this much", so it becomes every level up to it.
+export function withSpendRange<T extends { spend: unknown }>(a: T): T & { spend: string[] } {
+  const old = typeof a.spend === "string" ? /^level_(\d)$/.exec(a.spend) : null;
+  const spend = Array.isArray(a.spend) ? (a.spend as string[]) : old ? Array.from({ length: Number(old[1]) }, (_, i) => `level_${i + 1}`) : typeof a.spend === "string" ? [a.spend] : [];
+  return { ...a, spend };
+}
+
+export function spendRange(a: Pick<Answers, "spend">): { low: number; high: number } | null {
+  const levels = a.spend.map((s) => /^level_(\d)$/.exec(s)?.[1]).filter((n): n is string => !!n).map(Number);
+  if (levels.length === 0 || a.spend.includes("depends")) return null;
+  return { low: Math.min(...levels), high: Math.max(...levels) };
+}
+
+// Ticking a level adds it to the range; "Depends on the day" stands alone.
+export function toggleSpend(spend: string[], id: string): string[] {
+  if (id === "depends") return spend.includes("depends") ? [] : ["depends"];
+  const levels = spend.filter((s) => s !== "depends");
+  return levels.includes(id) ? levels.filter((s) => s !== id) : [...levels, id].sort();
+}
+
+// "₹500–3,000", "Under ₹1,500", "₹3,000+", or "Depends on the day".
+export function spendText(a: Pick<Answers, "spend">, currency: Currency): string | null {
+  if (a.spend.includes("depends")) return "Depends on the day";
+  const r = spendRange(a);
+  if (!r) return null;
+  if (r.low === r.high) return spendLabels(currency)[r.low - 1];
+  const b = spendBounds(currency);
+  const from = r.low > 1 ? b[r.low - 2] : null;
+  const to = r.high < 5 ? b[r.high - 1] : null;
+  if (from === null && to === null) return "Any price";
+  if (from === null) return `Under ${formatMoney(to!, currency)}`;
+  if (to === null) return `${formatMoney(from, currency)}+`;
+  return `${formatMoney(from, currency)}–${formatMoney(to, currency).replace(/^\D+/, "")}`;
 }
 
 export function saveAnswers(answers: Answers) {

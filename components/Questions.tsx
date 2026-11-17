@@ -8,7 +8,7 @@ import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
-import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, type Answers } from "@/lib/onboarding";
+import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, toggleSpend, type Answers } from "@/lib/onboarding";
 import { loadWants, type Want } from "@/lib/profile";
 import {
   MAX_CUISINES,
@@ -234,10 +234,10 @@ export default function Questions() {
               </div>
             </>
           )}
-          <p className={styles.label}>Spend per person, usually</p>
+          <p className={styles.label}>Spend per person · tick all that are fine</p>
           <div className={styles.chips}>
             {optionsFor(q("spend"), currency, city?.country).map((o) => (
-              <button key={o.id} type="button" className={answers.spend === o.id ? styles.on : ""} onClick={() => set({ spend: answers.spend === o.id ? null : o.id, spendCurrency: currency })}>
+              <button key={o.id} type="button" aria-pressed={answers.spend.includes(o.id)} className={answers.spend.includes(o.id) ? styles.on : ""} onClick={() => set({ spend: toggleSpend(answers.spend, o.id), spendCurrency: currency })}>
                 {o.label}
               </button>
             ))}

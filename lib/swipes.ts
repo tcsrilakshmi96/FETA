@@ -1,4 +1,4 @@
-import { isVegDiet, optionsFor, QUESTIONS, type Answers } from "@/lib/onboarding";
+import { isVegDiet, QUESTIONS, spendText, type Answers } from "@/lib/onboarding";
 import type { Currency } from "@/lib/currency";
 
 // The 6 taste cards (founder's decision, 11 Nov 2026): 3 for food and
@@ -210,12 +210,10 @@ const DISTANCE_LINES: Record<string, string> = {
 };
 
 function spendLine(answers: Answers, currency: Currency): ProfileLine | null {
-  if (!answers.spend) return null;
-  if (answers.spend === "depends") return { id: "spend", text: "Spend depends on the day", source: "answers" };
-  const spend = QUESTIONS.find((q) => q.id === "spend")!;
-  const label = optionsFor(spend, answers.spendCurrency ?? currency).find((o) => o.id === answers.spend)?.label;
-  if (!label) return null;
-  return { id: "spend", text: `Usually ${label.replace(/^Under/, "under")} a head`, source: "answers" };
+  const text = spendText(answers, answers.spendCurrency ?? currency);
+  if (!text) return null;
+  if (text === "Depends on the day") return { id: "spend", text: "Spend depends on the day", source: "answers" };
+  return { id: "spend", text: `Usually ${text.replace(/^Under/, "under")} a head`, source: "answers" };
 }
 
 // Plain words for the answers, for profile lines.

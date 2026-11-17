@@ -35,7 +35,7 @@ Rules inside the filters:
 - **Pescatarian**: places mainly about meat are dropped. **No beef / no pork**: places mainly about it are dropped. Halal can't be checked: a "not confirmed" chip only.
 - **No alcohol**: places whose main type is a bar, pub, club or brewery are dropped (a restaurant with a bar is fine).
 - **Things to do** never show a place that's mainly for eating or drinking, unless it matched something they're into that happens there (karaoke, rooftops, board games, hidden bars, comedy, live music).
-- Spend: levels travel between currencies (`lib/currency.ts`); unknown price passes only for levels 1–3 and "depends". Tonight: open now after 5 pm, else open an hour between 7 and 10 pm today (city time). Weekend: Sat or Sun hours.
+- Spend is a range: the levels they ticked (`spendRange` in `lib/onboarding.ts`; the top is the most they'll spend, the bottom the least, and a place clearly below or above it is dropped; "Depends on the day" stands alone and means no limit). Levels travel between currencies (`lib/currency.ts`); unknown price passes when the top is level 3 or below, or "depends". Cheaper and Fancier move the range a level. Tonight: open now after 5 pm, else open an hour between 7 and 10 pm today (city time). Weekend: Sat or Sun hours.
 - Verdicts: "Good if you're nearby" by default, "Worth a detour" at most once per set, "Skip unless…" for a real, checkable compromise. Chips are written by code from facts.
 - Small cities (< 300k) show only real fits; bigger cities fill to 8 honestly.
 

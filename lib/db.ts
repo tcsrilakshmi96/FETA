@@ -1,7 +1,7 @@
 "use client";
 
 import { loadCity, saveCity, type City } from "@/lib/cities";
-import { saveAnswers, type Answers } from "@/lib/onboarding";
+import { saveAnswers, withSpendRange, type Answers } from "@/lib/onboarding";
 import { saveName, saveWants, type Want } from "@/lib/profile";
 import { syncFetaPicks } from "@/lib/picks-client";
 import { currentUserId, supabase } from "@/lib/supabase";
@@ -37,7 +37,7 @@ export async function restoreFromAccount(): Promise<boolean> {
     .catch(() => null);
   if (!city) return false;
   saveCity(city);
-  saveAnswers({ diet: a.diet, halal: a.halal, distance: a.distance, spend: a.spend, spendCurrency: a.spend_currency, who: a.who ?? [], drinks: a.drinks, interests: a.interests ?? [], avoid: a.avoid ?? [] } as Answers);
+  saveAnswers(withSpendRange({ diet: a.diet, halal: a.halal, distance: a.distance, spend: a.spend, spendCurrency: a.spend_currency, who: a.who ?? [], drinks: a.drinks, interests: a.interests ?? [], avoid: a.avoid ?? [] }) as Answers);
   if (profile.first_name) saveName(profile.first_name);
   if (profile.wants?.length) saveWants(profile.wants as Want[]);
   saveSwipes((swipes ?? []).map((s) => ({ cardId: s.card_id, verdict: s.verdict })) as Swipe[]);

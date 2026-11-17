@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { EMPTY_ANSWERS, type Answers } from "@/lib/onboarding";
+import { EMPTY_ANSWERS, withSpendRange, type Answers } from "@/lib/onboarding";
 import type { Taste } from "@/lib/server/picks";
 
 // A database client that acts as the signed-in user, so row-level
@@ -35,7 +35,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
   const actions = actionsRes.error ? [] : (actionsRes.data ?? []);
   const a = answersRes.data;
   const answers: Answers = a
-    ? {
+    ? withSpendRange({
         diet: a.diet,
         halal: a.halal,
         distance: a.distance,
@@ -45,7 +45,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
         drinks: a.drinks,
         interests: a.interests ?? [],
         avoid: a.avoid ?? [],
-      }
+      })
     : EMPTY_ANSWERS;
   const swipes = swipesRes.data ?? [];
   const lines = (linesRes.data ?? []).filter((l) => !l.trip || (trip && l.trip === trip));

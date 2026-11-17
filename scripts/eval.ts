@@ -39,7 +39,7 @@ type Persona = {
   min?: number; // at least this many picks
 };
 
-const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: "level_3", drinks: "sometimes" };
+const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: ["level_2", "level_3"], drinks: "sometimes" };
 const noBar = (_: string, primary: string) => (/^(bar|pub|night_club|wine_bar|cocktail_bar|brewery)$/.test(primary) ? "a bar for someone who doesn't drink" : null);
 
 const PERSONAS: Persona[] = [
@@ -66,6 +66,14 @@ const PERSONAS: Persona[] = [
     covers: ["cuisine_thai", "loved_0"],
     half: true,
     some: /Brew Lab|Quiet Pages|Tiffin Roastery/,
+  },
+  {
+    name: "Spend range: only the two priciest levels ticked, so nothing cheap",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything", spend: ["level_4", "level_5"] },
+    yes: ["cuisine_south_indian"],
+    never: /Vidyarthi Corner|Brahmin Tiffin Room/,
   },
   {
     name: "Vegetarian in London, Thai: strict abroad (no 'not sure' places)",
@@ -109,7 +117,7 @@ const PERSONAS: Persona[] = [
     name: "Small budget: nothing pricey",
     city: "Bengaluru",
     category: "food_drinks",
-    answers: { diet: "everything", spend: "level_1" },
+    answers: { diet: "everything", spend: ["level_1"] },
     yes: ["dressed_up"],
     never: /Gilded Fork|Smoke House|Baan Siam|Sakura|Skyline/,
   },
