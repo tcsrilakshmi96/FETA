@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import TopPill, { pillWidth, type PillPart } from "@/components/TopPill";
+import type { Pick } from "@/lib/picks-client";
 import styles from "./CheesePull.module.css";
 
 // Pull down for a fresh set (founder, 16 Nov 2026: "like a cheese is being
@@ -13,6 +14,17 @@ import styles from "./CheesePull.module.css";
 // the pill just says "Finding a fresh set…".
 //
 // onRefresh does the work and returns what the pill should say.
+
+// What the pill says after a fresh set: "8 new picks · ★ 1 Feta Pick".
+export function whatsNew(fresh: Pick[]): PillPart[] {
+  if (fresh.length === 0) return [{ text: "That's everything that fits" }];
+  const feta = fresh.filter((p) => p.fetaNote !== undefined).length;
+  const loved = fresh.filter((p) => p.lovedBy).length;
+  return [
+    { text: `${fresh.length} new ${fresh.length === 1 ? "pick" : "picks"}`, tone: "count" },
+    ...(feta ? [{ text: `★ ${feta} Feta ${feta === 1 ? "Pick" : "Picks"}`, tone: "star" as const }] : loved ? [{ text: `♥ ${loved} loved by Feta users`, tone: "star" as const }] : []),
+  ];
+}
 
 const THRESH = 95; // how far to pull before letting go refreshes
 const MAX = 140;
@@ -35,7 +47,7 @@ type Phase = "idle" | "pulling" | "back" | "loading" | "absorb" | "showing";
 type Bit = { off: number; top: boolean; sx: number; sy: number; w: number; t0: number };
 type Drip = { x: number; y: number; vy: number; r: number; a: number };
 
-export default function CheesePull({ scroller, onRefresh, enabled }: { scroller: RefObject<HTMLDivElement | null>; onRefresh: () => Promise<PillPart[]>; enabled: boolean }) {
+export default function CheesePull({ scroller, onRefresh, enabled }: { scroller: RefObject<HTMLElement | null>; onRefresh: () => Promise<PillPart[]>; enabled: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const pillRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<"hidden" | "dot" | "open">("hidden");

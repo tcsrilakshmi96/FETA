@@ -71,3 +71,25 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
   }
   return p;
 }
+
+// One list changed on the phone (a fresh set from Home): kept for the other
+// screens too.
+export function keepSlot(key: string, slot: Slot) {
+  keepSlots({ ...keptSlots(), [key]: slot });
+}
+
+// The next places for a list: the next 8 from the backup, or a new search
+// once the backup has run out. For "Show me more" and the pull for a fresh
+// set, on the picks list and on Home.
+export const SHOW = 8;
+
+export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
+  if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
+  const reply = await fetchPicks(category, when, origin, true);
+  const at = Date.now();
+  return {
+    fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at })),
+    spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
+    notice: reply.notice,
+  };
+}

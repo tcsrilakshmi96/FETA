@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
+import CheesePull, { whatsNew } from "@/components/CheesePull";
 import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FetaStar from "@/components/FetaStar";
 import FirstTime from "@/components/FirstTime";
@@ -12,11 +13,12 @@ import PlanSheet from "@/components/PlanSheet";
 import QuickQuestions from "@/components/QuickQuestions";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
+import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
+import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, type Want } from "@/lib/profile";
 import styles from "./Home.module.css";
@@ -82,6 +84,7 @@ export default function Home() {
   const [going, setGoing] = useState<Pick | null>(null);
   const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you", from the star
   const [firstTime, setFirstTime] = useState<"food" | "do" | null>(null);
+  const scroller = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -173,6 +176,27 @@ export default function Home() {
     setAnswerAt(0);
   }
 
+  // Pull down for a fresh set (founder, 17 Nov 2026: "in the home section
+  // it did not"): both lists move on to their next places, as on the picks
+  // list, and the pill says what's new.
+  async function freshSet(): Promise<PillPart[]> {
+    if (!origin) return [];
+    const lists = (["food_drinks", "experiences"] as Category[]).map((c) => ({ c, k: slotKey(origin, when, c) })).filter(({ k }) => slots[k] && !slots[k].loading);
+    const next = await Promise.all(lists.map(async ({ c, k }) => ({ k, next: await nextPicks(slots[k], origin, when, c) })));
+    setSlots((s) => {
+      const out = { ...s };
+      for (const { k, next: n } of next) {
+        if (n.fresh.length === 0) continue;
+        out[k] = { ...s[k], picks: n.fresh, spares: n.spares };
+        keepSlot(k, out[k]);
+      }
+      return out;
+    });
+    setAnswerAt(null);
+    scroller.current?.scrollTo({ top: 0 });
+    return whatsNew(next.flatMap((n) => n.next.fresh));
+  }
+
   // After the first-time questions their answers count, so that category
   // searches again.
   function firstTimeDone(c: "food" | "do") {
@@ -235,7 +259,7 @@ export default function Home() {
   const areaLabel = origin.source === "area" ? origin.label : origin.source === "gps" ? "Near you" : `All of ${city.name}`;
   return (
     <>
-      <main className={styles.screen}>
+      <main ref={scroller} className={styles.screen}>
         <div className={styles.page}>
           <div className={styles.dateline}>
             <span className={styles.left}>
@@ -368,6 +392,7 @@ export default function Home() {
       <CheckIn />
       <SaveTaste ready={!!food && !food.loading} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
+      <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
       {planOpen && (
         <PlanSheet when={when} cityId={city.id} loading={!food || food.loading || !exp || exp.loading} food={food?.picks ?? []} experiences={exp?.picks ?? []} onClose={() => setPlanOpen(false)} />
       )}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import CheesePull from "@/components/CheesePull";
+import CheesePull, { whatsNew } from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
 import PickDetails, { GoogleLine, kindLabel, lovedLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
 import PlanAround from "@/components/PlanAround";
@@ -16,11 +16,10 @@ import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers } from "@/lib/onboarding";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
-import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, loadSlot, slotKey, type Slot } from "@/lib/picks-store";
+import type { Category, Pick, When } from "@/lib/picks-client";
+import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
-const SHOW = 8;
 const CATEGORY_KEY = "feta.category";
 const SKIP_REASONS = ["Too far", "Too pricey", "Not my vibe", "Been there"];
 
@@ -148,24 +147,11 @@ export default function Picks() {
     else tweak(tweaks, note);
   }
 
-  // The next places for this list: the next 8 from the backup, or a new
-  // search once the backup has run out.
-  async function nextSet(): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
-    if (slot!.spares.length > 0) return { fresh: slot!.spares.slice(0, SHOW), spares: slot!.spares.slice(SHOW) };
-    const reply = await fetchPicks(category, when, origin!, true);
-    const at = Date.now();
-    return {
-      fresh: (reply.picks ?? []).filter((p) => !slot!.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at })),
-      spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
-      notice: reply.notice,
-    };
-  }
-
   // "Show me more": new ones go below the ones already shown.
   async function showMore() {
     if (!origin || !slot || slot.more) return;
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextSet();
+    const next = await nextPicks(slot, origin, when, category);
     if (next.fresh.length === 0) toast(next.notice ?? "That's everything that fits right now. Try Tweak.");
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: [...s[key].picks, ...next.fresh], spares: next.spares } }));
   }
@@ -175,19 +161,14 @@ export default function Picks() {
   async function freshSet(): Promise<PillPart[]> {
     if (!origin || !slot || slot.loading || slot.more) return [];
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextSet();
+    const next = await nextPicks(slot, origin, when, category);
     if (next.fresh.length === 0) {
       setSlots((s) => ({ ...s, [key]: { ...s[key], more: false } }));
       return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];
     }
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: next.fresh, spares: next.spares } }));
     scroller.current?.scrollTo({ top: 0 });
-    const feta = next.fresh.filter((p) => p.fetaNote !== undefined).length;
-    const loved = next.fresh.filter((p) => p.lovedBy).length;
-    return [
-      { text: `${next.fresh.length} new ${next.fresh.length === 1 ? "pick" : "picks"}`, tone: "count" },
-      ...(feta ? [{ text: `★ ${feta} Feta ${feta === 1 ? "Pick" : "Picks"}`, tone: "star" as const }] : loved ? [{ text: `♥ ${loved} loved by Feta users`, tone: "star" as const }] : []),
-    ];
+    return whatsNew(next.fresh);
   }
 
   // Each tab and category loads once and then keeps its own progress.
