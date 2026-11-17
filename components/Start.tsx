@@ -7,8 +7,9 @@ import { saveProfileBasicsToDb } from "@/lib/db";
 import { loadName, loadWants, saveName, saveWants, WANTS, type Want } from "@/lib/profile";
 import styles from "./Setup.module.css";
 
-// After the intro: their first name (optional; testers' feedback then has a
-// name even without sign-in) and what they want from Feta (Anj's flow). Home
+// After the intro: their first name (required, founder 17 Nov 2026: Feta
+// is personal, and testers' feedback then has a name even without sign-in)
+// and what they want from Feta (Anj's flow). Home
 // leads with what they pick, and only those questions are asked now.
 export default function Start() {
   const router = useRouter();
@@ -52,6 +53,7 @@ export default function Start() {
         maxLength={40}
         autoComplete="given-name"
       />
+      {!name.trim() && wants.length > 0 && <p className={styles.sub}>Add your first name to continue.</p>}
       <h2 className={`${styles.title} ${styles.titleSmall}`}>
         And what do you want <strong>from Feta?</strong>
       </h2>
@@ -74,7 +76,7 @@ export default function Start() {
         ))}
       </div>
       <div className={styles.grow} />
-      <button type="button" className="btn-primary" disabled={wants.length === 0} onClick={next}>
+      <button type="button" className="btn-primary" disabled={wants.length === 0 || !name.trim()} onClick={next}>
         {fromYou ? "Save" : "Continue"}
       </button>
     </main>

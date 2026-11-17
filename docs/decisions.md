@@ -139,3 +139,4 @@ Onboarding drop-off per step, time to first pick, day-1 and day-7 return, "loved
 - 17 Nov 2026: the cheese pull also works on Home, moving both Food & drinks and Things to do on to their next places; founder: "in the picks section it worked but in the home section it did not".
 - 17 Nov 2026: Choose for me opens the mood pop-up, then a rolling cheese and a full-screen answer (swipe left for the next, down for Home; Let's go returns to Home) instead of a card added into Home; moods come from what the person shared, and Surprise me searches a kind of place they haven't chosen but would likely love (about ₹3–4). Founder: "there is really no surprise", and Home had "food, then one more food". She chose the pop-up for the mood and the reveal from a second mock-up.
 - 17 Nov 2026: the ★ Feta Picks arrival plays every time Home shows, not once a day; founder: "it's going unnoticed".
+- 17 Nov 2026: the first name on /start is required (was optional); founder's call.
