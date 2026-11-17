@@ -258,12 +258,14 @@ export const FOOD_DRINK_TYPES = [
 ];
 
 // What's popular nearby for Things to do, the same way food looks at
-// popular places to eat and drink when they've chosen few things. Not
-// "tourist_attraction": in a live check (Bengaluru, 17 Nov 2026) it brought
-// a courthouse, a carpet shop and a mall.
+// popular places to eat and drink when they've chosen few things. Sights by
+// their own kind (landmarks, beaches, markets), not "tourist_attraction":
+// in a live check (Bengaluru, 17 Nov 2026) it brought a courthouse, a carpet
+// shop and a mall.
 export const DOING_TYPES = [
-  "art_gallery", "museum", "performing_arts_theater", "cultural_center", "art_studio",
-  "park", "botanical_garden", "hiking_area", "bowling_alley", "amusement_center", "sports_complex",
+  "art_gallery", "museum", "performing_arts_theater", "cultural_center", "art_studio", "historical_landmark",
+  "park", "botanical_garden", "hiking_area", "beach", "market", "aquarium",
+  "bowling_alley", "amusement_center", "amusement_park", "sports_complex",
 ];
 
 // Experiences never show a place that is mainly for eating or drinking
