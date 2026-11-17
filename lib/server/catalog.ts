@@ -111,8 +111,19 @@ export const DAY_PLAN: { food: { id: string; label: string; query: string }[]; d
 };
 
 // When someone hasn't said what they're into: evening things tonight
-// (galleries and parks close), daytime ones at the weekend.
-export const DEFAULT_DOING: Record<"tonight" | "weekend", string[]> = {
-  tonight: ["live music venue", "comedy show", "escape room or bowling", "theatre"],
-  weekend: ["art gallery", "park", "museum", "workshop or class"],
+// (galleries and parks close), daytime ones at the weekend. Only live music
+// and comedy may be at a bar or restaurant; the rest never show one.
+export const DEFAULT_DOING: Record<"tonight" | "weekend", { query: string; def: SearchDef }[]> = {
+  tonight: [
+    { query: "live music venue", def: INTEREST_SEARCH.live_music },
+    { query: "comedy show", def: INTEREST_SEARCH.comedy },
+    { query: "escape room or bowling", def: { searches: ["escape room or bowling"], types: /escape|bowling|amusement/ } },
+    { query: "theatre", def: { searches: ["theatre"], types: /theater|theatre|performing_arts/ } },
+  ],
+  weekend: [
+    { query: "art gallery", def: INTEREST_SEARCH.art_culture },
+    { query: "park", def: INTEREST_SEARCH.outdoors },
+    { query: "museum", def: INTEREST_SEARCH.art_culture },
+    { query: "workshop or class", def: INTEREST_SEARCH.workshops },
+  ],
 };

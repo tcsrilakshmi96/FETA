@@ -131,7 +131,7 @@ export function planSearches(intents: Intent[], opts: { category: Category; rota
   // as what's popular nearby (popular places at night are often closed).
   const fallback: Intent[] =
     !food && searched.length + sides.length === 0
-      ? DEFAULT_DOING[opts.when].slice(0, Math.max(0, left)).map((q) => ({ id: `default_${q}`, label: q, reason: "", query: q, def: { searches: [q], foodDrink: true }, explicit: false, source: "side", food: false }))
+      ? DEFAULT_DOING[opts.when].slice(0, Math.max(0, left)).map((d) => ({ id: `default_${d.query}`, label: d.query, reason: "", query: d.query, def: d.def, explicit: false, source: "side", food: false }))
       : [];
   return { searched: [...searched, ...sides, ...fallback], broad };
 }

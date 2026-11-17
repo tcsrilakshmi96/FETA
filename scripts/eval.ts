@@ -159,11 +159,12 @@ const PERSONAS: Persona[] = [
     min: 8,
   },
   {
-    name: "Things to do, nothing chosen, tonight: evening things, not closed galleries",
+    name: "Things to do, nothing chosen, tonight: evening things, not closed galleries or restaurants",
     city: "Bengaluru",
     category: "experiences",
     answers: {},
     min: 3,
+    never: /Tiffin|Vidyarthi|Dosa/,
   },
   {
     name: "Nothing chosen yet: still 8 good places",
