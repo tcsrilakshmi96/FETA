@@ -134,7 +134,13 @@ export default function GroupShare() {
       <h1 className={styles.title}>
         {share.kind === "plan" ? (
           <>
-            {label(payload.stops[0])} <strong>then</strong> {label(payload.stops[1])}
+            {payload.stops.slice(0, -1).map((st, i) => (
+              <span key={st.placeId}>
+                {i > 0 && ", "}
+                {label(st)}
+              </span>
+            ))}{" "}
+            <strong>then</strong> {label(payload.stops[payload.stops.length - 1])}
           </>
         ) : (
           label(payload.stops[0])
