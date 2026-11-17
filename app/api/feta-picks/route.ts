@@ -2,7 +2,7 @@ import { cityById } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { applyHardFilters, buildPick, needsDietCheck, type Candidate, type Kind, type Pick, type When } from "@/lib/server/picks";
-import { founderPlacesNear } from "@/lib/server/feta-places";
+import { founderPlacesNear, syncFounderLoved } from "@/lib/server/feta-places";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 
 export const maxDuration = 30;
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   return withCosts(db, "feta_picks", async () => {
     const origin = { lat: body.lat!, lng: body.lng! };
-    const taste = await loadTaste(db);
+    const [taste] = await Promise.all([loadTaste(db), syncFounderLoved(db)]);
     const [founder, community, skips] = await Promise.all([
       founderPlacesNear(db, { city, kinds: ["EAT", "DRINK", "DO"], origin, taste }),
       db.rpc("feta_favourites", { p_city: city.id, p_category: null }),
@@ -82,4 +82,14 @@ export async function POST(request: Request) {
     });
     return Response.json({ picks });
   });
+}
+
+// The founder rated a place: her loved places join Feta Picks
+// (feta-places.ts). Does nothing for anyone else.
+export async function PUT(request: Request) {
+  const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
+  const db = token ? userDb(token) : null;
+  if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
+  await syncFounderLoved(db);
+  return Response.json({ ok: true });
 }

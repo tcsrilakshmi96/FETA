@@ -3,6 +3,7 @@
 import { loadCity, saveCity, type City } from "@/lib/cities";
 import { saveAnswers, type Answers } from "@/lib/onboarding";
 import { saveName, saveWants, type Want } from "@/lib/profile";
+import { syncFetaPicks } from "@/lib/picks-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 import { saveProfileLines, saveSwipes, type ProfileLine, type Swipe } from "@/lib/swipes";
 
@@ -191,10 +192,11 @@ export function savePickAction(
 
 // ---------- Lists ----------
 
-export function saveListNote(placeId: string, action: "saved" | "been", note: string) {
-  return run("note", (userId) =>
+export async function saveListNote(placeId: string, action: "saved" | "been", note: string) {
+  await run("note", (userId) =>
     supabase().from("pick_actions").update({ note: note.trim() || null }).eq("user_id", userId).eq("place_id", placeId).eq("action", action),
   );
+  if (action === "been") void syncFetaPicks();
 }
 
 // "I've been": moves a place from Want to try to Been, keeping its note.
@@ -206,10 +208,11 @@ export function markBeen(placeId: string, note: string) {
   );
 }
 
-export function removeFromList(placeId: string, action: "saved" | "been") {
-  return run("remove", (userId) =>
+export async function removeFromList(placeId: string, action: "saved" | "been") {
+  await run("remove", (userId) =>
     supabase().from("pick_actions").delete().eq("user_id", userId).eq("place_id", placeId).eq("action", action),
   );
+  if (action === "been") void syncFetaPicks();
 }
 
 // Optional WhatsApp number, only for the weekend plan. null removes it.

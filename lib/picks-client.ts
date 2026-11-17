@@ -117,6 +117,14 @@ export function fetchPhoto(ref: string): Promise<string | null> {
 // checks places live, about ₹2 each).
 const fetaKept = new Map<string, { at: number; reply: PicksReply }>();
 
+// A place on Been changed (rated, noted, removed): the founder's loved
+// places join Feta Picks; the server ignores it for anyone else.
+export async function syncFetaPicks() {
+  const { data } = await supabase().auth.getSession();
+  const token = data.session?.access_token;
+  if (token) await fetch("/api/feta-picks", { method: "PUT", headers: { Authorization: `Bearer ${token}` } }).catch(() => null);
+}
+
 export async function fetchFetaPicks(origin: Origin, when: When): Promise<PicksReply> {
   const key = `${origin.city.id}|${origin.lat.toFixed(2)},${origin.lng.toFixed(2)}|${when}`;
   const hit = fetaKept.get(key);

@@ -1,5 +1,6 @@
 "use client";
 
+import { syncFetaPicks } from "@/lib/picks-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // My places and check-in: places people add themselves ("I've been"), and
@@ -43,6 +44,7 @@ export async function saveBeen(
   if (fields.recommend !== undefined) row.recommend = fields.recommend;
   const { error } = await supabase().from("pick_actions").upsert(row, { onConflict: "user_id,place_id,action" });
   if (error) console.error("Saving place failed", error.message);
+  else if (fields.verdict !== undefined || fields.note !== undefined) void syncFetaPicks();
   return !error;
 }
 
