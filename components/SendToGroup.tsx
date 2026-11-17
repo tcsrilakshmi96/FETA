@@ -13,11 +13,13 @@ export default function SendToGroup({
   payload,
   message,
   label = "Send to the group",
+  planId,
 }: {
   kind: ShareKind;
   payload: SharePayload | ChoicePayload;
   message: string;
   label?: string;
+  planId?: () => Promise<string | null>; // the saved plan it's shared from, saved first if needed
 }) {
   const toast = useToast();
   const [link, setLink] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function SendToGroup({
 
   async function make() {
     setMaking(true);
-    const url = await createShare(kind, payload);
+    const url = await createShare(kind, payload, planId ? await planId() : null);
     setMaking(false);
     if (url) {
       setLink(url);

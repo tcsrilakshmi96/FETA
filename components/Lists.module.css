@@ -578,3 +578,51 @@
   font-size: 11px;
   color: rgba(var(--inkRGB), 0.5);
 }
+
+/* Replies to a shared plan: initials, the count, and how many are new. */
+.replies {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.faces {
+  display: flex;
+}
+
+.faces span {
+  width: 22px;
+  height: 22px;
+  margin-left: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  display: grid;
+  place-items: center;
+  background: #ffc83d;
+  color: #1a1616;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.faces span:first-child {
+  margin-left: 0;
+}
+
+.fresh {
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: #ffc83d;
+  color: #1a1616;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.notShared {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(var(--inkRGB), 0.45);
+}

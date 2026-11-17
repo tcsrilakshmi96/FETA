@@ -7,6 +7,7 @@ import CheesePull, { whatsNew } from "@/components/CheesePull";
 import ChooseForMe, { type Mood } from "@/components/ChooseForMe";
 import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FetaStar from "@/components/FetaStar";
+import RepliesPill from "@/components/RepliesPill";
 import FirstTime from "@/components/FirstTime";
 import LetsGo from "@/components/LetsGo";
 import PickPhoto from "@/components/PickPhoto";
@@ -305,6 +306,7 @@ export default function Home() {
         </div>
       </main>
       <CheckIn />
+      <RepliesPill />
       <SaveTaste ready={!!food && !food.loading} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />

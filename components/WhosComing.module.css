@@ -1,0 +1,96 @@
+/* Who's coming: the count, each friend with In or Out, and the link again. */
+.count {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.count span {
+  flex: 1;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--field);
+  text-align: center;
+  font-size: 12px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.count b {
+  display: block;
+  font-family: var(--font-fraunces), serif;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.people {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  list-style: none;
+}
+
+.people li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.face {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffc83d;
+  color: #1a1616;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.people em {
+  margin-left: auto;
+  padding: 4px 11px;
+  border-radius: 99px;
+  font-style: normal;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.in {
+  background: rgba(43, 122, 120, 0.16);
+  color: #2b7a78;
+}
+
+.out {
+  background: rgba(var(--inkRGB), 0.08);
+  color: rgba(var(--inkRGB), 0.6);
+}
+
+.again {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  margin-top: 8px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.08);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.note {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .in { color: #8fd9d6; }
+}
+
+:root[data-theme="dark"] .in { color: #8fd9d6; }

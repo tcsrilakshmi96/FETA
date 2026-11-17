@@ -355,6 +355,7 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
               <SendToGroup
                 kind="plan"
                 label="Share with friends"
+                planId={() => save(true)}
                 message={`${dayName(day)}: ${night.stops.map((s) => `${s.place.name} at ${minuteClock(s.at)}`).join(", then ")}. Planned with Feta.`}
                 payload={share()}
               />

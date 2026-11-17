@@ -10,9 +10,12 @@ import { markBeen, removeFromList, saveListNote } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { distanceKm, formatDistance } from "@/lib/cities";
 import { dayName, loadPlans, removePlan, type SavedPlan } from "@/lib/night-client";
+import { clock } from "@/lib/plan";
+import { loadMyShares, newReplies, shareLink, type MyShare } from "@/lib/share-client";
+import WhosComing, { initial, replySummary } from "@/components/WhosComing";
 import { minuteClock } from "@/lib/night-plan";
 import { loadOrigin, type Origin } from "@/lib/origin";
-import { saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
+import { placeName, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
@@ -24,6 +27,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "plans", label: "Plans" },
 ];
 const MAX_PLAN = 5;
+
+type PlanCard = { key: string; title: string; when: string; stops: string[]; plan?: SavedPlan; shares: MyShare[] };
+
+const liveNames = new Map<string, Promise<string | null>>();
+function nameLive(placeId: string) {
+  if (!liveNames.has(placeId)) liveNames.set(placeId, placeName(placeId));
+  return liveNames.get(placeId)!;
+}
 
 function savedLabel(item: ListItem) {
   if (item.event) return "Event";
@@ -60,6 +71,25 @@ export default function Lists() {
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [night, setNight] = useState<NightStart | null>(null);
+  const [shares, setShares] = useState<MyShare[]>([]);
+  const [whos, setWhos] = useState<PlanCard | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+
+  // Names for shared plans' stops that aren't in their lists (read live,
+  // once per open of the app).
+  useEffect(() => {
+    if (items === null) return;
+    const known = new Set(items.map((i) => i.placeId));
+    const missing = [...new Set(shares.flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []))))].filter((st) => !st.event && !known.has(st.placeId));
+    const events = Object.fromEntries(shares.flatMap((x) => (x.payload.stops ?? []).filter((st) => st.event).map((st) => [`event:${st.event!.title}`, st.event!.title])));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- event titles come with the share
+    setNames((n) => ({ ...n, ...events }));
+    let live = true;
+    Promise.all(missing.slice(0, 12).map(async (st) => [st.placeId, await nameLive(st.placeId)] as const)).then((found) => live && setNames((n) => ({ ...n, ...Object.fromEntries(found.filter(([, v]) => v)) as Record<string, string> })));
+    return () => {
+      live = false;
+    };
+  }, [items, shares]);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
@@ -73,6 +103,9 @@ export default function Lists() {
     loadWishes().then((w) => live && setWishes(w));
     loadTrips().then((t) => live && setTrips(t));
     loadPlans().then((p) => live && setPlans(p));
+    loadMyShares().then((s) => live && setShares(s));
+    // Home's "Priya is in" pill opens Plans.
+    if (window.location.hash === "#plans") setTab("plans");
     return () => {
       live = false;
     };
@@ -80,7 +113,27 @@ export default function Lists() {
 
   const shown = (items ?? []).filter((i) => i.list === tab);
   const plannable = (i: ListItem) => i.list === "want" && !i.event && i.lat !== null && i.lng !== null;
-  const nameOf = (id: string) => (items ?? []).find((i) => i.placeId === id)?.name ?? "A saved place";
+  const nameOf = (id: string) => (items ?? []).find((i) => i.placeId === id)?.name ?? "…";
+
+  // Saved plans with the replies to their shares, then plans shared from
+  // elsewhere (Plan my evening, a pick) on their own.
+  const short = (d: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(d);
+  const cards: PlanCard[] = [
+    ...plans.map((p) => ({ key: p.id, title: dayName(p.day), when: `${short(new Date(`${p.day}T12:00:00`))} · ${minuteClock(p.startMinute)}`, stops: p.placeIds, plan: p, shares: shares.filter((x) => x.planId === p.id) })),
+    ...shares
+      .filter((x) => !x.planId || !plans.some((p) => p.id === x.planId))
+      .map((x) => {
+        const stops = x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []);
+        const first = stops.find((st) => st.time)?.time;
+        return {
+          key: x.slug,
+          title: x.kind === "choice" ? `${x.payload.options?.length ?? 2} plans for ${x.payload.title.toLowerCase()}` : x.payload.title,
+          when: first ? `${short(new Date(first))} · ${clock(new Date(first))}` : short(new Date(x.createdAt)),
+          stops: stops.map((st) => (st.event ? `event:${st.event.title}` : st.placeId)),
+          shares: [x],
+        };
+      }),
+  ];
 
   function togglePick(item: ListItem) {
     if (!plannable(item)) {
@@ -228,7 +281,7 @@ export default function Lists() {
 
         {tab === "plans" && (
           <>
-            {plans.length === 0 ? (
+            {cards.length === 0 ? (
               <div className={styles.empty}>
                 <p className={styles.emptyTitle}>
                   No plans <strong>yet.</strong>
@@ -237,38 +290,55 @@ export default function Lists() {
               </div>
             ) : (
               <ul className={styles.items}>
-                {plans.map((p) => (
-                  <li key={p.id} className={styles.planRow}>
-                    <button type="button" className={styles.item} onClick={() => setNight({ saved: p })}>
-                      <span className={styles.planIcon} aria-hidden="true">
-                        🧀
-                      </span>
-                      <span className={styles.text}>
-                        <span className={styles.row}>
-                          <span className={styles.name}>{dayName(p.day)}</span>
-                          <span className={styles.when}>
-                            {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(`${p.day}T12:00:00`))} · {minuteClock(p.startMinute)}
+                {cards.map((c) => {
+                  const replies = c.shares.flatMap((x) => x.replies);
+                  const fresh = c.shares.flatMap(newReplies).length;
+                  return (
+                    <li key={c.key} className={styles.planRow}>
+                      <button type="button" className={`${styles.item} ${fresh ? styles.picked : ""}`} onClick={() => (replies.length || (!c.plan && c.shares.length) ? setWhos(c) : c.plan && setNight({ saved: c.plan }))}>
+                        <span className={styles.planIcon} aria-hidden="true">
+                          🧀
+                        </span>
+                        <span className={styles.text}>
+                          <span className={styles.row}>
+                            <span className={styles.name}>{c.title}</span>
+                            <span className={styles.when}>{c.when}</span>
                           </span>
+                          <span className={styles.area} style={{ display: "block" }}>
+                            {c.stops.map((id) => names[id] ?? nameOf(id)).join(" → ")}
+                          </span>
+                          {replies.length > 0 ? (
+                            <span className={styles.replies}>
+                              <span className={styles.faces} aria-hidden="true">
+                                {replies.slice(0, 3).map((r, i) => (
+                                  <span key={i}>{initial(r)}</span>
+                                ))}
+                              </span>
+                              {replySummary(replies)}
+                              {fresh > 0 && <span className={styles.fresh}>{fresh} new</span>}
+                            </span>
+                          ) : (
+                            <span className={styles.notShared}>{c.shares.length ? "Shared · no replies yet" : "Not shared yet"}</span>
+                          )}
                         </span>
-                        <span className={styles.area} style={{ display: "block" }}>
-                          {p.placeIds.map(nameOf).join(" → ")}
-                        </span>
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.planRemove}
-                      aria-label="Remove this plan"
-                      onClick={() => {
-                        removePlan(p.id);
-                        setPlans((all) => all.filter((x) => x.id !== p.id));
-                        toast("Plan removed");
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </li>
-                ))}
+                      </button>
+                      {c.plan && (
+                        <button
+                          type="button"
+                          className={styles.planRemove}
+                          aria-label="Remove this plan"
+                          onClick={() => {
+                            removePlan(c.plan!.id);
+                            setPlans((all) => all.filter((x) => x.id !== c.plan!.id));
+                            toast("Plan removed");
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </>
@@ -437,6 +507,20 @@ export default function Lists() {
         )}
       </main>
       <TabBar active="lists" />
+      {whos && (
+        <WhosComing
+          title={whos.title}
+          shares={whos.shares}
+          onClose={() => setWhos(null)}
+          onSeen={(slugs) => setShares((all) => all.map((x) => (slugs.includes(x.slug) ? { ...x, seenAt: new Date().toISOString() } : x)))}
+          onOpen={() => {
+            const card = whos;
+            setWhos(null);
+            if (card.plan) setNight({ saved: card.plan });
+            else window.open(shareLink(card.shares[0].slug), "_blank", "noopener");
+          }}
+        />
+      )}
       {night && origin && (
         <NightPlan
           start={night}

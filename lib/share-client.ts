@@ -27,10 +27,11 @@ export type ChoicePayload = { title: string; options: SharePayload[]; country?: 
 export type ShareKind = "pick" | "plan" | "choice";
 export type Vote = "yes" | "no" | "1" | "2" | "3";
 
-export async function createShare(kind: ShareKind, payload: SharePayload | ChoicePayload): Promise<string | null> {
+// planId: the saved plan it was shared from, so its replies show there.
+export async function createShare(kind: ShareKind, payload: SharePayload | ChoicePayload, planId?: string | null): Promise<string | null> {
   const userId = await currentUserId();
   if (!userId) return null;
-  const { data, error } = await supabase().from("shares").insert({ user_id: userId, kind, payload }).select("slug").single();
+  const { data, error } = await supabase().from("shares").insert({ user_id: userId, kind, payload, ...(planId ? { plan_id: planId } : {}) }).select("slug").single();
   if (error) {
     console.error("Creating share failed", error.message);
     return null;
@@ -68,3 +69,29 @@ export async function castVote(slug: string, name: string, vote: Vote) {
   if (error) console.error("Vote failed", error.message);
   return !error;
 }
+
+// Who's in (founder, 17 Nov 2026): my own shares with my friends' replies,
+// newest first. A reply is new if it came after I last looked.
+export type Reply = { name: string | null; vote: Vote; at: string };
+export type MyShare = { slug: string; kind: ShareKind; payload: SharePayload & ChoicePayload; createdAt: string; planId: string | null; seenAt: string | null; replies: Reply[] };
+
+export async function loadMyShares(): Promise<MyShare[]> {
+  if (!(await currentUserId())) return [];
+  const db = supabase();
+  const [{ data: shares }, { data: replies }] = await Promise.all([
+    db.from("shares").select("slug, kind, payload, created_at, plan_id, replies_seen_at").order("created_at", { ascending: false }).limit(30),
+    db.rpc("my_share_replies"),
+  ]);
+  const bySlug = new Map<string, Reply[]>();
+  for (const r of (replies ?? []) as { slug: string; name: string | null; vote: Vote; replied_at: string }[]) bySlug.set(r.slug, [...(bySlug.get(r.slug) ?? []), { name: r.name, vote: r.vote, at: r.replied_at }]);
+  return (shares ?? []).map((s) => ({ slug: s.slug, kind: s.kind, payload: s.payload, createdAt: s.created_at, planId: s.plan_id ?? null, seenAt: s.replies_seen_at ?? null, replies: bySlug.get(s.slug) ?? [] }));
+}
+
+export const newReplies = (s: MyShare) => s.replies.filter((r) => !s.seenAt || r.at > s.seenAt);
+
+export async function markRepliesSeen(slugs: string[]) {
+  if (!slugs.length || !(await currentUserId())) return;
+  await supabase().from("shares").update({ replies_seen_at: new Date().toISOString() }).in("slug", slugs);
+}
+
+export const shareLink = (slug: string) => `${window.location.origin}/s/${slug}`;
