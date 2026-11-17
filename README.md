@@ -1,6 +1,6 @@
 # Feta
 
-**Fashion, Experience, Travel — all in one.** A personal AI lifestyle companion that learns your taste and decides for you: **3 confident picks for food and drinks, and 3 for experiences**, each with an honest reason.
+**Fashion, Experience, Travel — all in one.** A personal AI lifestyle companion that learns your taste and decides for you: places to eat and drink, things to do, and trips, each with an honest reason. The more you share, the more it curates for you.
 
 Live (friends test): **https://feta-beige.vercel.app** · phone-first web app, light and dark mode.
 
@@ -10,21 +10,24 @@ Live (friends test): **https://feta-beige.vercel.app** · phone-first web app, l
 
 ## What it does
 
-**Onboarding (about 90 seconds to first picks)**
-Welcome (18+) → Continue with Google or "Not now" → any city in the world → 6 quick questions (diet, distance in km or miles, spend in local currency, company, drinks, interests) → 6 taste swipes → "Here's what I picked up" → your location, a typed neighbourhood or landmark, or anywhere in the city → picks.
+**Onboarding**
+Welcome (3 cards, 18+) → your first name and what you want from Feta (places to eat and drink, things to do, what to wear, a trip) → at most 4 question screens, only for what you chose (diet, distance, spend as a range, drinks; places you love; cuisines and things you're into, in your own words too; a vibe card) → your location, a neighbourhood or the whole city → Home.
 
-**Picks**
-- *Tonight* and *This weekend*, in two separate categories: **Food & drinks** (EAT, DRINK) and **Experiences** (DO, plus this week's EVENTs).
-- Exactly 3 per category, one card at a time, each with a "Because you…" line, matched facts and an honest verdict: *Good if you're nearby*, at most one *Worth a detour*, and *Skip unless…* for a real compromise.
-- **Feta picks**: the founder's own places, with her note, always get a spot when they fit.
-- **Tweak these** (cheaper, closer, open later, quieter, outdoors, groups, kids, or your own words), **Show me 3 more**, and **Plan my evening** (dinner plus something nearby, with times that respect opening hours).
-- **Details**: photo, live Google Maps line, why it's yours, and *What to order* / *Highlights* read from Google Maps. Booking links only where the brand operates (District in India); elsewhere Google Maps and the venue's website; Naver Map in South Korea. Mainland China is chat-only for now.
-- **Small cities** get 2 honest picks rather than a weak third.
-- **Send to the group**: a Feta link friends vote on (I'm in / Not this time) without signing up.
+**Home**
+Date and area, the ★ **Feta Picks** button (the founder's places and favourites from people with a similar taste, as polaroids with her handwritten note, nearest first), **Choose for me** (pick a mood: something new, my usual, or surprise me; the cheese rolls and one place fills the screen, swipe for the next), your categories as big photo tiles, Plan my evening, Style and Plan a trip. Pull down for a fresh set (a cheese pull). When friends reply to a plan you shared, the pill at the top says who's in.
 
-**Ask Feta** (the cheese): chat to plan a trip anywhere, change your picks, or ask "why this one?". What it learns goes into your profile straight away, with Undo and "Only for this trip".
+**Picks** (Food & drinks, Things to do)
+- *Tonight* and *This weekend*, 8 at a time, each with a "Because you…" line, facts and an honest verdict (*Good if you're nearby*, at most one *Worth a detour*, *Skip unless…* for a real compromise).
+- Everything you share becomes something Feta searches for, taken in turn: cuisines and interests, your own words, and what the places you love have in common. Food and things to do use exactly the same steps.
+- Tweak (cheaper, fancier, closer, open later, quieter, outdoors, groups, kids, or your own words), Show me more, Details (live Google Maps facts, *What to order* / *Highlights*), Let's go (directions, booking, tell your friends).
+- **Send to the group**: a Feta link friends answer *In* or *Out* on, without signing up.
 
-**Home** (a magazine-style first screen: today's top picks, your evening plan, this weekend, Ask, Style) · **Lists** (Want to try, Been, private notes, a *This weekend* box for the WhatsApp weekend plan) · **You** (what Feta knows: editable taste lines, the people you go out with, trips, your places; settings folded below) · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
+**Saved**
+*Want to try*, *Been* (Loved it / Fine / Not for me, how often, notes: these shape your next picks) and **Plans**. **Plan a night**: tick 2 to 5 saved places, pick a day and time, and Feta orders them for that day's opening hours (early closers first, dinner last) on the **cheese trail**, with walk or ride times, a plain word when a place doesn't fit, editing, "Room for dessert?", the whole route in Google Maps, Save and Share. Each plan shows **who's in**. The day after, Home asks "How was Saturday?" for every stop.
+
+**Ask Feta** (the cheese): chat to plan a trip anywhere (route, getting around, stays, day plans), change your picks, or ask "why this one?". What it learns goes into your profile, with Undo and "Only for this trip".
+
+**You**: what Feta knows (editable taste lines, the people you go out with, trips, your places) and settings · **Style** (coming-soon teaser) · a **Feedback** button on every screen.
 
 ## Rules Feta never breaks
 
@@ -45,7 +48,7 @@ Welcome (18+) → Continue with Google or "Not now" → any city in the world �
 | Chat and profile | Venice AI (OpenAI-compatible). **Venice knows the person, Gemini knows the places**: Venice never receives Google content |
 | Weekly report | n8n on the founder's Mac: usage counts → Gemini summary → email every Monday |
 
-**How picks work:** one Google search per new set → hard filters in code → Gemini ranks the survivors and writes the reasons → code keeps 3 (at most one very popular place) → only place IDs and Feta's own words are stored. Sets are reused for 3 hours (tonight) or 12 hours (weekend) and re-checked live. Full detail in [`CLAUDE.md`](CLAUDE.md).
+**How picks work:** everything the person shared becomes a list of things to look for → up to 4 Google searches per new set (plus what's popular nearby when there's room) → hard filters in code → Gemini ranks the survivors and writes the reasons → code keeps its promises (each thing they chose gets its best place, one Feta favourite, a few very popular places at most) → only place IDs and Feta's own words are stored. Sets are reused for 3 hours (tonight) or 12 hours (weekend) and re-checked live. Full detail in [`CLAUDE.md`](CLAUDE.md).
 
 **Cost guards:** every Google and Gemini call is logged with its estimated price; a daily spending cap and daily search limits (shared and per person, set in Vercel); set reuse, events shared per area for a few hours, picks and "What to order" kept in the phone's memory while the app is open, a Google Cloud budget alert, and the Monday usage email.
 
@@ -57,6 +60,10 @@ app/                 screens (one folder per route) and server routes in app/api
   api/ask            Ask Feta chat
   api/details        "What to order" / "Highlights"
   api/lists          Want to try / Been
+  api/night-plan     live hours and locations for Plan a night
+  api/surprise       Choose for me → Surprise me
+  api/feta-picks     the ★ Feta Picks sheet
+  api/trip           trips from Ask Feta
   api/place/[id]     public data for shared links
   p/[id], s/[slug]   shared place page, group vote page
   admin              Feta picks, weekend plans, Instagram import (founder only)
@@ -81,7 +88,7 @@ City data: `data/cities.json` is built from [GeoNames](https://www.geonames.org)
 
 ## Not built yet
 
-Download my data (needed for EU/UK users) · check-in after an outing (Loved it / It was fine / Not for me) and reviews · admin approval for review photos · usage analytics.
+Download my data (needed for EU/UK users) · reviews with photos and admin approval · phone notifications (for replies to a shared plan) · events in Plan a night · Style beyond the teaser · usage analytics.
 
 ## For contributors (and Claude)
 
