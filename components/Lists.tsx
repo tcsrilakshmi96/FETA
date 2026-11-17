@@ -3,18 +3,27 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddPlace from "@/components/AddPlace";
+import NightPlan, { type NightStart } from "@/components/NightPlan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
 import { markBeen, removeFromList, saveListNote } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
-import { formatDistance } from "@/lib/cities";
+import { distanceKm, formatDistance } from "@/lib/cities";
+import { dayName, loadPlans, removePlan, type SavedPlan } from "@/lib/night-client";
+import { minuteClock } from "@/lib/night-plan";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
 
-type Tab = "want" | "been";
+type Tab = "want" | "been" | "plans";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "want", label: "Want to try" },
+  { id: "been", label: "Been" },
+  { id: "plans", label: "Plans" },
+];
+const MAX_PLAN = 5;
 
 function savedLabel(item: ListItem) {
   if (item.event) return "Event";
@@ -47,6 +56,10 @@ export default function Lists() {
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [saturday, setSaturday] = useState("");
   const [trips, setTrips] = useState<{ id: string; title: string }[]>([]);
+  const [plans, setPlans] = useState<SavedPlan[]>([]);
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [night, setNight] = useState<NightStart | null>(null);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
@@ -59,12 +72,40 @@ export default function Lists() {
     fetchLists(here).then((list) => live && setItems(list ?? []));
     loadWishes().then((w) => live && setWishes(w));
     loadTrips().then((t) => live && setTrips(t));
+    loadPlans().then((p) => live && setPlans(p));
     return () => {
       live = false;
     };
   }, []);
 
   const shown = (items ?? []).filter((i) => i.list === tab);
+  const plannable = (i: ListItem) => i.list === "want" && !i.event && i.lat !== null && i.lng !== null;
+  const nameOf = (id: string) => (items ?? []).find((i) => i.placeId === id)?.name ?? "A saved place";
+
+  function togglePick(item: ListItem) {
+    if (!plannable(item)) {
+      toast(item.event ? "Events keep their own time, so they can't go in a plan yet." : "Feta can't find where this one is.");
+      return;
+    }
+    if (!picked.includes(item.placeId) && picked.length >= MAX_PLAN) {
+      toast(`Up to ${MAX_PLAN} places in one plan.`);
+      return;
+    }
+    setPicked((p) => (p.includes(item.placeId) ? p.filter((x) => x !== item.placeId) : [...p, item.placeId]));
+  }
+
+  // The ticked places, and the nearest other saved place a short walk from
+  // one of them, which Feta may suggest on the way.
+  function planThese() {
+    const chosen = (items ?? []).filter((i) => picked.includes(i.placeId));
+    const near = (items ?? [])
+      .filter((i) => plannable(i) && !picked.includes(i.placeId))
+      .map((i) => ({ id: i.placeId, km: Math.min(...chosen.map((c) => distanceKm({ lat: c.lat!, lng: c.lng! }, { lat: i.lat!, lng: i.lng! }))) }))
+      .filter((x) => x.km <= 1.5)
+      .sort((a, b) => a.km - b.km);
+    setNight({ ids: picked, extraIds: near.slice(0, 1).map((x) => x.id) });
+  }
+
   const action = (i: ListItem) => (i.list === "been" ? "been" : "saved");
 
   function openItem(item: ListItem) {
@@ -140,30 +181,98 @@ export default function Lists() {
           <strong>Saved</strong>
         </h1>
         <div className={styles.segment} role="tablist">
-          <span
-            className={styles.thumb}
-            style={{ transform: tab === "want" ? "none" : "translateX(110px)" }}
-          />
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "want"}
-            className={`${styles.segBtn} ${tab === "want" ? styles.segOn : ""}`}
-            onClick={() => setTab("want")}
-          >
-            Want to try
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "been"}
-            className={`${styles.segBtn} ${tab === "been" ? styles.segOn : ""}`}
-            onClick={() => setTab("been")}
-          >
-            Been
-          </button>
+          <span className={styles.thumb} style={{ transform: `translateX(${TABS.findIndex((t) => t.id === tab) * 100}px)` }} />
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`${styles.segBtn} ${tab === t.id ? styles.segOn : ""}`}
+              onClick={() => {
+                setTab(t.id);
+                setPicking(false);
+                setPicked([]);
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
         <p className={styles.private}>Private. Only you can see these.</p>
+
+        {/* Plan a night (founder, 17 Nov 2026): tick 2 to 5, then plan. */}
+        {tab === "want" && (items ?? []).filter(plannable).length >= 2 &&
+          (picking ? (
+            <div className={styles.pickHint}>
+              <span>Tick 2 to {MAX_PLAN} places</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPicking(false);
+                  setPicked([]);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button type="button" className={styles.planNight} onClick={() => setPicking(true)}>
+              <span aria-hidden="true">🧀</span>
+              <span>
+                <strong>Plan a night</strong>
+                <span>Tick places and Feta puts them in order, with a route.</span>
+              </span>
+            </button>
+          ))}
+
+        {tab === "plans" && (
+          <>
+            {plans.length === 0 ? (
+              <div className={styles.empty}>
+                <p className={styles.emptyTitle}>
+                  No plans <strong>yet.</strong>
+                </p>
+                <p className={styles.emptyText}>In Want to try, tap Plan a night, tick a few places, and Feta puts them in order with a route.</p>
+              </div>
+            ) : (
+              <ul className={styles.items}>
+                {plans.map((p) => (
+                  <li key={p.id} className={styles.planRow}>
+                    <button type="button" className={styles.item} onClick={() => setNight({ saved: p })}>
+                      <span className={styles.planIcon} aria-hidden="true">
+                        🧀
+                      </span>
+                      <span className={styles.text}>
+                        <span className={styles.row}>
+                          <span className={styles.name}>{dayName(p.day)}</span>
+                          <span className={styles.when}>
+                            {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(`${p.day}T12:00:00`))} · {minuteClock(p.startMinute)}
+                          </span>
+                        </span>
+                        <span className={styles.area} style={{ display: "block" }}>
+                          {p.placeIds.map(nameOf).join(" → ")}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.planRemove}
+                      aria-label="Remove this plan"
+                      onClick={() => {
+                        removePlan(p.id);
+                        setPlans((all) => all.filter((x) => x.id !== p.id));
+                        toast("Plan removed");
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
 
         {/* Trips planned in Ask Feta, to pick up again. */}
         {tab === "want" && trips.length > 0 && (
@@ -187,7 +296,7 @@ export default function Lists() {
         )}
 
         {/* This weekend shows once something is on it (testers: Lists had too much going on). */}
-        {tab === "want" && items !== null && (ticked.length > 0 || wishes.length > 0) && (
+        {tab === "want" && !picking && items !== null && (ticked.length > 0 || wishes.length > 0) && (
           <section className={styles.weekend}>
             <p className={styles.wkLabel}>THIS WEEKEND</p>
             {(ticked.length > 0 || wishes.length > 0) && (
@@ -238,7 +347,7 @@ export default function Lists() {
           <p className={styles.loading}>Getting your places…</p>
         )}
 
-        {items !== null && shown.length === 0 && (
+        {items !== null && tab !== "plans" && shown.length === 0 && (
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>
               Nothing here <strong>yet.</strong>
@@ -270,8 +379,9 @@ export default function Lists() {
                 >
                   <button
                     type="button"
-                    className={styles.item}
-                    onClick={() => openItem(item)}
+                    className={`${styles.item} ${picking && picked.includes(item.placeId) ? styles.picked : ""} ${picking && !plannable(item) ? styles.unplannable : ""}`}
+                    onClick={() => (picking ? togglePick(item) : openItem(item))}
+                    aria-pressed={picking ? picked.includes(item.placeId) : undefined}
                   >
                     <span className={styles.pic}>
                       {item.photo && (
@@ -307,6 +417,11 @@ export default function Lists() {
                         {item.note ? `Note: ${item.note}` : "Add a note"}
                       </span>
                     </span>
+                    {picking && (
+                      <span className={styles.tick} aria-hidden="true">
+                        {picked.includes(item.placeId) ? "✓" : ""}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
@@ -315,8 +430,25 @@ export default function Lists() {
           </>
         )}
 
+        {picking && picked.length >= 2 && (
+          <button type="button" className={`btn-primary ${styles.planThese}`} onClick={planThese}>
+            Plan these {picked.length}
+          </button>
+        )}
       </main>
       <TabBar active="lists" />
+      {night && origin && (
+        <NightPlan
+          start={night}
+          origin={origin}
+          onClose={() => {
+            setNight(null);
+            setPicking(false);
+            setPicked([]);
+          }}
+          onSaved={(plan) => setPlans((all) => [plan, ...all.filter((p) => p.id !== plan.id)])}
+        />
+      )}
       {adding && origin && (
         <AddPlace
           city={origin.city}
@@ -330,6 +462,8 @@ export default function Lists() {
                 name: p.name,
                 area: p.detail.split(",")[0],
                 distanceKm: null,
+                lat: null,
+                lng: null,
                 note: p.note,
                 savedAt: new Date().toISOString(),
                 weekendFor: null,

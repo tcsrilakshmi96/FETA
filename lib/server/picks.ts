@@ -776,7 +776,7 @@ export function buildPick(
 
 // Opening periods as [day, open minute, close minute] (a close after
 // midnight counts as 24:00 + minutes), for checking a planned time.
-function weeklyHours(p: Place): [number, number, number][] | undefined {
+export function weeklyHours(p: Place): [number, number, number][] | undefined {
   const periods = p.regularOpeningHours?.periods;
   if (!periods?.length) return undefined;
   return periods.map((pe) => {

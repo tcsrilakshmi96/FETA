@@ -1,0 +1,112 @@
+/* The cheese trail: a soft street pattern, the route in cheese, and small
+   dark labels beside each stop. */
+.map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.map svg {
+  position: absolute;
+  inset: 0;
+}
+
+.block { fill: rgba(var(--inkRGB), 0.045); }
+.street { stroke: rgba(var(--inkRGB), 0.09); stroke-width: 9; fill: none; stroke-linecap: round; }
+.trail { stroke: #ffc83d; stroke-width: 6; fill: none; stroke-linecap: round; }
+
+.wedge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  font-size: 24px;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
+.spot {
+  position: absolute;
+  z-index: 5;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 4px solid #ffc83d;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.label {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  padding: 5px 8px 6px;
+  border-radius: 11px;
+  background: var(--ink);
+  color: var(--bg);
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.45s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.label > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.right { transform: translateY(-50%) scale(0.7); transform-origin: left center; }
+.left { transform: translateY(-50%) scale(0.7); transform-origin: right center; }
+
+.time {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--saffron);
+}
+
+.label strong {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 500;
+  font-size: 12.5px;
+  line-height: 1.15;
+}
+
+.label small {
+  font-size: 9px;
+  opacity: 0.65;
+}
+
+.spot.on { transform: translate(-50%, -50%) scale(1); }
+.right.on,
+.left.on { opacity: 1; transform: translateY(-50%); }
+
+/* A place that doesn't fit that day: greyed, its name crossed out. */
+.spot.closed { border-color: rgba(var(--inkRGB), 0.3); }
+.label.closed { background: var(--rose); color: #fff; }
+.label.closed strong { text-decoration: line-through; }
+
+.leg {
+  position: absolute;
+  z-index: 4;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.leg.on {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spot, .label, .leg { transition: none; }
+}

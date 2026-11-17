@@ -13,7 +13,7 @@ const MAX_KM = 3;
 // The second stop only needs to be open this long after you arrive.
 const AFTER_MINUTES = 45;
 
-function travel(km: number) {
+export function travel(km: number) {
   return km <= 1.5 ? { mode: "walk" as const, minutes: Math.max(3, Math.round(km * 13)) } : { mode: "ride" as const, minutes: Math.round(8 + km * 3) };
 }
 

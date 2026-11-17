@@ -16,6 +16,8 @@ export type ListItem = {
   name: string;
   area: string;
   distanceKm: number | null;
+  lat: number | null; // live, for planning a night; never stored
+  lng: number | null;
   note: string;
   savedAt: string;
   weekendFor: string | null; // the Saturday it is ticked for
@@ -72,6 +74,8 @@ export async function GET(request: Request) {
           name: event.title,
           area: event.venueName,
           distanceKm: null,
+          lat: null,
+          lng: null,
           mapsUri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venueName)}`,
           photo: null,
           event: { when: [event.date, event.time].filter(Boolean).join(" "), url: event.url, site: event.site },
@@ -84,6 +88,8 @@ export async function GET(request: Request) {
         name: place.displayName?.text ?? "A saved place",
         area: areaOf(place),
         distanceKm: here && place.location ? Math.round(distanceKm(here, { lat: place.location.latitude, lng: place.location.longitude }) * 10) / 10 : null,
+        lat: place.location?.latitude ?? null,
+        lng: place.location?.longitude ?? null,
         mapsUri: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${place.id}`,
         photo: i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
       };
