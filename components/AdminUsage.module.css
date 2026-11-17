@@ -191,3 +191,26 @@
   line-height: 1.5;
   color: rgba(var(--inkRGB), 0.55);
 }
+
+.real {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  background: rgba(var(--surf), 0.8);
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.real small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: rgba(var(--inkRGB), 0.55);
+}

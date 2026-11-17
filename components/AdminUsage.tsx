@@ -11,6 +11,7 @@ import styles from "./AdminUsage.module.css";
 type Cohort = { week: string; people: number; d1: number | null; d7: number | null; d30: number | null };
 type Numbers = {
   days: number;
+  test_people: number;
   unique_people: number;
   unique_people_before: number;
   new_people: number;
@@ -37,13 +38,14 @@ const weekName = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numer
 export default function AdminUsage() {
   const [days, setDays] = useState(7);
   const [who, setWho] = useState<"all" | "google">("all");
+  const [realOnly, setRealOnly] = useState(true);
   const [data, setData] = useState<Numbers | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let live = true;
     supabase()
-      .rpc("usage_dashboard", { days })
+      .rpc("usage_dashboard", { days, real_only: realOnly })
       .then(({ data: d, error }) => {
         if (!live) return;
         if (error) {
@@ -57,7 +59,7 @@ export default function AdminUsage() {
     return () => {
       live = false;
     };
-  }, [days]);
+  }, [days, realOnly]);
 
   if (failed) return <p className={styles.note}>Couldn&apos;t load the numbers. Try again in a minute.</p>;
   if (!data) return <p className={styles.note}>Counting…</p>;
@@ -83,6 +85,14 @@ export default function AdminUsage() {
           </button>
         ))}
       </div>
+
+      <button type="button" role="switch" aria-checked={realOnly} className={styles.real} onClick={() => setRealOnly(!realOnly)}>
+        <span>
+          Real people only
+          <small>{data.test_people ? `${data.test_people} test visitor${data.test_people === 1 ? "" : "s"} (opened with ?qa=1) ${realOnly ? "left out" : "included"}` : "No test visitors in this period"}</small>
+        </span>
+        <span className={`switch ${realOnly ? "on" : ""}`} />
+      </button>
 
       <h3>People</h3>
       <div className={styles.tiles}>
@@ -170,7 +180,7 @@ export default function AdminUsage() {
       </div>
 
       <p className={styles.foot}>
-        A person is one Feta account: on one phone and browser until they sign in with Google, then the same on every phone. So &quot;Everyone&quot; can miss people who came back on another phone or after Safari cleared its data; &quot;Signed in&quot; is the reliable number. Opening Feta counts from 18 Nov 2026; before that, only searches, chats, saves and shares. Your own account isn&apos;t counted. Days are UTC.
+        A person is one Feta account: on one phone and browser until they sign in with Google, then the same on every phone. So &quot;Everyone&quot; can miss people who came back on another phone or after Safari cleared its data; &quot;Signed in&quot; is the reliable number. Opening Feta counts from 18 Nov 2026; before that, only searches, chats, saves and shares. Your own account isn&apos;t counted, nor (with Real people only) visitors who opened Feta with ?qa=1. Days are UTC.
       </p>
     </div>
   );
