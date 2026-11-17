@@ -169,9 +169,20 @@ export async function fetchFetaPicks(origin: Origin, when: When): Promise<PicksR
 
 // Whether the founder has places in this city, so the star's arrival on
 // Home only says "Feta Picks in <city>" when there are some. Read from
-// Feta's own list: no Google call, free.
-export async function hasFetaPicks(cityId: string): Promise<boolean> {
-  await currentUserId(); // the list is readable once signed in
-  const { count } = await supabase().from("founder_places").select("place_id", { count: "exact", head: true }).eq("city_id", cityId).eq("active", true);
-  return (count ?? 0) > 0;
+// Feta's own list: no Google call, free. Asked each time Home shows, so
+// kept in memory while the app is open.
+const hasPicks = new Map<string, Promise<boolean>>();
+
+export function hasFetaPicks(cityId: string): Promise<boolean> {
+  if (!hasPicks.has(cityId)) {
+    hasPicks.set(
+      cityId,
+      (async () => {
+        await currentUserId(); // the list is readable once signed in
+        const { count } = await supabase().from("founder_places").select("place_id", { count: "exact", head: true }).eq("city_id", cityId).eq("active", true);
+        return (count ?? 0) > 0;
+      })(),
+    );
+  }
+  return hasPicks.get(cityId)!;
 }
