@@ -258,9 +258,11 @@ export const FOOD_DRINK_TYPES = [
 ];
 
 // What's popular nearby for Things to do, the same way food looks at
-// popular places to eat and drink when they've chosen few things.
+// popular places to eat and drink when they've chosen few things. Not
+// "tourist_attraction": in a live check (Bengaluru, 17 Nov 2026) it brought
+// a courthouse, a carpet shop and a mall.
 export const DOING_TYPES = [
-  "tourist_attraction", "art_gallery", "museum", "performing_arts_theater", "cultural_center", "art_studio",
+  "art_gallery", "museum", "performing_arts_theater", "cultural_center", "art_studio",
   "park", "botanical_garden", "hiking_area", "bowling_alley", "amusement_center", "sports_complex",
 ];
 
