@@ -306,6 +306,15 @@ export function brandOf(name: string) {
   return words.find((w) => !GENERIC.has(w) && w.length > 2) ?? words.join(" ");
 }
 
+// Places Feta never recommends on quality: rated below 3.8 by 20 or more
+// people, or with fewer than 5 reviews (often a house, an office or an
+// address, not a place to go). A live run (Bengaluru, 18 Nov 2026) offered a
+// ★1.8 dessert shop and "257, Sri Lakshmi Nrusimha" as a thing to do.
+export function poorlyKnown(place: Place) {
+  const count = place.userRatingCount ?? 0;
+  return count < 5 || (place.rating !== undefined && place.rating < 3.8 && count >= 20);
+}
+
 // fetaNote: set when this is one of the founder's own places ("Feta pick").
 // intents: what the person asked for that this place is (intents.ts).
 // lovedBy: how many Feta users recommend it (Feta Favourites).
@@ -341,7 +350,8 @@ export function applyHardFilters(
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
       (opts.category === "experiences" && isMainlyFoodOrDrink(place) && !opts.foodDrinkOk?.(place)) ||
-      NEVER_PICKS.includes(place.primaryType ?? "")
+      NEVER_PICKS.includes(place.primaryType ?? "") ||
+      poorlyKnown(place)
     ) {
       drop("other");
       continue;

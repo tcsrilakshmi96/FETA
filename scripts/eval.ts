@@ -150,6 +150,23 @@ const PERSONAS: Persona[] = [
     covers: ["interest_outdoors", "loved_0", "loved_1"],
   },
   {
+    name: "Quality: never a badly rated place or one with almost no reviews",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything" },
+    yes: ["cuisine_bakery"],
+    covers: ["cuisine_bakery"],
+    never: /Sad Sweets/,
+  },
+  {
+    name: "Quality, things to do: an address with 2 reviews is not a workshop",
+    city: "Bengaluru",
+    category: "experiences",
+    when: "weekend",
+    answers: { interests: ["workshops"] },
+    never: /Lakshmi Nilaya/,
+  },
+  {
     name: "Things to do, one interest: still 8, filled with what's popular nearby",
     city: "Bengaluru",
     category: "experiences",

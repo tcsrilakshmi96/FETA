@@ -94,6 +94,10 @@ export const CATALOGUE: Row[] = [
   // Far away (beyond 5 km), to test distance.
   ["Far Thai Garden", "thai_restaurant", ["restaurant"], "thai", true, 2, 4.8, 900, "eve", 9.0, 60],
   ["Lakeside Karaoke", "bar", [], "karaoke bar", true, 2, 4.7, 600, "late", 11.0, 200],
+  // Poorly known (live run, 18 Nov 2026): a badly rated dessert shop, and an
+  // address with 2 reviews that a workshop search finds.
+  ["Sad Sweets", "dessert_shop", ["bakery", "cafe"], "bakery desserts cakes", true, 1, 1.8, 120, "eve", 0.3, 10],
+  ["257, Lakshmi Nilaya", "point_of_interest", ["establishment"], "art workshop pottery", null, 0, 5.0, 2, "day", 0.4, 30],
 ];
 
 const HOTELS = ["Hotel Sakura (test hotel)", "Riverside Inn (test hotel)", "Old Town Suites (test hotel)"];
