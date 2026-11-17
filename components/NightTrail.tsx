@@ -22,7 +22,7 @@ function project(places: NightPlace[], w: number, h: number, top: number): Pt[] 
   const k = Math.cos((places.reduce((s, p) => s + p.lat, 0) / places.length) * (Math.PI / 180));
   const xs = places.map((p) => p.lng * k);
   const ys = places.map((p) => -p.lat);
-  const span = (v: number[]) => Math.max(Math.max(...v) - Math.min(...v), 0.004);
+  const span = (v: number[]) => Math.max(Math.max(...v) - Math.min(...v), 0.0015);
   const scale = Math.min((w - PAD.x * 2) / span(xs), (h - top - PAD.bottom) / span(ys));
   const mid = (v: number[]) => (Math.max(...v) + Math.min(...v)) / 2;
   return places.map((_, i) => ({ x: w / 2 + (xs[i] - mid(xs)) * scale, y: top + (h - top - PAD.bottom) / 2 + (ys[i] - mid(ys)) * scale }));
@@ -44,10 +44,50 @@ function legPaths(pts: Pt[]) {
 }
 
 // A label just left or right of its stop, as wide as the room on that side.
-function beside(pt: Pt, left: boolean, w: number): React.CSSProperties {
-  const room = Math.max(100, (left ? pt.x : w - pt.x) - 22);
-  return left ? { right: w - pt.x + 10, top: pt.y, maxWidth: room } : { left: pt.x + 10, top: pt.y, maxWidth: room };
+type Spot = { left: boolean; dy: number };
+const LABEL_H = 44;
+const room = (pt: Pt, left: boolean, w: number) => Math.max(100, (left ? pt.x : w - pt.x) - 22);
+function beside(pt: Pt, spot: Spot, w: number): React.CSSProperties {
+  const maxWidth = room(pt, spot.left, w);
+  return spot.left ? { right: w - pt.x + 10, top: pt.y + spot.dy, maxWidth } : { left: pt.x + 10, top: pt.y + spot.dy, maxWidth };
 }
+
+// Stops close together (one neighbourhood) put their labels on top of each
+// other (live run, 18 Nov 2026). Each label, top to bottom, takes the
+// nearest free spot right beside its stop, on a side where it fits; a walk
+// or ride chip under a label is left out (the times are in Edit too).
+function layout(pts: Pt[], names: string[], w: number): { spots: Spot[]; boxes: Box[] } {
+  const width = (i: number, left: boolean) => Math.min(room(pts[i], left, w), Math.max(70, names[i].length * 7.4) + 18);
+  const box = (i: number, s: Spot): Box => {
+    const wd = width(i, s.left);
+    const x0 = s.left ? pts[i].x - 10 - wd : pts[i].x + 10;
+    const y0 = pts[i].y + s.dy - LABEL_H / 2;
+    return { x0, x1: x0 + wd, y0, y1: y0 + LABEL_H };
+  };
+  const placed: Box[] = [];
+  const free = (b: Box) => placed.every((o) => !overlap(b, o));
+  const spots: Spot[] = pts.map(() => ({ left: false, dy: 0 }));
+  // A side only counts if the label fits there without being cut short.
+  const fits = (i: number, left: boolean) => (left ? pts[i].x : w - pts[i].x) - 22 >= Math.min(140, Math.max(70, names[i].length * 7.4) + 18);
+  for (const i of pts.map((_, i) => i).sort((a, b) => pts[a].y - pts[b].y)) {
+    const natural = pts[i].x > w / 2;
+    const sides = [natural, !natural].filter((left) => fits(i, left));
+    let spot: Spot | null = null;
+    // Nearest free spot: a little up or down, on a side where it fits.
+    for (let n = 0; n <= 6 && !spot; n++) {
+      const dy = (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 8;
+      for (const left of sides.length ? sides : [natural]) {
+        if (!spot && free(box(i, { left, dy }))) spot = { left, dy };
+      }
+    }
+    spots[i] = spot ?? { left: natural, dy: 0 };
+    placed.push(box(i, spots[i]));
+  }
+  return { spots, boxes: placed };
+}
+
+type Box = { x0: number; x1: number; y0: number; y1: number };
+const overlap = (a: Box, b: Box) => !(a.x1 + 4 < b.x0 || b.x1 + 4 < a.x0 || a.y1 + 4 < b.y0 || b.y1 + 4 < a.y0);
 
 export default function NightTrail({ night, weekday, country, closed = [], room = 0 }: { night: Night; weekday: number; country: string; closed?: NightPlace[]; room?: number }) {
   const box = useRef<HTMLDivElement>(null);
@@ -71,6 +111,8 @@ export default function NightTrail({ night, weekday, country, closed = [], room 
   const pts = size && all.length ? project(all, size.w, size.h, PAD.top + room) : [];
   const stopPts = pts.slice(0, night.stops.length);
   const legs = legPaths(stopPts);
+  const { spots, boxes } = size ? layout(pts, all.map((p) => p.name), size.w) : { spots: [], boxes: [] };
+  const chipFree = (c: Pt) => boxes.every((b) => !overlap(b, { x0: c.x - 36, x1: c.x + 36, y0: c.y - 11, y1: c.y + 11 }));
   const key = `${night.stops.map((s) => `${s.place.placeId}@${s.at}`).join(",")}|${size?.w}x${size?.h}|${room}`;
 
   // The cheese rides each leg in turn; each stop appears as it arrives.
@@ -139,11 +181,11 @@ export default function NightTrail({ night, weekday, country, closed = [], room 
           {night.stops.map((s, i) => {
             const pt = stopPts[i];
             const on = shown.has(`s${i}`);
-            const side = pt.x > w / 2 ? styles.left : styles.right;
+            const side = spots[i].left ? styles.left : styles.right;
             return (
               <span key={s.place.placeId}>
                 <span className={`${styles.spot} ${on ? styles.on : ""}`} style={{ left: pt.x, top: pt.y }} />
-                <span className={`${styles.label} ${side} ${on ? styles.on : ""}`} style={beside(pt, side === styles.left, w)}>
+                <span className={`${styles.label} ${side} ${on ? styles.on : ""}`} style={beside(pt, spots[i], w)}>
                   <span className={styles.time}>{minuteClock(s.at).toUpperCase()}</span>
                   <strong>{s.place.name}</strong>
                   <small>{stopNote(night, i, weekday)}</small>
@@ -153,18 +195,19 @@ export default function NightTrail({ night, weekday, country, closed = [], room 
           })}
           {closed.map((p, i) => {
             const pt = pts[night.stops.length + i];
-            const side = pt.x > w / 2 ? styles.left : styles.right;
+            const spot = spots[night.stops.length + i];
+            const side = spot.left ? styles.left : styles.right;
             return (
               <span key={p.placeId}>
                 <span className={`${styles.spot} ${styles.closed} ${styles.on}`} style={{ left: pt.x, top: pt.y }} />
-                <span className={`${styles.label} ${styles.closed} ${side} ${styles.on}`} style={beside(pt, side === styles.left, w)}>
+                <span className={`${styles.label} ${styles.closed} ${side} ${styles.on}`} style={beside(pt, spot, w)}>
                   <strong>{p.name}</strong>
                 </span>
               </span>
             );
           })}
           {night.stops.slice(1).map((s, i) =>
-            legSpots[i] && s.leg ? (
+            legSpots[i] && s.leg && chipFree(legSpots[i]) ? (
               <span key={`leg-${i}`} className={`${styles.leg} ${shown.has(`l${i}`) ? styles.on : ""}`} style={{ left: legSpots[i].x, top: legSpots[i].y }}>
                 {s.leg.mode === "walk" ? "🚶" : country === "IN" ? "🛺" : "🚕"} {s.leg.minutes} min
               </span>
