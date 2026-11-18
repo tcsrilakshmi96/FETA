@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
 import TabBar from "@/components/TabBar";
-import TellFeta from "@/components/TellFeta";
+import YourTaste from "@/components/YourTaste";
 import { useToast } from "@/components/Toast";
 import {
   readGoogleReturn,
@@ -41,17 +41,6 @@ const SOURCE_LABELS: Record<string, string> = {
   checkin: "From an outing",
   tweaks: "From your tweaks",
 };
-
-// Lines from the answers and taste cards are changed by redoing them (they
-// also drive the filters); lines from chat, tweaks or typed here are words.
-const FOOD_KEYS = ["cuisines", "novelty", "style", "vibe", "diet", "avoid", "food_other", "drinks", "spend"];
-const DOING_KEYS = ["energy", "move_make", "play_unwind", "crowd_circle", "interests", "loves_other"];
-
-function groupOf(line: Line) {
-  if (FOOD_KEYS.includes(line.key)) return "food";
-  if (DOING_KEYS.includes(line.key)) return "doing";
-  return "rest";
-}
 
 const fixed = (line: Line) => line.source === "answers" || line.source === "swipes";
 
@@ -274,11 +263,6 @@ export default function You() {
     );
   }
 
-  const groups = [
-    { id: "food", title: "FOOD & DRINKS", lines: mine.filter((l) => groupOf(l) === "food") },
-    { id: "doing", title: "THINGS TO DO", lines: mine.filter((l) => groupOf(l) === "doing") },
-    { id: "rest", title: "HOW YOU GO OUT", lines: mine.filter((l) => groupOf(l) === "rest") },
-  ];
   const people = PEOPLE.map((p) => ({
     ...p,
     lines: everyday.filter((l) => aboutOf(l) === p.id),
@@ -310,25 +294,7 @@ export default function You() {
             </span>
           </div>
         )}
-        <TellFeta hint="e.g. Burmese food, pickleball, quiet rooftops" onAdded={async () => setProfile(await loadProfile())} />
-
-        {mine.length === 0 && (
-          <p className={styles.empty}>
-            Nothing yet. Your answers, taste cards and talks with Ask Feta will fill this in.
-          </p>
-        )}
-        {groups.map(
-          (g) =>
-            g.lines.length > 0 && (
-              <section key={g.id}>
-                <p className={styles.group}>{g.title}</p>
-                <ul className={styles.lines}>{g.lines.map(lineRow)}</ul>
-              </section>
-            ),
-        )}
-        <div className={styles.addWrap}>
-          {addForm(null, "e.g. Loves rooftop places")}
-        </div>
+        <YourTaste lines={mine} onChange={async () => setProfile(await loadProfile())} />
         <div className={styles.links}>
           <button
             type="button"
@@ -336,20 +302,6 @@ export default function You() {
             onClick={() => router.push("/start?from=you")}
           >
             What I want from Feta
-          </button>
-          <button
-            type="button"
-            className={styles.chipLink}
-            onClick={() => router.push("/questions?from=you")}
-          >
-            Change my preferences
-          </button>
-          <button
-            type="button"
-            className={styles.chipLink}
-            onClick={() => router.push("/swipes?from=you")}
-          >
-            More taste cards
           </button>
           <button
             type="button"

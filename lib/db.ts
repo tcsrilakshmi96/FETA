@@ -49,11 +49,13 @@ export async function restoreFromAccount(): Promise<boolean> {
 // (say, on a bad connection) the copy on the phone still lets the flow
 // continue, and the error is logged.
 
+// Saves for the signed-in (or anonymous) account; false if it didn't save.
 async function run(label: string, write: (userId: string) => PromiseLike<{ error: { message: string } | null }>) {
   const userId = await currentUserId();
-  if (!userId) return;
+  if (!userId) return false;
   const { error } = await write(userId);
   if (error) console.error(`Saving ${label} failed`, error.message);
+  return !error;
 }
 
 function logConsent(userId: string, kind: string, granted: boolean) {

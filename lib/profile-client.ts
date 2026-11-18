@@ -76,10 +76,11 @@ export async function editLine(id: string, text: string) {
 }
 
 // "Add something" on You, about them or about someone they go out with.
-export async function addLine(text: string, about: Person | null): Promise<Line | null> {
+// A line of their own words about food or things to do is filed there in You.
+export async function addLine(text: string, about: Person | null, section?: "food" | "do"): Promise<Line | null> {
   const userId = await currentUserId();
   if (!userId) return null;
-  const key = `${about ? `people:${about}` : "you"}:${crypto.randomUUID()}`;
+  const key = `${about ? `people:${about}` : section ? `you:${section}` : "you"}:${crypto.randomUUID()}`;
   const { data, error } = await supabase()
     .from("profile_lines")
     .insert({ user_id: userId, line_key: key, text: text.trim().slice(0, 80), source: "you" })
