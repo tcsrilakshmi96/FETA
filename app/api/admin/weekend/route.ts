@@ -38,7 +38,7 @@ export type WeekendDraft = {
   message: string;
 };
 
-const SITE = "https://feta-beige.vercel.app";
+const SITE = "https://askfeta.com";
 const MAX_PLACES = 8; // live lookups per person (Google charges each one)
 const WEEK = 7 * 24 * 60;
 

@@ -2,7 +2,7 @@
 
 **Fashion, Experience, Travel — all in one.** A personal AI lifestyle companion that learns your taste and decides for you: places to eat and drink, things to do, and trips, each with an honest reason. The more you share, the more it curates for you.
 
-Live (friends test): **https://feta-beige.vercel.app** · phone-first web app, light and dark mode.
+Live (friends test): **https://askfeta.com** (also feta-beige.vercel.app) · phone-first web app, light and dark mode.
 
 > Status: v1 alpha, November 2026, international from day one. Built by the founder with Claude Code.
 

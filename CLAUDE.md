@@ -7,7 +7,7 @@ This page holds the **current rules only**. The reasons and history behind them 
 ## Working with the founder
 - Srilakshmi is non-technical. Explain in plain English, one short paragraph at a time. Think about the whole flow and the root cause before building; mock up UX changes first.
 - **No stacking.** If a fix needs a special case on top of other logic, the base is wrong: change the base and delete what it replaces.
-- **One change per commit.** She tests the whole set together on https://feta-beige.vercel.app (auto-deploys from main), so push when the set is done and tested.
+- **One change per commit.** She tests the whole set together on https://askfeta.com (auto-deploys from main; feta-beige.vercel.app still works), so push when the set is done and tested.
 - **Quality check first.** Every change to picks must pass `npm run eval` (realistic profiles against made-up places, ₹0). Add a profile when a tester finds a new kind of miss. A live run (`EVAL_LIVE=1`, about ₹50) only with her OK.
 - Ask before adding a paid service, creating accounts, deleting anything, or spending money on tests. Never put keys or secrets in code or commits (`.env.local`, listed in `.env.example`). Migrations go on her clipboard for the Supabase SQL Editor.
 - Suggest automations (n8n, Vercel, Claude scheduled tasks) in a line or two when a step could be automated; don't set them up without her go-ahead.
