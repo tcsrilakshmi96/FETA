@@ -207,7 +207,8 @@ export function popularCap(taste: Taste) {
 
 // ---------- Hard filters, enforced in code ----------
 
-const DISTANCE_KM: Record<string, number> = { closer_1km: 1, walk_2km: 2, ride_5km: 5, city: 15 };
+// day_trip: only when they ask in chat to go further out (a hike, a beach).
+const DISTANCE_KM: Record<string, number> = { closer_1km: 1, walk_2km: 2, ride_5km: 5, city: 15, day_trip: 80 };
 
 export function distanceLimitKm(answers: Answers) {
   return DISTANCE_KM[answers.distance ?? ""] ?? 5;
@@ -334,7 +335,7 @@ export function emptyDrops(): DropCounts {
 // thing to do (karaoke, a rooftop, board games).
 export function applyHardFilters(
   places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean },
+  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At },
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
@@ -377,11 +378,17 @@ export function applyHardFilters(
       continue;
     }
     // A day plan checks each stop's hours for its own day and time (itinerary.ts).
+    // A time asked for in chat ("tomorrow morning") is checked for that time;
+    // things to do with no hours on Google (a trail, a lake) pass.
     if (
       !opts.anyHours &&
-      ((opts.when === "tonight" && !openTonight(place, opts.city)) ||
-      (opts.when === "weekend" && !opensOnWeekend(place)) ||
-      (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
+      (opts.at
+        ? place.regularOpeningHours?.periods?.length
+          ? !openFor(place, opts.at.weekday, opts.at.start, opts.at.minutes)
+          : opts.category === "food_drinks"
+        : (opts.when === "tonight" && !openTonight(place, opts.city)) ||
+          (opts.when === "weekend" && !opensOnWeekend(place)) ||
+          (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
     ) {
       drop("hours");
       continue;
@@ -447,6 +454,24 @@ function opensLate(place: Place, city: City) {
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: city.timeZone }).format(new Date(close)));
   const hoursAway = (new Date(close).getTime() - Date.now()) / 3600000;
   return hour >= 23 || hour < 5 || hoursAway >= 6;
+}
+
+// A day and time asked for: weekday (0 Sunday), minutes after midnight, how long.
+export type At = { weekday: number; start: number; minutes: number };
+
+const WEEK = 7 * 24 * 60;
+
+// Open on that weekday from "start" for "minutes", by the place's weekly hours.
+export function openFor(place: Place, day: number, start: number, minutes: number) {
+  const periods = place.regularOpeningHours?.periods ?? [];
+  const from = day * 24 * 60 + start;
+  return periods.some(({ open, close }) => {
+    if (!close) return true; // open all day, every day
+    const o = open.day * 1440 + (open.hour ?? 0) * 60 + (open.minute ?? 0);
+    let c = close.day * 1440 + (close.hour ?? 0) * 60 + (close.minute ?? 0);
+    if (c <= o) c += WEEK;
+    return [from, from + WEEK].some((f) => f >= o && f + minutes <= c);
+  });
 }
 
 function opensOnWeekend(place: Place) {

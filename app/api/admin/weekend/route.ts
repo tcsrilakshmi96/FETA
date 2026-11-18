@@ -2,7 +2,7 @@ import { distanceKm } from "@/lib/cities";
 import { cityById } from "@/lib/server/cities";
 import { withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
-import type { StoredPick } from "@/lib/server/picks";
+import { openFor, type StoredPick } from "@/lib/server/picks";
 import { userDb } from "@/lib/server/taste";
 
 export const maxDuration = 60;
@@ -40,21 +40,6 @@ export type WeekendDraft = {
 
 const SITE = "https://askfeta.com";
 const MAX_PLACES = 8; // live lookups per person (Google charges each one)
-const WEEK = 7 * 24 * 60;
-
-// Open on that weekday from "start" (minutes after midnight) for "minutes",
-// by the place's weekly hours. Places with no hours on Google are left out.
-function openFor(place: Place, day: number, start: number, minutes: number) {
-  const periods = place.regularOpeningHours?.periods ?? [];
-  const from = day * 24 * 60 + start;
-  return periods.some(({ open, close }) => {
-    if (!close) return true; // open all day, every day
-    const o = open.day * 1440 + (open.hour ?? 0) * 60 + (open.minute ?? 0);
-    let c = close.day * 1440 + (close.hour ?? 0) * 60 + (close.minute ?? 0);
-    if (c <= o) c += WEEK;
-    return [from, from + WEEK].some((f) => f >= o && f + minutes <= c);
-  });
-}
 
 function areaOf(place: Place) {
   const parts = place.addressComponents ?? [];

@@ -22,6 +22,7 @@ import {
   type Ranked,
   type Taste,
   type Tweak,
+  type At,
   type When,
 } from "@/lib/server/picks";
 import { sideById } from "@/lib/swipes";
@@ -54,6 +55,7 @@ export type CurateInput = {
   extra?: Intent[]; // read from their own words (taste-reader.ts)
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
+  at?: At; // a day and time asked for in chat, checked instead of tonight or the weekend
   // The founder's places and other Feta users' favourites, checked against
   // the same hard filters (engine.ts).
   favourites?: (pool: Candidate[]) => Promise<Candidate[]>;
@@ -78,7 +80,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 2. Find.
   const limit = distanceLimitKm(taste.answers);
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: input.needsDiet, regionCode: city.country };
-  const text = (query: string, radiusKm: number) => searchPlaces({ ...common, query, radiusKm, openNow: when === "tonight" && tonightMeansNow(city) });
+  const text = (query: string, radiusKm: number) => searchPlaces({ ...common, query, radiusKm, openNow: !input.at && when === "tonight" && tonightMeansNow(city) });
   // What's popular nearby, only places that are mainly that kind of place.
   const nearby = (radiusKm: number) => searchNearby({ ...common, types: category === "food_drinks" ? FOOD_DRINK_TYPES : DOING_TYPES, radiusKm, rank: "POPULARITY" }).then((r) => r.filter((p) => mainlyOf(p, category)));
   const found = new Map<string, { place: Place; from: Set<string> }>();
@@ -108,6 +110,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       exclude: input.exclude,
       city,
       anyHours: input.dayPlan,
+      at: input.at,
       foodDrinkOk: (p) => matched(p).some((id) => plan.searched.find((i) => i.id === id)?.def.foodDrink),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };

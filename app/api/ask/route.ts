@@ -34,6 +34,10 @@ type VeniceReply = {
     place?: string | null;
     tweaks?: string[];
     note?: string;
+    day?: string | null; // YYYY-MM-DD, a particular day ("tomorrow")
+    time?: string | null; // HH:MM, a time of day ("a sunrise hike")
+    hours?: number; // how long they'll be there
+    further?: boolean; // worth going beyond their usual distance
   } | null;
   why?: boolean;
   options?: string[];
@@ -92,13 +96,15 @@ Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countr
 What Feta knows about them:
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 ${currentTrip ? `\nThe trip you're planning together: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}. It's saved in Saved; its card has the next steps (getting around, hotels, then day plans for each city, which are kept with the trip). For day plans in its cities, point them to the card's "plan days" buttons instead of sending an itinerary.\n` : ""}
-Besides talking, you can do one of these per reply (leave the others null). Feta's own search finds the real places, checked against their diet, budget, distance and opening hours; you never name places yourself.
-- "search": places to eat or drink, or things to do, now or this weekend: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz"}. Feta shows the best 3.
+Be a real assistant, not a menu. Help with anything about eating out, things to do, days out and trips, even when it isn't one of Feta's usual options (a sunrise hike, a pottery class, a quiet place to read, the best time to go, what to bring or wear). Suggest things they may not have thought of, from what you know about them, and say why; offer a natural next step ("Breakfast near the trail after?"). Put what you learn about them in "learned" (e.g. "Into hikes and sunrise treks"), so Feta gets to know them over time.
+Real places come only from Feta's own search, which checks them against their diet, budget, distance and opening hours. Never present a place as checked yourself; you may name a well-known place or landmark in a search "note" so Feta looks it up.
+Besides talking, you can do one of these per reply (leave the others null).
+- "search": places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match.
 - "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
 - "route": any trip: travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
-{"reply": what you say, 1 to 3 short sentences,
+{"reply": what you say, 1 to 4 short sentences,
  "options": 2 to 4 tap-able answers (under 5 words each) when you ask a question, else [],
  "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line, "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
  "weekend": null, or a short phrase when they mention something they want to do this weekend,
@@ -263,9 +269,12 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     } else if (!origin) {
       notice = `I couldn't find ${s.place ?? parsed.trip?.place} on the map. Try a nearby city?`;
     } else {
+      const at = askedTime(s, origin.city);
       const res = await withCosts(db, "ask", () => runPicks(token, {
           category: s.category === "experiences" ? "experiences" : "food_drinks",
-          when: s.when === "weekend" || tripLabel ? "weekend" : "tonight",
+          when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
+          ...(at ? { at } : {}),
+          ...(s.further ? { reach: "day_trip" } : {}),
           origin,
           tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
           // Their own words lead, and always mean a fresh search (never
@@ -279,8 +288,11 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       // hike, got a bowling alley). Nothing that matches is said plainly.
       const asked = (data.picks ?? []).filter((p) => p.serves?.includes("asked"));
       picks = asked.slice(0, 3);
-      const what = ((s.note ?? "").trim() || "that").slice(0, 60);
-      notice = data.notice ?? (picks.length ? undefined : `I couldn't find ${what} that fits ${s.when === "weekend" || tripLabel ? "this weekend" : "tonight"} within your distance. Want me to look further out, or another day?`);
+      // Why nothing came back, in chat words: the engine's reason without its
+      // tips for the picks screen, then what Feta can try next.
+      const whenText = at ? dayText(at.day, origin.city) : s.when === "weekend" || tripLabel ? "this weekend" : "tonight";
+      const reason = data.notice?.replace(/\s*Try [^.]*\.$/, "") || `Nothing I found fits ${whenText}${s.further ? "" : " within your distance"}.`;
+      notice = picks.length ? undefined : `${reason} ${s.further ? "Want to try another day, or something similar?" : "Want me to look further out, or another day?"}`;
     }
   }
 
@@ -306,6 +318,32 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   ]);
 
   return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(notice ? { notice } : {}), ...(options.length && !s && !tripId ? { options } : {}) } satisfies AskReply);
+}
+
+// The day and time asked for, in the city's own time: a time with no day
+// is today (tomorrow if it has passed); a day with no time is midday for
+// things to do and 7:30 pm for food.
+function askedTime(s: NonNullable<VeniceReply["search"]>, city: City): { day: string; start: number; minutes: number } | null {
+  const time = /^(\d{1,2}):(\d{2})$/.exec(s.time ?? "");
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(s.day ?? "") ? s.day! : null;
+  if (!time && !day) return null;
+  const now = new Date();
+  const local = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: city.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: city.timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(now).split(":").map(Number);
+  const start = time ? Number(time[1]) * 60 + Number(time[2]) : s.category === "experiences" ? 12 * 60 : 19 * 60 + 30;
+  const passed = !day && start <= h * 60 + m;
+  return { day: day ?? local(new Date(now.getTime() + (passed ? 86400000 : 0))), start, minutes: Math.round(Math.min(6, Math.max(1, s.hours ?? 2)) * 60) };
+}
+
+// "tomorrow", "Friday", or "on 3 Dec", from the city's today.
+function dayText(day: string, city: City) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: city.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const days = Math.round((Date.parse(day) - Date.parse(today)) / 86400000);
+  const date = new Date(`${day}T12:00:00Z`);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days > 1 && days < 7) return `on ${new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(date)}`;
+  return `on ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(date)}`;
 }
 
 // Where to search: a city anywhere in the world (by name, from Feta's own

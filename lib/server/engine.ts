@@ -36,6 +36,7 @@ import {
   type StoredPick,
   type Taste,
   type When,
+  type At,
 } from "@/lib/server/picks";
 
 // Cost guards (founder can change these in Vercel without a code change).
@@ -64,6 +65,11 @@ type Body = {
   more?: boolean; // "Show me more", once the backup places run out
   tweaks?: string[]; // from the Tweak sheet
   note?: string; // free text from the Tweak sheet
+  // Ask Feta (founder, 18 Nov 2026: "it has to work like an AI assistant"):
+  // a day and time ("tomorrow at 7 am", for 3 hours) checked instead of
+  // tonight or the weekend, and how far they'll go for this one ask.
+  at?: { day: string; start: number; minutes: number };
+  reach?: "day_trip";
 };
 
 // spares: the next best places, kept on the phone for "Show me more".
@@ -125,10 +131,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const tweaks = (body.tweaks ?? []).filter((t) => TWEAKS.includes(t as Tweak)) as Tweak[];
   const note = (body.note ?? "").slice(0, 200).trim();
   const tweaked = tweaks.length > 0 || note.length > 0;
-  const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}` : originKey;
+  const at: At | undefined = body.at && /^\d{4}-\d{2}-\d{2}$/.test(body.at.day) ? { weekday: new Date(`${body.at.day}T12:00:00Z`).getUTCDay(), start: Math.min(1439, Math.max(0, Math.round(body.at.start) || 0)), minutes: Math.min(720, Math.max(30, Math.round(body.at.minutes) || 60)) } : undefined;
+  const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
   // "Anywhere in Goa" or a trip destination means the whole place, not a
   // walk from its centre.
-  const wide = body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: "city" } } : taste;
+  const wide = body.reach || body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: body.reach ?? "city" } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
   // 1. Recent picks for the same place come back the same: one fresh search
@@ -211,6 +218,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       rotation,
       extra,
       dayPlan: !!body.dayPlan,
+      at,
       favourites: (pool) =>
         fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, pool }),
     });
