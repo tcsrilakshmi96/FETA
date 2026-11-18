@@ -274,9 +274,13 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
           ...(tripLabel ? { trip: tripLabel } : {}),
       }));
       const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
-      // Chat shows a short answer: the best 3.
-      picks = (data.picks ?? []).slice(0, 3);
-      notice = data.notice;
+      // Chat answers what was asked: the best 3 places that match it, never
+      // the rest of their everyday set (founder, 18 Nov 2026: asked for a
+      // hike, got a bowling alley). Nothing that matches is said plainly.
+      const asked = (data.picks ?? []).filter((p) => p.serves?.includes("asked"));
+      picks = asked.slice(0, 3);
+      const what = ((s.note ?? "").trim() || "that").slice(0, 60);
+      notice = data.notice ?? (picks.length ? undefined : `I couldn't find ${what} that fits ${s.when === "weekend" || tripLabel ? "this weekend" : "tonight"} within your distance. Want me to look further out, or another day?`);
     }
   }
 
