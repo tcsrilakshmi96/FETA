@@ -15,6 +15,8 @@ import { curate, pickFrom } from "@/lib/server/curate";
 import { mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
+import { readFileSync } from "node:fs";
+import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
 
@@ -306,6 +308,11 @@ async function main() {
     failed++;
     console.log(`✗ Choices with no search words: ${gaps.join(", ")}`);
   } else console.log("✓ Every choice on screen has search words");
+  // Admin's database check reads this list; a new migration must be in it.
+  if (readFileSync(OUT, "utf8") !== schemaJson()) {
+    failed++;
+    console.log(`✗ ${OUT} is out of date with the migrations: run npm run schema`);
+  } else console.log("✓ The database check knows every migration");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

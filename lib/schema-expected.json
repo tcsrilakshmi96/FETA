@@ -1,0 +1,332 @@
+[
+ {
+  "kind": "function",
+  "name": "handle_new_user",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "function",
+  "name": "delete_my_data",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "profiles",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "consent_log",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "answers",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "swipes",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "profile_lines",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "table",
+  "name": "city_interest",
+  "file": "20261110120000_onboarding.sql"
+ },
+ {
+  "kind": "function",
+  "name": "pick_searches_today",
+  "file": "20261110180000_picks.sql"
+ },
+ {
+  "kind": "table",
+  "name": "pick_sets",
+  "file": "20261110180000_picks.sql"
+ },
+ {
+  "kind": "table",
+  "name": "pick_actions",
+  "file": "20261110180000_picks.sql"
+ },
+ {
+  "kind": "table",
+  "name": "chat_messages",
+  "file": "20261111090000_lists_and_chat.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.note",
+  "file": "20261111090000_lists_and_chat.sql"
+ },
+ {
+  "kind": "table",
+  "name": "feedback",
+  "file": "20261111120000_feedback_style_learning.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_interest",
+  "file": "20261111120000_feedback_style_learning.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.because",
+  "file": "20261111120000_feedback_style_learning.sql"
+ },
+ {
+  "kind": "function",
+  "name": "is_admin",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "function",
+  "name": "get_share",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "function",
+  "name": "cast_vote",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "function",
+  "name": "share_votes_for",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "table",
+  "name": "admins",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "table",
+  "name": "founder_places",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "table",
+  "name": "events_cache",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "table",
+  "name": "shares",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "table",
+  "name": "share_votes",
+  "file": "20261111160000_feta_picks_plans_shares.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_report",
+  "file": "20261111200000_usage_report.sql"
+ },
+ {
+  "kind": "table",
+  "name": "report_keys",
+  "file": "20261111200000_usage_report.sql"
+ },
+ {
+  "kind": "function",
+  "name": "spend_today_inr",
+  "file": "20261111220000_costs_and_any_city.sql"
+ },
+ {
+  "kind": "table",
+  "name": "api_costs",
+  "file": "20261111220000_costs_and_any_city.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.city_name",
+  "file": "20261111220000_costs_and_any_city.sql"
+ },
+ {
+  "kind": "function",
+  "name": "weekend_plan_inputs",
+  "file": "20261112090000_you_and_weekend_plan.sql"
+ },
+ {
+  "kind": "table",
+  "name": "weekend_wishes",
+  "file": "20261112090000_you_and_weekend_plan.sql"
+ },
+ {
+  "kind": "table",
+  "name": "weekend_sent",
+  "file": "20261112090000_you_and_weekend_plan.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.weekend_for",
+  "file": "20261112090000_you_and_weekend_plan.sql"
+ },
+ {
+  "kind": "function",
+  "name": "feedback_since",
+  "file": "20261112180000_feedback_for_sheet.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.visits",
+  "file": "20261112220000_my_places_and_checkin.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.verdict",
+  "file": "20261112220000_my_places_and_checkin.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.diet_ok",
+  "file": "20261112220000_my_places_and_checkin.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.checkin_asked_at",
+  "file": "20261112220000_my_places_and_checkin.sql"
+ },
+ {
+  "kind": "function",
+  "name": "acted_report",
+  "file": "20261113090000_group_choice_and_actions.sql"
+ },
+ {
+  "kind": "table",
+  "name": "pick_events",
+  "file": "20261113090000_group_choice_and_actions.sql"
+ },
+ {
+  "kind": "column",
+  "name": "profiles.first_name",
+  "file": "20261114090000_new_setup.sql"
+ },
+ {
+  "kind": "column",
+  "name": "profiles.wants",
+  "file": "20261114090000_new_setup.sql"
+ },
+ {
+  "kind": "column",
+  "name": "answers.avoid",
+  "file": "20261114090000_new_setup.sql"
+ },
+ {
+  "kind": "table",
+  "name": "trips",
+  "file": "20261114120000_trips.sql"
+ },
+ {
+  "kind": "column",
+  "name": "trips.days",
+  "file": "20261114140000_trip_days.sql"
+ },
+ {
+  "kind": "function",
+  "name": "feta_favourites",
+  "file": "20261115090000_feta_favourites.sql"
+ },
+ {
+  "kind": "function",
+  "name": "feta_love_counts",
+  "file": "20261115090000_feta_favourites.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_actions.recommend",
+  "file": "20261115090000_feta_favourites.sql"
+ },
+ {
+  "kind": "function",
+  "name": "locate_founder_places",
+  "file": "20261117090000_founder_place_locations.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.lat",
+  "file": "20261117090000_founder_place_locations.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.lng",
+  "file": "20261117090000_founder_place_locations.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.located_at",
+  "file": "20261117090000_founder_place_locations.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.from_app",
+  "file": "20261117100000_founder_loved_places.sql"
+ },
+ {
+  "kind": "table",
+  "name": "saved_plans",
+  "file": "20261117140000_saved_plans.sql"
+ },
+ {
+  "kind": "function",
+  "name": "my_share_replies",
+  "file": "20261118090000_share_replies.sql"
+ },
+ {
+  "kind": "column",
+  "name": "shares.plan_id",
+  "file": "20261118090000_share_replies.sql"
+ },
+ {
+  "kind": "column",
+  "name": "shares.replies_seen_at",
+  "file": "20261118090000_share_replies.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_active_days",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_people",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_cohorts",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_numbers",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "function",
+  "name": "usage_dashboard",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "table",
+  "name": "visits",
+  "file": "20261118100000_usage_and_retention.sql"
+ },
+ {
+  "kind": "column",
+  "name": "profiles.is_test",
+  "file": "20261118110000_test_visitors.sql"
+ },
+ {
+  "kind": "function",
+  "name": "schema_objects",
+  "file": "20261118130000_schema_health.sql"
+ }
+]

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "eval": "FAKE_PLACES=1 node --conditions=react-server --import tsx scripts/eval.ts",
-    "journey": "node --env-file=.env.local --import tsx scripts/journey.ts"
+    "journey": "node --env-file=.env.local --import tsx scripts/journey.ts",
+    "schema": "node --import tsx scripts/schema.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

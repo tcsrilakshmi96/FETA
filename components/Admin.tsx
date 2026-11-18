@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminFeedback from "@/components/AdminFeedback";
+import AdminHealth from "@/components/AdminHealth";
 import AdminImport from "@/components/AdminImport";
 import AdminUsage from "@/components/AdminUsage";
 import AdminWeekend from "@/components/AdminWeekend";
@@ -124,6 +125,7 @@ export default function Admin() {
       <h1 className={styles.title}>
         Feta <strong>admin</strong>
       </h1>
+      <AdminHealth />
       <div className={styles.tabs} role="tablist">
         {(
           [
