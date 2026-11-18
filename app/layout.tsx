@@ -22,6 +22,8 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Feta",
   description: "Tonight's picks, chosen for your taste.",
+  // Added to an iPhone's home screen, Feta opens full-screen as an app.
+  appleWebApp: { capable: true, title: "Feta", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

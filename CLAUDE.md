@@ -76,5 +76,7 @@ Profile lines (`profile_lines`): from answers and taste cards, typed in their ow
 - `npm run eval`: the quality check (must pass). `FAKE_PLACES=1` dev server: made-up places that look like a real city (`lib/server/fake-places.ts`), fake ranking, no events or photos, ₹0. Chat still calls Venice (a few paise).
 - Live Google only when the change depends on real data: one short run, with her OK, and delete test accounts after.
 
+Installable (founder, 18 Nov 2026): `app/manifest.ts`, icons in `public/icons/`, `app/icon.svg` and `app/apple-icon.png` (the cheese); You shows how to add Feta to the home screen (`components/InstallFeta.tsx`, an Install button where Android offers one). App stores later (Sign in with Apple needed, and native features such as notifications so Apple doesn't reject it as a website wrapper).
+
 ## Not built yet
 Reviews with photos and "Show my review to others", the Jain/vegan "N Feta users said it worked" count, admin review approval, Google Maps saved-places import, Style beyond the teaser, a Schedule tab, Plan my evening in the city's time zone when planning a city in another time zone (it uses the phone's clock).

@@ -409,3 +409,30 @@
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.6);
 }
+
+/* Add Feta to your home screen (InstallFeta). */
+.install {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: rgba(var(--surf), 0.6);
+  font-size: 14px;
+}
+
+.install span {
+  color: rgba(var(--inkRGB), 0.65);
+  font-size: 13.5px;
+}
+
+.install button {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+}

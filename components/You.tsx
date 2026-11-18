@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import InstallFeta from "@/components/InstallFeta";
 import Mascot from "@/components/Mascot";
 import TabBar from "@/components/TabBar";
 import YourTaste from "@/components/YourTaste";
@@ -401,6 +402,8 @@ export default function You() {
           Places you&apos;ve saved, been to or skipped never come back as new
           picks.
         </p>
+
+        <InstallFeta />
 
         <button
           type="button"
