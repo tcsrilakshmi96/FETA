@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import LetsGo from "@/components/LetsGo";
+import Mascot from "@/components/Mascot";
 import PickDetails, { kindLabel } from "@/components/PickDetails";
 import ItineraryView from "@/components/ItineraryView";
 import PickPhoto from "@/components/PickPhoto";
@@ -210,10 +211,13 @@ export default function Ask() {
           </div>
         ))}
         {thinking && (
-          <div className={styles.typing} aria-label="Feta is thinking">
-            <span />
-            <span />
-            <span />
+          <div className={styles.thinking}>
+            <Mascot pose="think" size={34} limbs={false} />
+            <div className={styles.typing} aria-label="Feta is thinking">
+              <span />
+              <span />
+              <span />
+            </div>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Caveat } from "next/font/google";
 import LetsGo from "@/components/LetsGo";
+import Mascot from "@/components/Mascot";
 import PickDetails, { lovedLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useToast } from "@/components/Toast";
@@ -53,7 +54,12 @@ export default function FetaPicksSheet({ origin, when, onClose }: { origin: Orig
           Near you, <strong>loved by Feta</strong>
         </h2>
         <p className={sheet.sub}>Feta&apos;s own favourites and places people with your taste love. All fit your diet and budget.</p>
-        {picks === null && <p className={styles.empty}>Finding them…</p>}
+        {picks === null && (
+          <div className={styles.finding}>
+            <Mascot pose="walk" size={96} />
+            <p className={styles.empty}>Finding them…</p>
+          </div>
+        )}
         {picks?.length === 0 && <p className={styles.empty}>{notice ?? `No Feta Picks within your distance in ${origin.city.name} yet.`}</p>}
         {/* Polaroids, swiped sideways (founder, 16 Nov 2026): the founder's
             note in handwriting, so they read like a friend's recommendations. */}
