@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Mascot from "@/components/Mascot";
 import { markRepliesSeen, shareLink, type MyShare, type Reply } from "@/lib/share-client";
 import sheet from "./Sheet.module.css";
 import styles from "./WhosComing.module.css";
@@ -41,6 +42,8 @@ export default function WhosComing({ title, shares, onOpen, onClose, onSeen }: {
     <>
       <div className={sheet.dim} onClick={onClose} />
       <div className={sheet.sheet} role="dialog" aria-label={`Who's coming ${title}?`}>
+        {/* Cheers when someone's in; waits, thinking, until anyone replies. */}
+        <Mascot pose={replies.some((r) => r.vote === "yes") ? "cheer" : replies.length ? "idle" : "think"} size={84} />
         <h2 className={sheet.title}>
           Who&apos;s coming <strong>{title}?</strong>
         </h2>
