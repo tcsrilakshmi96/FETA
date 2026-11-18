@@ -17,6 +17,7 @@ import PlanSheet from "@/components/PlanSheet";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import TesterForm from "@/components/TesterForm";
+import ThisWeek from "@/components/ThisWeek";
 import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
@@ -302,6 +303,9 @@ export default function Home() {
               <span className={styles.tileSub}>Have a look ›</span>
             </button>
           </div>
+
+          {/* What's on in the city this week, chosen for them, linking out to book. */}
+          <ThisWeek city={city} />
 
           {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}
           <button type="button" className={`${styles.tile} ${styles.trip}`} onClick={() => router.push(`/ask?q=${encodeURIComponent("Plan a trip for me")}`)}>

@@ -186,3 +186,29 @@ export function hasFetaPicks(cityId: string): Promise<boolean> {
   }
   return hasPicks.get(cityId)!;
 }
+
+// "This week in <city>" (app/api/this-week): kept in memory for two hours.
+export type WeekEvent = { title: string; venueName: string; date: string; time: string; priceText: string; url: string; because?: string; site: string };
+const weekKept = new Map<string, { at: number; reply: { events: WeekEvent[]; searchHtml: string } }>();
+
+export async function fetchThisWeek(cityId: string): Promise<{ events: WeekEvent[]; searchHtml: string }> {
+  const hit = weekKept.get(cityId);
+  if (hit && Date.now() - hit.at < 2 * 3600 * 1000) return hit.reply;
+  await currentUserId();
+  const { data } = await supabase().auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return { events: [], searchHtml: "" };
+  try {
+    const res = await fetch("/api/this-week", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ cityId }),
+    });
+    const reply = (await res.json()) as { events?: WeekEvent[]; searchHtml?: string };
+    const out = { events: reply.events ?? [], searchHtml: reply.searchHtml ?? "" };
+    if (res.ok && out.events.length) weekKept.set(cityId, { at: Date.now(), reply: out });
+    return out;
+  } catch {
+    return { events: [], searchHtml: "" };
+  }
+}
