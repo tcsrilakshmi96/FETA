@@ -24,8 +24,7 @@
 }
 
 .die {
-  font-size: 70px;
-  line-height: 1;
+  display: block;
   filter: drop-shadow(0 14px 16px rgba(0, 0, 0, 0.25));
   animation: roll 0.9s ease-in-out infinite;
 }

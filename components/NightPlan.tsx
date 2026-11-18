@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Mascot from "@/components/Mascot";
 import NightTrail from "@/components/NightTrail";
 import SendToGroup from "@/components/SendToGroup";
 import { useToast } from "@/components/Toast";
@@ -212,6 +213,7 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
         <div className={styles.rolling}>
           {notice ? (
             <>
+              <Mascot pose="melt" size={120} />
               <p>{notice}</p>
               <span className={styles.row}>
                 <button type="button" className={styles.dark} onClick={load}>
@@ -224,8 +226,8 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
             </>
           ) : (
             <>
-              <span className={styles.die} aria-hidden="true">
-                🧀
+              <span className={styles.die}>
+                <Mascot pose="cheer" size={92} limbs={false} />
               </span>
               <p>Plotting your {dayName(day) === "Tonight" ? "night" : dayName(day)}…</p>
               <span className={styles.checks}>
@@ -329,6 +331,8 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
         <>
           <div className={sheet.dim} onClick={() => setReady(false)} />
           <div className={sheet.sheet} role="dialog" aria-label="Ready to go">
+            {/* Cheers once the plan is saved. */}
+            <Mascot pose={isSaved ? "cheer" : "idle"} size={84} />
             <h2 className={sheet.title}>
               Ready to <strong>go</strong>
             </h2>
