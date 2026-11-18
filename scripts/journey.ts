@@ -64,7 +64,7 @@ async function main() {
   const p = await browser.newPage();
   await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const errors: string[] = [];
-  p.on("pageerror", (e) => errors.push(e.message));
+  p.on("pageerror", (e) => errors.push((e as Error).message));
   let token: string | null = null;
   try {
     // Welcome: three cards, 18+, then the name and what they want.
