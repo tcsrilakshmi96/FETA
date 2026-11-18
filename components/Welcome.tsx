@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useToast } from "@/components/Toast";
+import { signInReturning } from "@/lib/auth";
 import { restoreFromAccount, saveAgeConfirmed, setUpOnThisPhone } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import styles from "./Welcome.module.css";
@@ -23,6 +25,7 @@ export default function Welcome() {
   const [isAdult, setIsAdult] = useState(false);
   const touchX = useRef<number | null>(null);
   const router = useRouter();
+  const toast = useToast();
   const last = slide === SLIDES.length - 1;
 
   // Returning people skip the setup: straight to their picks, from this
@@ -34,9 +37,18 @@ export default function Welcome() {
     }
     supabase()
       .auth.getSession()
-      .then(({ data }) => (data.session ? restoreFromAccount() : false))
-      .then((restored) => restored && router.replace("/home"));
-  }, [router]);
+      .then(async ({ data }) => {
+        if (!data.session) return;
+        if (await restoreFromAccount()) router.replace("/home");
+        // Back from "Sign in" with a Google account that never set up Feta.
+        else if (!data.session.user.is_anonymous) toast("No Feta yet on that Google account. Let's set you up.");
+      });
+  }, [router, toast]);
+
+  async function signIn() {
+    const error = await signInReturning();
+    if (error) toast("Couldn't reach Google. Try again.");
+  }
 
   function go(i: number) {
     setSlide(Math.max(0, Math.min(SLIDES.length - 1, i)));
@@ -114,6 +126,9 @@ export default function Welcome() {
         </div>
         <button type="button" className="btn-primary" disabled={last && !isAdult} onClick={() => (last ? start() : go(slide + 1))}>
           {last ? "Let's start" : "Next"}
+        </button>
+        <button type="button" className={styles.signIn} onClick={signIn}>
+          Already use Feta? <b>Sign in</b>
         </button>
       </div>
     </main>

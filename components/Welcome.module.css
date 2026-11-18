@@ -185,3 +185,16 @@
   top: -62px;
   right: 18px;
 }
+
+/* Returning people sign in straight away, with no setup. */
+.signIn {
+  min-height: 44px;
+  margin-top: 6px;
+  font-size: 14px;
+  color: rgba(var(--inkRGB), 0.65);
+}
+
+.signIn b {
+  font-weight: 600;
+  color: var(--ink);
+}

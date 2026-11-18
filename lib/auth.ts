@@ -47,6 +47,15 @@ export async function switchToExistingAccount() {
   await supabase().auth.signInWithOAuth({ provider: "google", options: { redirectTo: returnUrl() } });
 }
 
+// "Already use Feta? Sign in" on Welcome (founder, 18 Nov 2026: signing in
+// on a new phone asked three times): straight to Google and back to
+// Welcome, which brings their account to this phone, with no setup and no
+// account made here first.
+export async function signInReturning() {
+  const { error } = await supabase().auth.signInWithOAuth({ provider: "google", options: { redirectTo: returnUrl("/") } });
+  return error?.message ?? null;
+}
+
 export function takeReconfirmAge() {
   try {
     const needed = sessionStorage.getItem(RECONFIRM_AGE_KEY) === "1";
