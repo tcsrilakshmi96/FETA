@@ -191,9 +191,9 @@ export default function Home() {
           </>
         ) : !top ? (
           <span className={styles.coverText} style={{ color: "var(--ink)" }}>
-            <Mascot pose="sorry" size={wide ? 72 : 56} />
+            <Mascot pose={slot.failed ? "melt" : "sorry"} size={wide ? 72 : 56} />
             <span className={styles.kick} style={{ color: "var(--roseText)" }}>{label}</span>
-            <span className={styles.coverName}>Nothing fits right now</span>
+            <span className={styles.coverName}>{slot.failed ? "Feta melted. Try again" : "Nothing fits right now"}</span>
             <span className={styles.coverSub}>Tap to see why</span>
           </span>
         ) : (

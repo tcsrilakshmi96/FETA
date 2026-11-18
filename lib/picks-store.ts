@@ -15,6 +15,7 @@ export type Slot = {
   saved: string[];
   banner?: string;
   notice?: string;
+  failed?: boolean; // the search itself went wrong, not just nothing found
 };
 
 // Kept in memory while the app is open, never stored: a reload starts
@@ -61,6 +62,7 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       saved: [],
       banner: reply.banner,
       notice: reply.notice ?? reply.error,
+      failed: !!reply.error,
     };
     keepSlots({ ...keptSlots(), [key]: slot });
     return slot;

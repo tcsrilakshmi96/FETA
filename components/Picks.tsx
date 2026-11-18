@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
+import Mascot from "@/components/Mascot";
 import PickDetails, { GoogleLine, kindLabel, lovedLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
@@ -296,6 +297,7 @@ export default function Picks() {
 
       {(!slot || slot.loading) && (
         <div className={styles.panel}>
+          <Mascot pose="walk" size={120} />
           <div className={styles.loadBars}>
             <span />
             <span />
@@ -310,13 +312,29 @@ export default function Picks() {
 
       {nothing && (
         <div className={styles.panel}>
+          {/* Melted when the search went wrong, sorry when nothing fits. */}
+          <Mascot pose={slot?.failed ? "melt" : "sorry"} size={120} />
           <p className={styles.panelTitle}>
-            Nothing <strong>yet.</strong>
+            {slot?.failed ? (
+              <>
+                Feta <strong>melted.</strong>
+              </>
+            ) : (
+              <>
+                Nothing <strong>yet.</strong>
+              </>
+            )}
           </p>
           <p className={styles.panelText}>{slot?.notice ?? "Nothing fits right now."}</p>
-          <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>
-            Try another area
-          </button>
+          {slot?.failed ? (
+            <button type="button" className={styles.panelBtn} onClick={() => window.location.reload()}>
+              Try again
+            </button>
+          ) : (
+            <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>
+              Try another area
+            </button>
+          )}
         </div>
       )}
 
