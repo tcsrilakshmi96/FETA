@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
-import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
-import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, spendText, toggleSpend, type Answers } from "@/lib/onboarding";
-import { forgetPicks } from "@/lib/picks-store";
+import { saveSwipesToDb } from "@/lib/db";
+import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, spendText, toggleSpend, type Answers } from "@/lib/onboarding";
 import { addLine, removeLine, type Line } from "@/lib/profile-client";
-import { cuisinesFor, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, typedCuisines, type ProfileLine, type Swipe } from "@/lib/swipes";
+import { cuisinesFor, loadSwipes, saveSwipes, typedCuisines, type Swipe } from "@/lib/swipes";
+import { saveTaste } from "@/lib/taste-client";
 import styles from "./YourTaste.module.css";
 
 // What Feta knows about their taste, on You (founder, 18 Nov 2026, mock-up
@@ -25,9 +25,8 @@ type RuleId = "diet" | "spend" | "distance" | "drinks" | "who";
 type Section = "food" | "do" | "out";
 
 const question = (id: RuleId | "interests") => QUESTIONS.find((q) => q.id === id)!;
-const OWN_KEYS = ["food_other", "loves_other"];
 const NAMES: Record<RuleId, string> = { diet: "Diet", spend: "Budget", distance: "How far", drinks: "Drinks", who: "Usually with" };
-const SOURCE_LABELS: Record<string, string> = { chat: "From Ask Feta", checkin: "From an outing", tweaks: "From your tweaks" };
+const SOURCE_LABELS: Record<string, string> = { chat: "From Ask Feta", checkin: "From an outing", tweaks: "From your tweaks", skips: "From a skip" };
 
 // Typed words that mean a diet. Asked before it's set, so a near miss is harmless.
 const DIET_WORDS: [RegExp, string][] = [
@@ -79,18 +78,11 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     return label(id, answers[id]) ?? "Not set";
   }
 
-  // The plain lines in You follow the answers and cuisines; lines that no
-  // longer apply are marked removed. Their own words are never touched.
+  // Saved the one way every change to their taste is (lib/taste-client.ts).
   async function syncLines(a: Answers, s: Swipe[]) {
-    const fresh = pickedUpLines(a, s, currency, city?.country);
-    const gone: ProfileLine[] = lines
-      .filter((l) => (l.source === "answers" || l.source === "swipes") && !OWN_KEYS.includes(l.key) && !fresh.some((f) => f.id === l.key))
-      .map((l) => ({ id: l.key, text: l.text, source: l.source as ProfileLine["source"] }));
-    saveProfileLines(fresh);
-    const ok = await saveProfileLinesToDb(fresh, gone);
-    forgetPicks();
+    const ok = await saveTaste(a, s);
     await onChange();
-    return ok !== false;
+    return ok;
   }
 
   function done(section: Section, ok: boolean, what: string) {
@@ -99,9 +91,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
 
   async function apply(next: Answers, section: Section, what: string) {
     setAnswers(next);
-    saveAnswers(next);
-    const [a, l] = await Promise.all([saveAnswersToDb(next), syncLines(next, swipes)]);
-    done(section, a !== false && l, what);
+    done(section, await syncLines(next, swipes), what);
   }
 
   async function setCuisine(ids: string[], on: boolean, what: string) {

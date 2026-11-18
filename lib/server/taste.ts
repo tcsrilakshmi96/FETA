@@ -61,6 +61,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
     no: swipes.filter((s) => s.verdict === "no").map((s) => s.card_id),
     saved: actions.filter((a) => a.action === "saved" && a.because).slice(0, 5).map((a) => a.because as string),
     skipped: actions.filter((a) => a.action === "skipped" && a.reason).slice(0, 8).map((a) => a.reason as string),
+    notInto: (linesRes.data ?? []).filter((l) => String(l.line_key ?? "").startsWith("notinto:")).map((l) => String(l.line_key).slice(8)),
     places: {
       loved: been.filter((b) => b.verdict === "loved").length,
       regulars: been.filter((b) => b.visits === "regular" && b.verdict !== "not_for_me").length,

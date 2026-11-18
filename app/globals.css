@@ -301,7 +301,18 @@ button {
   color: var(--bg);
   font-size: 13px;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   animation: fa-toast 0.35s var(--ease-press);
+}
+.toast-action {
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(var(--bgRGB), 0.2);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
 }
 @keyframes fa-toast {
   0% { opacity: 0; transform: translate(-50%, 14px); }

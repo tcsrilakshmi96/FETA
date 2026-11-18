@@ -317,7 +317,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 // A short hash of everything that shapes a search.
 function tasteFingerprint(t: Taste) {
   const a = t.answers;
-  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id)]);
+  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id), [...t.lines].sort(), t.notInto ?? []]);
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return (h >>> 0).toString(36);

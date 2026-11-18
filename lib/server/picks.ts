@@ -25,6 +25,7 @@ export type Taste = {
   openLate?: boolean; // the "Open later" tweak
   saved?: string[]; // Feta's reasons for places they saved lately
   skipped?: string[]; // why they skipped places lately ("Too pricey")
+  notInto?: string[]; // kinds of place they said no to ("Not into brewpubs" on a skip): Google types, never shown again
   // Places they've been and rated (My places, check-in): counts, and their
   // own words about ones they loved or didn't.
   places?: { loved: number; regulars: number; notForThem: number; lovedNotes: string[]; dislikedNotes: string[] };
@@ -126,6 +127,8 @@ export type Pick = StoredPick & {
   country?: string; // for km or miles on the phone
   // uri is empty until the phone asks for it with ref (only once on screen).
   photo: { uri: string; ref?: string; credit: string; creditUri?: string } | null;
+  type?: string; // Google's main type ("brewpub"), so a skip can say "Not into brewpubs"
+  priceLevel?: number; // Google's 1–4, so a skip can say "Too pricey"
   // For Plan my evening: where it is and when it next closes (live, not stored).
   lat?: number;
   lng?: number;
@@ -352,6 +355,7 @@ export function applyHardFilters(
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
       (opts.category === "experiences" && isMainlyFoodOrDrink(place) && !opts.foodDrinkOk?.(place)) ||
       NEVER_PICKS.includes(place.primaryType ?? "") ||
+      opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
     ) {
       drop("other");
@@ -827,6 +831,8 @@ export function buildPick(
     lng: p.location?.longitude,
     closesAt: p.currentOpeningHours?.nextCloseTime,
     hours: weeklyHours(p),
+    type: p.primaryType,
+    priceLevel: PRICE_LEVELS[p.priceLevel ?? ""],
   };
 }
 

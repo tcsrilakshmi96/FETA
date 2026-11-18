@@ -13,7 +13,10 @@ import TellFeta from "@/components/TellFeta";
 import type { PillPart } from "@/components/TopPill";
 import { useToast } from "@/components/Toast";
 import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
-import { loadAnswers } from "@/lib/onboarding";
+import { loadAnswers, type Answers } from "@/lib/onboarding";
+import { removeLine } from "@/lib/profile-client";
+import { loadSwipes } from "@/lib/swipes";
+import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
@@ -21,7 +24,44 @@ import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
-const SKIP_REASONS = ["Too far", "Too pricey", "Not my vibe", "Been there"];
+// Not my vibe (founder, 18 Nov 2026, mock-up https://claude.ai/artifact/NxTQsfZQQQk63TYVz5BcF5):
+// reasons written from the place itself, and each one changes what Feta
+// finds from then on (with Undo), instead of a loose word for the ranking.
+type Reason = { label: string; sub: string; learn?: () => Promise<{ said: string; undo: () => void } | null> };
+const DISTANCES: [string, number][] = [["closer_1km", 1], ["walk_2km", 2], ["ride_5km", 5], ["city", 15]];
+
+// One level cheaper: the top of their range comes down ("Depends" becomes up to the middle).
+function cheaper(spend: string[]): string[] {
+  const levels = spend.map((s) => Number(/^level_(\d)$/.exec(s)?.[1])).filter(Boolean).sort();
+  if (levels.length === 0) return ["level_1", "level_2", "level_3"];
+  if (levels.length > 1) return levels.slice(0, -1).map((l) => `level_${l}`);
+  return levels[0] > 1 ? [`level_${levels[0] - 1}`] : spend;
+}
+
+function reasonsFor(pick: Pick, distanceText: string): Reason[] {
+  const kind = kindOfPlace(pick.type);
+  const answers = loadAnswers();
+  const change = (next: Answers, said: string) => async () => {
+    const swipes = loadSwipes();
+    if (!(await saveTaste(next, swipes))) return null;
+    return { said, undo: () => void saveTaste(answers, swipes) };
+  };
+  const line = (key: string, text: string, said: string) => async () => {
+    const id = await learnFromSkip(key, text);
+    return id ? { said, undo: () => void removeLine(id) } : null;
+  };
+  const limit = DISTANCES.find(([id]) => id === answers.distance)?.[1] ?? 5;
+  const closer = [...DISTANCES].reverse().find(([, km]) => km < Math.min(limit, pick.distanceKm));
+  const all: (Reason | null)[] = [
+    kind && pick.type ? { label: `Not into ${kind}`, sub: "never shown again", learn: line(`notinto:${pick.type}`, `Not into ${kind}`, `no more ${kind}`) } : null,
+    pick.kind === "DRINK" || (pick.ratingCount ?? 0) > 3000 ? { label: "Too loud and crowded", sub: "quieter places first", learn: line("skip:quiet", "Prefers quieter places", "quieter places") } : null,
+    (pick.priceLevel ?? 0) >= 3 ? { label: "Too fancy for me", sub: "easier places first", learn: line("skip:casual", "Prefers easy, casual places", "easier places") } : null,
+    (pick.priceLevel ?? 0) >= 2 || answers.spend.length ? { label: "Too pricey", sub: "your budget comes down a level", learn: change({ ...answers, spend: cheaper(answers.spend) }, "cheaper places") } : null,
+    closer && pick.distanceKm > 0 ? { label: `Too far (${distanceText})`, sub: `up to ${closer[1]} km from now on`, learn: change({ ...answers, distance: closer[0] }, `up to ${closer[1]} km`) } : null,
+    { label: "Been there", sub: "moves it to Been" },
+  ];
+  return all.filter((r): r is Reason => !!r);
+}
 
 // The Tweak sheet: pick any, tap again to undo. Ids match TWEAKS on the server.
 const TWEAK_OPTIONS = [
@@ -226,11 +266,17 @@ export default function Picks() {
     toast("Moved to Been. Feta will show you places you don't know yet.");
   }
 
-  function giveReason(pick: Pick, reason: string) {
-    if (reason === "Been there") savePickAction(pick.placeId, "been", { category, cityId: city!.id });
-    savePickAction(pick.placeId, "skipped", { reason, category, cityId: city!.id });
+  async function giveReason(pick: Pick, reason: Reason) {
     setSheet(null);
-    toast("Got it. That helps.");
+    savePickAction(pick.placeId, "skipped", { reason: reason.label, category, cityId: city!.id });
+    if (!reason.learn) {
+      savePickAction(pick.placeId, "been", { category, cityId: city!.id });
+      toast("Moved to Been");
+      return;
+    }
+    const learned = await reason.learn();
+    if (!learned) return toast("Couldn't save that just now. It's still skipped.");
+    toast(`Got it: ${learned.said}`, { label: "Undo", run: learned.undo });
   }
 
   const isSaved = (p: Pick) => !!slot?.saved.includes(p.placeId);
@@ -533,11 +579,12 @@ export default function Picks() {
                 <h2 className={styles.sheetTitle}>
                   Not for you? <strong>Why?</strong>
                 </h2>
-                <p className={styles.sheetSub}>Optional. It helps the next picks.</p>
-                <div className={styles.reasons}>
-                  {SKIP_REASONS.map((r) => (
-                    <button key={r} type="button" onClick={() => giveReason(sheet.pick, r)}>
-                      {r}
+                <p className={styles.sheetSub}>Optional. Feta uses it from now on.</p>
+                <div className={styles.why}>
+                  {reasonsFor(sheet.pick, formatDistance(sheet.pick.distanceKm, city.country)).map((r) => (
+                    <button key={r.label} type="button" onClick={() => giveReason(sheet.pick, r)}>
+                      <span>{r.label}</span>
+                      <small>{r.sub}</small>
                     </button>
                   ))}
                 </div>
