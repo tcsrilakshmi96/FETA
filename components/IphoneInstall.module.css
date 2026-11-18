@@ -1,0 +1,86 @@
+/* Put Feta on your home screen, on an iPhone. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 4px 4px 8px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.6);
+}
+
+.how {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  font-size: 13.5px;
+  text-align: left;
+}
+
+.how b {
+  margin-left: 4px;
+  color: var(--roseText);
+  font-weight: 600;
+}
+
+.x {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 6px;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+
+.steps li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.steps small {
+  display: block;
+  font-size: 12.5px;
+  color: rgba(var(--inkRGB), 0.55);
+}
+
+.icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(var(--inkRGB), 0.07);
+  color: #0a84ff;
+}
+
+/* Points at Safari's bar, below the page. */
+.arrow {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  z-index: 62;
+  font-size: 22px;
+  color: var(--rose);
+  transform: translateX(-50%);
+  animation: nudge 1s ease-in-out infinite;
+}
+
+@keyframes nudge {
+  50% { transform: translate(-50%, 6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrow { animation: none; }
+}

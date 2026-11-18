@@ -9,6 +9,7 @@ import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FetaStar from "@/components/FetaStar";
 import RepliesPill from "@/components/RepliesPill";
 import FirstTime from "@/components/FirstTime";
+import IphoneInstall from "@/components/IphoneInstall";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
 import PickPhoto from "@/components/PickPhoto";
@@ -254,6 +255,7 @@ export default function Home() {
             )}
           </h1>
           {name && <p className={styles.hello}>Hi {name}!</p>}
+          <IphoneInstall />
           <div className={styles.seg} role="tablist" aria-label="When">
             {(["tonight", "weekend"] as const).map((w) => (
               <button
