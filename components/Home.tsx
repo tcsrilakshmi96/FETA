@@ -13,9 +13,9 @@ import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
-import QuickQuestions from "@/components/QuickQuestions";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
+import TesterForm from "@/components/TesterForm";
 import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
@@ -308,11 +308,11 @@ export default function Home() {
             <span className={styles.tileSub}>Start a trip ›</span>
             <Mascot pose="walk" prop="suitcase" size={84} className={styles.tripCheese} />
           </button>
-          <QuickQuestions />
         </div>
       </main>
       <CheckIn />
       <RepliesPill />
+      <TesterForm />
       <SaveTaste ready={!!food && !food.loading} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
