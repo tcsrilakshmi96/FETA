@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Mascot from "@/components/Mascot";
 import PickPhoto from "@/components/PickPhoto";
 import { formatDistance } from "@/lib/cities";
 import type { Origin } from "@/lib/origin";
@@ -110,14 +111,15 @@ export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onC
     <div className={styles.screen} role="dialog" aria-label="Feta's choice">
       {!pick && !notice && (
         <div className={styles.rolling}>
-          <span className={styles.die} aria-hidden="true">
-            🧀
+          <span className={styles.die}>
+            <Mascot pose="cheer" size={96} limbs={false} />
           </span>
           <p>{ROLLING[mood]}</p>
         </div>
       )}
       {!pick && notice && (
         <div className={styles.rolling}>
+          <Mascot pose="sorry" size={120} />
           <p>{notice}</p>
           <span className={styles.notice}>
             {mood === "surprise" && (
