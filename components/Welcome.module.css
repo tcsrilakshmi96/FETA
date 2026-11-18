@@ -55,6 +55,7 @@
 }
 
 .body {
+  position: relative;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -176,4 +177,11 @@
   .photo img {
     animation: none;
   }
+}
+
+/* The cheese stands on the edge of the photo. */
+.cheese {
+  position: absolute;
+  top: -62px;
+  right: 18px;
 }

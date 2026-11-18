@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Mascot from "@/components/Mascot";
 import { useRouter } from "next/navigation";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { loadCity, type City } from "@/lib/cities";
@@ -207,6 +208,14 @@ export default function Questions() {
           <span key={s} className={i <= step ? styles.done : ""} />
         ))}
       </div>
+      {/* The cheese, a new pose for each screen (founder, 18 Nov 2026). */}
+      <Mascot
+        pose={current === "basics" ? "think" : current === "loves" ? "bite" : "idle"}
+        prop={current === "taste" ? (food ? "fork" : "ticket") : current === "vibe" ? "shades" : undefined}
+        size={76}
+        pop
+        className={styles.cheese}
+      />
 
       {current === "basics" && (
         <>

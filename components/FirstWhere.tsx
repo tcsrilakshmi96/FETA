@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Mascot from "@/components/Mascot";
 import { useToast } from "@/components/Toast";
 import { cityAt, findCities, isMainlandChina, saveCity, type City } from "@/lib/cities";
 import { saveCityToDb, saveLocationConsent } from "@/lib/db";
@@ -83,6 +84,7 @@ export default function FirstWhere({ onCity }: { onCity: (city: City) => void })
   if (china) {
     return (
       <main className={styles.screen}>
+        <Mascot pose="sorry" size={76} pop className={styles.cheese} />
         <h1 className={styles.title}>
           {china.name} is <strong>chat only, for now.</strong>
         </h1>
@@ -102,6 +104,7 @@ export default function FirstWhere({ onCity }: { onCity: (city: City) => void })
 
   return (
     <main className={styles.screen}>
+      <Mascot pose="walk" size={76} pop className={styles.cheese} />
       <p className={styles.kick}>Last thing</p>
       <h1 className={styles.title} style={{ marginTop: 8 }}>
         Where should Feta <strong>look?</strong>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Mascot from "@/components/Mascot";
 import ThemeToggle from "@/components/ThemeToggle";
 import { restoreFromAccount, saveAgeConfirmed, setUpOnThisPhone } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -84,6 +85,8 @@ export default function Welcome() {
       </div>
 
       <div className={styles.body}>
+        {/* The cheese says hello, looks things up, then packs for a trip. */}
+        <Mascot key={`cheese${slide}`} pose={slide === 1 ? "walk" : "wave"} prop={slide === 2 ? "suitcase" : undefined} size={92} pop className={styles.cheese} />
         <div className={styles.text} key={slide}>
           <p className={styles.kick}>{s.kick}</p>
           <h1 className={styles.headline}>

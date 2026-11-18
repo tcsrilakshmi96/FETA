@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Mascot from "@/components/Mascot";
 import { saveProfileBasicsToDb } from "@/lib/db";
 import { loadName, loadWants, saveName, saveWants, WANTS, type Want } from "@/lib/profile";
 import styles from "./Setup.module.css";
@@ -40,6 +41,7 @@ export default function Start() {
 
   return (
     <main className={styles.screen}>
+      <Mascot pose="wave" size={76} pop className={styles.cheese} />
       <p className={styles.kick}>Let&apos;s set you up</p>
       <h1 className={styles.title} style={{ marginTop: 8 }}>
         Hi! What should we <strong>call you?</strong>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Mascot from "@/components/Mascot";
 import { loadCity } from "@/lib/cities";
 import { detectCurrency } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
@@ -55,6 +56,7 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
     <>
       <div className={styles.dim} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-label={food ? "Food questions" : "Things to do questions"}>
+        <Mascot pose="idle" prop={food ? "fork" : "ticket"} size={64} pop />
         <p className={styles.kick}>First time here</p>
         <h2 className={styles.title}>{food ? <>Two quick ones, <strong>so the food fits</strong></> : <>What are <strong>you into?</strong></>}</h2>
         <p className={styles.sub}>Only this once. Feta remembers.</p>
