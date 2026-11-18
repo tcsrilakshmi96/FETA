@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import Feedback from "@/components/Feedback";
+import FreshVersion from "@/components/FreshVersion";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {/* Feedback reads the page address, so it waits inside Suspense. */}
           <Suspense>
             <Feedback />
+            <FreshVersion />
           </Suspense>
         </div>
       </body>
