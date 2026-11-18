@@ -42,6 +42,7 @@ const CH_EDGE = "#e2a227";
 const CH_HOLE = "#eaa92a";
 const HI = "rgba(255, 246, 205, 0.75)";
 const FACE = "#3a2410";
+const LIMB = "#e08c00"; // arms and legs, as in Mascot.tsx
 
 type Phase = "idle" | "pulling" | "back" | "loading" | "absorb" | "showing";
 type Bit = { off: number; top: boolean; sx: number; sy: number; w: number; t0: number };
@@ -131,7 +132,8 @@ export default function CheesePull({ scroller, onRefresh, enabled }: { scroller:
       ctx!.stroke();
     }
 
-    // A wedge with holes and a small face.
+    // Feta's cheese (components/Mascot.tsx): a wedge with holes and a small
+    // face, its arms up holding the strings and its legs swinging.
     function drawCheese() {
       if (cheese.sc <= 0.02) return;
       const c = ctx!;
@@ -139,6 +141,19 @@ export default function CheesePull({ scroller, onRefresh, enabled }: { scroller:
       c.translate(cheese.x, cheese.y);
       c.rotate(cheese.rot);
       c.scale(cheese.sc, cheese.sc);
+      const swing = Math.sin(performance.now() / 180) * 2;
+      c.strokeStyle = LIMB;
+      c.lineWidth = 1.8;
+      c.lineCap = "round";
+      c.lineJoin = "round";
+      c.beginPath();
+      c.moveTo(-7, 26);
+      c.lineTo(-7.5 + swing, 33);
+      c.lineTo(-10.5 + swing, 33);
+      c.moveTo(7, 26);
+      c.lineTo(7.5 - swing, 33);
+      c.lineTo(10.5 - swing, 33);
+      c.stroke();
       c.beginPath();
       c.moveTo(-16, 8);
       c.lineTo(16, 8);
@@ -201,6 +216,20 @@ export default function CheesePull({ scroller, onRefresh, enabled }: { scroller:
       c.beginPath();
       c.ellipse(8.5, 19, 2.2, 1.3, 0, 0, Math.PI * 2);
       c.fill();
+      c.strokeStyle = LIMB;
+      c.fillStyle = LIMB;
+      c.lineWidth = 1.8;
+      c.beginPath();
+      c.moveTo(-16.5, 15);
+      c.quadraticCurveTo(-21, 8, -10, 2);
+      c.moveTo(16.5, 15);
+      c.quadraticCurveTo(21, 8, 10, 2);
+      c.stroke();
+      for (const x of [-10, 10]) {
+        c.beginPath();
+        c.arc(x, 2, 1.5, 0, Math.PI * 2);
+        c.fill();
+      }
       c.restore();
     }
 
