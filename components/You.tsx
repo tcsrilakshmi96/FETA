@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Mascot from "@/components/Mascot";
 import TabBar from "@/components/TabBar";
 import TellFeta from "@/components/TellFeta";
 import { useToast } from "@/components/Toast";
@@ -14,6 +15,7 @@ import {
 import { loadCity } from "@/lib/cities";
 import { saveWhatsApp } from "@/lib/db";
 import { showNumber } from "@/lib/phone";
+import { supabase } from "@/lib/supabase";
 import {
   aboutOf,
   addLine,
@@ -65,6 +67,7 @@ export default function You() {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [adding, setAdding] = useState<{ about: Person | null; text: string } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [months, setMonths] = useState(0); // whole months since they joined
 
   useEffect(() => {
     // Back from signing in with Google here.
@@ -79,6 +82,9 @@ export default function You() {
     setAppearanceState(loadAppearance());
     setCityName(loadCity()?.name ?? "");
     /* eslint-enable react-hooks/set-state-in-effect */
+    supabase()
+      .auth.getUser()
+      .then(({ data }) => data.user && setMonths(Math.floor((Date.now() - new Date(data.user.created_at).getTime()) / (30 * 86400000))));
     loadProfile().then((p) => {
       setProfile(p);
       if (window.location.search) window.history.replaceState(null, "", "/you");
@@ -294,6 +300,16 @@ export default function You() {
         <p className={styles.sub}>
           Your picks and Ask Feta (the 🧀) work from this. Change anything, and picks follow.
         </p>
+        {/* A month with Feta: a quiet badge, no streaks (founder, 18 Nov 2026). */}
+        {months > 0 && (
+          <div className={styles.aged}>
+            <Mascot pose="aged" size={64} />
+            <span>
+              <strong>Aged {months === 1 ? "a month" : `${months} months`}</strong>
+              <small>You and Feta, like a good cheese.</small>
+            </span>
+          </div>
+        )}
         <TellFeta hint="e.g. Burmese food, pickleball, quiet rooftops" onAdded={async () => setProfile(await loadProfile())} />
 
         {mine.length === 0 && (
