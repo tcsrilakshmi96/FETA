@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Mascot from "@/components/Mascot";
 import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
@@ -77,6 +78,8 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     <>
       <div className={styles.dim} onClick={() => done()} />
       <div className={styles.sheet} role="dialog" aria-label={`How was ${ask.name}?`}>
+        {/* Thinks while asking; takes a bite when they loved it. */}
+        <Mascot key={step} pose={step === "loved" ? "bite" : "think"} size={84} pop={step === "loved"} />
         {step === "how" ? (
           <>
             <p className={styles.kick}>You saved it lately</p>
@@ -155,10 +158,15 @@ function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[
     onDone(been.length ? "Added to Been. That makes your next picks better." : undefined);
   }
 
+  // The cheese reacts to the answers: a cheer for a loved stop, sorry for one that wasn't.
+  const said = Object.values(answers);
+  const pose = said.includes("loved") ? "cheer" : said.includes("not_for_me") ? "sorry" : "think";
+
   return (
     <>
       <div className={styles.dim} onClick={() => onDone()} />
       <div className={styles.sheet} role="dialog" aria-label={`How was ${dayName(plan.day)}?`}>
+        <Mascot pose={pose} size={84} />
         <p className={styles.kick}>Your plan</p>
         <h2 className={styles.title}>
           How was <strong>{dayName(plan.day)}?</strong>
