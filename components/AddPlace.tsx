@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/Toast";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import type { City } from "@/lib/cities";
 import { categoryOf, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
@@ -12,6 +13,7 @@ import styles from "./AddPlace.module.css";
 export type AddedPlace = { placeId: string; name: string; detail: string; visits: Visits; verdict: Verdict; note: string };
 
 export default function AddPlace({ city, onClose, onAdded }: { city: City; onClose: () => void; onAdded: (place: AddedPlace) => void }) {
+  const toast = useToast();
   const [typed, setTyped] = useState("");
   const [suggestions, setSuggestions] = useState<AreaSuggestion[]>([]);
   const [chosen, setChosen] = useState<AreaSuggestion | null>(null);
@@ -49,7 +51,9 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
     setSaving(true);
     const ok = await saveBeen(chosen.placeId, { visits: visits ?? "once", verdict, note, category: categoryOf(chosen.types), cityId: city.id, ...(verdict === "loved" && recommend === true ? { recommend: true } : {}) });
     setSaving(false);
-    if (ok) onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
+    // Never fail quietly (a missing database column once dropped these without a word).
+    if (!ok) toast("Couldn't save that just now. Try again in a minute.");
+    else onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
   }
 
   return (
