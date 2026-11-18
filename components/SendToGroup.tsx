@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Mascot from "@/components/Mascot";
 import { useToast } from "@/components/Toast";
 import { logEvent } from "@/lib/db";
 import { createShare, type ChoicePayload, type ShareKind, type SharePayload } from "@/lib/share-client";
@@ -47,6 +48,8 @@ export default function SendToGroup({
   const text = kind === "choice" ? `${message}\nWhich one? Tap to vote: ${link}` : `${message}\nIn or out? Tap to vote: ${link}`;
   return (
     <div className={styles.ready}>
+      {/* A slice pulls off for the friends. */}
+      <Mascot pose="slice" size={88} className={styles.slice} />
       <a className={styles.whatsapp} href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">
         Open WhatsApp
       </a>

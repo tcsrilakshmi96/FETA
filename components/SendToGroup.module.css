@@ -19,6 +19,11 @@
   animation: var(--kf-up) 0.3s ease-out;
 }
 
+.slice {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
 .whatsapp,
 .copy {
   min-height: 48px;
