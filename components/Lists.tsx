@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddPlace from "@/components/AddPlace";
+import Mascot from "@/components/Mascot";
 import NightPlan, { type NightStart } from "@/components/NightPlan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
@@ -53,6 +54,9 @@ function savedLabel(item: ListItem) {
     return `${verb} ${new Intl.DateTimeFormat("en-GB", { weekday: "short" }).format(new Date(item.savedAt))}`;
   return `${verb} ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(item.savedAt))}`;
 }
+
+// A want-to-try place saved more than a month ago.
+const isOld = (item: ListItem) => item.list === "want" && !item.event && Date.now() - new Date(item.savedAt).getTime() > 30 * 86400000;
 
 export default function Lists() {
   const router = useRouter();
@@ -283,6 +287,7 @@ export default function Lists() {
           <>
             {cards.length === 0 ? (
               <div className={styles.empty}>
+                <Mascot pose="walk" size={100} />
                 <p className={styles.emptyTitle}>
                   No plans <strong>yet.</strong>
                 </p>
@@ -419,6 +424,7 @@ export default function Lists() {
 
         {items !== null && tab !== "plans" && shown.length === 0 && (
           <div className={styles.empty}>
+            <Mascot pose={tab === "want" ? "wave" : "bite"} size={100} />
             <p className={styles.emptyTitle}>
               Nothing here <strong>yet.</strong>
             </p>
@@ -466,7 +472,11 @@ export default function Lists() {
                     <span className={styles.text}>
                       <span className={styles.row}>
                         <span className={styles.name}>{item.name}</span>
-                        <span className={styles.when}>{isTicked(item) ? "This weekend ✓" : savedLabel(item)}</span>
+                        <span className={styles.when}>
+                          {isTicked(item) ? "This weekend ✓" : savedLabel(item)}
+                          {/* Saved over a month ago: the cheese (never the place) has gone mouldy. */}
+                          {!isTicked(item) && isOld(item) && <Mascot pose="mould" size={26} limbs={false} className={styles.old} />}
+                        </span>
                       </span>
                       <span
                         className={styles.area}

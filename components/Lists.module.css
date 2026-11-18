@@ -113,8 +113,15 @@
 
 .when {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
   color: var(--roseText);
+}
+
+.old {
+  margin: -6px 0;
 }
 
 .area {
