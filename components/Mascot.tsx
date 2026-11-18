@@ -334,6 +334,8 @@ export default function Mascot({
         <g className={styles.halfR} clipPath={`url(#R${id})`}>
           {inner}
         </g>
+        {/* Whole while at rest, so the cut never shows as a hairline. */}
+        <g className={styles.whole}>{inner}</g>
       </g>
     );
   if (pose === "slice")
@@ -344,6 +346,7 @@ export default function Mascot({
         <g className={styles.piece}>
           <g clipPath={`url(#P${id})`}>{inner}</g>
         </g>
+        <g className={styles.whole}>{inner}</g>
       </g>
     );
 

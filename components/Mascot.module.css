@@ -136,6 +136,12 @@
   transform-origin: 92px 92px;
   animation: slicePiece 3s ease-in-out infinite;
 }
+.stretch .whole {
+  animation: wholeStretch 2.8s infinite;
+}
+.slice .whole {
+  animation: wholeSlice 3s infinite;
+}
 .spot {
   transform-box: fill-box;
   transform-origin: center;
@@ -249,9 +255,11 @@
 @keyframes zz { 0% { transform: translate(0, 4px); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(8px, -14px); opacity: 0; } }
 @keyframes pullL { 0%, 12% { transform: translateX(0) rotate(0); } 50%, 58% { transform: translateX(-13px) rotate(-4deg); } 63% { transform: translateX(2px); } 70% { transform: translateX(-1px); } 78%, 100% { transform: translateX(0); } }
 @keyframes pullR { 0%, 12% { transform: translateX(0) rotate(0); } 50%, 58% { transform: translateX(13px) rotate(4deg); } 63% { transform: translateX(-2px); } 70% { transform: translateX(1px); } 78%, 100% { transform: translateX(0); } }
-@keyframes strings { 0%, 12% { transform: scaleX(0); opacity: 1; } 50% { transform: scaleX(1); } 58% { transform: scaleX(1.08); opacity: 1; } 61% { transform: scaleX(0.15); opacity: 0; } 100% { transform: scaleX(0); opacity: 0; } }
+@keyframes strings { 0%, 12% { transform: scaleX(0); opacity: 0; } 14% { opacity: 1; } 50% { transform: scaleX(1); } 58% { transform: scaleX(1.08); opacity: 1; } 61% { transform: scaleX(0.15); opacity: 0; } 100% { transform: scaleX(0); opacity: 0; } }
 @keyframes slicePiece { 0%, 12% { transform: none; opacity: 1; } 45%, 55% { transform: translate(14px, -3px) rotate(10deg); opacity: 1; } 75% { transform: translate(56px, -34px) rotate(50deg); opacity: 0; } 76%, 88% { transform: none; opacity: 0; } 100% { transform: none; opacity: 1; } }
-@keyframes sliceStr { 0%, 12% { transform: scaleX(0); opacity: 1; } 45% { transform: scaleX(1); } 55% { transform: scaleX(1.06); opacity: 1; } 58% { transform: scaleX(0.1); opacity: 0; } 100% { transform: scaleX(0); opacity: 0; } }
+@keyframes sliceStr { 0%, 12% { transform: scaleX(0); opacity: 0; } 14% { opacity: 1; } 45% { transform: scaleX(1); } 55% { transform: scaleX(1.06); opacity: 1; } 58% { transform: scaleX(0.1); opacity: 0; } 100% { transform: scaleX(0); opacity: 0; } }
+@keyframes wholeStretch { 0%, 12% { opacity: 1; } 13%, 77% { opacity: 0; } 78%, 100% { opacity: 1; } }
+@keyframes wholeSlice { 0%, 12% { opacity: 1; } 13%, 99% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes fuzz { 50% { transform: scale(1.14); } }
 @keyframes orbit { to { transform: rotate(360deg); } }
 @keyframes flap { to { transform: scaleY(0.3); } }
