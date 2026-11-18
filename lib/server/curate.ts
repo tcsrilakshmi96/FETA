@@ -153,13 +153,22 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
 
 // 5. Keep the promise: the picks to show (room of them), then the rest as
 // backup, and what they asked for that found nothing ("missing").
-export function pickFrom(result: CurateResult, opts: { room: number; small: boolean; popularCap: number }) {
+// only: just the places that match one intent ("asked": what they asked
+// for in chat or Plan my evening), never the rest of their everyday set.
+export function pickFrom(found: CurateResult, opts: { room: number; small: boolean; popularCap: number; only?: string }) {
+  const result = opts.only ? onlyFor(found, opts.only) : found;
   const explicit = result.intents.filter((i) => i.explicit);
   const all = selectPicks(result.ranked, result.pool, { ...opts, explicit });
   const shown = all.filter((c) => !c.spare).length;
   const covered = new Set(all.slice(0, shown).flatMap((c) => c.candidate.intents ?? []));
   const missing = explicit.filter((i) => !covered.has(i.id) && i.source !== "tweak");
   return { chosen: all.map(({ candidate, ranked }) => ({ candidate, ranked })) as Chosen[], shown, missing };
+}
+
+function onlyFor(result: CurateResult, id: string): CurateResult {
+  const keep = result.pool.map((c, i) => [c, i] as const).filter(([c]) => c.intents?.includes(id));
+  const at = new Map(keep.map(([, i], j) => [i, j]));
+  return { ...result, pool: keep.map(([c]) => c), ranked: result.ranked.filter((r) => at.has(r.index)).map((r) => ({ ...r, index: at.get(r.index)! })) };
 }
 
 // Places in turn from each search, so the pool Gemini ranks holds every

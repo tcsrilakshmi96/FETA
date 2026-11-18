@@ -69,7 +69,11 @@ type Body = {
   // a day and time ("tomorrow at 7 am", for 3 hours) checked instead of
   // tonight or the weekend, and how far they'll go for this one ask.
   at?: { day: string; start: number; minutes: number };
-  reach?: "day_trip";
+  // How far for this one ask: "walk" (near a chosen dinner, Plan my
+  // evening) or "day_trip" (a hike from chat), instead of their usual distance.
+  reach?: "walk" | "day_trip";
+  searches?: number; // Google searches this set may run (Plan my evening runs 2)
+  only?: "asked"; // just places that match the note (chat, Plan my evening), no everyday filler or events
 };
 
 // spares: the next best places, kept on the phone for "Show me more".
@@ -135,7 +139,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
   // "Anywhere in Goa" or a trip destination means the whole place, not a
   // walk from its centre.
-  const wide = body.reach || body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: body.reach ?? "city" } } : taste;
+  const wide = body.reach || body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: body.reach === "walk" ? "walk_2km" : (body.reach ?? "city") } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
   // 1. Recent picks for the same place come back the same: one fresh search
@@ -181,7 +185,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // going after the reply and fills the shared events cache, so the next
   // person in the area (or the next open) gets events straight away.
   const eventsFull =
-    body.category === "experiences" && need > 1 && !body.trip
+    body.category === "experiences" && need > 1 && !body.trip && !body.only
       ? eventPicks({ db, taste: effective, body, city, origin, exclude }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
@@ -219,6 +223,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       extra,
       dayPlan: !!body.dayPlan,
       at,
+      ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : {}),
       favourites: (pool) =>
         fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, pool }),
     });
@@ -230,9 +235,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
   const allEvents = await allEventsPromise;
-  const events = [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, Math.min(2, need));
+  const events = body.only ? [] : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, Math.min(2, need));
   const room = Math.max(0, need - events.length);
-  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste) }) };
+  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), ...(body.only ? { only: body.only } : {}) }) };
   if (result.chosen.length === 0 && events.length === 0) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });

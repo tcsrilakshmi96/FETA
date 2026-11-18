@@ -1,18 +1,17 @@
 import { cityById } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
-import { photoUri, bestPhoto, searchPlaces, type Place } from "@/lib/server/places";
-import { allIntents } from "@/lib/server/intents";
-import { applyHardFilters, buildPick, kindOf, needsDietCheck, type Candidate, type Category, type Pick, type When } from "@/lib/server/picks";
+import { runPicks } from "@/lib/server/engine";
+import type { Pick, When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 
 export const maxDuration = 30;
 
 // Plan my evening, when the picks on screen don't pair up (experiences are
-// often across town): something to do or a drink close to the chosen
-// dinner, through the same hard filters as picks. One search per kind,
-// only when the phone asks.
-const NEAR_KM = 2;
-
+// often across town): something to do and somewhere for after, within a
+// walk of the chosen dinner. Through the same engine as every other pick
+// (founder, 18 Nov 2026: one path for every screen), so it uses what they
+// love, their loved places and Feta Picks, not Google's top-rated bar.
+// Two searches each, only when the phone asks.
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
@@ -30,41 +29,18 @@ export async function POST(request: Request) {
   if (!city || typeof lat !== "number" || typeof lng !== "number") return Response.json({ error: "Bad request" }, { status: 400 });
   if ((await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ picks: [] });
 
-  return withCosts(db, "plan", async () => {
-    const taste = await loadTaste(db);
-    const exclude = new Set([...(body.exclude ?? []).slice(0, 20), body.near?.placeId ?? ""]);
-    const { data: actions } = await db.from("pick_actions").select("place_id");
-    for (const a of actions ?? []) exclude.add(a.place_id as string);
-    const origin = { lat, lng };
-    const afterDinner = taste.answers.drinks === "no_alcohol" ? "dessert cafe" : "cocktail bar";
-    // The thing to do they'd most like (a karaoke bar counts as one).
-    const top = allIntents(taste, { category: "experiences", city, tweaks: [], rotation: 0 }).find((i) => i.source === "interest" || i.source === "side");
-    const doing = top?.query ?? "live music";
-    const search = (query: string, category: Category) =>
-      searchPlaces({ query, lat, lng, radiusKm: NEAR_KM, openNow: false, needsDiet: category === "food_drinks" && needsDietCheck(taste.answers), regionCode: city.country, count: 10 })
-        .then((places) => applyHardFilters(places, { taste, category, when, origin, exclude, city, foodDrinkOk: () => !!top?.def.foodDrink }).filter((c) => c.km <= NEAR_KM))
-        .catch((error) => {
-          console.error(error);
-          return [] as Candidate[];
-        });
-    const [things, drinks] = await Promise.all([search(doing, "experiences"), search(afterDinner, "food_drinks")]);
-    const best = (list: Candidate[]) => [...list].sort((a, b) => (b.place.rating ?? 0) - (a.place.rating ?? 0)).slice(0, 2);
-    const chosen: [Candidate, Category][] = [...best(things).map((c) => [c, "experiences"] as [Candidate, Category]), ...best(drinks).map((c) => [c, "food_drinks"] as [Candidate, Category])];
-    const picks: Pick[] = await Promise.all(
-      chosen.map(async ([c, category]) => {
-        const photo = await firstPhoto(c.place);
-        return buildPick(
-          c,
-          { placeId: c.place.id, kind: kindOf(c.place, category), verdict: "Good if you're nearby", because: "Close to dinner, so the evening flows." },
-          { taste, when, city, photo },
-        );
-      }),
-    );
-    return Response.json({ picks });
-  });
-}
-
-async function firstPhoto(place: Place) {
-  const name = bestPhoto(place)?.name;
-  return name ? photoUri(name) : null;
+  const taste = await loadTaste(db);
+  const exclude = new Set([...(body.exclude ?? []).slice(0, 20), body.near?.placeId ?? ""]);
+  const origin = { lat, lng, label: "near dinner", source: "area" as const, areaId: `near:${body.near?.placeId ?? `${lat.toFixed(3)},${lng.toFixed(3)}`}`, city: { id: city.id } };
+  const after = taste.answers.drinks === "no_alcohol" ? "dessert or a late cafe after dinner" : "drinks after dinner";
+  const run = (category: "experiences" | "food_drinks", note?: string) =>
+    withCosts(db, "plan", () => runPicks(token, { category, when, origin, reach: "walk", searches: 2, ...(note ? { note, only: "asked" } : {}) }))
+      .then((res) => res.json() as Promise<{ picks?: Pick[] }>)
+      .then((r) => (r.picks ?? []).filter((p) => !exclude.has(p.placeId)).slice(0, 2))
+      .catch((error) => {
+        console.error(error);
+        return [] as Pick[];
+      });
+  const [things, drinks] = await Promise.all([run("experiences"), run("food_drinks", after)]);
+  return Response.json({ picks: [...things, ...drinks] });
 }

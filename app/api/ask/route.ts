@@ -275,6 +275,9 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
           when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
           ...(at ? { at } : {}),
           ...(s.further ? { reach: "day_trip" } : {}),
+          // Only places that match what was asked, never the rest of their
+          // everyday set (founder, 18 Nov 2026: asked for a hike, got bowling).
+          only: "asked",
           origin,
           tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
           // Their own words lead, and always mean a fresh search (never
@@ -283,11 +286,8 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
           ...(tripLabel ? { trip: tripLabel } : {}),
       }));
       const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
-      // Chat answers what was asked: the best 3 places that match it, never
-      // the rest of their everyday set (founder, 18 Nov 2026: asked for a
-      // hike, got a bowling alley). Nothing that matches is said plainly.
-      const asked = (data.picks ?? []).filter((p) => p.serves?.includes("asked"));
-      picks = asked.slice(0, 3);
+      // Chat shows a short answer: the best 3. Nothing that matches is said plainly.
+      picks = (data.picks ?? []).slice(0, 3);
       // Why nothing came back, in chat words: the engine's reason without its
       // tips for the picks screen, then what Feta can try next.
       const whenText = at ? dayText(at.day, origin.city) : s.when === "weekend" || tripLabel ? "this weekend" : "tonight";
