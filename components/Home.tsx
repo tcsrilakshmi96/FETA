@@ -10,6 +10,7 @@ import FetaStar from "@/components/FetaStar";
 import RepliesPill from "@/components/RepliesPill";
 import FirstTime from "@/components/FirstTime";
 import LetsGo from "@/components/LetsGo";
+import Mascot from "@/components/Mascot";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import QuickQuestions from "@/components/QuickQuestions";
@@ -71,6 +72,7 @@ export default function Home() {
   const [going, setGoing] = useState<Pick | null>(null);
   const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you", from the star
   const [firstTime, setFirstTime] = useState<"food" | "do" | null>(null);
+  const [late, setLate] = useState(false); // the cheese sleeps from 11 pm to 5 am
   const scroller = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -82,6 +84,8 @@ export default function Home() {
     /* eslint-disable react-hooks/set-state-in-effect -- the origin and answers are only readable in the browser */
     setWants(loadWants());
     setName(loadName());
+    const hour = new Date().getHours();
+    setLate(hour >= 23 || hour < 5);
     /* eslint-enable react-hooks/set-state-in-effect */
     // Picks near where they are, not the city centre, when location is
     // allowed; decided before loading, so picks load once.
@@ -180,12 +184,14 @@ export default function Home() {
           <>
             <span className={styles.shimmer} />
             <span className={styles.coverText}>
+              <Mascot pose="walk" size={wide ? 72 : 56} />
               <span className={styles.kick}>{label}</span>
               <span className={styles.loadingText}>Finding your picks…</span>
             </span>
           </>
         ) : !top ? (
           <span className={styles.coverText} style={{ color: "var(--ink)" }}>
+            <Mascot pose="sorry" size={wide ? 72 : 56} />
             <span className={styles.kick} style={{ color: "var(--roseText)" }}>{label}</span>
             <span className={styles.coverName}>Nothing fits right now</span>
             <span className={styles.coverSub}>Tap to see why</span>
@@ -268,9 +274,7 @@ export default function Home() {
               <strong>Choose for me</strong>
               <small>{nothingYet ? "Finding places first…" : `One answer for ${when === "tonight" ? "tonight" : "this weekend"}. No scrolling.`}</small>
             </span>
-            <span className={styles.cheese} aria-hidden="true">
-              🧀
-            </span>
+            <Mascot pose={late ? "sleep" : "think"} size={64} className={styles.cheese} />
           </button>
 
           <div className={styles.grid} key={when}>
@@ -292,6 +296,7 @@ export default function Home() {
             <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
               <span className={styles.kick}>STYLE</span>
               <span className={styles.tileTitle}>Looks for your plans</span>
+              <Mascot prop="shades" size={44} className={styles.tileCheese} />
               <span className={styles.tileSub}>Have a look ›</span>
             </button>
           </div>
@@ -301,6 +306,7 @@ export default function Home() {
             <span className={styles.kick}>✈ PLAN A TRIP</span>
             <span className={styles.tileTitle}>Where to next? Feta plans it day by day</span>
             <span className={styles.tileSub}>Start a trip ›</span>
+            <Mascot pose="walk" prop="suitcase" size={84} className={styles.tripCheese} />
           </button>
           <QuickQuestions />
         </div>

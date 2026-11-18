@@ -226,6 +226,7 @@
   width: 100%;
   min-height: 96px;
   margin-top: 12px;
+  padding-right: 104px;
   background: var(--yellow);
   color: var(--inkFixed);
   animation-delay: 0.36s;
@@ -378,17 +379,22 @@
   opacity: 0.65;
 }
 
-/* The cheese bobs now and then. */
+/* Choose for me's cheese: thinking, or asleep late at night. */
 .cheese {
-  display: inline-block;
-  animation: bob 3.2s ease-in-out infinite 1s;
+  margin: -8px -6px -8px 0;
 }
 
-@keyframes bob {
-  0%, 70%, 100% { transform: none; }
-  78% { transform: translateY(-5px) rotate(-8deg); }
-  86% { transform: translateY(0) rotate(4deg); }
-  92% { transform: rotate(0); }
+/* Small cheeses on the Style and trip tiles. */
+.tileCheese {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.tripCheese {
+  position: absolute;
+  right: 10px;
+  bottom: 4px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -402,3 +408,7 @@
   }
 }
 
+
+.style .tileTitle {
+  padding-right: 36px;
+}
