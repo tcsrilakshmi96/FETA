@@ -30,7 +30,7 @@ export type FoundBrand = {
   origin_country: string | null; // ISO code
   homegrown: boolean;
   wears: "women" | "men" | "unisex" | "women+men" | null;
-  presence_type: "stores" | "own site delivers here" | "official local site";
+  presence_type: "stores" | "own site delivers here" | "official local site" | "ships from abroad";
   presence_url: string;
   collection_url: string;
   editorial_url: string | null;
@@ -123,7 +123,7 @@ Mix homegrown labels from ${country.name} with international brands that genuine
 Rules: brands only, never a marketplace or multi-brand store (no Myntra, Ajio, Nykaa, Amazon, Namshi, Farfetch, ASOS, Zalando). Never invent a brand, URL or handle; fewer real brands beat more guessed ones. No comments about bodies, sizes or who should wear something.
 
 Reply with only a JSON array, one item per brand:
-{"brand_name", "website": the brand's own site, "instagram": handle or null, "origin_country": ISO code, "presence_type": "stores" | "own site delivers here" | "official local site", "presence_url": a page proving it sells in ${country.name}, "collection_url": a page of its current collection that shows this style, "editorial_url": an article that recommends it, or null}`;
+{"brand_name", "website": the brand's own site, "instagram": handle or null, "origin_country": ISO code, "presence_type": "stores" (physical stores in ${country.name}) | "official local site" (a ${country.name} site or local-currency store) | "own site delivers here" (ships within ${country.name} from inside it) | "ships from abroad" (only international shipping into ${country.name}, duties may apply), "presence_url": a page proving it, "collection_url": a page of its current collection that shows this style, "editorial_url": an article that recommends it, or null}`;
   const out = await gemini(prompt, [{ google_search: {} }]);
   return { candidates: jsonArray<Partial<FoundBrand>>(out.text), searchHtml: out.searchHtml };
 }
@@ -137,13 +137,13 @@ ${briefText(brief)}
 
 COUNTRY: ${country.name} (${country.code})
 
-For each brand below, open its collection page (and its site if needed) and look at what it sells NOW. Decide from visible evidence only (silhouette, fabric, pattern, details) whether its current collection fits this style. Follow the "keep separate" rule: a long dress is not automatically modest; technical fabric is not automatically techwear; culture, craft origin, coverage and aesthetic are separate. Also confirm from its presence page that people in ${country.name} can buy from it, and note one current price.
+For each brand below, open its collection page (and its site if needed) and look at what it sells NOW. Decide from visible evidence only (silhouette, fabric, pattern, details) whether its current collection fits this style. Follow the "keep separate" rule: a long dress is not automatically modest; technical fabric is not automatically techwear; culture, craft origin, coverage and aesthetic are separate. Also check how people in ${country.name} buy from it: physical stores there, an official local site, delivery from inside the country, or only international shipping from abroad (duties may apply), and note one current price in the local currency where the brand shows one.
 
 Brands:
 ${batch.map((b, i) => `${i + 1}. ${b.brand_name} · site ${b.website} · collection ${b.collection_url} · presence ${b.presence_url}`).join("\n")}
 
 Reply with only a JSON array, one item per brand, in the same order:
-{"brand_name", "fits": true | false, "why_not": short reason if it doesn't fit or can't be checked, else null, "association": "main" (this style is a core direction of the current collection) | "adjacent" (some items or a capsule), "visible_cues": one short plain line of what you saw (e.g. "relaxed graphic tees, heavy cotton hoodies, cargo trousers"), "sells_here": true | false, "wears": "women" | "men" | "unisex" | "women+men", "label_type": "homegrown designer-led" | "specialist" | "large international" | "designer house" | "other", "price_feel": "budget" | "mid" | "premium" | "luxury" (relative to ${country.name}), "sample_price": number or null, "sample_currency": ISO code or null, "sample_item": short item name or null, "similar_reference": the example brand above it most resembles, or null, "confidence": "verified_collection" if you saw the products, else "written_evidence_only"}`;
+{"brand_name", "fits": true | false, "why_not": short reason if it doesn't fit or can't be checked, else null, "presence_type": "stores" | "official local site" | "own site delivers here" | "ships from abroad", "association": "main" (this style is a core direction of the current collection) | "adjacent" (some items or a capsule), "visible_cues": one short plain line of what you saw (e.g. "relaxed graphic tees, heavy cotton hoodies, cargo trousers"), "sells_here": true | false, "wears": "women" | "men" | "unisex" | "women+men", "label_type": "homegrown designer-led" | "specialist" | "large international" | "designer house" | "other", "price_feel": "budget" | "mid" | "premium" | "luxury" (relative to ${country.name}), "sample_price": number or null, "sample_currency": ISO code or null, "sample_item": short item name or null, "similar_reference": the example brand above it most resembles, or null, "confidence": "verified_collection" if you saw the products, else "written_evidence_only"}`;
   const out = await gemini(prompt, [{ url_context: {} }, { google_search: {} }]);
   return jsonArray<Partial<FoundBrand> & { fits?: boolean; why_not?: string | null; sells_here?: boolean }>(out.text);
 }
@@ -197,7 +197,7 @@ export async function researchStyle(brief: Brief, country: { code: string; name:
         origin_country: c.origin_country?.toUpperCase().slice(0, 2) || null,
         homegrown: c.origin_country?.toUpperCase() === country.code,
         wears: v.wears ?? null,
-        presence_type: c.presence_type ?? "own site delivers here",
+        presence_type: (v.presence_type as FoundBrand["presence_type"]) ?? c.presence_type ?? "own site delivers here",
         presence_url: presenceOk ? c.presence_url! : c.website!,
         collection_url: c.collection_url ?? c.website!,
         editorial_url: c.editorial_url ?? null,

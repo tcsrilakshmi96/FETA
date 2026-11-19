@@ -5,7 +5,8 @@
 // "proposed" only with --save.
 //
 //   npm run style-research -- IN India minimalist,streetwear,coquette [--save]
-import { writeFileSync } from "node:fs";
+//   npm run style-research -- IN India minimalist --save-only   (saves an earlier run's results)
+import { readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { loadBrief, researchStyle, saveResearch } from "@/lib/server/style-research";
 
@@ -18,6 +19,15 @@ async function main() {
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
   await db.auth.signInAnonymously();
 
+  if (flag === "--save-only") {
+    for (const styleId of styles.split(",")) {
+      const r = JSON.parse(readFileSync(`style-research-${code}-${styleId}.json`, "utf8"));
+      await saveResearch(db, code, styleId, r);
+      console.log(`${styleId}: ${r.brands.length} saved as proposed`);
+    }
+    await db.rpc("delete_my_data");
+    return;
+  }
   const out: string[] = [`# Style research: ${name}`, ""];
   for (const styleId of styles.split(",")) {
     const brief = await loadBrief(db, styleId);

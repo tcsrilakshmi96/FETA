@@ -29,8 +29,9 @@ RULES
 1. Brands only. Never a marketplace or multi-brand store as the answer (no Myntra, Ajio,
    Nykaa Fashion, Amazon, Namshi, Farfetch, ASOS, Zalando). A marketplace may support
    presence only if the brand also has its own site or stores.
-2. Presence must be proven: physical stores in the country, OR an official site that
-   delivers within the country, OR an official local site. Give the URL that proves it.
+2. Presence must be proven: physical stores in the country, OR an official local site,
+   OR an official site that delivers from inside the country. Give the URL that proves it.
+   A brand that only ships in from abroad may be listed, marked "ships from abroad".
 3. Tag a style only from the brand's CURRENT collection: name the visible cues you saw
    (silhouette, fabric, pattern, details). Follow the Style guide's "keep separate" rules:
    a long dress is not automatically modest; technical fabric is not automatically
@@ -42,7 +43,8 @@ RULES
 OUTPUT: one CSV table, one row per brand-style link, with exactly these columns:
 country, style_id, association (main | adjacent), brand_name, website, instagram_handle,
 origin_country, homegrown (yes | no), wears (women | men | unisex | women+men),
-presence_type (stores | own site delivers here | official local site),
+presence_type (stores | official local site | own site delivers here (from inside
+the country) | ships from abroad (international shipping only, duties may apply)),
 presence_evidence_url, collection_evidence_url, editorial_mention_url,
 visible_cues (one short line), label_type (homegrown designer-led | specialist |
 large international | designer house | other), price_feel (budget | mid | premium |

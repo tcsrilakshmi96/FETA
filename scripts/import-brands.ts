@@ -14,7 +14,7 @@ const COLUMNS = ["country", "style_id", "association", "brand_name", "website", 
 type Row = Record<(typeof COLUMNS)[number], string>;
 
 const MARKETPLACES = /myntra|ajio|nykaa|amazon\.|flipkart|tatacliq|namshi|noon\.com|farfetch|asos\.|zalando|ssense|net-a-porter|mytheresa|shein|meesho|lazada|shopee/;
-const PRESENCE = ["stores", "own site delivers here", "official local site"];
+const PRESENCE = ["stores", "own site delivers here", "official local site", "ships from abroad"];
 const FEEL = ["budget", "mid", "premium", "luxury"];
 const WEARS = ["women", "men", "unisex", "women+men"];
 
