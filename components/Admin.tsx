@@ -32,7 +32,7 @@ export default function Admin() {
   const [tab, setTab] = useState<"usage" | "picks" | "weekend" | "instagram" | "feedback">("usage");
 
   async function refresh() {
-    const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").order("created_at", { ascending: false });
+    const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").eq("source", "founder").order("created_at", { ascending: false });
     setPlaces((data ?? []) as FetaPlace[]);
   }
 

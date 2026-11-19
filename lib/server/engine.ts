@@ -28,6 +28,7 @@ import {
   applyTweaks,
   TWEAKS,
   popularCap,
+  mainlyOf,
   type Candidate,
   type Tweak,
   type EventInfo,
@@ -263,6 +264,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
       because: becauseFor(candidate, result.intents, taste, kindOf(candidate.place, body.category), r?.because),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
+      ...(candidate.local && candidate.fetaNote === undefined ? { local: true } : {}),
       ...(candidate.intents?.length ? { serves: candidate.intents } : {}),
       ...(i >= shownCount ? { spare: true } : {}),
     };
@@ -466,11 +468,13 @@ function nearName(city: City, o: Body["origin"]) {
 // against the same hard filters: four of the founder's within reach, the
 // ones whose name and note say most about what this person wants first,
 // then the nearest (feta-places.ts; the ones that fit come before Google's,
-// curate.ts), and up
-// to 2 from people with a similar taste. Only place IDs, her notes, counts
-// and (for up to 30 days) where her places are, are stored.
+// curate.ts), up to 2 from people with a similar taste, and three local
+// favourites chosen the same way (a food one must turn out to be mainly a
+// place to eat or drink). Only place IDs, her notes, counts and (for up to
+// 30 days) where her places and local favourites are, are stored.
 const FETA_LOOKUPS = 4; // founder, 19 Nov 2026 (was 3, at random)
 const COMMUNITY_LOOKUPS = 2;
+const LOCAL_LOOKUPS = 3; // founder, 19 Nov 2026
 
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
@@ -485,30 +489,38 @@ async function fetaCandidates(ctx: {
   intents: Intent[];
 }): Promise<Candidate[]> {
   const kinds: Kind[] = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
-  const [founder, community] = await Promise.all([
-    founderPlacesNear(ctx.db, { city: ctx.city, kinds, origin: ctx.origin, taste: ctx.taste }),
+  const [curated, community] = await Promise.all([
+    founderPlacesNear(ctx.db, { city: ctx.city, kinds, origin: ctx.origin, taste: ctx.taste, sources: ["founder", "local"] }),
     ctx.db.rpc("feta_favourites", { p_city: ctx.city.id, p_category: ctx.body.category }),
   ]);
+  const founder = curated.filter((f) => !f.local);
+  const locals = curated.filter((f) => f.local && !founder.some((m) => m.placeId === f.placeId));
+  const localIds = new Set(locals.map((f) => f.placeId));
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
-  if (notes.size === 0 && loved.size === 0) return [];
+  if (notes.size === 0 && loved.size === 0 && localIds.size === 0) return [];
   const mark = (c: Candidate): Candidate => ({
     ...c,
     ...(notes.has(c.place.id) ? { fetaNote: notes.get(c.place.id) } : {}),
     ...(loved.has(c.place.id) ? { lovedBy: loved.get(c.place.id)!.lovers } : {}),
+    ...(localIds.has(c.place.id) ? { local: true } : {}),
   });
-  const found = ctx.pool.filter((c) => notes.has(c.place.id) || loved.has(c.place.id)).map(mark);
-  const notFound = (id: string) => !found.some((c) => c.place.id === id);
-  const lookups = [
-    ...founder
-      .filter((f) => !ctx.founderExclude.has(f.placeId) && notFound(f.placeId))
+  const found = ctx.pool.filter((c) => notes.has(c.place.id) || loved.has(c.place.id) || localIds.has(c.place.id)).map(mark);
+  const byFit = (list: typeof curated) =>
+    list
       .map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) }))
       .sort((a, b) => b.fit - a.fit || a.near - b.near)
-      .slice(0, FETA_LOOKUPS)
-      .map((f) => f.id),
+      .map((f) => f.id);
+  const notFound = (id: string) => !found.some((c) => c.place.id === id);
+  const lookups = [
+    ...byFit(founder.filter((f) => !ctx.founderExclude.has(f.placeId) && notFound(f.placeId))).slice(0, FETA_LOOKUPS),
+    ...byFit(locals.filter((f) => !ctx.exclude.has(f.placeId) && notFound(f.placeId))).slice(0, LOCAL_LOOKUPS),
     ...[...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id) && notFound(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
   ];
-  const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
+  const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet))))
+    .filter((p): p is Place => !!p)
+    // A local favourite matched by name only: a food one must really be a place to eat or drink.
+    .filter((p) => !localIds.has(p.id) || ctx.body.category !== "food_drinks" || mainlyOf(p, "food_drinks"));
   const passed = applyHardFilters(places, {
     taste: ctx.taste,
     category: ctx.body.category,

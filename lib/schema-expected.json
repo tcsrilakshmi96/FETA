@@ -328,5 +328,10 @@
   "kind": "function",
   "name": "schema_objects",
   "file": "20261118130000_schema_health.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.source",
+  "file": "20261119100000_local_favourites.sql"
  }
 ]

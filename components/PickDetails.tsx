@@ -21,6 +21,12 @@ export function lovedLabel(n?: number) {
   return n ? `♥ Loved by ${n} Feta ${n === 1 ? "user" : "users"}` : null;
 }
 
+// Why a curated place is here, under its reason: loved by Feta users, or a
+// local favourite (founder, 19 Nov 2026; never says where the list came from).
+export function curatedLabel(p: { lovedBy?: number; local?: boolean }) {
+  return lovedLabel(p.lovedBy) ?? (p.local ? "📍 Local favourite" : null);
+}
+
 // The verdict in words. With "Anywhere in <city>" Feta doesn't know where
 // they are, so no "detour" or "nearby" (testers: "a detour from where?").
 export function verdictLabel(p: Pick) {
@@ -88,7 +94,7 @@ export default function PickDetails({
             <p className={styles.fetaNote}>“{pick.fetaNote}”</p>
           </>
         )}
-        {lovedLabel(pick.lovedBy) && <p className={styles.loved}>{lovedLabel(pick.lovedBy)}</p>}
+        {curatedLabel(pick) && <p className={styles.loved}>{curatedLabel(pick)}</p>}
         <p className={styles.label}>WHY IT&apos;S YOURS</p>
         <p className={styles.because}>{pick.because}</p>
         <div className={styles.chips}>

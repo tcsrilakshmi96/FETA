@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { curate, pickFrom } from "@/lib/server/curate";
-import { mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
@@ -41,6 +41,8 @@ type Persona = {
   min?: number; // at least this many picks
   founder?: RegExp; // test places that are the founder's
   founderMin?: number; // at least this many of them show (the ones that fit come before Google's)
+  local?: RegExp; // test places that are local favourites
+  localMin?: number; // at least this many of them show
 };
 
 const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: ["level_2", "level_3"], drinks: "sometimes" };
@@ -70,6 +72,16 @@ const PERSONAS: Persona[] = [
     covers: ["cuisine_thai", "cuisine_korean"],
     founderMin: 5, // 6 of hers fit; the variety rules (a few of one kind) may hold one back
     never: /Gangnam BBQ/, // hers, but mainly meat: the diet still wins
+  },
+  {
+    name: "Local favourites that fit come before Google's",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_thai"],
+    local: /Tiffin Roastery|Slice Theory|Brahmin Tiffin|Wok This Way/,
+    localMin: 3,
+    covers: ["cuisine_thai"],
   },
   {
     name: "Founder: 4 cuisines ticked and loves cafes: the cafes still shape the first set",
@@ -272,7 +284,14 @@ async function run(p: Persona) {
     rotation: 0,
     extra,
     dayPlan: p.dayPlan,
-    favourites: p.founder ? async (pool) => pool.filter((c) => p.founder!.test(c.place.displayName?.text ?? "")).map((c) => ({ ...c, fetaNote: "test" })) : undefined,
+    favourites:
+      p.founder || p.local
+        ? async (pool) =>
+            pool.flatMap((c): Candidate[] => {
+              const name = c.place.displayName?.text ?? "";
+              return p.founder?.test(name) ? [{ ...c, fetaNote: "test" }] : p.local?.test(name) ? [{ ...c, local: true }] : [];
+            })
+        : undefined,
   });
   const picked = pickFrom(found, { room: 8, small: false, popularCap: popularCap(taste) });
   const shown = picked.chosen.slice(0, picked.shown);
@@ -298,6 +317,8 @@ async function run(p: Persona) {
   if (new Set(names).size !== names.length) fails.push("a place twice");
   const feta = shown.filter((c) => c.candidate.fetaNote !== undefined).length;
   if (p.founderMin && feta < p.founderMin) fails.push(`only ${feta} of the founder's places`);
+  const locals = shown.filter((c) => c.candidate.local).length;
+  if (p.localMin && locals < p.localMin) fails.push(`only ${locals} local favourites`);
   // Very popular places beyond the cap only when nothing less known was left.
   const isPopular = (c: { place: { userRatingCount?: number } }) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const popular = shown.filter((c) => isPopular(c.candidate) && !isFor(c.candidate)).length;

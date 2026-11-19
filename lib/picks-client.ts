@@ -179,7 +179,7 @@ export function hasFetaPicks(cityId: string): Promise<boolean> {
       cityId,
       (async () => {
         await currentUserId(); // the list is readable once signed in
-        const { count } = await supabase().from("founder_places").select("place_id", { count: "exact", head: true }).eq("city_id", cityId).eq("active", true);
+        const { count } = await supabase().from("founder_places").select("place_id", { count: "exact", head: true }).eq("city_id", cityId).eq("active", true).eq("source", "founder");
         return (count ?? 0) > 0;
       })(),
     );
