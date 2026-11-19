@@ -157,6 +157,27 @@ async function main() {
     check(/Hi Journey/.test(home), "Home says hello by name");
     check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
 
+    // The picks list scrolled just past where the header shrinks stays put
+    // (tester video, 19 Nov 2026: the header flickered between big and small).
+    await p.goto(`${BASE}/picks?c=food_drinks`, { waitUntil: "networkidle0" });
+    await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+    await wait(1500);
+    const steady = await p.evaluate(async () => {
+      const list = [...document.querySelectorAll("main div")].find((d) => getComputedStyle(d).overflowY === "auto") as HTMLElement;
+      // Just long enough to scroll past the shrink point: the case that flickered.
+      const room = document.createElement("div");
+      list.appendChild(room);
+      room.style.height = `${list.clientHeight + 80 - room.offsetTop - parseFloat(getComputedStyle(list).paddingBottom)}px`;
+      list.scrollTop = 75;
+      const seen: number[] = [];
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        seen.push(list.scrollTop);
+      }
+      return { start: seen[2], end: seen[19], changes: new Set(seen.slice(2)).size };
+    });
+    check(steady.changes === 1 && steady.end >= 60, "The picks header shrinks once and the list stays still", JSON.stringify(steady));
+
     // You shows what they shared.
     await p.goto(`${BASE}/you`, { waitUntil: "networkidle0" });
     await wait(2000);

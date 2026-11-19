@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
@@ -113,6 +113,17 @@ export default function Picks() {
   const [withKids, setWithKids] = useState(false);
   const [compact, setCompact] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const head = useRef<HTMLDivElement>(null);
+  const [headSpace, setHeadSpace] = useState(0);
+
+  // The header sits above the list, not in it, and the list keeps room for
+  // the full header, so shrinking it never moves the list. When it was part
+  // of the list, shrinking pulled the list back above the point where it
+  // shrinks, and it flickered between big and small (tester video, 19 Nov 2026).
+  useLayoutEffect(() => {
+    const height = head.current?.offsetHeight ?? 0;
+    if (!compact && height !== headSpace) setHeadSpace(height);
+  });
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -286,8 +297,7 @@ export default function Picks() {
   return (
     <main className={styles.screen}>
       {/* The header shrinks to one line once the list scrolls (testers: it took 40% of the screen). */}
-      <div ref={scroller} className={styles.scroll} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
-      <div className={`${styles.head} ${compact ? styles.compact : ""}`}>
+      <div ref={head} className={`${styles.head} ${compact ? styles.compact : ""}`}>
         <div className={styles.top}>
           <div className={styles.segment} role="tablist" aria-label="When">
             <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
@@ -340,6 +350,7 @@ export default function Picks() {
           )}
         </div>
       </div>
+      <div ref={scroller} className={styles.scroll} style={{ paddingTop: headSpace }} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
 
       {(!slot || slot.loading) && (
         <div className={styles.panel}>

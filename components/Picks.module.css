@@ -14,10 +14,11 @@
 }
 
 .head {
-  position: sticky;
+  position: absolute;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
-  margin: 0 -18px;
   padding: 50px 18px 12px;
   background: var(--bg);
 }
@@ -782,7 +783,8 @@
   opacity: 0.6;
 }
 
-/* Once the list scrolls, the header is one line: title and tools. */
+/* Once the list scrolls, the header is one line: title and tools. The
+   list keeps room for the full header, so it never moves (Picks.tsx). */
 .head .top,
 .head .title {
   transition: opacity 0.25s, font-size 0.25s;
