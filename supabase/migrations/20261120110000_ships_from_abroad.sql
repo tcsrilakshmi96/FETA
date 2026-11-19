@@ -8,4 +8,4 @@ alter table public.brand_markets add constraint brand_markets_presence_type_chec
 
 -- The India test's brands that only ship in from abroad.
 update public.brand_markets set presence_type = 'ships from abroad'
-where country = 'IN' and brand_id in (select id from public.brands where name_key in ('loveshackfancy', 'forloveandlemons', 'houseofcb', 'needlethread', 'sisterjane'));
+where country = 'IN' and brand_id in (select id from public.brands where name_key in ('loveshackfancy', 'forlovelemons', 'houseofcb', 'needlethread', 'sisterjane'));
