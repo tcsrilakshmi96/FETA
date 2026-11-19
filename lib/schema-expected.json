@@ -338,5 +338,10 @@
   "kind": "function",
   "name": "city_coverage",
   "file": "20261119200000_city_coverage.sql"
+ },
+ {
+  "kind": "column",
+  "name": "pick_sets.searched",
+  "file": "20261119210000_searched_intents.sql"
  }
 ]

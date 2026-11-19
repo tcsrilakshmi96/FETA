@@ -25,6 +25,7 @@ type Persona = {
   city: string;
   category: Category;
   when?: When;
+  searchedBefore?: string[][]; // what their recent sets searched, newest first
   answers: Partial<Answers>;
   yes?: string[];
   lines?: string[];
@@ -105,6 +106,18 @@ const PERSONAS: Persona[] = [
     covers: ["cuisine_thai", "loved_0"],
     half: true,
     some: /Brew Lab|Quiet Pages|Tiffin Roastery/,
+  },
+  {
+    // Founder, 19 Nov 2026: "if the choices in You are changed, is it
+    // impacting the choices given?" Six cuisines, the first four searched
+    // in the last set, then Korean turned on in You: Korean comes now.
+    name: "A cuisine just turned on in You is searched in the very next set",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything" },
+    yes: ["cuisine_south_indian", "cuisine_italian", "cuisine_north_indian", "cuisine_thai", "cuisine_mexican", "cuisine_korean"],
+    searchedBefore: [["cuisine_south_indian", "cuisine_italian", "cuisine_north_indian", "cuisine_thai"]],
+    covers: ["cuisine_korean", "cuisine_mexican"],
   },
   {
     // Founder's own test, 19 Nov 2026: she ticked only ₹1,500–3,000, the
@@ -309,6 +322,7 @@ async function run(p: Persona) {
     needsDiet: p.category === "food_drinks" && ["vegetarian", "vegetarian_eggs", "jain", "vegan"].includes(p.answers.diet ?? ""),
     need: 8,
     rotation: 0,
+    searchedBefore: p.searchedBefore,
     extra,
     dayPlan: p.dayPlan,
     favourites:

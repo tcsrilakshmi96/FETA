@@ -52,6 +52,7 @@ export type CurateInput = {
   needsDiet: boolean;
   need: number; // places wanted (a wider search runs when fewer pass)
   rotation: number; // later sets search the next words
+  searchedBefore?: string[][]; // what recent sets searched, newest first
   extra?: Intent[]; // read from their own words (taste-reader.ts)
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
@@ -75,7 +76,7 @@ const POOL_MAX = 30;
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
   const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan });
-  const plan = planSearches(intents, { category, rotation: input.rotation, when, max: input.searches });
+  const plan = planSearches(intents, { category, when, max: input.searches, searchedBefore: input.searchedBefore });
 
   // 2. Find.
   const limit = distanceLimitKm(taste.answers);

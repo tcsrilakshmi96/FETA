@@ -113,15 +113,24 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
 // Which intents to search this time, and whether to also look at what's
 // popular nearby (places to eat and drink, or things to do). What they
 // asked for right now is always searched; if they chose more than fit, the
-// rest take turns across sets.
-export function planSearches(intents: Intent[], opts: { category: Category; rotation: number; when: "tonight" | "weekend"; max?: number }) {
+// rest take turns across sets: never searched first (a choice just added in
+// You), then the ones searched longest ago (founder, 19 Nov 2026).
+export function planSearches(intents: Intent[], opts: { category: Category; when: "tonight" | "weekend"; max?: number; searchedBefore?: string[][] }) {
   const now = intents.filter((i) => NOW.includes(i.source));
   const chosen = intents.filter((i) => i.explicit && !now.includes(i));
   // A day plan searches one more, so their own interests fill the evening.
   const max = opts.max ?? MAX_SEARCHES + (intents.some((i) => i.source === "plan") ? 1 : 0);
   const room = Math.max(0, max - Math.min(now.length, max));
-  const start = chosen.length > room && room > 0 ? (opts.rotation * room) % chosen.length : 0;
-  const turn = [...chosen.slice(start), ...chosen.slice(0, start)].slice(0, room);
+  const before = opts.searchedBefore ?? [];
+  const setsAgo = (i: Intent) => {
+    const k = before.findIndex((ids) => ids.includes(i.id));
+    return k < 0 ? Infinity : k;
+  };
+  const turn = chosen
+    .map((i, n) => ({ i, n, ago: setsAgo(i) }))
+    .sort((a, b) => (a.ago === b.ago ? a.n - b.n : b.ago - a.ago))
+    .slice(0, room)
+    .map((x) => x.i);
   const searched = [...now.slice(0, max), ...turn];
   const food = opts.category === "food_drinks";
   const broad = searched.length < max;

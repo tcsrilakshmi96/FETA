@@ -127,7 +127,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   const { data: recent } = await db
     .from("pick_sets")
-    .select("picks, banner, expires_at, origin_key, created_at")
+    .select("picks, banner, expires_at, origin_key, created_at, searched")
     .eq("category", body.category)
     .eq("when_slot", body.when)
     .order("created_at", { ascending: false })
@@ -231,6 +231,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       needsDiet,
       need,
       rotation,
+      // What the last day's sets searched, newest first, so a choice not
+      // searched yet (just added in You) goes first.
+      searchedBefore: (recent ?? []).filter((s) => new Date(s.created_at).getTime() > Date.now() - 24 * 3600 * 1000).map((s) => (s.searched as string[] | null) ?? []),
       extra,
       dayPlan: !!body.dayPlan,
       at,
@@ -307,6 +310,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     time_zone: city.timeZone,
     currency: city.currency,
     picks: stored,
+    searched: result.intents.filter((i) => i.explicit).map((i) => i.id),
     banner,
     expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString(),
   });
