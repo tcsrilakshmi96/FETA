@@ -49,8 +49,7 @@ export function cityCalendar(timeZone: string) {
     return `${q.year}-${q.month}-${q.day}`;
   };
   const weekend = weekday === 6 ? [today, dayAt(1)] : weekday === 0 ? [today] : [dayAt(6 - weekday), dayAt(7 - weekday)];
-  const week = [0, 1, 2, 3, 4, 5, 6].map(dayAt);
-  return { today, time: `${p.hour === "24" ? "00" : p.hour}:${p.minute}`, weekend, week };
+  return { today, time: `${p.hour === "24" ? "00" : p.hour}:${p.minute}`, weekend };
 }
 
 function readable(date: string) {
@@ -62,21 +61,15 @@ function readable(date: string) {
 export async function findEvents(opts: {
   city: City;
   near: string; // area or city name, never coordinates
-  when: "tonight" | "weekend" | "week";
+  when: "tonight" | "weekend";
   distanceKm: number;
 }): Promise<EventSearch> {
   if (FAKE) return { events: [], searchHtml: "" };
   const cal = cityCalendar(opts.city.timeZone);
-  const week = opts.when === "week";
-  const window =
-    opts.when === "tonight"
-      ? `tonight, ${readable(cal.today)}, starting after ${cal.time}`
-      : week
-        ? `in the next 7 days, from ${readable(cal.today)} (after ${cal.time}) to ${readable(cal.week[6])}`
-        : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
+  const window = opts.when === "tonight" ? `tonight, ${readable(cal.today)}, starting after ${cal.time}` : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
-Search the web for up to ${week ? 14 : 8} real public events of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport) happening ${window} in ${opts.city.name}${week ? "" : `, as close as possible to ${opts.near} (ideally within ${opts.distanceKm} km)`}.
-Use at most ${week ? 3 : 2} searches. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
+Search the web for up to 8 real public events of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport) happening ${window} in ${opts.city.name}, as close as possible to ${opts.near} (ideally within ${opts.distanceKm} km).
+Use at most 2 searches. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect)}.`;
@@ -123,7 +116,7 @@ Reply with only a JSON array. Each item:
 // distance (venue found on Google Maps), within budget.
 export function eventPasses(
   e: FoundEvent,
-  opts: { when: "tonight" | "weekend" | "week"; timeZone: string; maxSpend: number | null },
+  opts: { when: "tonight" | "weekend"; timeZone: string; maxSpend: number | null },
 ) {
   let url: URL;
   try {
@@ -133,11 +126,11 @@ export function eventPasses(
   }
   if (url.protocol !== "https:" || url.hostname.includes("vertexaisearch") || url.hostname.includes("google.")) return false;
   const cal = cityCalendar(opts.timeZone);
-  if (opts.when === "tonight" || (opts.when === "week" && e.date === cal.today)) {
+  if (opts.when === "tonight") {
     if (e.date !== cal.today) return false;
     // Still to come, or started within the last hour.
     if (e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
-  } else if (!(opts.when === "week" ? cal.week : cal.weekend).includes(e.date)) return false;
+  } else if (!cal.weekend.includes(e.date)) return false;
   return e.minPrice === null || e.minPrice === undefined || opts.maxSpend === null || e.minPrice <= opts.maxSpend;
 }
 
@@ -229,7 +222,7 @@ export function siteName(url: string) {
 export async function personalizeEvents(
   events: FoundEvent[],
   tasteSummary: string,
-  when: "tonight" | "weekend" | "week",
+  when: "tonight" | "weekend",
   max = 2,
 ): Promise<{ index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[]> {
   if (events.length === 0) return [];
@@ -239,7 +232,7 @@ export async function personalizeEvents(
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: `You are Feta, an honest friend picking events for one person ${when === "tonight" ? "tonight" : when === "week" ? "this week" : "this weekend"}.
+      contents: [{ role: "user", parts: [{ text: `You are Feta, an honest friend picking events for one person ${when === "tonight" ? "tonight" : "this weekend"}.
 
 About them:
 ${tasteSummary || "Not much yet."}
