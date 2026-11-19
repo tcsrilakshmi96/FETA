@@ -163,7 +163,7 @@ export default function Questions() {
     saving.push(saveProfileLinesToDb(lines, []));
     await Promise.all(saving);
     forgetPicks();
-    router.push(fromYou ? "/you" : "/location");
+    router.push(fromYou ? "/you" : "/home");
   }
 
   // Places they love: ask once whether to recommend them to others.
@@ -185,7 +185,7 @@ export default function Questions() {
   }
 
   function back() {
-    if (step === 0) router.push(fromYou ? "/you" : "/start");
+    if (step === 0) router.push(fromYou ? "/you" : "/location?setup=1");
     else setStep(step - 1);
   }
 

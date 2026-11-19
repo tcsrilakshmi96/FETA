@@ -81,7 +81,24 @@ async function main() {
     await click(p, /Places to eat and drink/);
     await click(p, /Things to do/);
     await click(p, /^(Continue|Next)/);
-    await p.waitForFunction(() => location.pathname === "/questions", { timeout: 15000 });
+    await p.waitForFunction(() => location.pathname === "/location", { timeout: 15000 });
+    // Where they are, before the questions (founder, 19 Nov 2026: the
+    // questions show that city's money and cuisines).
+    // "Where should Feta look?": type a city and pick it, then anywhere in it.
+    const cityBox = await p.waitForSelector("input[placeholder^='Type a city']", { timeout: 30000 }).catch(() => null);
+    if (cityBox) {
+      await cityBox.type("Bengaluru");
+      await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /^Bengaluru/.test((b.textContent ?? "").trim())), { timeout: 20000 }).catch(() => null);
+      await click(p, /^Bengaluru/);
+    }
+    await p.waitForFunction(() => location.pathname === "/questions" || [...document.querySelectorAll("button")].some((b) => /^Anywhere in /.test(b.textContent ?? "")), { timeout: 20000 }).catch(() => null);
+    await click(p, /^Anywhere in /);
+    if (process.env.JOURNEY_DEBUG) {
+      console.log("location buttons:", await texts(p, "button"));
+      await p.screenshot({ path: "/tmp/journey-location.png" });
+    }
+    await p.waitForFunction(() => location.pathname === "/questions", { timeout: 20000 });
+    check(true, "Start leads to the location screen, then the questions");
 
     // The questions, screen by screen.
     const city = await p.evaluate(() => JSON.parse(localStorage.getItem("feta.city") ?? "null") as { country: string; name: string } | null);
@@ -119,7 +136,7 @@ async function main() {
       await wait(1500);
     }
     check(sawTaste, "The cuisine and things-to-do screen showed up");
-    check(p.url().includes("/location"), "The questions lead to the location screen", p.url());
+    check(p.url().includes("/home"), "The questions lead to Home", p.url());
 
     // Saved the way they chose it.
     token = await p.evaluate(() => {
@@ -136,22 +153,7 @@ async function main() {
       check(answers?.diet === "everything" && answers.interests.includes("live_music") && answers.interests.includes("board_games") && answers.spend.length > 0, "Diet, spend and things to do are saved", JSON.stringify(answers));
     }
 
-    // Location, then Home with picks in both categories.
-    // "Where should Feta look?": type a city and pick it, then anywhere in it.
-    const cityBox = await p.waitForSelector("input[placeholder^='Type a city']", { timeout: 30000 }).catch(() => null);
-    if (cityBox) {
-      await cityBox.type("Bengaluru");
-      await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /^Bengaluru/.test((b.textContent ?? "").trim())), { timeout: 20000 }).catch(() => null);
-      await click(p, /^Bengaluru/);
-    }
-    await p.waitForFunction(() => location.pathname === "/home" || [...document.querySelectorAll("button")].some((b) => /^Anywhere in /.test(b.textContent ?? "")), { timeout: 20000 }).catch(() => null);
-    await click(p, /^Anywhere in /);
-    if (process.env.JOURNEY_DEBUG) {
-      console.log("location buttons:", await texts(p, "button"));
-      await p.screenshot({ path: "/tmp/journey-location.png" });
-    }
     await p.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);
-    check(p.url().includes("/home"), "Location leads to Home", p.url());
     await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
     await wait(3000);
     const home = await p.evaluate(() => document.body.innerText);

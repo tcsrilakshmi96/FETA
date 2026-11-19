@@ -36,7 +36,9 @@ export default function Start() {
     saveName(first);
     saveWants(wants);
     saveProfileBasicsToDb(first, wants);
-    router.push(fromYou ? "/you" : "/questions");
+    // Where they are comes before the questions (founder, 19 Nov 2026: in
+    // New York the questions showed rupees and Indian cuisines).
+    router.push(fromYou ? "/you" : "/location?setup=1");
   }
 
   return (

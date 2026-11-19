@@ -21,6 +21,8 @@ export default function Location() {
   const toast = useToast();
   const [city, setCity] = useState<City | null>(null);
   const [first, setFirst] = useState(false);
+  // During setup the questions come next, shown for where they are.
+  const [setup, setSetup] = useState(false);
   const [state, setState] = useState<State>("ask");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [typed, setTyped] = useState("");
@@ -31,7 +33,8 @@ export default function Location() {
   useEffect(() => {
     const saved = loadCity();
     /* eslint-disable react-hooks/set-state-in-effect -- the city is only readable in the browser */
-    // The last setup step: no city yet, so ask where Feta should look.
+    setSetup(new URLSearchParams(window.location.search).get("setup") === "1");
+    // No city yet (setup), so ask where Feta should look.
     if (!saved) {
       setFirst(true);
       return;
@@ -92,7 +95,7 @@ export default function Location() {
           return;
         }
         saveOrigin(originFromGps(point.lat, point.lng, here));
-        router.push("/home");
+        router.push(setup ? "/questions" : "/home");
       },
       (error) => {
         if (error.code === error.PERMISSION_DENIED) setState("denied");
@@ -117,13 +120,13 @@ export default function Location() {
     }
     // "Kreuzberg, Friedrichshain-Kreuzberg" reads as "Kreuzberg" on the pill.
     saveOrigin(originFromArea({ placeId: s.placeId, name: s.name.split(",")[0].trim().slice(0, 40), ...at }, city));
-    router.push("/home");
+    router.push(setup ? "/questions" : "/home");
   }
 
   function anywhere() {
     if (!city) return;
     saveOrigin(originFromCity(city));
-    router.push("/home");
+    router.push(setup ? "/questions" : "/home");
   }
 
   if (first)
