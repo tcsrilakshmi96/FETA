@@ -1,6 +1,6 @@
 "use client";
 
-import { forgetPicks } from "@/lib/picks-store";
+import { changingTaste, forgetPicks } from "@/lib/picks-store";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // The You screen: plain profile lines, privacy choices and the account.
@@ -63,14 +63,14 @@ export async function loadProfile(): Promise<Profile | null> {
 // change to lines also drops the picks kept on the phone, so the next open
 // searches with the new taste.
 export async function removeLine(id: string) {
-  const { error } = await supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await changingTaste(supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("id", id));
   if (error) console.error("Removing line failed", error.message);
   forgetPicks();
 }
 
 // Editing a line: picks and chat use the new words from now on.
 export async function editLine(id: string, text: string) {
-  const { error } = await supabase().from("profile_lines").update({ text: text.trim().slice(0, 80) }).eq("id", id);
+  const { error } = await changingTaste(supabase().from("profile_lines").update({ text: text.trim().slice(0, 80) }).eq("id", id));
   if (error) console.error("Editing line failed", error.message);
   forgetPicks();
 }
@@ -81,11 +81,13 @@ export async function addLine(text: string, about: Person | null, section?: "foo
   const userId = await currentUserId();
   if (!userId) return null;
   const key = `${about ? `people:${about}` : section ? `you:${section}` : "you"}:${crypto.randomUUID()}`;
-  const { data, error } = await supabase()
-    .from("profile_lines")
-    .insert({ user_id: userId, line_key: key, text: text.trim().slice(0, 80), source: "you" })
-    .select("id, text, source, trip")
-    .single();
+  const { data, error } = await changingTaste(
+    supabase()
+      .from("profile_lines")
+      .insert({ user_id: userId, line_key: key, text: text.trim().slice(0, 80), source: "you" })
+      .select("id, text, source, trip")
+      .single(),
+  );
   if (error) console.error("Adding line failed", error.message);
   forgetPicks();
   return data ? ({ ...data, key } as Line) : null;

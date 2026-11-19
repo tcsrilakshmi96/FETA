@@ -2,7 +2,7 @@
 
 import type { Origin } from "@/lib/origin";
 import { originKey } from "@/lib/origin";
-import { fetchPicks, forgetFetaPicks, type Category, type Pick, type When } from "@/lib/picks-client";
+import { fetchPicks, forgetFetaPicks, savingTaste, type Category, type Pick, type When } from "@/lib/picks-client";
 
 // Picks on the phone, shared by Home and the picks list, so opening one
 // after the other makes no new search. picks: on screen, best first.
@@ -31,6 +31,14 @@ let tasteVersion = 0;
 const stillOpen = (p: Pick) => !p.closesAt || new Date(p.closesAt).getTime() > Date.now();
 
 // Their taste changed (a new line, new answers): the next open searches again.
+// A change to their taste is being saved: the kept picks go at once (a
+// screen opened before the save finishes must not show them), and every
+// search waits for the save.
+export function changingTaste<T>(write: PromiseLike<T>): Promise<T> {
+  forgetPicks();
+  return savingTaste(write);
+}
+
 export function forgetPicks() {
   kept = null;
   tasteVersion++;

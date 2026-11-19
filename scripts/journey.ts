@@ -110,7 +110,8 @@ async function main() {
         if (own) await own.type("pottery with friends");
       } else if (/basics/i.test(heading)) {
         await click(p, /^Everything$/);
-        await p.evaluate(() => (document.querySelectorAll("button[aria-pressed]")[1] as HTMLButtonElement | undefined)?.click());
+        // Spend: the two middle levels, like most people ("₹500–1,500", "₹1,500–3,000").
+        await p.evaluate(() => [...document.querySelectorAll("button")].filter((b) => /^\D*[\d,]+–[\d,]+/.test((b.textContent ?? "").trim())).slice(1, 3).forEach((b) => b.click()));
         await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Short ride|Walking/.test(b.textContent ?? ""))?.click());
         await click(p, /^Sometimes$/);
       }
@@ -183,6 +184,35 @@ async function main() {
     await wait(2000);
     const you = await p.evaluate(() => document.body.innerText);
     check(new RegExp(typedKnown).test(you) && /Burmese/.test(you), `You shows "${typedKnown}" and "Burmese"`, you.slice(0, 400));
+
+    // A change in You changes the picks (founder, 19 Nov 2026: "if the
+    // choices in You are changed, is it impacting the choices given?").
+    // Home's picks are kept on the phone, so this goes Home → You → Home
+    // inside the app, the way a person does, not by reloading.
+    const korean = /Seoul Kitchen|Hansik Bowl/;
+    const turnOn = expectedCuisines.find((l) => /korean/i.test(l) && !ticked.includes(l));
+    const foodList = async () => {
+      await click(p, /^See all/);
+      await p.waitForFunction(() => location.pathname === "/picks", { timeout: 15000 }).catch(() => null);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await wait(1500);
+      return p.evaluate(() => document.body.innerText);
+    };
+    if (turnOn) {
+      await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      const before = await foodList();
+      await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await p.evaluate(() => (document.querySelector("button[aria-label^='You']") as HTMLButtonElement | null)?.click());
+      await p.waitForFunction((l) => [...document.querySelectorAll("button")].some((b) => (b.textContent ?? "").trim() === l), { timeout: 20000 }, turnOn).catch(() => null);
+      await click(p, new RegExp(`^${turnOn}$`));
+      // Straight back, the way a person does: the search must wait for the save.
+      await click(p, /Home$/);
+      await p.waitForFunction(() => location.pathname === "/home" && !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      const after = await foodList();
+      check(korean.test(after) && !korean.test(before), `Turning on ${turnOn} in You brings Korean places to the picks`, `before: ${korean.test(before)}, after: ${korean.test(after)}`);
+    }
 
     check(errors.length === 0, "No errors on any screen", errors.join(" | "));
   } catch (error) {

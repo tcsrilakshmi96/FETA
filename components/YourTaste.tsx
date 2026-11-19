@@ -8,6 +8,7 @@ import { saveSwipesToDb } from "@/lib/db";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, spendText, toggleSpend, type Answers } from "@/lib/onboarding";
 import { addLine, removeLine, type Line } from "@/lib/profile-client";
 import { cuisinesFor, loadSwipes, saveSwipes, typedCuisines, type Swipe } from "@/lib/swipes";
+import { changingTaste } from "@/lib/picks-store";
 import { saveTaste } from "@/lib/taste-client";
 import styles from "./YourTaste.module.css";
 
@@ -98,7 +99,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     const next = [...swipes.filter((s) => !ids.some((id) => s.cardId === `cuisine_${id}`)), ...ids.map((id) => ({ cardId: `cuisine_${id}`, verdict: on ? ("yes" as const) : ("no" as const) }))];
     setSwipes(next);
     saveSwipes(next);
-    const [a, l] = await Promise.all([saveSwipesToDb(next.filter((s) => ids.some((id) => s.cardId === `cuisine_${id}`))), syncLines(answers, next)]);
+    const [a, l] = await Promise.all([changingTaste<boolean | void>(saveSwipesToDb(next.filter((s) => ids.some((id) => s.cardId === `cuisine_${id}`)))), syncLines(answers, next)]);
     done("food", a !== false && l, what);
   }
 

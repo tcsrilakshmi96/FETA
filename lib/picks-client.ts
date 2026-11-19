@@ -10,6 +10,16 @@ export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; noti
 
 // Asks Feta's server for picks (8 to show, the rest as backup). The server reads the user's answers and
 // swipes from the database itself.
+// A change to their taste still being saved: every search waits for it, so
+// it uses the new choices (founder, 19 Nov 2026: back on Home a moment
+// after turning a cuisine on in You, picks searched with the old ones).
+let saving: Promise<unknown> = Promise.resolve();
+export function savingTaste<T>(write: PromiseLike<T>): Promise<T> {
+  const p = Promise.resolve(write);
+  saving = Promise.all([saving, p.catch(() => null)]);
+  return p;
+}
+
 export async function fetchPicks(
   category: Category,
   when: When,
@@ -17,6 +27,7 @@ export async function fetchPicks(
   more = false,
   tweak?: { tweaks: string[]; note?: string },
 ): Promise<PicksReply> {
+  await saving;
   await currentUserId();
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
@@ -126,6 +137,7 @@ export function forgetFetaPicks() {
 // one search (about ₹3–4). tried: kinds already shown; shown: places in
 // their lists, never surprised with.
 export async function fetchSurprise(origin: Origin, when: When, category: Category, tried: string[], shown: string[]): Promise<{ pick?: Pick; kind?: string; notice?: string; tried?: string[] }> {
+  await saving;
   await currentUserId();
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
@@ -154,6 +166,7 @@ export async function fetchFetaPicks(origin: Origin, when: When): Promise<PicksR
   const key = `${origin.city.id}|${origin.lat.toFixed(2)},${origin.lng.toFixed(2)}|${when}`;
   const hit = fetaKept.get(key);
   if (hit && Date.now() - hit.at < 3600 * 1000) return hit.reply;
+  await saving;
   await currentUserId();
   const { data } = await supabase().auth.getSession();
   const token = data.session?.access_token;
