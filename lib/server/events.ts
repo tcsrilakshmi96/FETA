@@ -186,7 +186,7 @@ const LOCAL_TICKETS: Record<string, string> = {
 
 const SITES = eventSites as { cities: Record<string, string>; regions: Record<string, string>; countries: Record<string, string> };
 
-function eventSources(city: City) {
+export function eventSources(city: City) {
   const lists = [SITES.cities[city.id], SITES.regions[`${city.country}|${city.region}`], SITES.countries[city.country], LOCAL_TICKETS[city.country]];
   const sites = [...new Set(lists.filter(Boolean).flatMap((l) => l!.split(", ")))];
   return sites.length ? sites.slice(0, 15).join(", ") : "Eventbrite, Luma (lu.ma), Ticketmaster, Resident Advisor, Time Out and local ticket sites";

@@ -101,6 +101,7 @@ export type StoredPick = {
   spare?: boolean; // backup for "Show me more", not shown at first
   lovedBy?: number; // Feta users who recommend it (counted live, not stored)
   local?: boolean; // a local favourite (feta-places.ts)
+  featured?: FeaturedIn; // a city guide recommends it (featured.ts)
   serves?: string[]; // what they shared that it matched ("cuisine_thai", "loved_0"), for Choose for me
 };
 
@@ -324,7 +325,10 @@ export function poorlyKnown(place: Place) {
 // intents: what the person asked for that this place is (intents.ts).
 // lovedBy: how many Feta users recommend it (Feta Favourites).
 // local: recommended by locals (the founder's research).
-export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean };
+// featured: a city guide recommends it, with the article's link and Google's
+// Search chip (the guide was found with Grounding with Google Search).
+export type FeaturedIn = { guide: string; url: string; searchHtml: string };
+export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -625,6 +629,7 @@ function describe(c: Candidate, i: number, category: Category) {
     c.fetaNote !== undefined && `FETA PICK, the founder's own favourite${c.fetaNote ? `: "${c.fetaNote}"` : ""}`,
     c.lovedBy && `FETA FAVOURITE, loved by ${c.lovedBy} Feta ${c.lovedBy === 1 ? "user" : "users"} with a similar taste`,
     c.local && "LOCAL FAVOURITE, recommended by locals",
+    c.featured && `FEATURED in ${c.featured.guide}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -664,7 +669,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
       familiar: `They like their usual done really well: favour excellent, well-loved versions of ${category === "food_drinks" ? "their favourite cuisines" : "what they're into"} over novelty.\n\n`,
       mix: "",
     }[noveltyLean(opts.taste)]
-  }Places marked FETA PICK are the founder's own favourites, FETA FAVOURITE ones were loved by other Feta users with a similar taste, and LOCAL FAVOURITE ones are recommended by locals: rank the ones that suit this person highly, any that don't as you would any other place, and a "because" may mention it.
+  }Places marked FETA PICK are the founder's own favourites, FETA FAVOURITE ones were loved by other Feta users with a similar taste, LOCAL FAVOURITE ones are recommended by locals, and FEATURED ones by a city guide: rank the ones that suit this person highly, any that don't as you would any other place, and a "because" may mention it.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.

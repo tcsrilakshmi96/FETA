@@ -1,4 +1,5 @@
 import "server-only";
+import type { City } from "@/lib/cities";
 import { track } from "@/lib/server/costs";
 import { FAKE, fakeDetails, fakeNearby, fakeSearch } from "@/lib/server/fake-places";
 
@@ -207,6 +208,27 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
     .filter((p): p is NonNullable<typeof p> => !!p?.structuredFormat?.mainText)
     .slice(0, 5)
     .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "", types: p.types ?? [] }));
+}
+
+// The Google place ID for a named place inside a city's area (about 55 km
+// each way), or null. Asks only for the ID, which Google doesn't charge for.
+export async function placeIdFor(query: string, city: City): Promise<string | null> {
+  if (FAKE) return null;
+  const dLat = 0.5;
+  const dLng = 0.5 / Math.max(0.2, Math.cos((city.lat * Math.PI) / 180));
+  const res = await fetch(`${BASE}/places:searchText`, {
+    method: "POST",
+    headers: headers("places.id"),
+    body: JSON.stringify({
+      textQuery: query,
+      pageSize: 1,
+      languageCode: "en",
+      locationRestriction: { rectangle: { low: { latitude: city.lat - dLat, longitude: city.lng - dLng }, high: { latitude: city.lat + dLat, longitude: city.lng + dLng } } },
+    }),
+  });
+  track("places_text_ids");
+  if (!res.ok) return null;
+  return ((await res.json()) as { places?: { id: string }[] }).places?.[0]?.id ?? null;
 }
 
 // Where a place is (a typed area, or one of the founder's places). The

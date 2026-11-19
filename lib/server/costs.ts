@@ -17,6 +17,7 @@ export const PRICE_USD = {
   places_details_atmos: 0.025,
   places_details_pro: 0.017,
   places_details_essentials: 0.005, // a typed area's location
+  places_text_ids: 0, // Text Search Essentials (IDs only): free
   places_autocomplete: 0.00283, // free when the session ends in a details call
   places_photo: 0.007,
   gemini_rank: 0.001, // ranking and reasons (tokens, roughly)

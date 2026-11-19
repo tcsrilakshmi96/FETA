@@ -246,7 +246,8 @@ export default function Picks() {
   const picks = slot && !slot.loading ? slot.picks : [];
   const [hero, ...rest] = picks;
   const nothing = !!slot && !slot.loading && picks.length === 0;
-  const eventChip = picks.find((p) => p.event)?.event?.searchHtml;
+  // Google's Search chip, for events and places featured in a city guide (both found with Google Search).
+  const eventChip = picks.find((p) => p.event)?.event?.searchHtml ?? picks.find((p) => p.featured)?.featured?.searchHtml;
 
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;

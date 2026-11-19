@@ -220,7 +220,7 @@ export function selectPicks(
   const brand = (i: number) => brandOf(pool[i].place.displayName?.text ?? pool[i].place.id);
   const kind = (i: number) => kindKey(pool[i].place, pool[i].intents ?? [], opts.explicit);
   const forExplicit = (i: number) => (pool[i].intents ?? []).some((id) => explicitIds.includes(id));
-  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0 || !!pool[i].local;
+  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0 || !!pool[i].local || !!pool[i].featured;
   const can = (i: number, rules: { popular?: boolean; kinds?: boolean } = {}) => {
     if (chosen.includes(i) || chosen.some((c) => brand(c) === brand(i))) return false;
     if (rules.popular !== false && isPopular(i) && chosen.filter(isPopular).length >= opts.popularCap) return false;

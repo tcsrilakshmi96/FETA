@@ -43,6 +43,8 @@ type Persona = {
   founderMin?: number; // at least this many of them show (the ones that fit come before Google's)
   local?: RegExp; // test places that are local favourites
   localMin?: number; // at least this many of them show
+  featured?: RegExp; // test places a city guide features
+  featuredMin?: number;
 };
 
 const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: ["level_2", "level_3"], drinks: "sometimes" };
@@ -81,6 +83,16 @@ const PERSONAS: Persona[] = [
     yes: ["cuisine_thai"],
     local: /Tiffin Roastery|Slice Theory|Brahmin Tiffin|Wok This Way/,
     localMin: 3,
+    covers: ["cuisine_thai"],
+  },
+  {
+    name: "Places a city guide features that fit come before Google's",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_thai"],
+    featured: /Tiffin Roastery|Slice Theory|Brahmin Tiffin|Wok This Way/,
+    featuredMin: 3,
     covers: ["cuisine_thai"],
   },
   {
@@ -285,11 +297,17 @@ async function run(p: Persona) {
     extra,
     dayPlan: p.dayPlan,
     favourites:
-      p.founder || p.local
+      p.founder || p.local || p.featured
         ? async (pool) =>
             pool.flatMap((c): Candidate[] => {
               const name = c.place.displayName?.text ?? "";
-              return p.founder?.test(name) ? [{ ...c, fetaNote: "test" }] : p.local?.test(name) ? [{ ...c, local: true }] : [];
+              return p.founder?.test(name)
+                ? [{ ...c, fetaNote: "test" }]
+                : p.local?.test(name)
+                  ? [{ ...c, local: true }]
+                  : p.featured?.test(name)
+                    ? [{ ...c, featured: { guide: "Time Out", url: "https://www.timeout.com/test", searchHtml: "" } }]
+                    : [];
             })
         : undefined,
   });
@@ -319,6 +337,8 @@ async function run(p: Persona) {
   if (p.founderMin && feta < p.founderMin) fails.push(`only ${feta} of the founder's places`);
   const locals = shown.filter((c) => c.candidate.local).length;
   if (p.localMin && locals < p.localMin) fails.push(`only ${locals} local favourites`);
+  const guides = shown.filter((c) => c.candidate.featured).length;
+  if (p.featuredMin && guides < p.featuredMin) fails.push(`only ${guides} places featured in a guide`);
   // Very popular places beyond the cap only when nothing less known was left.
   const isPopular = (c: { place: { userRatingCount?: number } }) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const popular = shown.filter((c) => isPopular(c.candidate) && !isFor(c.candidate)).length;

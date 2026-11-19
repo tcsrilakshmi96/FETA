@@ -21,10 +21,11 @@ export function lovedLabel(n?: number) {
   return n ? `♥ Loved by ${n} Feta ${n === 1 ? "user" : "users"}` : null;
 }
 
-// Why a curated place is here, under its reason: loved by Feta users, or a
-// local favourite (founder, 19 Nov 2026; never says where the list came from).
-export function curatedLabel(p: { lovedBy?: number; local?: boolean }) {
-  return lovedLabel(p.lovedBy) ?? (p.local ? "📍 Local favourite" : null);
+// Why a curated place is here, under its reason: loved by Feta users, a
+// local favourite (founder, 19 Nov 2026; never says where the list came
+// from), or featured in a city guide (the link is in its details).
+export function curatedLabel(p: { lovedBy?: number; local?: boolean; featured?: { guide: string } }) {
+  return lovedLabel(p.lovedBy) ?? (p.local ? "📍 Local favourite" : p.featured ? `📰 Featured in ${p.featured.guide}` : null);
 }
 
 // The verdict in words. With "Anywhere in <city>" Feta doesn't know where
@@ -87,6 +88,14 @@ export default function PickDetails({
         <p className={styles.verdict}>{verdict}</p>
 
         {pick.event ? <SearchChip html={pick.event.searchHtml} /> : <div className={styles.google}><GoogleLine pick={pick} /></div>}
+        {pick.featured && (
+          <>
+            <a className={styles.loved} href={pick.featured.url} target="_blank" rel="noopener noreferrer">
+              📰 Featured in {pick.featured.guide} ↗
+            </a>
+            <SearchChip html={pick.featured.searchHtml} />
+          </>
+        )}
 
         {pick.fetaNote && (
           <>
@@ -94,7 +103,7 @@ export default function PickDetails({
             <p className={styles.fetaNote}>“{pick.fetaNote}”</p>
           </>
         )}
-        {curatedLabel(pick) && <p className={styles.loved}>{curatedLabel(pick)}</p>}
+        {!pick.featured && curatedLabel(pick) && <p className={styles.loved}>{curatedLabel(pick)}</p>}
         <p className={styles.label}>WHY IT&apos;S YOURS</p>
         <p className={styles.because}>{pick.because}</p>
         <div className={styles.chips}>

@@ -276,6 +276,7 @@
 
 /* Feta Favourites: "♥ Loved by 2 Feta users". */
 .loved {
+  display: block;
   margin-top: 14px;
   font-size: 13.5px;
   font-weight: 600;
