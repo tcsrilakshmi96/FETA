@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
-import PickDetails, { curatedLabel, GoogleLine, kindLabel, SearchChip, verdictLabel } from "@/components/PickDetails";
+import PickDetails, { curatedLabel, GoogleLine, kindLabel, SearchChip, stars, verdictLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import TabBar from "@/components/TabBar";
@@ -90,9 +90,6 @@ type Tweaked = { tweaks: string[]; note?: string; base: Slot };
 // Cheaper and Fancier pull opposite ways, so only one at a time.
 const OPPOSITE: Record<string, string> = { cheaper: "fancier", fancier: "cheaper" };
 
-// Google's stars, e.g. "★ 4.5 (1.2k)", credited with the Google Maps line.
-const stars = (p: Pick) =>
-  p.rating ? `★ ${p.rating.toFixed(1)}${p.ratingCount ? ` (${p.ratingCount >= 1000 ? `${(p.ratingCount / 1000).toFixed(1).replace(/\.0$/, "")}k` : p.ratingCount})` : ""}` : null;
 
 
 export default function Picks() {

@@ -17,6 +17,10 @@ const KIND_LABELS: Record<string, string> = { EAT: "Food", DRINK: "Drinks", DO: 
 export const kindLabel = (kind: string) => KIND_LABELS[kind] ?? kind;
 
 // Feta Favourites: how many Feta users recommend it (never who).
+// Google's stars, e.g. "★ 4.5 (1.2k)", credited with the Google Maps line.
+export const stars = (p: Pick) =>
+  p.rating ? `★ ${p.rating.toFixed(1)}${p.ratingCount ? ` (${p.ratingCount >= 1000 ? `${(p.ratingCount / 1000).toFixed(1).replace(/\.0$/, "")}k` : p.ratingCount})` : ""}` : null;
+
 export function lovedLabel(n?: number) {
   return n ? `♥ Loved by ${n} Feta ${n === 1 ? "user" : "users"}` : null;
 }
@@ -71,18 +75,27 @@ export default function PickDetails({
       <div className={styles.dim} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-label={pick.name}>
         <div className={styles.hero}>
-          <PickPhoto photo={pick.photo} />
+          {/* Swipe for more of the place's photos (tester, 19 Nov 2026: "to understand the ambience and food", and the menu when it's there). */}
+          <div className={styles.photos}>
+            {[pick.photo, ...(pick.morePhotos ?? [])].map(
+              (photo, i) =>
+                photo && (
+                  <div key={i} className={styles.slide}>
+                    <PickPhoto photo={photo} />
+                    <span className={styles.credit}>
+                      Photo: {photo.credit} · <span translate="no">Google Maps</span>
+                    </span>
+                  </div>
+                ),
+            )}
+          </div>
           <span className={styles.kind}>{kindLabel(pick.kind)}</span>
           {pick.fetaNote !== undefined && <span className={styles.fetaBadge}>★ FETA PICK</span>}
-          {pick.photo && (
-            <span className={styles.credit}>
-              Photo: {pick.photo.credit} · <span translate="no">Google Maps</span>
-            </span>
-          )}
+          {!!pick.morePhotos?.length && <span className={styles.count}>{pick.morePhotos.length + 1} photos ›</span>}
         </div>
 
         <p className={styles.meta}>
-          {[pick.area, pick.distanceKm ? formatDistance(pick.distanceKm, pick.country) : null, pick.event && pick.chips[0]].filter(Boolean).join(" · ")}
+          {[stars(pick), pick.area, pick.distanceKm ? formatDistance(pick.distanceKm, pick.country) : null, pick.event && pick.chips[0]].filter(Boolean).join(" · ")}
         </p>
         <h2 className={styles.name}>{pick.name}</h2>
         <p className={styles.verdict}>{verdict}</p>

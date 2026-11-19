@@ -129,6 +129,9 @@ export type Pick = StoredPick & {
   country?: string; // for km or miles on the phone
   // uri is empty until the phone asks for it with ref (only once on screen).
   photo: { uri: string; ref?: string; credit: string; creditUri?: string } | null;
+  // More of the place's Google photos for the details (ambience, food, often
+  // the menu), fetched only when swiped to (about ₹0.6 each).
+  morePhotos?: { uri: string; ref: string; credit: string; creditUri?: string }[];
   type?: string; // Google's main type ("brewpub"), so a skip can say "Not into brewpubs"
   priceLevel?: number; // Google's 1–4, so a skip can say "Too pricey"
   // For Plan my evening: where it is and when it next closes (live, not stored).
@@ -835,6 +838,10 @@ export function buildPick(
     naverUri: naverSearch(name, opts.city),
     country: opts.city.country,
     photo: lazyPhoto(opts.photo, best?.name, credit),
+    morePhotos: (p.photos ?? [])
+      .filter((ph) => ph.name !== best?.name)
+      .slice(0, 7)
+      .map((ph) => ({ uri: "", ref: photoRef(ph.name), credit: ph.authorAttributions?.[0]?.displayName ?? "Google Maps", creditUri: ph.authorAttributions?.[0]?.uri })),
     lat: p.location?.latitude,
     lng: p.location?.longitude,
     closesAt: p.currentOpeningHours?.nextCloseTime,
