@@ -11,6 +11,7 @@ import { useToast } from "@/components/Toast";
 import {
   readGoogleReturn,
   signInToExistingAccount,
+  signOut,
   startGoogleSignIn,
 } from "@/lib/auth";
 import { loadCity } from "@/lib/cities";
@@ -424,6 +425,18 @@ export default function You() {
                   <span>Signed in with Google</span>
                   <span className={styles.muted}>{profile.email}</span>
                 </div>
+                <button
+                  type="button"
+                  className={styles.row}
+                  onClick={async () => {
+                    await signOut();
+                    // A full reload, so nothing from this account stays in memory.
+                    window.location.replace("/");
+                  }}
+                >
+                  <span>Sign out</span>
+                  <span className={styles.muted}>›</span>
+                </button>
               </div>
             ) : (
               <>

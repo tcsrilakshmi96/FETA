@@ -88,3 +88,16 @@ export async function signInToExistingAccount(returnPath: string) {
   await supabase().auth.signOut({ scope: "local" });
   await supabase().auth.signInWithOAuth({ provider: "google", options: { redirectTo: returnUrl(returnPath) } });
 }
+
+// "Sign out" in You (founder, 19 Nov 2026), only for Google accounts: the
+// account stays and comes back with "Already use Feta? Sign in" on Welcome.
+// This phone forgets everything it kept for it.
+export async function signOut() {
+  await supabase().auth.signOut({ scope: "local" });
+  try {
+    localStorage.clear();
+    sessionStorage.clear();
+  } catch {
+    // Nothing more to clear.
+  }
+}
