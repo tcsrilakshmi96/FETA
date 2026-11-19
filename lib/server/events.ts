@@ -1,6 +1,7 @@
 import "server-only";
 import { FAKE } from "@/lib/server/fake-places";
 
+import eventSites from "@/data/event-sites.json";
 import { distanceKm, type City } from "@/lib/cities";
 import { track } from "@/lib/server/costs";
 import { searchPlaces, type Place } from "@/lib/server/places";
@@ -165,10 +166,9 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
 
 // Where to look first for events, by city, then by country (founder, 18 Nov
 // 2026: Feta shows what's on and links out to book; found through Google
-// Search, never scraped). The founder sends the sources for each tester city.
-const CITY_SOURCES: Record<string, string> = {
-  "gn:1277333": "Urbanaut (urbanaut.app), Live Your City, Luma (lu.ma), District, BookMyShow, Skillboxes", // Bengaluru
-};
+// Search, never scraped). Her list (Notion → 🌍 Event sites by city, 19 Nov
+// 2026) is in data/event-sites.json: by city, by region ("California",
+// "Kerala") and by country; the closest come first.
 const LOCAL_TICKETS: Record<string, string> = {
   IN: "Urbanaut (urbanaut.app), Luma (lu.ma), District, BookMyShow, Skillboxes",
   GB: "Ticketmaster UK, DICE, Resident Advisor, Eventbrite, Time Out",
@@ -184,8 +184,12 @@ const LOCAL_TICKETS: Record<string, string> = {
   AU: "Ticketek, Ticketmaster, Moshtix, Eventbrite",
 };
 
+const SITES = eventSites as { cities: Record<string, string>; regions: Record<string, string>; countries: Record<string, string> };
+
 function eventSources(city: City) {
-  return CITY_SOURCES[city.id] ?? LOCAL_TICKETS[city.country] ?? "Eventbrite, Luma (lu.ma), Ticketmaster, Resident Advisor, Time Out and local ticket sites";
+  const lists = [SITES.cities[city.id], SITES.regions[`${city.country}|${city.region}`], SITES.countries[city.country], LOCAL_TICKETS[city.country]];
+  const sites = [...new Set(lists.filter(Boolean).flatMap((l) => l!.split(", ")))];
+  return sites.length ? sites.slice(0, 15).join(", ") : "Eventbrite, Luma (lu.ma), Ticketmaster, Resident Advisor, Time Out and local ticket sites";
 }
 
 export function siteName(url: string) {
