@@ -250,7 +250,12 @@ export function selectPicks(
   for (const i of order) if (can(i, { popular: false })) take(i);
   for (const i of order) if (can(i, { popular: false, kinds: false })) take(i);
 
-  chosen.sort((a, b) => (rankOf.get(a) ?? 99) - (rankOf.get(b) ?? 99));
+  // Shown curated first (founder, 19 Nov 2026: "feta picks and local
+  // recommendations should be shown before the google searches"): hers,
+  // then loved by Feta users, local favourites, featured in a guide; then
+  // Google's. Best fit first within each.
+  const source = (i: number) => (pool[i].fetaNote !== undefined ? 0 : (pool[i].lovedBy ?? 0) > 0 ? 1 : pool[i].local ? 2 : pool[i].featured ? 3 : 4);
+  chosen.sort((a, b) => source(a) - source(b) || (rankOf.get(a) ?? 99) - (rankOf.get(b) ?? 99));
   const spares = order.filter((i) => !chosen.includes(i));
   return [...chosen.map((i) => ({ candidate: pool[i], ranked: byIndex.get(i) ?? null, spare: false })), ...spares.map((i) => ({ candidate: pool[i], ranked: byIndex.get(i) ?? null, spare: true }))];
 }

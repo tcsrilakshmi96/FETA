@@ -384,6 +384,9 @@ async function run(p: Persona) {
     if (taste.answers.diet === "pescatarian" && mainlyMeat(c.candidate.place)) fails.push(`${c.candidate.place.displayName?.text}: meat`);
   }
   if (new Set(names).size !== names.length) fails.push("a place twice");
+  // Curated places come before Google's (founder, 19 Nov 2026).
+  const curated = shown.map((c) => c.candidate.fetaNote !== undefined || !!c.candidate.lovedBy || !!c.candidate.local || !!c.candidate.featured);
+  if (curated.lastIndexOf(true) > curated.indexOf(false) && curated.includes(false)) fails.push("a Google place shown before a curated one");
   // Their distance is a limit (founder, 19 Nov 2026: within 5 km, got 10 km).
   for (const c of shown) if (c.candidate.km > distanceLimitKm(taste.answers)) fails.push(`${c.candidate.place.displayName?.text}: ${c.candidate.km.toFixed(1)} km, beyond their ${distanceLimitKm(taste.answers)} km`);
   // No filler: once they've shared anything, each place is for something
