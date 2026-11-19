@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     if (!searchHtml) return Response.json({ events: [], searchHtml: "" });
 
     const taste = await loadTaste(db);
-    const rules = { when: "week" as const, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city), unknownPriceOk: true };
+    const rules = { when: "week" as const, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city) };
     const fit = events.filter((e) => eventPasses(e, rules));
     const chosen = await personalizeEvents(fit, tasteSummary(taste, city), "week", SHOW).catch(() => []);
     // Their picks first, with reasons; if choosing failed, the soonest.

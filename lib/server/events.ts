@@ -123,7 +123,7 @@ Reply with only a JSON array. Each item:
 // distance (venue found on Google Maps), within budget.
 export function eventPasses(
   e: FoundEvent,
-  opts: { when: "tonight" | "weekend" | "week"; timeZone: string; maxSpend: number | null; unknownPriceOk: boolean },
+  opts: { when: "tonight" | "weekend" | "week"; timeZone: string; maxSpend: number | null },
 ) {
   let url: URL;
   try {
@@ -138,8 +138,7 @@ export function eventPasses(
     // Still to come, or started within the last hour.
     if (e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
   } else if (!(opts.when === "week" ? cal.week : cal.weekend).includes(e.date)) return false;
-  if (e.minPrice === null || e.minPrice === undefined) return opts.unknownPriceOk;
-  return opts.maxSpend === null || e.minPrice <= opts.maxSpend;
+  return e.minPrice === null || e.minPrice === undefined || opts.maxSpend === null || e.minPrice <= opts.maxSpend;
 }
 
 function minutes(hhmm: string) {

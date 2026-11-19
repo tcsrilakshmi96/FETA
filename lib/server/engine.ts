@@ -24,7 +24,6 @@ import {
   needsDietCheck,
   spendUpperBound,
   tasteSummary,
-  unknownPriceOk,
   SHOW,
   applyTweaks,
   TWEAKS,
@@ -379,7 +378,7 @@ async function showStored(
 }
 
 function eventStillOn(e: EventInfo, when: When, city: City) {
-  return eventPasses({ ...e, minPrice: null, because: "", verdict: "Good if you're nearby" }, { when, timeZone: city.timeZone, maxSpend: null, unknownPriceOk: true });
+  return eventPasses({ ...e, minPrice: null, because: "", verdict: "Good if you're nearby" }, { when, timeZone: city.timeZone, maxSpend: null });
 }
 
 type EventPick = { stored: StoredPick & { event: EventInfo }; venue: Place | null };
@@ -422,7 +421,7 @@ async function eventPicks(ctx: {
   }
   if (!searchHtml) return []; // Google's chip must be shown; without it, no events.
 
-  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city), unknownPriceOk: unknownPriceOk(taste.answers) };
+  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city) };
   // Each venue is looked up on Google Maps (about ₹3), and at most 2 events
   // are shown, so only the first 4 that pass are checked.
   const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 4);

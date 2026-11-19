@@ -107,12 +107,15 @@ const PERSONAS: Persona[] = [
     some: /Brew Lab|Quiet Pages|Tiffin Roastery/,
   },
   {
-    name: "Spend range: only the two priciest levels ticked, so nothing cheap",
+    // Founder's own test, 19 Nov 2026: she ticked only ₹1,500–3,000, the
+    // bottom of the range dropped every cheaper veg place and left bars.
+    name: "Spend: only a pricey level ticked still shows great cheaper places (the top is the limit)",
     city: "Bengaluru",
     category: "food_drinks",
-    answers: { diet: "everything", spend: ["level_4", "level_5"] },
+    answers: { diet: "vegetarian", spend: ["level_4"] },
     yes: ["cuisine_south_indian"],
-    never: /Vidyarthi Corner|Brahmin Tiffin Room/,
+    covers: ["cuisine_south_indian"],
+    some: /Tiffin Roastery|Vidyarthi Corner|Brahmin Tiffin Room/,
   },
   {
     name: "Vegetarian in London, Thai: strict abroad (no 'not sure' places)",

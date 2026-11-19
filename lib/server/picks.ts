@@ -240,22 +240,21 @@ const PRICE_LEVELS: Record<string, number> = {
 // Highest Google price level (1–4) each spend level allows.
 const MAX_PRICE_LEVEL = [0, 1, 1, 2, 3, 4];
 
-// Where a place's price sits against the range they ticked. Google's
-// actual price range (per person) beats its rough price label; a place
-// with neither is "unknown".
-function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" | "under" | "unknown" {
+// Whether a place costs more than the most they'll spend (founder, 19 Nov
+// 2026: the top of their range is a limit, the bottom isn't; a great
+// cheaper place is still a fit). Google's actual price range (per person)
+// beats its rough price label; a place with neither is "unknown" and passes.
+function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" | "unknown" {
   const start = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
   const google = PRICE_LEVELS[place.priceLevel ?? ""];
   if (!Number.isFinite(start) && google === undefined) return "unknown";
   const r = spendRange(answers);
   if (!r) return "fits";
   if (Number.isFinite(start)) {
-    const b = spendBounds(city.currency);
-    const low = r.low > 1 ? b[r.low - 2] : 0;
-    const high = r.high <= 4 ? b[r.high - 1] : Infinity;
-    return start > high ? "over" : start < low * 0.8 ? "under" : "fits";
+    const high = r.high <= 4 ? spendBounds(city.currency)[r.high - 1] : Infinity;
+    return start > high ? "over" : "fits";
   }
-  return google > MAX_PRICE_LEVEL[r.high] ? "over" : google < MAX_PRICE_LEVEL[r.low] - 1 ? "under" : "fits";
+  return google > MAX_PRICE_LEVEL[r.high] ? "over" : "fits";
 }
 
 const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery"];
@@ -376,7 +375,7 @@ export function applyHardFilters(
       continue;
     }
     const fit = priceFit(place, answers, opts.city);
-    if (fit === "over" || fit === "under" || (fit === "unknown" && !unknownPriceOk(answers))) {
+    if (fit === "over") {
       drop("price");
       continue;
     }
@@ -409,12 +408,6 @@ export function applyHardFilters(
     out.push({ place, km, far: km > limit });
   }
   return out;
-}
-
-// Places with no price on Google pass unless they only go for the pricier levels.
-export function unknownPriceOk(answers: Answers) {
-  const r = spendRange(answers);
-  return !r || r.high <= 3;
 }
 
 export function spendUpperBound(answers: Answers, city: City): number | null {
