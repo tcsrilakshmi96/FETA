@@ -289,16 +289,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   placeStored.forEach((p, i) => (placeStored[i] = capped(p)));
   const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
   const shownTotal = kept.picks.length + events.length + shownCount;
-  const farCount = chosen.slice(0, shownCount).filter((c) => c.candidate.far).length;
   const short = shownTotal < 3;
   const whenText = body.when === "tonight" ? "tonight" : "this weekend";
   // Said plainly when something they asked for found nothing that fits.
   const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
   const banner = short
-    ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}${farCount > 0 ? `, worth a short ride` : ""}. No weak filler.`
-    : farCount > 0
-      ? `Nothing great right around you ${whenText}. ${farCount === 1 ? "1 is" : `${farCount} are`} worth a short ride.`
-      : (missing ?? keptBanner);
+    ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}. No weak filler.`
+    : (missing ?? keptBanner);
 
   await db.from("pick_sets").insert({
     user_id: userId,
@@ -386,7 +383,7 @@ async function showStored(
   return {
     picks,
     stored: stored.filter((s) => keptIds.has(s.placeId)),
-    reply: { picks, ...(banner && placePicks.some((p) => p.distanceKm > distanceLimitKm(ctx.taste.answers)) ? { banner } : {}) },
+    reply: { picks, ...(banner ? { banner } : {}) },
   };
 }
 
@@ -572,7 +569,7 @@ async function fetaCandidates(ctx: {
     exclude: new Set(places.filter((p) => !notes.has(p.id) && ctx.exclude.has(p.id)).map((p) => p.id)),
     city: ctx.city,
   });
-  return [...found, ...passed.filter((c) => !c.far).map(mark)];
+  return [...found, ...passed.map(mark)];
 }
 
 // How many of the words for what they want (a cuisine, "brunch", "wine

@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { curate, pickFrom } from "@/lib/server/curate";
-import { mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { distanceLimitKm, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
@@ -106,6 +106,16 @@ const PERSONAS: Persona[] = [
     covers: ["cuisine_thai", "loved_0"],
     half: true,
     some: /Brew Lab|Quiet Pages|Tiffin Roastery/,
+  },
+  {
+    // Founder, 19 Nov 2026: "i only wanna go somewhere in 5km" and got
+    // places 10 km away "worth a short ride". Within 1 km, few fit: a short
+    // list, never further.
+    name: "Distance is a limit: within 1 km stays within 1 km, even when few fit",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything", distance: "closer_1km" },
+    yes: ["cuisine_thai", "cuisine_korean"],
   },
   {
     // Founder, 19 Nov 2026: "if the choices in You are changed, is it
@@ -362,6 +372,8 @@ async function run(p: Persona) {
     if (taste.answers.diet === "pescatarian" && mainlyMeat(c.candidate.place)) fails.push(`${c.candidate.place.displayName?.text}: meat`);
   }
   if (new Set(names).size !== names.length) fails.push("a place twice");
+  // Their distance is a limit (founder, 19 Nov 2026: within 5 km, got 10 km).
+  for (const c of shown) if (c.candidate.km > distanceLimitKm(taste.answers)) fails.push(`${c.candidate.place.displayName?.text}: ${c.candidate.km.toFixed(1)} km, beyond their ${distanceLimitKm(taste.answers)} km`);
   // No filler: once they've shared anything, each place is for something
   // they chose, said or love, or a curated place.
   if (explicit.length)

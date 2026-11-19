@@ -115,13 +115,8 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       foodDrinkOk: (p) => matched(p).some((id) => plan.searched.find((i) => i.id === id)?.def.foodDrink),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
-  let passed = filter();
-  if (passed.filter((c) => !c.far).length < input.need && limit < 15) {
-    await nearby(limit * 2).then((r) => add(r, "popular")).catch(() => null);
-    passed = filter();
-  }
-  const near = passed.filter((c) => !c.far);
-  let pool = roundRobin(near.length >= input.need ? near : passed, plan.searched);
+  const passed = filter();
+  let pool = roundRobin(passed, plan.searched);
 
   const favourites = input.favourites ? await input.favourites(pool, intents).catch(() => [] as Candidate[]) : [];
   const favIds = new Set(favourites.map((f) => f.place.id));

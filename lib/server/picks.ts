@@ -222,11 +222,10 @@ export function distanceLimitKm(answers: Answers) {
   return DISTANCE_KM[answers.distance ?? ""] ?? 5;
 }
 
-// Up to twice their distance is kept aside for the "worth a short ride"
-// case; with "anywhere in the city", the city is the limit.
+// Their distance is a limit, never stretched (founder, 19 Nov 2026: "i only
+// wanna go somewhere in 5km" and got places 10 km away "worth a short ride").
 export function tooFar(km: number, answers: Answers) {
-  const limit = distanceLimitKm(answers);
-  return km > limit * 2 || (limit >= 15 && km > limit);
+  return km > distanceLimitKm(answers);
 }
 
 const PRICE_LEVELS: Record<string, number> = {
@@ -330,7 +329,7 @@ export function poorlyKnown(place: Place) {
 // featured: a city guide recommends it, with the article's link and Google's
 // Search chip (the guide was found with Grounding with Google Search).
 export type FeaturedIn = { guide: string; url: string; searchHtml: string };
-export type Candidate = { place: Place; km: number; far: boolean; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn };
+export type Candidate = { place: Place; km: number; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -350,7 +349,6 @@ export function applyHardFilters(
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
-  const limit = distanceLimitKm(answers);
   const out: Candidate[] = [];
   for (const place of places) {
     drops.seen++;
@@ -405,7 +403,7 @@ export function applyHardFilters(
       drop("hours");
       continue;
     }
-    out.push({ place, km, far: km > limit });
+    out.push({ place, km });
   }
   return out;
 }
@@ -502,7 +500,7 @@ export function whyNothing(drops: DropCounts, answers: Answers, when: When, coun
     .sort((a, b) => b[1] - a[1]);
   const limit = distanceLimitKm(answers);
   const reasons: Record<string, string> = {
-    far: `The places that fit you are more than ${formatDistance(limit * 2, country)} away.`,
+    far: `The places that fit you are more than ${formatDistance(limit, country)} away.`,
     price: "The places near you are above your usual spend.",
     diet: needsDietCheck(answers) ? "Nothing that fits near you has vegetarian food confirmed on Google." : "The places near you are mostly about food you skip.",
     hours: when === "tonight" ? "The places that fit you nearby are closed right now." : "The places that fit you nearby aren't open at the weekend.",
@@ -618,7 +616,7 @@ function describe(c: Candidate, i: number, category: Category) {
     `${i}. ${p.displayName?.text ?? "Unknown"}`,
     `kind ${kindOf(p, category)}`,
     p.primaryType && `type ${p.primaryType.replace(/_/g, " ")}`,
-    `${c.km.toFixed(1)} km${c.far ? " (beyond their usual distance)" : ""}`,
+    `${c.km.toFixed(1)} km`,
     p.priceLevel && `price ${p.priceLevel.replace("PRICE_LEVEL_", "").toLowerCase()}`,
     p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews`,
     (p.userRatingCount ?? 0) >= POPULAR_REVIEWS && "VERY POPULAR",
@@ -780,7 +778,7 @@ function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): strin
   // The ✓ only when the price is known to be in their range, never for a much cheaper place.
   const spend = spendRange(taste.answers) && spendText(taste.answers, city.currency);
   if (spend && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push(`${spend} ✓`);
-  if (!wholeCity) out.push(`${formatDistance(c.km, city.country)}${c.far ? "" : " ✓"}`);
+  if (!wholeCity) out.push(`${formatDistance(c.km, city.country)} ✓`);
   return out;
 }
 
@@ -907,7 +905,7 @@ export function compromiseFor(c: Candidate, taste: Taste, when: When, city: City
   const limit = distanceLimitKm(taste.answers);
   const close = c.place.currentOpeningHours?.nextCloseTime;
   if (when === "tonight" && tonightMeansNow(city) && close && new Date(close).getTime() - Date.now() < 75 * 60000) return "you can get there in the next hour";
-  if (c.far || c.km > limit * 0.7) return `you're already near ${areaName(c.place, city)}`;
+  if (c.km > limit * 0.7) return `you're already near ${areaName(c.place, city)}`;
   if ((c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS) return "you don't mind a crowd";
   return null;
 }
