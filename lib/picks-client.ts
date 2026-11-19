@@ -117,6 +117,11 @@ export function fetchPhoto(ref: string): Promise<string | null> {
 // checks places live, about ₹2 each).
 const fetaKept = new Map<string, { at: number; reply: PicksReply }>();
 
+// Their taste changed: the sheet checks again with the new diet, budget and distance.
+export function forgetFetaPicks() {
+  fetaKept.clear();
+}
+
 // "Surprise me": a kind of place they haven't chosen but would likely love,
 // one search (about ₹3–4). tried: kinds already shown; shown: places in
 // their lists, never surprised with.

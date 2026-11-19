@@ -2,7 +2,7 @@
 
 import type { Origin } from "@/lib/origin";
 import { originKey } from "@/lib/origin";
-import { fetchPicks, type Category, type Pick, type When } from "@/lib/picks-client";
+import { fetchPicks, forgetFetaPicks, type Category, type Pick, type When } from "@/lib/picks-client";
 
 // Picks on the phone, shared by Home and the picks list, so opening one
 // after the other makes no new search. picks: on screen, best first.
@@ -24,12 +24,18 @@ export type Slot = {
 const KEEP_MS = 60 * 60000;
 let kept: { slots: Record<string, Slot>; at: number } | null = null;
 const inflight = new Map<string, Promise<Slot>>();
+// Goes up whenever their taste changes, so a search that started before
+// the change is never kept (it would bring the old picks back).
+let tasteVersion = 0;
 
 const stillOpen = (p: Pick) => !p.closesAt || new Date(p.closesAt).getTime() > Date.now();
 
 // Their taste changed (a new line, new answers): the next open searches again.
 export function forgetPicks() {
   kept = null;
+  tasteVersion++;
+  inflight.clear();
+  forgetFetaPicks();
 }
 
 export function slotKey(origin: Origin, when: When, category: Category) {
@@ -53,6 +59,7 @@ export function keepSlots(slots: Record<string, Slot>) {
 export function loadSlot(origin: Origin, when: When, category: Category, tweak?: { tweaks: string[]; note?: string }): Promise<Slot> {
   const key = slotKey(origin, when, category);
   if (!tweak && inflight.has(key)) return inflight.get(key)!;
+  const version = tasteVersion;
   const p = fetchPicks(category, when, origin, false, tweak).then((reply) => {
     const at = Date.now();
     const slot: Slot = {
@@ -64,12 +71,12 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       notice: reply.notice ?? reply.error,
       failed: !!reply.error,
     };
-    keepSlots({ ...keptSlots(), [key]: slot });
+    if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
     return slot;
   });
   if (!tweak) {
     inflight.set(key, p);
-    p.finally(() => inflight.delete(key));
+    p.finally(() => inflight.get(key) === p && inflight.delete(key));
   }
   return p;
 }
