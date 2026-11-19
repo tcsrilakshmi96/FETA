@@ -465,10 +465,11 @@ function nearName(city: City, o: Body["origin"]) {
 // search already found cost nothing; a few others are checked live
 // against the same hard filters: four of the founder's within reach, the
 // ones whose name and note say most about what this person wants first,
-// then the nearest (feta-places.ts; up to 3 are shown, curate.ts), and up
+// then the nearest (feta-places.ts; the ones that fit come before Google's,
+// curate.ts), and up
 // to 2 from people with a similar taste. Only place IDs, her notes, counts
 // and (for up to 30 days) where her places are, are stored.
-const FETA_LOOKUPS = 4; // founder, 19 Nov 2026 (was 3, at random): up to 3 of her places a set
+const FETA_LOOKUPS = 4; // founder, 19 Nov 2026 (was 3, at random)
 const COMMUNITY_LOOKUPS = 2;
 
 async function fetaCandidates(ctx: {

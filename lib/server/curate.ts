@@ -71,7 +71,6 @@ export type CurateResult = {
 };
 
 const POOL_MAX = 30;
-const FAVOURITES = 3; // Feta favourites per set at most
 
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
@@ -192,10 +191,11 @@ function roundRobin(cands: Candidate[], searched: Intent[]): Candidate[] {
 }
 
 // The picks, in ranking order. Steps: each explicit intent's best place
-// (the promise, even if it's very popular); up to 3 Feta favourites (the
-// founder's, or loved by Feta users with a similar taste) that the ranking
-// didn't mark "Skip unless", and never more than 3 (founder, 19 Nov 2026:
-// "the curated layer", what people can't get on Google); places for
+// (the promise, even if it's very popular); then every curated place (the
+// founder's, loved by Feta users with a similar taste, local favourites)
+// that the ranking didn't mark "Skip unless", best fit first, with no set
+// number per source (founder, 19 Nov 2026: "think about what fits them
+// the best… keep Google search the last"); places for
 // what they asked for up to half; then the ranking. Never two branches of
 // one chain, at most popularCap very popular places, and a few of one kind
 // at most (more of one kind when they asked for only one or two things).
@@ -223,7 +223,6 @@ export function selectPicks(
   const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0;
   const can = (i: number, rules: { popular?: boolean; kinds?: boolean } = {}) => {
     if (chosen.includes(i) || chosen.some((c) => brand(c) === brand(i))) return false;
-    if (favourite(i) && chosen.filter(favourite).length >= FAVOURITES) return false;
     if (rules.popular !== false && isPopular(i) && chosen.filter(isPopular).length >= opts.popularCap) return false;
     const k = kind(i);
     if (rules.kinds !== false && k && chosen.filter((c) => kind(c) === k).length >= (explicitIds.includes(k) ? kindCap : 2)) return false;

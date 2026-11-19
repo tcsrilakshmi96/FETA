@@ -39,7 +39,8 @@ type Persona = {
   some?: RegExp; // at least one of these test places must show
   rule?: (name: string, primary: string) => string | null; // a hard rule, checked live too
   min?: number; // at least this many picks
-  founder?: RegExp; // test places that are the founder's: up to 3 that fit must show, never more
+  founder?: RegExp; // test places that are the founder's
+  founderMin?: number; // at least this many of them show (the ones that fit come before Google's)
 };
 
 const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: ["level_2", "level_3"], drinks: "sometimes" };
@@ -60,13 +61,14 @@ const PERSONAS: Persona[] = [
     rule: (n) => (/bbq|barbecue|kebab|biryani|steak|chicken|mutton|seafood|fish/i.test(n) ? "mainly meat or fish for a vegetarian" : null),
   },
   {
-    name: "Curated layer: up to 3 of the founder's places that fit come first, never more",
+    name: "Curated layer: the founder's places that fit come before Google's",
     city: "Bengaluru",
     category: "food_drinks",
     answers: { diet: "vegetarian" },
     yes: ["cuisine_thai", "cuisine_korean"],
     founder: /Go Native|Element Sattvik|Coastal Thali|Tiffin Roastery|Slice Theory|Seoul Kitchen|Gangnam BBQ/,
     covers: ["cuisine_thai", "cuisine_korean"],
+    founderMin: 5, // 6 of hers fit; the variety rules (a few of one kind) may hold one back
     never: /Gangnam BBQ/, // hers, but mainly meat: the diet still wins
   },
   {
@@ -295,8 +297,7 @@ async function run(p: Persona) {
   }
   if (new Set(names).size !== names.length) fails.push("a place twice");
   const feta = shown.filter((c) => c.candidate.fetaNote !== undefined).length;
-  if (feta > 3) fails.push(`${feta} of the founder's places (at most 3)`);
-  if (p.founder && feta < Math.min(3, found.pool.filter((c) => c.fetaNote !== undefined).length)) fails.push(`only ${feta} of the founder's places`);
+  if (p.founderMin && feta < p.founderMin) fails.push(`only ${feta} of the founder's places`);
   // Very popular places beyond the cap only when nothing less known was left.
   const isPopular = (c: { place: { userRatingCount?: number } }) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const popular = shown.filter((c) => isPopular(c.candidate) && !isFor(c.candidate)).length;

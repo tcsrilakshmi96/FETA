@@ -661,7 +661,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
       familiar: `They like their usual done really well: favour excellent, well-loved versions of ${category === "food_drinks" ? "their favourite cuisines" : "what they're into"} over novelty.\n\n`,
       mix: "",
     }[noveltyLean(opts.taste)]
-  }Places marked FETA PICK are the founder's own favourites, and FETA FAVOURITE ones were loved by other Feta users with a similar taste: rank the ones that suit this person highly (up to 3 are shown), any that don't as you would any other place, and a "because" may mention it.
+  }Places marked FETA PICK are the founder's own favourites, and FETA FAVOURITE ones were loved by other Feta users with a similar taste: rank the ones that suit this person highly, any that don't as you would any other place, and a "because" may mention it.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
