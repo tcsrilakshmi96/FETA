@@ -209,13 +209,25 @@ const PERSONAS: Persona[] = [
     never: /Lakshmi Nilaya/,
   },
   {
-    name: "Things to do, one interest: still 8, filled with what's popular nearby",
+    // Founder, 19 Nov 2026: no filler once they've shared anything; events
+    // for what they're into lead things to do in the app.
+    name: "Things to do, one interest: only what fits, nothing merely popular nearby",
     city: "Bengaluru",
     category: "experiences",
     when: "weekend",
     answers: { interests: ["art_culture"] },
     covers: ["interest_art_culture"],
-    min: 8,
+    never: /Strike Bowling|Escape Room|Mic Drop|Sunday Flea/,
+  },
+  {
+    // Founder's test, 19 Nov 2026: into karaoke and stand-up, things to do
+    // tonight came back as bars.
+    name: "Bengaluru tonight, into karaoke and stand-up: karaoke and comedy, no random bars",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: { interests: ["karaoke", "comedy"] },
+    covers: ["interest_karaoke", "interest_comedy"],
+    never: /Blue Note|Skyline Rooftop|Dice & Dine/,
   },
   {
     name: "Things to do, nothing chosen, tonight: evening things, not closed galleries or restaurants",
@@ -336,6 +348,12 @@ async function run(p: Persona) {
     if (taste.answers.diet === "pescatarian" && mainlyMeat(c.candidate.place)) fails.push(`${c.candidate.place.displayName?.text}: meat`);
   }
   if (new Set(names).size !== names.length) fails.push("a place twice");
+  // No filler: once they've shared anything, each place is for something
+  // they chose, said or love, or a curated place.
+  if (explicit.length)
+    for (const c of shown)
+      if (!c.candidate.intents?.length && c.candidate.fetaNote === undefined && !c.candidate.lovedBy && !c.candidate.local && !c.candidate.featured)
+        fails.push(`${c.candidate.place.displayName?.text}: filler, fits nothing they shared`);
   const feta = shown.filter((c) => c.candidate.fetaNote !== undefined).length;
   if (p.founderMin && feta < p.founderMin) fails.push(`only ${feta} of the founder's places`);
   const locals = shown.filter((c) => c.candidate.local).length;

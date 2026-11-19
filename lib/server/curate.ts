@@ -210,7 +210,15 @@ export function selectPicks(
   const good = ranked.filter((r) => r.verdict !== "Skip unless").map((r) => r.index);
   const weak = ranked.filter((r) => r.verdict === "Skip unless").map((r) => r.index);
   const unranked = pool.map((_, i) => i).filter((i) => !byIndex.has(i));
-  const order: number[] = opts.small && ranked.length ? [...good, ...weak] : [...good, ...weak, ...unranked];
+  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0 || !!pool[i].local || !!pool[i].featured;
+  // No filler (founder, 19 Nov 2026: "the whole point of this app is
+  // showing customised suggestions"): once they've shared anything, every
+  // place shown, or kept as backup, is something they chose, said or love
+  // (its intents), or a curated place the ranking didn't mark "Skip unless".
+  // A short list says so in the banner; what's merely popular nearby is
+  // never shown to fill up.
+  const fits = (i: number) => (pool[i].intents?.length ?? 0) > 0 || (favourite(i) && byIndex.get(i)?.verdict !== "Skip unless");
+  const order: number[] = (opts.small && ranked.length ? [...good, ...weak] : [...good, ...weak, ...unranked]).filter((i) => !opts.explicit.length || fits(i));
   const rankOf = new Map(order.map((i, k) => [i, k]));
   const explicitIds = opts.explicit.map((i) => i.id);
   const kindCap = opts.explicit.length <= 1 ? 4 : opts.explicit.length === 2 ? 3 : 2;
@@ -220,7 +228,6 @@ export function selectPicks(
   const brand = (i: number) => brandOf(pool[i].place.displayName?.text ?? pool[i].place.id);
   const kind = (i: number) => kindKey(pool[i].place, pool[i].intents ?? [], opts.explicit);
   const forExplicit = (i: number) => (pool[i].intents ?? []).some((id) => explicitIds.includes(id));
-  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0 || !!pool[i].local || !!pool[i].featured;
   const can = (i: number, rules: { popular?: boolean; kinds?: boolean } = {}) => {
     if (chosen.includes(i) || chosen.some((c) => brand(c) === brand(i))) return false;
     if (rules.popular !== false && isPopular(i) && chosen.filter(isPopular).length >= opts.popularCap) return false;
