@@ -13,8 +13,11 @@ import "server-only";
 //   wherever the place was found).
 // related: types that count only when the place came from this entry's own
 //   search ("south indian restaurant" finding an indian_restaurant).
-// foodDrink: a thing to do that happens in a bar or café (karaoke, rooftops,
-//   board games), so Experiences keeps those places when they match.
+// foodDrink: a thing to do that happens in a café or restaurant (board
+//   games, karaoke), so Experiences keeps those places when they match;
+//   never a bar (picks.ts isMainlyBar).
+// drinkPlace: a kind of place to drink (hidden bars, rooftops), searched in
+//   Food & drinks, not Things to do (founder, 19 Nov 2026).
 // alcohol: only for people who drink.
 
 export type SearchDef = {
@@ -23,6 +26,7 @@ export type SearchDef = {
   types?: RegExp;
   related?: RegExp;
   foodDrink?: boolean;
+  drinkPlace?: boolean;
   alcohol?: boolean;
 };
 
@@ -49,12 +53,12 @@ export const INTEREST_SEARCH: Record<string, SearchDef> = {
   karaoke: { searches: ["karaoke bar", "karaoke"], types: /karaoke/, foodDrink: true },
   live_music: { searches: ["live music venue", "live music bar", "jazz bar"], types: /live_music|concert|music_venue|jazz/, foodDrink: true },
   comedy: { searches: ["stand-up comedy club", "comedy show"], types: /comedy/, foodDrink: true },
-  rooftops: { searches: ["rooftop bar", "rooftop lounge"], soberSearches: ["rooftop restaurant", "rooftop cafe"], foodDrink: true },
+  rooftops: { searches: ["rooftop bar", "rooftop lounge"], soberSearches: ["rooftop restaurant", "rooftop cafe"], drinkPlace: true },
   board_games: { searches: ["board game cafe", "board games bar"], types: /board_game|game_cafe/, foodDrink: true },
   dancing: { searches: ["salsa night", "dance class", "dance club"], soberSearches: ["dance class", "salsa class"], types: /dance|night_club/ },
   art_culture: { searches: ["art gallery", "museum"], types: /art_gallery|museum|art_studio|cultural|exhibit/ },
   games_sports: { searches: ["pickleball court", "badminton court", "bowling alley"], types: /sport|badminton|pickleball|bowling|tennis|golf|climbing|stadium|arena|athletic|skating|swimming/ },
-  hidden_bars: { searches: ["speakeasy bar", "hidden cocktail bar"], foodDrink: true, alcohol: true },
+  hidden_bars: { searches: ["speakeasy bar", "hidden cocktail bar"], drinkPlace: true, alcohol: true },
   outdoors: { searches: ["park", "nature walk", "lake or garden"], types: /park|hiking|garden|nature|lake|beach|trail|botanical/ },
   workshops: { searches: ["pottery workshop", "art workshop", "cooking class"], types: /workshop|art_studio|pottery|cooking_class|craft/ },
   markets: { searches: ["flea market", "night market", "farmers market"], types: /market/ },

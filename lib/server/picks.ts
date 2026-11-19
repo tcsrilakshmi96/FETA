@@ -287,6 +287,13 @@ export function mainlyOf(place: Place, category: Category) {
   return DOING_PRIMARY.test(t) && !/station|transit|parking/.test(t);
 }
 
+// Bars belong in Food & drinks, never in Things to do (founder, 19 Nov 2026:
+// "show bars in fnb section not in the event section"); karaoke and live
+// music nights there come as events. Nightclubs are a thing to do.
+function isMainlyBar(place: Place) {
+  return ALCOHOL_TYPES.includes(place.primaryType ?? "") && place.primaryType !== "night_club";
+}
+
 // Experiences never show a place that is mainly for eating or drinking
 // (nightclubs still count as an experience).
 function isMainlyFoodOrDrink(place: Place) {
@@ -359,7 +366,7 @@ export function applyHardFilters(
       opts.exclude.has(place.id) ||
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
-      (opts.category === "experiences" && isMainlyFoodOrDrink(place) && !opts.foodDrinkOk?.(place)) ||
+      (opts.category === "experiences" && isMainlyFoodOrDrink(place) && (isMainlyBar(place) || !opts.foodDrinkOk?.(place))) ||
       NEVER_PICKS.includes(place.primaryType ?? "") ||
       opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
