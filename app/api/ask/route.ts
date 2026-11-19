@@ -28,7 +28,12 @@ type VeniceReply = {
   itinerary?: { place?: string | null; days?: number; start?: string | null; who?: string; note?: string } | null;
   trip?: { place?: string; dates?: string } | null;
   route?: (RouteIn & { edit?: boolean }) | null;
-  search?: {
+  search?: Search | Search[] | null;
+  why?: boolean;
+  options?: string[];
+};
+
+type Search = {
     category?: string;
     when?: string;
     place?: string | null;
@@ -38,9 +43,6 @@ type VeniceReply = {
     time?: string | null; // HH:MM, a time of day ("a sunrise hike")
     hours?: number; // how long they'll be there
     further?: boolean; // worth going beyond their usual distance
-  } | null;
-  why?: boolean;
-  options?: string[];
 };
 
 export type AskReply = {
@@ -77,13 +79,18 @@ export async function POST(request: Request) {
 
   const here = body.origin ?? null;
   const homeCity = cityById(here?.city?.id);
-  const [taste, { data: history }, { data: lastTripMessage }] = await Promise.all([
+  const [taste, { data: history }, { data: lastTripMessage }, { data: peopleLines }] = await Promise.all([
     loadTaste(db),
     db.from("chat_messages").select("role, content, extras").order("id", { ascending: false }).limit(16),
     // The trip being planned in this chat, however long ago it started, so
     // changes ("less Tokyo, more Kyoto") edit it.
     db.from("chat_messages").select("extras").not("extras->>trip_id", "is", null).order("id", { ascending: false }).limit(1).maybeSingle(),
+    // What they've told Feta about the people they go out with, kept apart
+    // from their own taste (founder, 19 Nov 2026: a date night assumed her
+    // boyfriend likes what she likes).
+    db.from("profile_lines").select("line_key, text").like("line_key", "people:%").is("removed_at", null),
   ]);
+  const people = (peopleLines ?? []).map((l) => `- ${String(l.line_key).split(":")[1]}: ${l.text}`).join("\n");
   const past = (history ?? []).reverse();
   const currentTripId = (lastTripMessage?.extras?.trip_id as string | undefined) ?? null;
   const { data: currentTrip } = currentTripId ? await db.from("trips").select("*").eq("id", currentTripId).maybeSingle<Trip>() : { data: null };
@@ -93,23 +100,28 @@ export async function POST(request: Request) {
 
 Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countryName}${here?.source === "area" ? ` (${here.label})` : ""}.` : "They haven't said where they are."}
 
-What Feta knows about them:
+What Feta knows about them (this person only):
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
+
+What they've told Feta about the people they go out with:
+${people || "Nothing yet."}
+
+Plans with or for someone else (a date, friends, family): what you know is about this person, not the others; never assume a partner or friend likes what they like. Before searching, find out the two things you don't know yet, one short question at a time with "options": the mood (romantic, fun, chill, adventurous), and what the others like to eat and do (unless it's listed above). Then act, using what suits them all; if their tastes differ, say how the plan works for both. If they say "just pick", act straight away. Save what they tell you about the others in "learned" with "about". A date night or an evening out is usually something to do as well as somewhere to eat or drink, so search both unless they asked for only one.
 ${currentTrip ? `\nThe trip you're planning together: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}. It's saved in Saved; its card has the next steps (getting around, hotels, then day plans for each city, which are kept with the trip). For day plans in its cities, point them to the card's "plan days" buttons instead of sending an itinerary.\n` : ""}
 Be a real assistant, not a menu. Help with anything about eating out, things to do, days out and trips, even when it isn't one of Feta's usual options (a sunrise hike, a pottery class, a quiet place to read, the best time to go, what to bring or wear). Suggest things they may not have thought of, from what you know about them, and say why; offer a natural next step ("Breakfast near the trail after?"). Put what you learn about them in "learned" (e.g. "Into hikes and sunrise treks"), so Feta gets to know them over time.
 Real places come only from Feta's own search, which checks them against their diet, budget, distance and opening hours. Never present a place as checked yourself; you may name a well-known place or landmark in a search "note" so Feta looks it up.
 Besides talking, you can do one of these per reply (leave the others null).
-- "search": places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match.
+- "search": up to 2 searches at once (an array), e.g. something to do and somewhere to eat for an evening out. Each: places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match for each.
 - "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
 - "route": any trip: travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
 {"reply": what you say, 1 to 4 short sentences,
  "options": 2 to 4 tap-able answers (under 5 words each) when you ask a question, else [],
- "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line, "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
+ "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
  "weekend": null, or a short phrase when they mention something they want to do this weekend,
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
- "search": null or as above, "itinerary": null or as above, "route": null or as above,
+ "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above,
  "why": true if they ask why a pick was chosen}
 Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong or Macau): no search, itinerary or route; give up to 3 ideas from what you know in "reply", saying they're less reliable than usual.`;
 
@@ -129,6 +141,8 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     return Response.json({ reply: "I couldn't think just now. Try again in a moment.", picks: [], added: [], trip: null } satisfies AskReply);
   }
 
+  // One search or two (something to do and somewhere to eat for an evening out).
+  const asked = (Array.isArray(parsed.search) ? parsed.search : parsed.search ? [parsed.search] : []).filter((x): x is Search => !!x && typeof x === "object").slice(0, 2);
   let reply = (parsed.reply ?? "").slice(0, 400) || "Tell me a bit more?";
   const tripLabel = parsed.trip?.place ? [parsed.trip.place, parsed.trip.dates].filter(Boolean).join(" · ").slice(0, 60) : null;
 
@@ -192,17 +206,19 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     !parsed.why &&
     !parsed.route?.cities?.length &&
     ((it && ((it.days ?? 1) > 3 || isCountryName(it.place ?? "") || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
-      (parsed.search && tripLabel && isCountryName(parsed.search.place ?? parsed.trip?.place ?? "")));
+      (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? "")));
   if (wantsRoute) {
     const route = await routeFor(past, message, system).catch((error) => {
       console.error(error);
       return null;
     });
     if (route?.cities?.length) {
-      parsed = { ...parsed, route, itinerary: null, search: null };
+      parsed = { ...parsed, route, itinerary: null };
+      asked.length = 0;
       reply = "Here's a route you can change. Then we'll sort out getting around and where to stay.";
     } else {
-      parsed = { ...parsed, itinerary: null, search: null };
+      parsed = { ...parsed, itinerary: null };
+      asked.length = 0;
       notice = "I couldn't put the route together just now. Ask me again?";
     }
   }
@@ -242,11 +258,12 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     reply = `Tap “plan days” under ${tripCity.name} on your trip card and I'll plan them stop by stop, near your hotel if you've chosen one.`;
   }
   const plan = parsed.why || tripId ? null : (parsed.itinerary ?? null);
-  let s = parsed.why || plan || tripId ? null : (parsed.search ?? null);
+  let searches = parsed.why || plan || tripId ? [] : asked;
   // A search of a whole country finds one point on the map: ask for a city.
-  if (s && isCountryName(s.place ?? "")) {
-    notice = `Which city in ${s.place}? Feta looks one city at a time.`;
-    s = null;
+  const country = searches.find((x) => isCountryName(x.place ?? ""));
+  if (country) {
+    notice = `Which city in ${country.place}? Feta looks one city at a time.`;
+    searches = [];
   }
   let itinerary: Itinerary | null = null;
   if (plan) {
@@ -262,39 +279,41 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       if (!itinerary) notice = "I couldn't find enough open places to plan a full day there. Try another area or day?";
     }
   }
-  if (s) {
+  // Both at once, so an evening out takes no longer than one search.
+  const results = await Promise.all(searches.map(async (s): Promise<{ found: Pick[]; notice?: string }> => {
     const origin = await withCosts(db, "ask", () => resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity));
     if (origin && isMainlandChina(origin.city)) {
-      notice = `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.`;
-    } else if (!origin) {
-      notice = `I couldn't find ${s.place ?? parsed.trip?.place} on the map. Try a nearby city?`;
-    } else {
-      const at = askedTime(s, origin.city);
-      const res = await withCosts(db, "ask", () => runPicks(token, {
-          category: s.category === "experiences" ? "experiences" : "food_drinks",
-          when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
-          ...(at ? { at } : {}),
-          ...(s.further ? { reach: "day_trip" } : {}),
-          // Only places that match what was asked, never the rest of their
-          // everyday set (founder, 18 Nov 2026: asked for a hike, got bowling).
-          only: "asked",
-          origin,
-          tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
-          // Their own words lead, and always mean a fresh search (never
-          // the last list again), e.g. "something Pokémon-related".
-          note: ((s.note ?? "").trim() || message).slice(0, 120),
-          ...(tripLabel ? { trip: tripLabel } : {}),
-      }));
-      const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
-      // Chat shows a short answer: the best 3. Nothing that matches is said plainly.
-      picks = (data.picks ?? []).slice(0, 3);
-      // Why nothing came back, in chat words: the engine's reason without its
-      // tips for the picks screen, then what Feta can try next.
-      const whenText = at ? dayText(at.day, origin.city) : s.when === "weekend" || tripLabel ? "this weekend" : "tonight";
-      const reason = data.notice?.replace(/\s*Try [^.]*\.$/, "") || `Nothing I found fits ${whenText}${s.further ? "" : " within your distance"}.`;
-      notice = picks.length ? undefined : `${reason} ${s.further ? "Want to try another day, or something similar?" : "Want me to look further out, or another day?"}`;
+      return { found: [], notice: `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.` };
     }
-  }
+    if (!origin) return { found: [], notice: `I couldn't find ${s.place ?? parsed.trip?.place} on the map. Try a nearby city?` };
+    const at = askedTime(s, origin.city);
+    const res = await withCosts(db, "ask", () => runPicks(token, {
+        category: s.category === "experiences" ? "experiences" : "food_drinks",
+        when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
+        ...(at ? { at } : {}),
+        ...(s.further ? { reach: "day_trip" } : {}),
+        // Only places that match what was asked, never the rest of their
+        // everyday set (founder, 18 Nov 2026: asked for a hike, got bowling).
+        only: "asked",
+        origin,
+        tweaks: (s.tweaks ?? []).filter((t) => (TWEAKS as readonly string[]).includes(t)),
+        // Their own words lead, and always mean a fresh search (never
+        // the last list again), e.g. "something Pokémon-related".
+        note: ((s.note ?? "").trim() || message).slice(0, 120),
+        ...(tripLabel ? { trip: tripLabel } : {}),
+    }));
+    const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
+    // Chat shows a short answer: the best 3. Nothing that matches is said plainly.
+    const found = (data.picks ?? []).slice(0, 3);
+    // Why nothing came back, in chat words: the engine's reason without its
+    // tips for the picks screen, then what Feta can try next.
+    const whenText = at ? dayText(at.day, origin.city) : s.when === "weekend" || tripLabel ? "this weekend" : "tonight";
+    const reason = data.notice?.replace(/\s*Try [^.]*\.$/, "") || `Nothing I found fits ${whenText}${s.further ? "" : " within your distance"}.`;
+    return { found, notice: found.length ? undefined : `${reason} ${s.further ? "Want to try another day, or something similar?" : "Want me to look further out, or another day?"}` };
+  }));
+  for (const r of results) picks = [...picks, ...r.found.filter((p) => !picks.some((q) => q.placeId === p.placeId))];
+  const notices = results.map((r) => r.notice).filter(Boolean);
+  if (notices.length) notice = notices.join(" ");
 
   await db.from("chat_messages").insert([
     { user_id: userId, role: "user", content: message },
@@ -308,7 +327,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         added,
         trip: tripLabel,
         weekend,
-        ...(options.length && !s && !tripId ? { options } : {}),
+        ...(options.length && !searches.length && !tripId ? { options } : {}),
         ...(tripId ? { trip_id: tripId } : {}),
         ...(itinerary
           ? { itinerary: { title: itinerary.title, days: itinerary.days.map((d) => ({ label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, because: st.pick.because })) })) } }
@@ -317,13 +336,13 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(notice ? { notice } : {}), ...(options.length && !s && !tripId ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
 }
 
 // The day and time asked for, in the city's own time: a time with no day
 // is today (tomorrow if it has passed); a day with no time is midday for
 // things to do and 7:30 pm for food.
-function askedTime(s: NonNullable<VeniceReply["search"]>, city: City): { day: string; start: number; minutes: number } | null {
+function askedTime(s: Search, city: City): { day: string; start: number; minutes: number } | null {
   const time = /^(\d{1,2}):(\d{2})$/.exec(s.time ?? "");
   const day = /^\d{4}-\d{2}-\d{2}$/.test(s.day ?? "") ? s.day! : null;
   if (!time && !day) return null;
