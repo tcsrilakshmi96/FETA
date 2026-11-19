@@ -333,5 +333,10 @@
   "kind": "column",
   "name": "founder_places.source",
   "file": "20261119100000_local_favourites.sql"
+ },
+ {
+  "kind": "function",
+  "name": "city_coverage",
+  "file": "20261119200000_city_coverage.sql"
  }
 ]

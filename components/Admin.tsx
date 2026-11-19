@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminCoverage from "@/components/AdminCoverage";
 import AdminFeedback from "@/components/AdminFeedback";
 import AdminHealth from "@/components/AdminHealth";
 import AdminImport from "@/components/AdminImport";
@@ -29,7 +30,7 @@ export default function Admin() {
   const [note, setNote] = useState("");
   const [places, setPlaces] = useState<FetaPlace[]>([]);
   const [editing, setEditing] = useState<{ id: string; note: string } | null>(null);
-  const [tab, setTab] = useState<"usage" | "picks" | "weekend" | "instagram" | "feedback">("usage");
+  const [tab, setTab] = useState<"usage" | "picks" | "cities" | "weekend" | "instagram" | "feedback">("usage");
 
   async function refresh() {
     const { data } = await supabase().from("founder_places").select("id, place_id, name, kind, note, city_id, city_name, active").eq("source", "founder").order("created_at", { ascending: false });
@@ -131,6 +132,7 @@ export default function Admin() {
           [
             ["usage", "Usage"],
             ["picks", "Feta picks"],
+            ["cities", "Cities"],
             ["weekend", "Weekend plans"],
             ["instagram", "From Instagram"],
             ["feedback", "Feedback"],
@@ -142,6 +144,7 @@ export default function Admin() {
         ))}
       </div>
       {tab === "usage" && <AdminUsage />}
+      {tab === "cities" && <AdminCoverage />}
       {tab === "weekend" && <AdminWeekend />}
       {tab === "instagram" && <AdminImport onAdded={refresh} />}
       {tab === "feedback" && <AdminFeedback />}

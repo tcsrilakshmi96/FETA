@@ -381,3 +381,8 @@
   font-family: ui-monospace, monospace;
   font-size: 12.5px;
 }
+
+/* A city people use with few curated places (AdminCoverage). */
+.gap strong {
+  color: var(--rose);
+}
