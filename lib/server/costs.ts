@@ -1,5 +1,6 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Every paid call is counted while a request runs and written to api_costs
@@ -48,8 +49,17 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
         units,
         est_inr: Math.round(units * PRICE_USD[sku] * INR_PER_USD * 100) / 100,
       }));
-      const { error } = await db.from("api_costs").insert(rows);
-      if (error) console.error("cost log", error.message);
+      const write = async () => {
+        const { error } = await db.from("api_costs").insert(rows);
+        if (error) console.error("cost log", error.message);
+      };
+      // Written after the reply, so no one waits for it (every photo and
+      // search did); outside a request, straight away.
+      try {
+        after(write);
+      } catch {
+        await write();
+      }
     }
   }
 }
