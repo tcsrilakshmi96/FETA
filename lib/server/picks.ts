@@ -256,7 +256,7 @@ function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" |
   return google > MAX_PRICE_LEVEL[r.high] ? "over" : "fits";
 }
 
-const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery"];
+const ALCOHOL_TYPES = ["bar", "pub", "night_club", "wine_bar", "cocktail_bar", "bar_and_grill", "liquor_store", "brewery", "brewpub", "beer_hall", "beer_garden", "gastropub"];
 
 // Everything Food & drinks searches for: all of it, near you.
 export const FOOD_DRINK_TYPES = [
@@ -298,7 +298,8 @@ function isMainlyBar(place: Place) {
 // (nightclubs still count as an experience).
 function isMainlyFoodOrDrink(place: Place) {
   const t = place.primaryType ?? "";
-  return t.endsWith("_restaurant") || FOOD_DRINK_TYPES.includes(t) || ["food_court", "meal_takeaway"].includes(t);
+  // Breweries and beer halls too (a brewery came back as a thing to do).
+  return t.endsWith("_restaurant") || FOOD_DRINK_TYPES.includes(t) || ["food_court", "meal_takeaway", "brewery", "brewpub", "beer_hall", "beer_garden", "bar_and_grill", "gastropub"].includes(t);
 }
 
 export const POPULAR_REVIEWS = 3000;

@@ -254,6 +254,15 @@ const PERSONAS: Persona[] = [
     never: /Strike Bowling|Escape Room|Mic Drop|Sunday Flea/,
   },
   {
+    // Ask Feta test, 19 Nov 2026: live music brought a brewery as a thing to do.
+    name: "Things to do, into live music: music venues, never a brewery or bar",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: { interests: ["live_music"], drinks: "love_bars" },
+    never: /Copper Tap|Blue Note/,
+    rule: noBar,
+  },
+  {
     // Founder's test, 19 Nov 2026: into karaoke and stand-up, things to do
     // tonight came back as bars.
     name: "Bengaluru tonight, into karaoke and stand-up: karaoke and comedy, no random bars",
@@ -261,7 +270,7 @@ const PERSONAS: Persona[] = [
     category: "experiences",
     answers: { interests: ["karaoke", "comedy"] },
     covers: ["interest_comedy"],
-    never: /Blue Note|Skyline Rooftop|Dice & Dine|Mic Drop/,
+    never: /Blue Note|Skyline Rooftop|Dice & Dine|Mic Drop|Copper Tap/,
     rule: noBar,
   },
   {

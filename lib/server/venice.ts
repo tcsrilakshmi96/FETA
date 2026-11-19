@@ -25,6 +25,9 @@ export async function veniceJson<T>(messages: ChatTurn[], maxTokens = 1500): Pro
   if (!res.ok) throw new Error(`Venice failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   const text: string = data.choices?.[0]?.message?.content ?? "{}";
+  // Now and then it answers in plain words instead of JSON (after a tapped
+  // option, 19 Nov 2026): those words are the reply.
+  if (!text.includes("{")) return { reply: text.trim() } as T;
   const json = /\{[\s\S]*\}/.exec(text)?.[0] ?? "{}";
   try {
     return JSON.parse(json) as T;
