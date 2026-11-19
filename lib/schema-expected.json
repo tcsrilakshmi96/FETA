@@ -343,5 +343,45 @@
   "kind": "column",
   "name": "pick_sets.searched",
   "file": "20261119210000_searched_intents.sql"
+ },
+ {
+  "kind": "function",
+  "name": "save_style_research",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_lenses",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_reference_brands",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_reference_links",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "brands",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "brand_markets",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "brand_styles",
+  "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_research",
+  "file": "20261120100000_style_brands.sql"
  }
 ]
