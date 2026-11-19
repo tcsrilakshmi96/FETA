@@ -31,14 +31,15 @@ const nowMinute = () => {
   return Math.ceil((d.getHours() * 60 + d.getMinutes() + 15) / 15) * 15;
 };
 
-// Today (unless it's late), then the next weekend days.
+// Today (unless it's late), then every day of the coming week (founder,
+// 19 Nov 2026: "why cant we plan for the day? or any other day?").
 function dayOptions() {
   const now = new Date();
   const out = nowMinute() <= 22 * 60 ? [localDay(now)] : [];
-  for (let i = 1; out.length < 3 && i <= 8; i++) {
+  for (let i = 1; i <= 7; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
-    if (d.getDay() === 0 || d.getDay() === 6) out.push(localDay(d));
+    out.push(localDay(d));
   }
   return out;
 }
