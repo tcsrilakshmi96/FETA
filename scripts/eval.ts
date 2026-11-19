@@ -39,6 +39,7 @@ type Persona = {
   some?: RegExp; // at least one of these test places must show
   rule?: (name: string, primary: string) => string | null; // a hard rule, checked live too
   min?: number; // at least this many picks
+  founder?: RegExp; // test places that are the founder's: up to 3 that fit must show, never more
 };
 
 const base: Answers = { ...EMPTY_ANSWERS, distance: "ride_5km", spend: ["level_2", "level_3"], drinks: "sometimes" };
@@ -57,6 +58,16 @@ const PERSONAS: Persona[] = [
     never: /Gangnam BBQ|Kebab|Biryani|Smoke House|Coastal Catch|Wings|Pork/,
     some: /Lemongrass|Seoul Kitchen|Pho Saigon|Burma Lane/,
     rule: (n) => (/bbq|barbecue|kebab|biryani|steak|chicken|mutton|seafood|fish/i.test(n) ? "mainly meat or fish for a vegetarian" : null),
+  },
+  {
+    name: "Curated layer: up to 3 of the founder's places that fit come first, never more",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_thai", "cuisine_korean"],
+    founder: /Go Native|Element Sattvik|Coastal Thali|Tiffin Roastery|Slice Theory|Seoul Kitchen|Gangnam BBQ/,
+    covers: ["cuisine_thai", "cuisine_korean"],
+    never: /Gangnam BBQ/, // hers, but mainly meat: the diet still wins
   },
   {
     name: "Founder: 4 cuisines ticked and loves cafes: the cafes still shape the first set",
@@ -259,6 +270,7 @@ async function run(p: Persona) {
     rotation: 0,
     extra,
     dayPlan: p.dayPlan,
+    favourites: p.founder ? async (pool) => pool.filter((c) => p.founder!.test(c.place.displayName?.text ?? "")).map((c) => ({ ...c, fetaNote: "test" })) : undefined,
   });
   const picked = pickFrom(found, { room: 8, small: false, popularCap: popularCap(taste) });
   const shown = picked.chosen.slice(0, picked.shown);
@@ -282,6 +294,9 @@ async function run(p: Persona) {
     if (taste.answers.diet === "pescatarian" && mainlyMeat(c.candidate.place)) fails.push(`${c.candidate.place.displayName?.text}: meat`);
   }
   if (new Set(names).size !== names.length) fails.push("a place twice");
+  const feta = shown.filter((c) => c.candidate.fetaNote !== undefined).length;
+  if (feta > 3) fails.push(`${feta} of the founder's places (at most 3)`);
+  if (p.founder && feta < Math.min(3, found.pool.filter((c) => c.fetaNote !== undefined).length)) fails.push(`only ${feta} of the founder's places`);
   // Very popular places beyond the cap only when nothing less known was left.
   const isPopular = (c: { place: { userRatingCount?: number } }) => (c.place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
   const popular = shown.filter((c) => isPopular(c.candidate) && !isFor(c.candidate)).length;

@@ -15,10 +15,10 @@ import { tooFar, type Kind, type Taste } from "@/lib/server/picks";
 const LOCATE_AT_ONCE = 40;
 const DUE_MS = 25 * 24 * 3600 * 1000;
 
-export type FounderPlace = { placeId: string; note: string; kind: Kind; km: number };
+export type FounderPlace = { placeId: string; name: string; note: string; kind: Kind; km: number };
 
 export async function founderPlacesNear(db: SupabaseClient, opts: { city: City; kinds: Kind[]; origin: { lat: number; lng: number }; taste: Taste }): Promise<FounderPlace[]> {
-  const { data } = await db.from("founder_places").select("place_id, note, kind, lat, lng, located_at").eq("city_id", opts.city.id).eq("active", true).in("kind", opts.kinds).limit(500);
+  const { data } = await db.from("founder_places").select("place_id, name, note, kind, lat, lng, located_at").eq("city_id", opts.city.id).eq("active", true).in("kind", opts.kinds).limit(500);
   const rows = data ?? [];
   const due = rows.filter((r) => r.lat === null || !r.located_at || Date.now() - new Date(r.located_at).getTime() > DUE_MS).slice(0, LOCATE_AT_ONCE);
   if (due.length) {
@@ -28,7 +28,7 @@ export async function founderPlacesNear(db: SupabaseClient, opts: { city: City; 
   }
   return rows
     .filter((r) => r.lat !== null && r.lng !== null)
-    .map((r) => ({ placeId: r.place_id as string, note: (r.note as string) ?? "", kind: r.kind as Kind, km: distanceKm(opts.origin, { lat: r.lat as number, lng: r.lng as number }) }))
+    .map((r) => ({ placeId: r.place_id as string, name: (r.name as string) ?? "", note: (r.note as string) ?? "", kind: r.kind as Kind, km: distanceKm(opts.origin, { lat: r.lat as number, lng: r.lng as number }) }))
     .filter((p) => !tooFar(p.km, opts.taste.answers))
     .sort((a, b) => a.km - b.km);
 }

@@ -7,6 +7,7 @@ import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
+import type { Intent } from "@/lib/server/intents";
 import { readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
@@ -224,8 +225,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       dayPlan: !!body.dayPlan,
       at,
       ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : {}),
-      favourites: (pool) =>
-        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, pool }),
+      favourites: (pool, intents) =>
+        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, pool, intents }),
     });
   } catch (error) {
     console.error(error);
@@ -462,11 +463,12 @@ function nearName(city: City, o: Body["origin"]) {
 // places (with her note) and places other Feta users loved and recommended
 // (founder, 15 Nov 2026), people with a similar taste first. Ones the
 // search already found cost nothing; a few others are checked live
-// against the same hard filters: three of the founder's within reach (at
-// random so each gets a turn; feta-places.ts), and up to 2 from people with
-// a similar taste. Only place IDs, her notes, counts and (for up to 30
-// days) where her places are, are stored.
-const FETA_LOOKUPS = 3; // founder, 16 Nov 2026 (was 1): her places show up more often
+// against the same hard filters: four of the founder's within reach, the
+// ones whose name and note say most about what this person wants first,
+// then the nearest (feta-places.ts; up to 3 are shown, curate.ts), and up
+// to 2 from people with a similar taste. Only place IDs, her notes, counts
+// and (for up to 30 days) where her places are, are stored.
+const FETA_LOOKUPS = 4; // founder, 19 Nov 2026 (was 3, at random): up to 3 of her places a set
 const COMMUNITY_LOOKUPS = 2;
 
 async function fetaCandidates(ctx: {
@@ -479,6 +481,7 @@ async function fetaCandidates(ctx: {
   founderExclude: Set<string>; // her places come back even if been or saved
   needsDiet: boolean;
   pool: Candidate[];
+  intents: Intent[];
 }): Promise<Candidate[]> {
   const kinds: Kind[] = ctx.body.category === "food_drinks" ? ["EAT", "DRINK"] : ["DO"];
   const [founder, community] = await Promise.all([
@@ -496,7 +499,12 @@ async function fetaCandidates(ctx: {
   const found = ctx.pool.filter((c) => notes.has(c.place.id) || loved.has(c.place.id)).map(mark);
   const notFound = (id: string) => !found.some((c) => c.place.id === id);
   const lookups = [
-    ...[...notes.keys()].filter((id) => !ctx.founderExclude.has(id) && notFound(id)).sort(() => Math.random() - 0.5).slice(0, FETA_LOOKUPS),
+    ...founder
+      .filter((f) => !ctx.founderExclude.has(f.placeId) && notFound(f.placeId))
+      .map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) }))
+      .sort((a, b) => b.fit - a.fit || a.near - b.near)
+      .slice(0, FETA_LOOKUPS)
+      .map((f) => f.id),
     ...[...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id) && notFound(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
   ];
   const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet)))).filter((p): p is Place => !!p);
@@ -509,6 +517,14 @@ async function fetaCandidates(ctx: {
     city: ctx.city,
   });
   return [...found, ...passed.filter((c) => !c.far).map(mark)];
+}
+
+// How many of the words for what they want (a cuisine, "brunch", "wine
+// bar") are in one of the founder's places' name and note.
+function fitsWanted(text: string, intents: Intent[]) {
+  const words = new Set(intents.flatMap((i) => `${i.label} ${i.query}`.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !["restaurant", "place", "places", "food", "with", "near", "best"].includes(w)));
+  const said = text.toLowerCase();
+  return [...words].filter((w) => said.includes(w)).length;
 }
 
 // How many Feta users recommend each pick, shown on the card.

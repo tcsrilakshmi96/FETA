@@ -57,8 +57,8 @@ export type CurateInput = {
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
   at?: At; // a day and time asked for in chat, checked instead of tonight or the weekend
   // The founder's places and other Feta users' favourites, checked against
-  // the same hard filters (engine.ts).
-  favourites?: (pool: Candidate[]) => Promise<Candidate[]>;
+  // the same hard filters (engine.ts); what they want picks which to check.
+  favourites?: (pool: Candidate[], intents: Intent[]) => Promise<Candidate[]>;
 };
 
 // Found, filtered and ranked; pickFrom keeps the promise once the number
@@ -71,6 +71,7 @@ export type CurateResult = {
 };
 
 const POOL_MAX = 30;
+const FAVOURITES = 3; // Feta favourites per set at most
 
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
@@ -122,7 +123,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   const near = passed.filter((c) => !c.far);
   let pool = roundRobin(near.length >= input.need ? near : passed, plan.searched);
 
-  const favourites = input.favourites ? await input.favourites(pool).catch(() => [] as Candidate[]) : [];
+  const favourites = input.favourites ? await input.favourites(pool, intents).catch(() => [] as Candidate[]) : [];
   const favIds = new Set(favourites.map((f) => f.place.id));
   pool = [...favourites.map((f) => ({ ...f, intents: matched(f.place) })), ...pool.filter((c) => !favIds.has(c.place.id))].slice(0, POOL_MAX);
 
@@ -191,8 +192,10 @@ function roundRobin(cands: Candidate[], searched: Intent[]): Candidate[] {
 }
 
 // The picks, in ranking order. Steps: each explicit intent's best place
-// (the promise, even if it's very popular); one Feta favourite (the
-// founder's, or loved by Feta users with a similar taste); places for
+// (the promise, even if it's very popular); up to 3 Feta favourites (the
+// founder's, or loved by Feta users with a similar taste) that the ranking
+// didn't mark "Skip unless", and never more than 3 (founder, 19 Nov 2026:
+// "the curated layer", what people can't get on Google); places for
 // what they asked for up to half; then the ranking. Never two branches of
 // one chain, at most popularCap very popular places, and a few of one kind
 // at most (more of one kind when they asked for only one or two things).
@@ -217,8 +220,10 @@ export function selectPicks(
   const brand = (i: number) => brandOf(pool[i].place.displayName?.text ?? pool[i].place.id);
   const kind = (i: number) => kindKey(pool[i].place, pool[i].intents ?? [], opts.explicit);
   const forExplicit = (i: number) => (pool[i].intents ?? []).some((id) => explicitIds.includes(id));
+  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0;
   const can = (i: number, rules: { popular?: boolean; kinds?: boolean } = {}) => {
     if (chosen.includes(i) || chosen.some((c) => brand(c) === brand(i))) return false;
+    if (favourite(i) && chosen.filter(favourite).length >= FAVOURITES) return false;
     if (rules.popular !== false && isPopular(i) && chosen.filter(isPopular).length >= opts.popularCap) return false;
     const k = kind(i);
     if (rules.kinds !== false && k && chosen.filter((c) => kind(c) === k).length >= (explicitIds.includes(k) ? kindCap : 2)) return false;
@@ -233,8 +238,7 @@ export function selectPicks(
     if (chosen.some((c) => pool[c].intents?.includes(intent.id))) continue;
     take(order.find((i) => pool[i].intents?.includes(intent.id) && can(i, { popular: false })));
   }
-  const favourite = (i: number) => pool[i].fetaNote !== undefined || (pool[i].lovedBy ?? 0) > 0;
-  if (!chosen.some(favourite)) take(order.find((i) => favourite(i) && !isPopular(i) && can(i)));
+  for (const i of order) if (favourite(i) && byIndex.get(i)?.verdict !== "Skip unless" && can(i)) take(i);
   const half = Math.ceil(room / 2);
   for (const i of order) if (chosen.filter(forExplicit).length < half && forExplicit(i) && can(i)) take(i);
   for (const i of order) if (can(i)) take(i);
