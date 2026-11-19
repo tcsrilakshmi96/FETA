@@ -7,7 +7,7 @@ import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
-import type { Intent } from "@/lib/server/intents";
+import { allIntents, type Intent } from "@/lib/server/intents";
 import { readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
@@ -47,9 +47,10 @@ import {
 const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
 const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 20);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
-// How long places wait for this week's events (founder's testers: 20 s
-// for first picks was too slow).
-const EVENTS_WAIT_MS = 5000;
+// How long places wait for what's on. Things to do are led by events now
+// (founder, 19 Nov 2026), so the first search of the day waits for them
+// (one web search, about 11 s, then the venues); testers found 20 s too slow.
+const EVENTS_WAIT_MS = 15000;
 
 type Body = {
   category: Category;
@@ -182,13 +183,23 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // The same search words as last time, so the same places come back.
   const rotation = previous.length ? Math.max(0, todaysSets - 1) : todaysSets;
 
-  // Experiences also look for this week's events, at the same time. Places
-  // don't wait more than a few seconds for them: a slow first search keeps
-  // going after the reply and fills the shared events cache, so the next
-  // person in the area (or the next open) gets events straight away.
+  // What they've said and the places they love, read once for both the
+  // events and the places.
+  const extra = await describeLoved(effective, rotation, body.category)
+    .then(() => readTaste(effective, city, body.category))
+    .catch((error) => {
+      console.error(error);
+      return [] as Intent[];
+    });
+
+  // Things to do look for what's on that they're into, at the same time as
+  // places. Places don't wait more than a few seconds for them: a slow
+  // first search keeps going after the reply and fills the shared events
+  // cache, so the next search (or pull down) has them straight away.
+  const eventKinds = allIntents(effective, { category: body.category, city, tweaks, note, rotation, extra }).filter((i) => i.explicit);
   const eventsFull =
     body.category === "experiences" && need > 1 && !body.trip && !body.only
-      ? eventPicks({ db, taste: effective, body, city, origin, exclude }).catch((error) => {
+      ? eventPicks({ db, taste: effective, body, city, origin, exclude, intents: eventKinds, need }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
         })
@@ -204,12 +215,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const allEventsPromise = eventsSearch;
 
   // Places: what they want, found, filtered, ranked, and the promise kept
-  // (curate.ts). Up to 2 events first, then places to make 8; every other
+  // (curate.ts). Events that fit first, then places to make 8; every other
   // place that passed is kept, in order, as backup.
   let found: CurateResult;
   try {
-    await describeLoved(effective, rotation, body.category);
-    const extra = await readTaste(effective, city, body.category);
     found = await curate({
       taste: effective,
       city,
@@ -237,7 +246,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
   const allEvents = await allEventsPromise;
-  const events = body.only ? [] : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, Math.min(2, need));
+  const events = body.only ? [] : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, need);
   const room = Math.max(0, need - events.length);
   const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), ...(body.only ? { only: body.only } : {}) }) };
   if (result.chosen.length === 0 && events.length === 0) {
@@ -383,8 +392,13 @@ function eventStillOn(e: EventInfo, when: When, city: City) {
 
 type EventPick = { stored: StoredPick & { event: EventInfo }; venue: Place | null };
 
-// This week's events near you that pass the hard filters (date, budget,
-// distance via the venue on Google Maps). At most 2 per set.
+// What's on that they're into (founder, 19 Nov 2026: "lets not only focus
+// on places, lets focus on events and things to do"): one search per thing
+// they chose, said or love (comedy, pottery, hiking…), shared by everyone in
+// the city into the same thing (about ₹3 each, cached a few hours), with no
+// set number. Events that pass the hard filters (date, budget, distance via
+// the venue on Google Maps) lead the set, taking turns across what they're
+// into; each serves the thing it was found for.
 async function eventPicks(ctx: {
   db: SupabaseClient;
   taste: Taste;
@@ -392,54 +406,73 @@ async function eventPicks(ctx: {
   city: City;
   origin: { lat: number; lng: number };
   exclude: Set<string>;
+  intents: Intent[];
+  need: number;
 }): Promise<EventPick[]> {
   const { db, taste, body, city, origin } = ctx;
   const limit = distanceLimitKm(taste.answers);
-  const near = nearName(city, body.origin);
-
-  // This area's events are shared by everyone for a few hours, so only the
-  // first person waits for the web search.
   const cal = cityCalendar(city.timeZone);
-  const cacheKey = [city.id, near, body.when, body.when === "tonight" ? cal.today : cal.weekend.join("+")].join("|");
-  const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", cacheKey).maybeSingle();
-  let events: FoundEvent[];
-  let searchHtml: string;
-  if (cached) {
-    events = cached.events as FoundEvent[];
-    searchHtml = cached.search_html;
-  } else {
-    ({ events, searchHtml } = await findEvents({ city, near, when: body.when, distanceKm: limit }));
-    if (searchHtml && events.length > 0) {
-      const hours = body.when === "tonight" ? 3 : 12;
-      await db.from("events_cache").upsert({
-        key: cacheKey,
-        events,
-        search_html: searchHtml,
-        expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString(),
+  const day = body.when === "tonight" ? cal.today : cal.weekend.join("+");
+  const kinds: (Intent | null)[] = ctx.intents.length ? ctx.intents : [null];
+
+  const searches = await Promise.all(
+    kinds.map(async (intent) => {
+      const kind = intent ? `${intent.label} (${intent.query})` : undefined;
+      const key = [city.id, "events", body.when, day, intent?.query.toLowerCase() ?? "any"].join("|");
+      const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
+      if (cached) return { intent, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
+      const found = await findEvents({ city, when: body.when, kind }).catch((error) => {
+        console.error(error);
+        return { events: [] as FoundEvent[], searchHtml: "" };
       });
+      // Google's chip must be shown with what its search found, so a search
+      // without one is kept for nothing.
+      if (found.searchHtml) {
+        const hours = body.when === "tonight" ? 3 : 12;
+        await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
+      }
+      return { intent, ...found };
+    }),
+  );
+
+  // Taking turns across what they're into, so one kind doesn't fill the set.
+  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city) };
+  const lists = searches
+    .filter((s) => s.searchHtml)
+    .map((s) => s.events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).map((e) => ({ e, intent: s.intent, searchHtml: s.searchHtml })));
+  const seen = new Set<string>();
+  const turns: { e: FoundEvent; intent: Intent | null; searchHtml: string }[] = [];
+  for (let round = 0; lists.some((l) => l.length > round); round++) {
+    for (const l of lists) {
+      const x = l[round];
+      if (x && !seen.has(x.e.url)) {
+        seen.add(x.e.url);
+        turns.push(x);
+      }
     }
   }
-  if (!searchHtml) return []; // Google's chip must be shown; without it, no events.
-
-  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city) };
-  // Each venue is looked up on Google Maps (about ₹3), and at most 2 events
-  // are shown, so only the first 4 that pass are checked.
-  const fresh = events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).slice(0, 4);
-  const withVenues = (await Promise.all(fresh.map(async (e) => ({ e, venue: await findVenue(e, city, origin) })))).filter(
+  // Each venue is looked up on Google Maps (about ₹1.7), only for as many
+  // as could be shown.
+  const fresh = turns.slice(0, Math.max(ctx.need, 2));
+  const withVenues = (await Promise.all(fresh.map(async (x) => ({ ...x, venue: await findVenue(x.e, city, origin) })))).filter(
     ({ venue }) => venue && venue.km <= Math.max(limit * 2, 8),
   );
-  // Which of these suit this person, and why (no search, about 2 s).
-  const chosen = await personalizeEvents(withVenues.map((w) => w.e), tasteSummary(taste, city), body.when).catch(() => []);
+  // Which of these suit this person, and why (no search, about 2 s). If
+  // that fails, each was still found for something they're into.
+  const chosen = await personalizeEvents(withVenues.map((w) => w.e), tasteSummary(taste, city), body.when, withVenues.length).catch(() =>
+    withVenues.map((_, index) => ({ index, because: "", verdict: "Good if you're nearby" as const, skipUnless: undefined })),
+  );
   return chosen
     .map((c) => ({ ...withVenues[c.index], c }))
-    .map(({ e, venue, c }) => ({
+    .map(({ e, venue, intent, searchHtml, c }) => ({
       venue: venue!.place,
       stored: {
         placeId: `event:${e.url}`,
         kind: "EVENT" as const,
         verdict: c.verdict && ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(c.verdict) ? c.verdict : "Good if you're nearby",
         ...(c.verdict === "Skip unless" && c.skipUnless ? { skipUnless: c.skipUnless } : {}),
-        because: becauseFor(null, [], taste, "EVENT", c.because),
+        because: (intent && !c.because ? intent.reason : null) ?? becauseFor(null, [], taste, "EVENT", c.because),
+        ...(intent ? { serves: [intent.id] } : {}),
         event: {
           title: e.title,
           venueName: e.venueName,
@@ -454,12 +487,6 @@ async function eventPicks(ctx: {
         },
       },
     }));
-}
-
-// The area name sent to the event search: the typed area, or the city.
-// Coordinates are never sent.
-function nearName(city: City, o: Body["origin"]) {
-  return o.source === "area" ? `${o.label.slice(0, 60)}, ${city.name}` : city.name;
 }
 
 // Feta's own favourites in this city for this category: the founder's

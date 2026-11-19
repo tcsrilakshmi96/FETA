@@ -56,20 +56,21 @@ function readable(date: string) {
   return new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${date}T00:00:00Z`));
 }
 
-// Searches the area's events for everyone (no one person's taste), so the
-// result can be shared for a few hours; personalizeEvents then chooses.
+// Searches the city's events of one kind (founder, 19 Nov 2026: things to
+// do are led by what's on, searched for what each person is into), shared
+// by everyone there into the same thing for a few hours; personalizeEvents
+// then chooses. With no kind, any kind (someone who hasn't shared any yet).
 export async function findEvents(opts: {
   city: City;
-  near: string; // area or city name, never coordinates
   when: "tonight" | "weekend";
-  distanceKm: number;
+  kind?: string; // "Stand-up comedy (stand-up comedy club)", in plain words
 }): Promise<EventSearch> {
   if (FAKE) return { events: [], searchHtml: "" };
   const cal = cityCalendar(opts.city.timeZone);
   const window = opts.when === "tonight" ? `tonight, ${readable(cal.today)}, starting after ${cal.time}` : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
-Search the web for up to 8 real public events of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport) happening ${window} in ${opts.city.name}, as close as possible to ${opts.near} (ideally within ${opts.distanceKm} km).
-Use at most 2 searches. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
+Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
+Use at most 2 searches. Only events that really are of that kind; none is a fine answer. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect)}.`;
