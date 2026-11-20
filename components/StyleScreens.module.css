@@ -578,6 +578,40 @@
   gap: 6px;
 }
 
+/* Brands they love: search as they type. */
+.search {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(var(--inkRGB), 0.2);
+  background: var(--sheet);
+  color: var(--ink);
+  font-size: 16px;
+}
+.results {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  border-radius: 16px;
+  background: var(--sheet);
+  box-shadow: 0 10px 30px rgba(26, 22, 22, 0.18);
+  overflow: hidden;
+}
+.result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  text-align: left;
+}
+.result + .result {
+  border-top: 1px solid rgba(var(--inkRGB), 0.08);
+}
+
 /* ── Brands ──────────────────────────────────────────────── */
 .switch {
   display: flex;
@@ -650,6 +684,15 @@
   padding: 3px 6px;
   border-radius: 6px;
   background: rgba(var(--inkRGB), 0.08);
+}
+.badgePick {
+  background: var(--saffron);
+  color: #1a1616;
+}
+.pickNote {
+  font-family: var(--font-fraunces), serif;
+  font-style: italic;
+  font-size: 14px;
 }
 .badgeHome {
   background: rgba(215, 167, 119, 0.35);

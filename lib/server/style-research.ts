@@ -76,7 +76,7 @@ export async function loadBrief(db: SupabaseClient, styleId: string): Promise<Br
 
 type Grounded = { text: string; searchHtml: string };
 
-async function gemini(prompt: string, tools: object[]): Promise<Grounded> {
+export async function gemini(prompt: string, tools: object[]): Promise<Grounded> {
   track("gemini_search");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
@@ -93,7 +93,7 @@ async function gemini(prompt: string, tools: object[]): Promise<Grounded> {
   };
 }
 
-function jsonArray<T>(text: string): T[] {
+export function jsonArray<T>(text: string): T[] {
   try {
     return JSON.parse(/\[[\s\S]*\]/.exec(text)?.[0] ?? "[]") as T[];
   } catch {
@@ -227,4 +227,28 @@ export async function saveResearch(db: SupabaseClient, country: string, styleId:
     p_search_html: r.searchHtml,
   });
   if (error) throw new Error(`Saving style research failed: ${error.message}`);
+}
+
+// One brand someone typed that isn't in the library (founder, 20 Nov 2026:
+// people add brands they love, like places). Checked with Google Search:
+// a real clothing brand (never a marketplace), its own site, where it's
+// from, which styles it carries, and how people in the country buy it.
+// About ₹3. Saved as proposed.
+export async function lookupBrand(db: SupabaseClient, name: string, country: { code: string; name: string }, styleIds: string[]): Promise<{ id: string; name: string } | null> {
+  const prompt = `Find the clothing brand "${name}" (someone in ${country.name} says they love it). Use Google Search.
+If it is not a real clothing or fashion brand, or it is a marketplace or multi-brand store (Myntra, Ajio, Nykaa, Amazon, Namshi, Farfetch, ASOS, Zalando and the like), reply {"real": false}.
+Otherwise reply with only JSON: {"real": true, "brand_name": its proper name, "website": its own site (https), "instagram": handle or null, "origin_country": ISO code, "wears": "women" | "men" | "unisex" | "women+men", "label_type": "homegrown designer-led" | "specialist" | "large international" | "designer house" | "other", "presence_type": how people in ${country.name} buy it: "stores" | "official local site" | "own site delivers here" | "ships from abroad", or null if they can't, "presence_url": a page showing it, or null, "price_feel": "budget" | "mid" | "premium" | "luxury" (in ${country.name}), "visible_cues": one short plain line about what it sells now, "styles": every style id from this list a real part of its current range carries (styles overlap; list all that fit): ${styleIds.join(", ")}}`;
+  const out = await gemini(prompt, [{ google_search: {} }]);
+  let r: Record<string, unknown>;
+  try {
+    r = JSON.parse(/\{[\s\S]*\}/.exec(out.text)?.[0] ?? "{}");
+  } catch {
+    return null;
+  }
+  if (!r.real || typeof r.brand_name !== "string" || typeof r.website !== "string" || MARKETPLACES.test(r.website) || !(await linkAlive(r.website))) return null;
+  const row = { ...r, name_key: nameKey(r.brand_name), origin_country: typeof r.origin_country === "string" ? r.origin_country.toUpperCase().slice(0, 2) : null, instagram: typeof r.instagram === "string" ? r.instagram.replace(/^@/, "") : null };
+  const styles = (Array.isArray(r.styles) ? r.styles : []).filter((x): x is string => typeof x === "string" && styleIds.includes(x));
+  const { data, error } = await db.rpc("save_brand_lookup", { p_key: process.env.USAGE_REPORT_KEY, p_country: country.code, p_row: row, p_styles: styles });
+  if (error || !data) throw new Error(`Saving brand failed: ${error?.message}`);
+  return { id: data as string, name: r.brand_name };
 }

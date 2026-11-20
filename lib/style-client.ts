@@ -210,6 +210,10 @@ export type BrandCard = {
   style: string;
   priceFeel: string | null;
   approved: boolean;
+  fetaPick?: boolean; // the founder loves it (★ Feta Pick)
+  note?: string | null; // her note
+  lovers?: number; // other people who love and recommend it
+  youLove?: boolean;
 };
 
 type Row = {
@@ -233,7 +237,7 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
     return [];
   }
   const fitsWear = (w: string | null) => !w || wears === "both" || w === "unisex" || w === "women+men" || w === wears;
-  return ((data ?? []) as unknown as Row[])
+  const cards: BrandCard[] = ((data ?? []) as unknown as Row[])
     .map((r) => ({ r, market: r.brands.brand_markets.find((m) => m.country === country) }))
     .filter(({ r, market }) => market && market.presence_type !== "ships from abroad" && fitsWear(r.brands.wears))
     .sort((a, b) => styles.indexOf(a.r.style_id) - styles.indexOf(b.r.style_id) || Number(b.r.review_status === "approved") - Number(a.r.review_status === "approved") || Number(b.r.association === "main") - Number(a.r.association === "main"))
@@ -248,6 +252,13 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
       priceFeel: market!.price_feel,
       approved: r.review_status === "approved",
     }));
+  // Feta Picks (the founder's brands) first, then the ones people love most;
+  // within those, the order above.
+  const love = await brandLove(cards.map((c) => c.id));
+  const mine = await lovedBrandIds();
+  const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) }));
+  // A stable sort keeps the order above within each group.
+  return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0));
 }
 
 export async function savedBrandIds(): Promise<Set<string>> {
@@ -302,4 +313,59 @@ export async function researchCountry(cityId: string, country: string, first: st
   } finally {
     researching = false;
   }
+}
+
+// Brands they love (founder, 20 Nov 2026), like the places they love.
+export type LovedBrand = { id: string; name: string; logo: string | null; styles: string[] };
+
+export async function brandLove(ids: string[]): Promise<Map<string, { fetaPick: boolean; note: string | null; lovers: number }>> {
+  if (!ids.length) return new Map();
+  const { data, error } = await supabase().rpc("brand_love", { p_brand_ids: [...new Set(ids)] });
+  if (error) return new Map();
+  return new Map((data as { brand_id: string; feta_pick: boolean; note: string | null; lovers: number }[]).map((r) => [r.brand_id, { fetaPick: r.feta_pick, note: r.note, lovers: r.lovers }]));
+}
+
+async function lovedBrandIds(): Promise<Set<string>> {
+  const { data } = await supabase().from("loved_brands").select("brand_id");
+  return new Set((data ?? []).map((r) => r.brand_id as string));
+}
+
+export async function loadLovedBrands(): Promise<LovedBrand[]> {
+  if (!(await currentUserId())) return [];
+  const { data } = await supabase().from("loved_brands").select("brands (id, name, logo_url, brand_styles (style_id, review_status))").order("created_at");
+  return ((data ?? []) as unknown as { brands: { id: string; name: string; logo_url: string | null; brand_styles: { style_id: string; review_status: string }[] } }[]).map((r) => ({
+    id: r.brands.id,
+    name: r.brands.name,
+    logo: r.brands.logo_url,
+    styles: r.brands.brand_styles.filter((x) => x.review_status !== "rejected").map((x) => x.style_id),
+  }));
+}
+
+export async function loveBrand(id: string, on: boolean, opts: { recommend?: boolean; country?: string; note?: string } = {}) {
+  const userId = await currentUserId();
+  if (!userId) return;
+  const db = supabase().from("loved_brands");
+  const { error } = on ? await db.upsert({ user_id: userId, brand_id: id, recommend: opts.recommend ?? true, country: opts.country ?? null, ...(opts.note !== undefined ? { note: opts.note } : {}) }) : await db.delete().eq("brand_id", id);
+  if (error) console.error("Saving loved brand failed", error.message);
+}
+
+export async function setRecommendBrands(recommend: boolean) {
+  const userId = await currentUserId();
+  if (!userId) return;
+  await supabase().from("loved_brands").update({ recommend }).eq("user_id", userId);
+}
+
+// Brands in the library whose name starts with or contains what they typed.
+export async function searchBrands(q: string): Promise<{ id: string; name: string; logo: string | null }[]> {
+  const term = q.trim().replace(/[%_,()]/g, "");
+  if (term.length < 2 || !(await currentUserId())) return [];
+  const { data } = await supabase().from("brands").select("id, name, logo_url").ilike("name", `%${term}%`).limit(8);
+  const lower = term.toLowerCase();
+  return (data ?? [])
+    .map((b) => ({ id: b.id as string, name: b.name as string, logo: b.logo_url as string | null }))
+    .sort((a, b) => Number(b.name.toLowerCase().startsWith(lower)) - Number(a.name.toLowerCase().startsWith(lower)));
+}
+
+export function lookupNewBrand(name: string, cityId: string) {
+  return post<{ brand?: { id: string; name: string }; notice?: string }>("/api/style/brand", { name, cityId });
 }

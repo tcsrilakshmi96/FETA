@@ -107,8 +107,14 @@ export default function StyleBrands() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span className={s.brandName}>{b.name}</span>
                         <span className={`${s.badge} ${b.homegrown ? s.badgeHome : ""}`}>{b.homegrown ? "HOMEGROWN" : "INTERNATIONAL"}</span>
-                        {!b.approved && <span className={s.badge}>NEW FIND</span>}
+                        {b.fetaPick ? <span className={`${s.badge} ${s.badgePick}`}>★ FETA PICK</span> : !b.approved && <span className={s.badge}>NEW FIND</span>}
                       </div>
+                      {b.fetaPick && b.note && <span className={s.pickNote}>&ldquo;{b.note}&rdquo;</span>}
+                      {(b.youLove || !!b.lovers) && (
+                        <span className={s.small} style={{ color: "var(--roseText)" }}>
+                          {b.youLove ? "♥ You love this" : `♥ Loved by ${b.lovers} Feta user${b.lovers === 1 ? "" : "s"}`}
+                        </span>
+                      )}
                       <span className={s.small} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {fit === true && <span className={s.fits}>✓ In your budget</span>}

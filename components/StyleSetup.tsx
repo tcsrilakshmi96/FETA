@@ -2,20 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Figure, Line, StyleTop, vars } from "@/components/StyleParts";
+import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import { useToast } from "@/components/Toast";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
 import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
-import { drawStyle, forgetOnYou, fromPhone, keepOnPhone, loadStyleProfile, readStylePhotos, saveStyleProfile, shrink, type StyleProfile } from "@/lib/style-client";
+import { drawStyle, forgetOnYou, fromPhone, keepOnPhone, loadLovedBrands, loadStyleProfile, lookupNewBrand, loveBrand, readStylePhotos, saveStyleProfile, searchBrands, setRecommendBrands, shrink, type LovedBrand, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Style setup (founder, 20 Nov 2026), once, changeable later:
 // 1. What they shop for, and up to 8 inspiration photos (none required).
 // 2. See it on you (optional): one photo of them, so their styles are drawn as them.
 // 3. Their styles: read from the photos (or picked), shown as a lineup.
-// 4. Clothes budget, in their city's currency.
-type Step = 1 | 2 | 3 | 4;
+// 4. Brands they love (optional), like the places they love.
+// 5. Clothes budget, in their city's currency.
+type Step = 1 | 2 | 3 | 4 | 5;
 const MAX_PHOTOS = 8;
 
 // How far down the rope sags at a point across the screen (0–1).
@@ -40,6 +41,11 @@ export default function StyleSetup() {
   const [homegrown, setHomegrown] = useState(false);
   const [votes, setVotes] = useState<StyleProfile["votes"]>([]);
   const [saving, setSaving] = useState(false);
+  const [loved, setLoved] = useState<LovedBrand[]>([]);
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState<{ id: string; name: string; logo: string | null }[]>([]);
+  const [looking, setLooking] = useState(false);
+  const [recommend, setRecommend] = useState(true);
   const files = useRef<HTMLInputElement>(null);
   const selfieFile = useRef<HTMLInputElement>(null);
   const origin = typeof window === "undefined" ? null : loadOrigin();
@@ -58,6 +64,7 @@ export default function StyleSetup() {
       setReadCount(p.readFromPhotos);
     });
     fromPhone("selfie").then((p) => p && setSelfie(p));
+    loadLovedBrands().then(setLoved);
     Promise.all(STYLES.map(async (l) => [l.id, await fromPhone(`draw:${l.id}`)] as const)).then((all) => setDrawn(Object.fromEntries(all.filter(([, v]) => v)) as Record<string, string>));
   }, []);
 
@@ -117,6 +124,31 @@ export default function StyleSetup() {
     }
   }, [step, selfie, styles, drawn, drawing, reading]);
 
+  // Brands they love: the library as they type.
+  useEffect(() => {
+    if (step !== 4) return;
+    const t = setTimeout(() => searchBrands(query).then(setFound), 200);
+    return () => clearTimeout(t);
+  }, [query, step]);
+
+  async function addLoved(b: { id: string; name: string; logo: string | null }) {
+    setQuery("");
+    setFound([]);
+    if (loved.some((x) => x.id === b.id)) return;
+    await loveBrand(b.id, true, { recommend, country: origin?.city.country });
+    setLoved(await loadLovedBrands());
+  }
+
+  async function addNew() {
+    const name = query.trim();
+    if (!origin || name.length < 2) return;
+    setLooking(true);
+    const r = await lookupNewBrand(name, origin.city.id);
+    setLooking(false);
+    if (r?.brand) await addLoved({ ...r.brand, logo: null });
+    else toast(r?.notice ?? "Couldn't find that brand.");
+  }
+
   async function finish() {
     setSaving(true);
     await saveStyleProfile({ wears, styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou: !!selfie, votes }, origin?.city ?? null);
@@ -139,7 +171,7 @@ export default function StyleSetup() {
     <main className={s.screen}>
       <div className={s.page}>
         <StyleTop back={step === 1 ? "/home" : () => setStep((step - 1) as Step)} backLabel={step === 1 ? "Home" : "Back"} right={<span style={{ width: 70 }} />} />
-        <span className={s.step}>STEP {step} OF 4</span>
+        <span className={s.step}>STEP {step} OF 5</span>
 
         {step === 1 && (
           <>
@@ -341,6 +373,90 @@ export default function StyleSetup() {
         )}
 
         {step === 4 && (
+          <>
+            <span className={s.kick}>OPTIONAL</span>
+            <h1 className={s.title}>
+              Brands you <i>love</i>
+            </h1>
+            <p className={s.sub}>A few you already shop from. Feta uses them to sharpen your styles and find more like them.</p>
+            <div style={{ position: "relative" }}>
+              <input className={s.search} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Type a brand, e.g. Jaywalking" aria-label="Type a brand you love" maxLength={60} />
+              {query.trim().length >= 2 && (
+                <div className={s.results}>
+                  {found.map((b) => (
+                    <button key={b.id} type="button" className={s.result} onClick={() => addLoved(b)}>
+                      <Logo name={b.name} src={b.logo} />
+                      <span>{b.name}</span>
+                    </button>
+                  ))}
+                  {!found.some((b) => b.name.toLowerCase() === query.trim().toLowerCase()) && (
+                    <button type="button" className={s.result} onClick={addNew} disabled={looking}>
+                      <span className={s.logo} aria-hidden="true">＋</span>
+                      <span>{looking ? `Looking up “${query.trim()}”…` : `Add “${query.trim()}”`}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {loved.length > 0 && (
+              <Line height={128}>
+                {loved.slice(0, 5).map((b, i) => {
+                  const f = 0.1 + i * 0.2;
+                  return (
+                    <div key={b.id} className={s.hang} style={vars({ left: `calc(${f * 100}% - 35px)`, top: sag(f) - 2, "--sway": `${3 + (i % 3) * 0.5}s`, "--delay": `${i * 0.25}s` })}>
+                      <div className={`${s.hanger} ${s.dropIn}`}>
+                        <span className={s.string} />
+                        <span className={s.brandTag}>
+                          <Logo name={b.name} src={b.logo} />
+                          <span className={s.brandTagName}>{b.name}</span>
+                          <button type="button" className={s.unpin} aria-label={`Remove ${b.name}`} onClick={async () => { await loveBrand(b.id, false); setLoved(loved.filter((x) => x.id !== b.id)); }}>
+                            ✕
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </Line>
+            )}
+            {loved.length > 5 && <span className={s.small}>And {loved.slice(5).map((b) => b.name).join(", ")}</span>}
+            {(() => {
+              const extra = [...new Set(loved.flatMap((b) => b.styles))].filter((id) => !styles.includes(id) && styleById(id));
+              return extra.length ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Your brands also say. Add?</span>
+                  <div className={s.chips}>
+                    {extra.slice(0, 6).map((id) => (
+                      <button key={id} type="button" className={s.chip} style={{ padding: "8px 14px", fontSize: 13 }} onClick={() => setStyles([...styles, id])}>
+                        {styleById(id)?.short} ＋
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null;
+            })()}
+            {loved.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Recommend them to people like you?</span>
+                <span className={s.small}>They&apos;d see &ldquo;♥ Loved by Feta users&rdquo;. Never your name.</span>
+                <div className={s.chips}>
+                  {[true, false].map((v) => (
+                    <button key={String(v)} type="button" className={`${s.chip} ${recommend === v ? s.chipOn : ""}`} aria-pressed={recommend === v} onClick={() => { setRecommend(v); setRecommendBrands(v); }}>
+                      {v ? "Yes" : "Keep them to me"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className={s.bottomBar}>
+              <button type="button" className={s.primary} onClick={() => setStep(5)}>
+                {loved.length ? "Next" : "Skip for now"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 5 && (
           <>
             <h1 className={s.title}>
               Clothes budget, <i>per piece</i>

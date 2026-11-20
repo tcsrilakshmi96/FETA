@@ -408,5 +408,20 @@
   "kind": "column",
   "name": "style_research.done",
   "file": "20261120140000_basics_and_research_queue.sql"
+ },
+ {
+  "kind": "function",
+  "name": "brand_love",
+  "file": "20261120150000_loved_brands.sql"
+ },
+ {
+  "kind": "function",
+  "name": "save_brand_lookup",
+  "file": "20261120150000_loved_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "loved_brands",
+  "file": "20261120150000_loved_brands.sql"
  }
 ]

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
 import { Line, Logo, vars } from "@/components/StyleParts";
 import { styleById } from "@/lib/style";
-import { loadSavedBrands, toggleSavedBrand, type SavedBrand } from "@/lib/style-client";
+import { loadLovedBrands, loadSavedBrands, loveBrand, toggleSavedBrand, type SavedBrand } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Saved → Want to try → Brands (founder, 20 Nov 2026): brands saved in
@@ -27,8 +27,10 @@ function Filter({ on, onChange }: { on: boolean; onChange: (brands: boolean) => 
 function SavedBrands() {
   const router = useRouter();
   const [brands, setBrands] = useState<SavedBrand[] | null>(null);
+  const [loved, setLoved] = useState<Set<string>>(new Set());
   useEffect(() => {
     loadSavedBrands().then(setBrands);
+    loadLovedBrands().then((l) => setLoved(new Set(l.map((b) => b.id))));
   }, []);
   if (brands === null) return <p className={s.small}>Getting your brands…</p>;
   if (!brands.length)
@@ -67,6 +69,22 @@ function SavedBrands() {
                     ) : (
                       <span />
                     )}
+                    <button
+                      type="button"
+                      className={s.small}
+                      style={{ color: loved.has(b.id) ? "var(--roseText)" : undefined }}
+                      aria-pressed={loved.has(b.id)}
+                      onClick={() => {
+                        const on = !loved.has(b.id);
+                        const next = new Set(loved);
+                        if (on) next.add(b.id);
+                        else next.delete(b.id);
+                        setLoved(next);
+                        loveBrand(b.id, on, { country: b.country ?? undefined });
+                      }}
+                    >
+                      {loved.has(b.id) ? "♥ Love it" : "Love it"}
+                    </button>
                     <button type="button" className={s.small} onClick={remove} aria-label={`Remove ${b.name}`}>
                       Remove
                     </button>
