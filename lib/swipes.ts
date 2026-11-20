@@ -42,7 +42,7 @@ const SOUTH_ASIA = ["IN", "LK", "NP", "BD", "PK", "BT", "MV"];
 
 // Photos showing meat, fish or egg have a vegetarian version, shown to
 // vegetarian, vegan and Jain users (testers: egg and fish photos broke trust).
-const VEG_PHOTOS = ["bowl", "fine-dining", "indo-chinese", "japanese", "korean", "mexican", "middle-eastern", "thai", "world-street", "world-spicy"];
+const VEG_PHOTOS = ["bowl", "indo-chinese", "japanese", "korean", "mexican", "middle-eastern", "thai", "world-spicy"];
 const photo = (name: string, veg: boolean) => `/swipes/${veg && VEG_PHOTOS.includes(name) ? `veg-${name}` : name}.jpg`;
 
 export function cuisinesFor(country?: string, veg = false): Cuisine[] {
@@ -120,8 +120,10 @@ export function swipeCards(answers: Answers, country?: string): SwipeCard[] {
     {
       type: "pair",
       id: "style",
-      a: { id: "hole_in_wall", label: "A hole-in-the-wall with one great dish", image: home ? "/swipes/street.jpg" : photo("world-street", veg) },
-      b: { id: "dressed_up", label: "A dressed-up dinner for an occasion", image: photo("fine-dining", veg) },
+      // Places, not plates (founder, 20 Nov 2026): a small café and a candlelit
+      // fine-dining room, the same for every diet and city.
+      a: { id: "hole_in_wall", label: "A hole-in-the-wall with one great dish", image: "/swipes/casual-cafe.jpg" },
+      b: { id: "dressed_up", label: "A dressed-up dinner for an occasion", image: "/swipes/dressed-up.jpg" },
       lines: {
         a: "Would pick a hole-in-the-wall over a fancy dinner",
         b: "Likes a dressed-up dinner for an occasion",
