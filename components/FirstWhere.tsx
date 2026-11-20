@@ -105,7 +105,7 @@ export default function FirstWhere({ onCity }: { onCity: (city: City) => void })
   return (
     <main className={styles.screen}>
       <Mascot pose="walk" size={76} pop className={styles.cheese} />
-      <p className={styles.kick}>Last thing</p>
+      <p className={styles.kick}>Your city</p>
       <h1 className={styles.title} style={{ marginTop: 8 }}>
         Where should Feta <strong>look?</strong>
       </h1>
