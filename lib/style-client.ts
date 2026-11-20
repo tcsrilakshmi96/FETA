@@ -234,6 +234,16 @@ type Row = {
   brands: { id: string; name: string; website: string | null; logo_url: string | null; origin_country: string | null; wears: string | null; brand_markets: { country: string; presence_type: string; price_feel: string | null }[] };
 };
 
+// Research notes meant for the founder, not for people ("(MX URL live,
+// bot-blocked to scripts)", "Viewed catalog:"), taken out of what's shown.
+function cleanCues(t: string) {
+  return t
+    .replace(/\([^)]*(url|bot|script|verified|evidence|blocked|checked|pending|inspected|own page|document)[^)]*\)/gi, "")
+    .replace(/^(viewed catalog|inspected|observed)\s*:\s*/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export async function brandsFor(styles: string[], country: string, wears: Wears): Promise<BrandCard[]> {
   if (!styles.length || !(await currentUserId())) return [];
   const { data, error } = await supabase()
@@ -257,7 +267,7 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
       website: r.brands.website,
       logo: r.brands.logo_url,
       homegrown: r.brands.origin_country === country,
-      why: r.visible_cues,
+      why: cleanCues(r.visible_cues),
       style: r.style_id,
       priceFeel: market!.price_feel,
       approved: r.review_status === "approved",
