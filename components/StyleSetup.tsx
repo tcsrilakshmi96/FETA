@@ -1,0 +1,376 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Figure, Line, StyleTop, vars } from "@/components/StyleParts";
+import { useToast } from "@/components/Toast";
+import { knownCurrency } from "@/lib/currency";
+import { loadOrigin } from "@/lib/origin";
+import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
+import { drawStyle, forgetOnYou, fromPhone, keepOnPhone, loadStyleProfile, readStylePhotos, saveStyleProfile, shrink, type StyleProfile } from "@/lib/style-client";
+import s from "./StyleScreens.module.css";
+
+// Style setup (founder, 20 Nov 2026), once, changeable later:
+// 1. What they shop for, and up to 8 inspiration photos (none required).
+// 2. See it on you (optional): one photo of them, so their styles are drawn as them.
+// 3. Their styles: read from the photos (or picked), shown as a lineup.
+// 4. Clothes budget, in their city's currency.
+type Step = 1 | 2 | 3 | 4;
+const MAX_PHOTOS = 8;
+
+// How far down the rope sags at a point across the screen (0–1).
+const sag = (f: number) => 10 + 48 * f * (1 - f);
+
+export default function StyleSetup() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const toast = useToast();
+  const [step, setStep] = useState<Step>((Number(params.get("step")) as Step) || 1);
+  const [wears, setWears] = useState<Wears>("women");
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [selfie, setSelfie] = useState<string | null>(null);
+  const [styles, setStyles] = useState<string[]>([]);
+  const [why, setWhy] = useState<Record<string, string>>({});
+  const [front, setFront] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const [readCount, setReadCount] = useState(0); // photos already read into the styles
+  const [drawn, setDrawn] = useState<Record<string, string>>({});
+  const [drawing, setDrawing] = useState<Record<string, boolean>>({});
+  const [budget, setBudget] = useState<string[]>(["c2"]);
+  const [homegrown, setHomegrown] = useState(false);
+  const [votes, setVotes] = useState<StyleProfile["votes"]>([]);
+  const [saving, setSaving] = useState(false);
+  const files = useRef<HTMLInputElement>(null);
+  const selfieFile = useRef<HTMLInputElement>(null);
+  const origin = typeof window === "undefined" ? null : loadOrigin();
+  const currency = knownCurrency(origin?.city.currency);
+
+  // Changing it later starts from what they have.
+  useEffect(() => {
+    loadStyleProfile().then((p) => {
+      if (!p) return;
+      setWears(p.wears);
+      setStyles(p.styles);
+      setFront(p.styles[0] ?? null);
+      setBudget(p.budget.length ? p.budget : ["c2"]);
+      setHomegrown(p.homegrownOnly);
+      setVotes(p.votes);
+      setReadCount(p.readFromPhotos);
+    });
+    fromPhone("selfie").then((p) => p && setSelfie(p));
+    Promise.all(STYLES.map(async (l) => [l.id, await fromPhone(`draw:${l.id}`)] as const)).then((all) => setDrawn(Object.fromEntries(all.filter(([, v]) => v)) as Record<string, string>));
+  }, []);
+
+  async function addPhotos(list: FileList | null) {
+    if (!list) return;
+    const room = MAX_PHOTOS - photos.length;
+    const made = await Promise.all([...list].slice(0, room).map((f) => shrink(f).catch(() => null)));
+    const ok = made.filter((p): p is string => !!p);
+    if (list.length > room) toast(`Up to ${MAX_PHOTOS} photos. Kept the first ${room}.`);
+    setPhotos((p) => [...p, ...ok].slice(0, MAX_PHOTOS));
+  }
+
+  async function addSelfie(list: FileList | null) {
+    const f = list?.[0];
+    if (!f) return;
+    const p = await shrink(f, 1024).catch(() => null);
+    if (!p) return toast("Couldn't open that photo.");
+    setSelfie(p);
+    setDrawn({});
+    await forgetOnYou();
+    await keepOnPhone("selfie", p);
+  }
+
+  // Step 3: read the photos once, when they arrive at their styles.
+  useEffect(() => {
+    if (step !== 3 || reading || photos.length === 0 || readCount === photos.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- shows the reading animation before the request
+    setReading(true);
+    readStylePhotos(photos, wears).then((r) => {
+      setReading(false);
+      setReadCount(photos.length);
+      if (!r?.styles?.length) {
+        toast(r?.notice ?? "Feta couldn't read those photos. Pick your styles below.");
+        return;
+      }
+      const ids = r.styles.map((x) => x.id);
+      setStyles(ids);
+      setFront(ids[0]);
+      setWhy(Object.fromEntries(r.styles.map((x) => [x.id, x.why])));
+    });
+  }, [step, photos, wears, reading, readCount, toast]);
+
+  // Their styles drawn as them, one at a time as they appear (about ₹4 each).
+  useEffect(() => {
+    if (step !== 3 || !selfie || reading) return;
+    for (const id of styles) {
+      if (drawn[id] || drawing[id]) continue;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the drawing as started
+      setDrawing((d) => ({ ...d, [id]: true }));
+      drawStyle(selfie, id).then(async (r) => {
+        setDrawing((d) => ({ ...d, [id]: false }));
+        if (r?.image) {
+          setDrawn((d) => ({ ...d, [id]: r.image! }));
+          await keepOnPhone(`draw:${id}`, r.image);
+        }
+      });
+    }
+  }, [step, selfie, styles, drawn, drawing, reading]);
+
+  async function finish() {
+    setSaving(true);
+    await saveStyleProfile({ wears, styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou: !!selfie, votes }, origin?.city ?? null);
+    router.replace("/style");
+  }
+
+  const frontId = front && styles.includes(front) ? front : styles[0];
+  const others = styles.filter((id) => id !== frontId);
+  const sentence = (() => {
+    const n = (id: string) => (styleById(id)?.short ?? id).toLowerCase().replace("y2k", "Y2K");
+    if (!styles.length) return "Pick the styles that feel like you";
+    if (styles.length === 1) return `Mostly ${n(styles[0])}.`;
+    if (styles.length === 2) return `Mostly ${n(styles[0])}, with a bit of ${n(styles[1])}.`;
+    return `Mostly ${n(styles[0])} and ${n(styles[1])}, with a bit of ${styles.slice(2).map(n).join(" and ")}.`;
+  })();
+  const seeds = [["-160px", "-60px", "-14deg"], ["140px", "-120px", "12deg"], ["-60px", "160px", "-8deg"], ["180px", "90px", "10deg"]];
+  const labels = budgetLabels(currency);
+
+  return (
+    <main className={s.screen}>
+      <div className={s.page}>
+        <StyleTop back={step === 1 ? "/home" : () => setStep((step - 1) as Step)} backLabel={step === 1 ? "Home" : "Back"} right={<span style={{ width: 70 }} />} />
+        <span className={s.step}>STEP {step} OF 4</span>
+
+        {step === 1 && (
+          <>
+            <h1 className={s.title}>
+              What do you <i>shop for?</i>
+            </h1>
+            <div className={s.chips}>
+              {(["women", "men", "both"] as Wears[]).map((w) => (
+                <button key={w} type="button" className={`${s.chip} ${wears === w ? s.chipOn : ""}`} aria-pressed={wears === w} onClick={() => setWears(w)}>
+                  {w === "women" ? "Womenswear" : w === "men" ? "Menswear" : "Both"}
+                </button>
+              ))}
+            </div>
+            <div>
+              <h2 className={s.h2} style={{ marginTop: 10 }}>
+                Hang up looks <i>you love</i>
+              </h2>
+              <p className={s.sub} style={{ marginTop: 6 }}>
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta keeps only the style words, never the photos.
+              </p>
+            </div>
+            <Line height={300} rows={[0, 150]}>
+              {Array.from({ length: MAX_PHOTOS }, (_, i) => {
+                const row = Math.floor(i / 4);
+                const f = 0.13 + (i % 4) * 0.247;
+                const photo = photos[i];
+                return (
+                  <div key={photo ? `p${i}-${photo.length}` : `e${i}`} className={`${s.hang} ${photo ? "" : s.still}`} style={vars({ left: `calc(${f * 100}% - 38px)`, top: row * 150 + sag(f) - 4, "--sway": `${3.2 + (i % 3) * 0.5}s`, "--delay": `${i * 0.2}s` })}>
+                    <div className={`${s.hanger} ${photo ? s.dropIn : ""}`}>
+                      <span className={s.peg} style={photo ? undefined : { opacity: 0.4 }} />
+                      {photo ? (
+                        <span className={s.polaroid}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
+                          <img src={photo} alt={`Inspiration photo ${i + 1}`} />
+                          <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}>
+                            ✕
+                          </button>
+                        </span>
+                      ) : (
+                        <button type="button" className={s.polaroidEmpty} aria-label="Add photos" onClick={() => files.current?.click()}>
+                          +
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </Line>
+            <div className={s.row}>
+              <span className={s.small}>Tap a peg to add photos</span>
+              <span className={s.count}>
+                {photos.length}
+                <span> / 8</span>
+              </span>
+            </div>
+            <input ref={files} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ""))} />
+            <div className={s.bottomBar}>
+              <button type="button" className={s.primary} onClick={() => setStep(2)}>
+                {photos.length ? `Next · ${photos.length} photo${photos.length === 1 ? "" : "s"}` : "Next"}
+              </button>
+              {!photos.length && <span className={s.quiet}>No photos handy? You&apos;ll pick styles yourself.</span>}
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <span className={s.kick}>OPTIONAL</span>
+            <h1 className={s.title}>
+              See the looks <i>on you</i>
+            </h1>
+            <p className={s.sub}>Add one photo of yourself and Feta draws your styles as you. Skip it and you&apos;ll see Feta&apos;s own illustrations.</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" className={s.selfie} style={{ flex: 1 }} onClick={() => selfieFile.current?.click()}>
+                {selfie ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone
+                  <img src={selfie} alt="Your photo" />
+                ) : (
+                  <>
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                      <circle cx="12" cy="13" r="3.5" />
+                    </svg>
+                    <span style={{ fontWeight: 600 }}>Add one photo</span>
+                    <span className={s.small}>Head to toe works best</span>
+                  </>
+                )}
+              </button>
+              <div className={s.stage} style={{ width: 120, height: 300, flex: "none" }}>
+                <Figure style={styles[0] ?? "smart-casual"} wears={wears} height={290} />
+                <span className={s.drawingWait} aria-hidden="true" />
+              </div>
+            </div>
+            <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
+            <div className={s.note}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Your photo, plainly</span>
+              <span className={s.small}>
+                It goes to Google&apos;s image AI only to draw you, about ₹4 a style. Feta doesn&apos;t keep it; the photo and drawings stay on this phone. Feta never comments on your body, size or looks.
+              </span>
+            </div>
+            <div className={s.bottomBar}>
+              <button type="button" className={s.primary} onClick={() => setStep(3)}>
+                {selfie ? "Draw my styles on me" : "Skip, use Feta's figures"}
+              </button>
+              {selfie && (
+                <button type="button" className={s.quiet} onClick={async () => { setSelfie(null); setDrawn({}); await forgetOnYou(); }}>
+                  Remove my photo
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span className={s.kick}>{reading ? `READING YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : photos.length ? `FETA READ YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : "YOUR STYLES"}</span>
+              <h1 className={s.title} style={{ fontSize: 27 }}>
+                {reading ? "Looking at the clothes…" : sentence}
+              </h1>
+            </div>
+            <div className={`${s.stage} ${s.lineup}`} style={{ margin: 0, height: 440 }}>
+              {reading ? (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {photos.slice(0, 5).map((p, i) => (
+                    <span key={i} className={s.polaroid} style={{ position: "absolute", transform: `rotate(${(i - 2) * 7}deg) translateX(${(i - 2) * 26}px)`, animation: `none` }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
+                      <img src={p} alt="" />
+                    </span>
+                  ))}
+                  <span className={s.drawingWait} aria-hidden="true" />
+                </div>
+              ) : frontId ? (
+                <>
+                  <span key={`big-${frontId}`} className={`${s.big} ${s.rise}`} style={{ top: 18, left: -8, right: "auto", alignItems: "flex-start", fontSize: (styleById(frontId)?.big.length ?? 0) > 5 ? 72 : 100, color: "rgba(26,22,22,0.12)" }}>
+                    {styleById(frontId)?.big}
+                  </span>
+                  {others.map((id, j) => {
+                    const h = Math.round(290 * Math.pow(0.8, j));
+                    const lens = styleById(id)!;
+                    const half = drawn[id] ? "drawn" : figureHalf(lens, wears);
+                    const w = drawn[id] ? Math.round((h * 9) / 16) : half === "both" ? h : Math.round(h / 2);
+                    return (
+                      <button key={id} type="button" className={s.behind} aria-label={`Bring ${lens.name} to the front`} onClick={() => setFront(id)} style={vars({ left: `calc(52% + ${j * 58}px)`, width: w, height: h, zIndex: 9 - j, opacity: 1 - j * 0.15, "--fx": seeds[j % 4][0], "--fy": seeds[j % 4][1], "--fr": seeds[j % 4][2], "--delay": `${0.1 + j * 0.08}s` })}>
+                        <span className={drawn[id] ? s.drawing : s.bob} style={{ display: "block" }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
+                          <img src={drawn[id] ?? lookImage(id)} alt="" style={drawn[id] ? undefined : { height: h, width: h, left: half === "right" ? -w : 0 }} />
+                        </span>
+                        {drawing[id] && <span className={s.drawingWait} aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                  <Figure key={`front-${frontId}-${drawn[frontId] ? 1 : 0}`} style={frontId} wears={wears} drawn={drawn[frontId]} height={drawn[frontId] ? 370 : 360} pos={{ left: 12, marginLeft: 0, bottom: 60, zIndex: 10 }} />
+                  {drawing[frontId] && (
+                    <span className={s.small} style={{ position: "absolute", left: 16, top: 16, zIndex: 12, padding: "6px 10px", borderRadius: 12, background: "rgba(255,255,255,0.85)", color: "#1a1616" }}>
+                      Drawing you…
+                    </span>
+                  )}
+                  <div className={s.lineupName} style={{ bottom: 14, color: "#1a1616" }}>
+                    <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 11, letterSpacing: "0.24em", opacity: 0.6 }}>
+                        LOOK {String(styles.indexOf(frontId) + 1).padStart(2, "0")} / {String(styles.length).padStart(2, "0")}
+                      </span>
+                      <span className={s.styleName}>{styleById(frontId)?.name}</span>
+                      {why[frontId] && <span style={{ fontSize: 12, opacity: 0.7 }}>{why[frontId]}</span>}
+                    </span>
+                    <button type="button" className={s.chip} style={{ padding: "8px 12px", fontSize: 13, borderColor: "#1a1616" }} onClick={() => setStyles(styles.filter((x) => x !== frontId))}>
+                      Not me ✕
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className={s.sub} style={{ padding: 20, color: "#1a1616" }}>
+                  Tap the styles below that feel like you.
+                </p>
+              )}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{styles.length ? "Also feels like you? Tap to add" : "Which feel like you?"}</span>
+            <div className={s.thumbs}>
+              {STYLES.filter((l) => !styles.includes(l.id)).map((l) => {
+                const half = figureHalf(l, wears);
+                return (
+                  <button key={l.id} type="button" className={s.thumb} onClick={() => { setStyles([...styles, l.id]); setFront(l.id); }}>
+                    <span className={s.thumbImg}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
+                      <img src={lookImage(l.id)} alt="" style={{ left: half === "right" ? -64 : half === "both" ? -32 : 0 }} />
+                    </span>
+                    {l.short}
+                  </button>
+                );
+              })}
+            </div>
+            <div className={s.bottomBar}>
+              <button type="button" className={s.primary} disabled={reading || !styles.length} onClick={() => setStep(4)}>
+                That&apos;s me
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <h1 className={s.title}>
+              Clothes budget, <i>per piece</i>
+            </h1>
+            <p className={s.sub}>Separate from eating out. Tick all that feel right. Prices follow your city ({origin?.city.name ?? "where you are"}), the same way food does.</p>
+            <Line height={170}>
+              {BUDGET_LEVELS.map((id, i) => {
+                const f = 0.13 + i * 0.247;
+                const on = budget.includes(id);
+                return (
+                  <div key={id} className={`${s.hang} ${s.hangSoft}`} style={vars({ left: `calc(${f * 100}% - 39px)`, top: sag(f) - 2, "--sway": `${3 + i * 0.4}s`, "--delay": `${i * 0.15}s` })}>
+                    <div className={s.hanger}>
+                      <span className={s.string} />
+                      <button type="button" className={`${s.tag} ${on ? s.tagOn : ""}`} style={vars({ "--delay": `${i * 0.06}s` })} aria-pressed={on} onClick={() => setBudget(on ? budget.filter((b) => b !== id) : [...budget, id])}>
+                        <span className={s.tagName}>{BUDGET_NAMES[i]}</span>
+                        <span className={s.tagPrice}>{labels[i]}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </Line>
+            <div className={s.bottomBar}>
+              <button type="button" className={s.primary} disabled={!budget.length || saving} onClick={finish}>
+                {saving ? "Saving…" : "See my style"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </main>
+  );
+}
