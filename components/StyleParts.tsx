@@ -11,9 +11,9 @@ import s from "./StyleScreens.module.css";
 
 export const vars = (v: Record<string, string | number>) => v as CSSProperties;
 
-// The top of every Style screen: back, STYLE, and the same ★ Feta Picks and
-// You buttons as Home.
-export function StyleTop({ back = "/home", backLabel = "Home", right }: { back?: string | (() => void); backLabel?: string; right?: ReactNode }) {
+// The top of Style home and brands, like Home's: the date and STYLE (with a
+// small BETA tag), or a way back, and the same ★ Feta Picks and You buttons.
+export function StyleTop({ back, backLabel = "Home", right }: { back?: string | (() => void); backLabel?: string; right?: ReactNode }) {
   const router = useRouter();
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [name, setName] = useState("");
@@ -27,10 +27,16 @@ export function StyleTop({ back = "/home", backLabel = "Home", right }: { back?:
   return (
     <>
       <div className={s.top}>
-        <button type="button" className={s.back} onClick={() => (typeof back === "string" ? router.push(back) : back())}>
-          ‹ {backLabel}
-        </button>
-        <span className={s.word}>STYLE</span>
+        {back ? (
+          <button type="button" className={s.back} onClick={() => (typeof back === "string" ? router.push(back) : back())}>
+            ‹ {backLabel}
+          </button>
+        ) : (
+          <span>
+            {new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" }).format(new Date()).toUpperCase().replace(",", "")} · STYLE
+            <span className={s.betaTag}>BETA</span>
+          </span>
+        )}
         {right ?? (
           <span className={s.buttons}>
             {origin && <FetaStar cityId={origin.city.id} cityName={origin.city.name} onOpen={() => setFetaOpen(true)} />}
@@ -39,10 +45,6 @@ export function StyleTop({ back = "/home", backLabel = "Home", right }: { back?:
             </button>
           </span>
         )}
-      </div>
-      {/* Style is new (founder, 20 Nov 2026): a beta bar until it settles. */}
-      <div className={s.beta}>
-        <strong>BETA</strong> Style is new. Tell us what feels off with Feedback.
       </div>
       {fetaOpen && origin && <FetaPicksSheet origin={origin} when="tonight" onClose={() => setFetaOpen(false)} />}
     </>

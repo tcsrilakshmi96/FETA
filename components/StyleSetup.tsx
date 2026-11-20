@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
+import Mascot from "@/components/Mascot";
+import { Figure, Line, Logo, vars } from "@/components/StyleParts";
 import { useToast } from "@/components/Toast";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
@@ -183,35 +184,45 @@ export default function StyleSetup() {
   return (
     <main className={s.screen}>
       <div className={s.page}>
-        <StyleTop
-          // A full load back to Style while editing (see finish()).
-          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-          back={step === 1 ? (editing ? () => window.location.assign("/style") : "/home") : () => setStep((step - 1) as Step)}
-          backLabel={step === 1 ? (editing ? "Style" : "Home") : "Back"}
-          right={
-            // Changing it later: Done saves and goes back to Style from any step.
-            editing ? (
-              <button type="button" className={s.done} disabled={saving || !styles.length || reading} onClick={finish}>
-                {saving ? "Saving…" : "Done"}
-              </button>
-            ) : (
-              <span style={{ width: 70 }} />
-            )
-          }
-        />
-        <div className={s.steps} aria-label="Steps">
+        {/* The same header and progress bar as the other setup questions; once they have a style, any step can be opened. */}
+        <div className={s.setupTop}>
+          <button
+            type="button"
+            onClick={() =>
+              step > 1
+                ? setStep((step - 1) as Step)
+                : editing
+                  ? // A full load back to Style while editing (see finish()).
+                    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                    window.location.assign("/style")
+                  : window.history.back()
+            }
+          >
+            ‹ Back
+          </button>
+          {editing ? (
+            <button type="button" className={s.done} disabled={saving || !styles.length || reading} onClick={finish}>
+              {saving ? "Saving…" : "Done"}
+            </button>
+          ) : (
+            <span>
+              Your style · {step} of 5
+            </span>
+          )}
+        </div>
+        <div className={s.progress} aria-label="Steps">
           {([1, 2, 3, 4, 5] as Step[]).map((n) => (
-            <button key={n} type="button" className={`${s.stepDot} ${step === n ? s.stepOn : ""}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
-              {n}
+            <button key={n} type="button" className={n <= step ? s.doneBar : ""} aria-label={`Step ${n}: ${["", "shop for and photos", "on you", "your styles", "brands you love", "budget"][n]}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
+              <span />
             </button>
           ))}
-          <span className={s.step} style={{ marginLeft: 6 }}>{["", "SHOP FOR · PHOTOS", "ON YOU", "YOUR STYLES", "BRANDS YOU LOVE", "BUDGET"][step]}</span>
         </div>
+        <Mascot pose={step === 3 ? "think" : step === 5 ? "idle" : "wave"} prop="shades" size={64} pop />
 
         {step === 1 && (
           <>
             <h1 className={s.title}>
-              What do you <i>shop for?</i>
+              What do you <strong>shop for?</strong>
             </h1>
             <div className={s.chips}>
               {(["women", "men", "both"] as Wears[]).map((w) => (
@@ -277,7 +288,7 @@ export default function StyleSetup() {
           <>
             <span className={s.kick}>OPTIONAL</span>
             <h1 className={s.title}>
-              See the looks <i>on you</i>
+              See the looks <strong>on you</strong>
             </h1>
             <p className={s.sub}>Add one photo of yourself and Feta draws your styles as you. Skip it and you&apos;ll see Feta&apos;s own illustrations.</p>
             <div style={{ display: "flex", gap: 10 }}>
@@ -499,7 +510,7 @@ export default function StyleSetup() {
           <>
             <span className={s.kick}>OPTIONAL</span>
             <h1 className={s.title}>
-              Brands you <i>love</i>
+              Brands you <strong>love</strong>
             </h1>
             <p className={s.sub}>A few you already shop from. Feta uses them to sharpen your styles and find more like them.</p>
             <div style={{ position: "relative" }}>
@@ -582,7 +593,7 @@ export default function StyleSetup() {
         {step === 5 && (
           <>
             <h1 className={s.title}>
-              Clothes budget, <i>per piece</i>
+              Clothes budget, <strong>per piece</strong>
             </h1>
             <p className={s.sub}>Separate from eating out. Tick all that feel right. Prices follow your city ({origin?.city.name ?? "where you are"}), the same way food does.</p>
             <Line height={170}>

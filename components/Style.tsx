@@ -179,6 +179,9 @@ export default function Style() {
       <main className={s.screen}>
         <div className={s.page}>
           <StyleTop />
+          <h1 className={s.mast}>
+            {new Date().getHours() < 16 ? "Today" : "Tonight"}, <i>dressed for it.</i>
+          </h1>
 
           <section className={s.stage} style={{ height: outfit || thinking ? 430 : 360 }}>
             <div style={{ position: "absolute", left: 16, top: 14, right: 16, zIndex: 5, display: "flex", flexDirection: "column", gap: 2 }}>

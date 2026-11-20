@@ -20,10 +20,12 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  background: var(--bg);
+  /* No background of its own: the app's colour haze shows through, as on
+     every other screen (audit, 20 Nov 2026: Style looked like another app). */
   color: var(--ink);
   /* Room at the top for the Feedback pill, like Home. */
   padding: 48px 16px 120px;
+  animation: var(--kf-in) 0.35s ease-out;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -54,6 +56,63 @@
   justify-content: space-between;
   gap: 8px;
   min-height: 36px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--roseText);
+}
+.betaTag {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--saffron);
+  color: #1a1616;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.mast {
+  font-family: var(--font-fraunces), serif;
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.mast i {
+  font-weight: 500;
+}
+/* Setup: the same header and progress bar as the other setup questions. */
+.setupTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+.setupTop button {
+  min-height: 44px;
+  color: rgba(var(--inkRGB), 0.6);
+}
+.progress {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+}
+.progress button {
+  flex: 1;
+  height: 14px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+.progress button span {
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(var(--inkRGB), 0.1);
+  transition: background 0.4s;
+}
+.progress .doneBar span {
+  background: var(--rose);
 }
 .beta {
   display: flex;
@@ -90,9 +149,9 @@
 }
 .done {
   padding: 8px 16px;
-  border-radius: 18px;
-  background: var(--ink);
-  color: var(--bg);
+  border-radius: 99px;
+  background: var(--rose);
+  color: var(--inkFixed);
   font-size: 13px;
   font-weight: 600;
   margin-right: 70px; /* clear of the Feedback pill */
@@ -116,26 +175,33 @@
 }
 
 .kick {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.24em;
-  color: var(--tan);
+  letter-spacing: 0.18em;
+  color: var(--roseText);
 }
 .title {
   font-family: var(--font-fraunces), serif;
   font-weight: 300;
-  font-size: 34px;
-  line-height: 1.04;
-  letter-spacing: -0.01em;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
-.title i {
-  font-style: italic;
+.title i,
+.title strong {
+  font-style: normal;
+  font-weight: 500;
 }
 .h2 {
   font-family: var(--font-fraunces), serif;
   font-weight: 300;
   font-size: 24px;
   line-height: 1.1;
+}
+.h2 i {
+  font-style: normal;
+  font-weight: 500;
 }
 .sub {
   font-size: 14px;
@@ -148,23 +214,26 @@
   color: rgba(var(--inkRGB), 0.6);
 }
 
+/* The app's main button (btn-primary). */
 .primary {
   display: block;
   width: 100%;
-  padding: 16px;
-  border-radius: 28px;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: 15px;
-  font-weight: 600;
+  height: 56px;
+  border-radius: 99px;
+  background: var(--rose);
+  color: var(--inkFixed);
+  font-size: 16px;
+  font-weight: 500;
   text-align: center;
-  transition: transform 0.15s var(--ease-press);
+  transition: background 0.3s, opacity 0.3s, transform 0.2s var(--ease-press);
 }
-.primary:active {
-  transform: scale(0.97);
+.primary:active:not(:disabled) {
+  transform: scale(0.96);
 }
 .primary:disabled {
-  opacity: 0.35;
+  background: rgba(var(--inkRGB), 0.08);
+  color: var(--ink);
+  opacity: 0.6;
 }
 .quiet {
   display: block;
@@ -180,7 +249,7 @@
   /* A fade behind the pinned button, so it reads as a footer over what scrolls beneath. */
   margin: 0 -16px;
   padding: 28px 16px 16px;
-  background: linear-gradient(to top, var(--bg) 62%, rgba(var(--bgRGB), 0));
+  background: linear-gradient(to top, rgba(var(--bgRGB), 0.95) 55%, rgba(var(--bgRGB), 0));
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -194,9 +263,10 @@
   flex-wrap: wrap;
 }
 .chip {
-  padding: 10px 16px;
-  border-radius: 24px;
-  border: 1.5px solid var(--ink);
+  padding: 9px 14px;
+  border-radius: 99px;
+  border: 1px solid rgba(var(--inkRGB), 0.1);
+  background: var(--sheet);
   font-size: 14px;
   transition: background 0.25s, color 0.25s, transform 0.15s var(--ease-press);
 }
@@ -205,6 +275,7 @@
 }
 .chipOn {
   background: var(--ink);
+  border-color: var(--ink);
   color: var(--bg);
 }
 .fact {
