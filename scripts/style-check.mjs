@@ -54,7 +54,7 @@ await wait(700);
 ok("Swiping the lineup shows the next style", before !== (await p.evaluate(() => document.querySelector("[class*=styleName]")?.textContent)));
 await click(/^Continue with/); await wait(800);
 await click(/^Skip for now/); await wait(800);
-ok("Step 5: See my style visible", await buttonVisible(/^See my style/));
+ok("Setup is three steps: budget comes after styles", await buttonVisible(/^See my style/));
 await click(/^See my style/);
 await p.waitForFunction(() => location.pathname === "/style", { timeout: 20000 }).catch(() => null);
 await wait(4000);
@@ -73,10 +73,10 @@ ok("Another moves to a different style", true);
 await shot("outfit2");
 // Edit opens any step.
 await p.goto(`${BASE}/style/setup?step=3`, { waitUntil: "networkidle0" }); await wait(2500);
-await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "1")?.click()); await wait(800);
+await p.evaluate(() => document.querySelector("[aria-label^='Step 1']")?.click()); await wait(800);
 ok("Editing can go back to step 1", /What do you/.test(await p.evaluate(() => document.body.innerText)));
 // Founder, 20 Nov 2026: after Edit, saving got stuck and landed back on setup.
-await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "5")?.click()); await wait(600);
+await p.evaluate(() => document.querySelector("[aria-label^='Step 3']")?.click()); await wait(600);
 await click(/^Done$/);
 await p.waitForFunction(() => location.pathname === "/style", { timeout: 15000 }).catch(() => null);
 await wait(4000);

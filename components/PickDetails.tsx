@@ -7,6 +7,8 @@ import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
 import { fetchNotes, type Pick, type PlaceNotes } from "@/lib/picks-client";
 import styles from "./PickDetails.module.css";
+import WearCard from "@/components/WearCard";
+import { planFromStops } from "@/lib/style-client";
 
 // Details for one pick, from Picks home or from a chat card: photo, verdict,
 // the live Google line, why it's yours, what to order or highlights (from
@@ -123,6 +125,10 @@ export default function PickDetails({
           {pick.chips.map((c) => (
             <span key={c}>{c}</span>
           ))}
+        </div>
+        {/* What to wear here, from their styles (founder, 20 Nov 2026). */}
+        <div style={{ marginTop: 12 }}>
+          <WearCard here plan={planFromStops([{ name: pick.name, kind: pick.kind }], null)} />
         </div>
 
         {pick.event ? (

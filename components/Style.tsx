@@ -38,6 +38,7 @@ export default function Style() {
   const [shownStyles, setShownStyles] = useState<string[]>([]); // so Another moves through their styles
   const [leaving, setLeaving] = useState(false);
   const [brands, setBrands] = useState<BrandCard[] | null>(null);
+  const [lovedCount, setLovedCount] = useState(-1);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
   const origin = typeof window === "undefined" ? null : loadOrigin();
 
@@ -53,6 +54,7 @@ export default function Style() {
         // Brands for their styles, ordered for them by Feta.
         const load = async () => {
           const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
+          setLovedCount(loved.length);
           const mine = p.homegrownOnly ? all.filter((x) => x.homegrown) : all;
           // Shown straight away, then reordered for them when Feta's ranking arrives.
           setBrands(mine);
@@ -335,6 +337,23 @@ export default function Style() {
             <span className={s.small}>No brands for your styles in {origin.city.countryName} yet. Feta is still building its library here.</span>
           )}
 
+          {/* Optional, out of setup so it stays short (founder, 20 Nov 2026). */}
+          {(!profile.onYou || lovedCount === 0) && (
+            <div className={s.extras}>
+              {!profile.onYou && (
+                <button type="button" className={s.extra} onClick={() => router.push("/style/setup?step=2")}>
+                  <b>See these looks on you</b>
+                  <span>Add one photo and Feta draws your outfits as you.</span>
+                </button>
+              )}
+              {lovedCount === 0 && (
+                <button type="button" className={s.extra} onClick={() => router.push("/style/setup?step=4")}>
+                  <b>Add brands you love</b>
+                  <span>Feta finds more like them, and others like you see them.</span>
+                </button>
+              )}
+            </div>
+          )}
           <button type="button" className={s.card} onClick={() => router.push("/style/setup?step=3")}>
             <span className={s.kick} style={{ color: "rgba(var(--inkRGB),0.55)" }}>YOUR STYLES</span>
             <span style={{ fontSize: 13.5, flex: 1, textAlign: "left" }}>{profile.styles.map((id) => STYLES.find((x) => x.id === id)?.short).join(" · ")}</span>

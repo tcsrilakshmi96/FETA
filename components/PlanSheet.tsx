@@ -4,7 +4,9 @@ import { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
+import WearCard from "@/components/WearCard";
 import WhatsAppBox from "@/components/WhatsAppBox";
+import { planFromStops } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
@@ -143,6 +145,8 @@ export default function PlanSheet({
             <p className={styles.attribution}>
               Places and photos: <span translate="no">Google Maps</span>
             </p>
+            {/* What to wear for this plan (founder, 20 Nov 2026). */}
+            <WearCard plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} />
             {plans.length > 1 && (
               <SendToGroup
                 kind="choice"

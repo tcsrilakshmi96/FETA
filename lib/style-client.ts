@@ -47,6 +47,7 @@ export async function loadStyleProfile(): Promise<StyleProfile | null> {
 }
 
 export async function saveStyleProfile(p: StyleProfile, city: City | null) {
+  profileOnce = null;
   const userId = await currentUserId();
   if (!userId) return;
   const row = {
@@ -150,13 +151,62 @@ export async function forgetOnYou() {
 // Tonight's saved plan (Saved → Plans), read live: names, kinds and the walk.
 export type TonightPlan = { stops: { name: string; kind: string; time?: string }[]; walkKm: number | null; title: string };
 
+// What Feta is dressing them for, handed over from a plan or a place they
+// opened ("See the look" on Home, Plan my evening, a place's details), so
+// Style home uses it (founder, 20 Nov 2026: Style said "no plan saved" while
+// Home showed tonight's plan).
+const WEAR_FOR = "feta.wearFor";
+export function setWearFor(plan: TonightPlan) {
+  try {
+    sessionStorage.setItem(WEAR_FOR, JSON.stringify({ ...plan, day: localDay(new Date()) }));
+  } catch {
+    // Style home asks instead.
+  }
+}
+// Home's plan for tonight, unless they already chose one to dress for.
+export function offerWearFor(plan: TonightPlan) {
+  if (!wearForToday()) setWearFor(plan);
+}
+function wearForToday(): TonightPlan | null {
+  try {
+    const kept = JSON.parse(sessionStorage.getItem(WEAR_FOR) ?? "null") as (TonightPlan & { day: string }) | null;
+    return kept && kept.day === localDay(new Date()) ? kept : null;
+  } catch {
+    return null;
+  }
+}
+
+// From a plan on the phone (Plan my evening) or one place (its details).
+const KIND_WORD: Record<string, string> = { EAT: "dinner", DRINK: "drinks", DO: "something to do" };
+export function planFromStops(stops: { name: string; kind: string; time?: Date }[], walkKm: number | null): TonightPlan {
+  const clock = (d: Date) => new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true }).format(d).replace(":00", "").replace(" ", "");
+  return {
+    stops: stops.map((s) => ({ name: s.name, kind: KIND_WORD[s.kind] ?? s.kind.toLowerCase(), time: s.time ? clock(s.time) : undefined })),
+    walkKm: walkKm && walkKm < 3 ? walkKm : null,
+    title: stops.map((s, i) => (i === 0 && s.time ? `${s.name} at ${clock(s.time)}` : s.name)).join(", then "),
+  };
+}
+
+// An outfit idea for a plan from their own styles (kept for the day).
+let profileOnce: Promise<StyleProfile | null> | null = null;
+export async function wearFor(plan: TonightPlan): Promise<{ outfit: Outfit; wears: Wears } | null> {
+  profileOnce ??= loadStyleProfile();
+  const p = await profileOnce;
+  if (!p?.styles.length) return null;
+  const { loadOrigin } = await import("@/lib/origin");
+  const origin = loadOrigin();
+  if (!origin) return null;
+  const r = await outfitFor({ styles: p.styles, wears: p.wears, occasion: null, vibe: null, plan, cityId: origin.city.id, avoid: [], usedStyles: [], cues: p.cues, loved: [], notMe: [] });
+  return r?.outfit ? { outfit: r.outfit, wears: p.wears } : null;
+}
+
 export async function tonightPlan(): Promise<TonightPlan | null> {
   const today = localDay(new Date());
   const plan = (await loadPlans()).find((p) => p.day === today);
-  if (!plan) return null;
+  if (!plan) return wearForToday();
   const read = await fetchNightPlaces(plan.placeIds);
   const places = read?.places ?? [];
-  if (!places.length) return null;
+  if (!places.length) return wearForToday();
   const kindWord = { EAT: "dinner", DRINK: "drinks", DO: "something to do" } as const;
   let walk = 0;
   for (let i = 1; i < places.length; i++) walk += distanceKm(places[i - 1], places[i]);

@@ -17,6 +17,7 @@ import PlanSheet from "@/components/PlanSheet";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import TesterForm from "@/components/TesterForm";
+import WearCard from "@/components/WearCard";
 import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
@@ -25,6 +26,7 @@ import type { Category, Pick, When } from "@/lib/picks-client";
 import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, type Want } from "@/lib/profile";
+import { offerWearFor, planFromStops } from "@/lib/style-client";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
 
@@ -115,6 +117,11 @@ export default function Home() {
     () => (food && exp && !food.loading && !exp.loading ? planEvenings(food.picks, exp.picks, when) : []),
     [food, exp, when],
   );
+  // Style home dresses them for this plan unless they chose another (founder, 20 Nov 2026).
+  useEffect(() => {
+    const top = plans[0];
+    if (top && when === "tonight") offerWearFor(planFromStops(top.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), top.mode === "walk" ? top.km : null));
+  }, [plans, when]);
 
   // A trip alone doesn't count as wanting either (founder, 15 Nov 2026:
   // "I didn't choose things to do but it asked"): those questions come the
@@ -335,14 +342,21 @@ export default function Home() {
               </button>
             )}
 
-            {!styleLeads && (
-              <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
-                <span className={styles.kick}>STYLE · BETA</span>
-                <span className={styles.tileTitle}>Looks for your plans</span>
-                <Mascot prop="shades" size={44} className={styles.tileCheese} />
-                <span className={styles.tileSub}>Have a look ›</span>
-              </button>
-            )}
+            {!styleLeads &&
+              (() => {
+                const plain = (
+                  <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
+                    <span className={styles.kick}>STYLE · BETA</span>
+                    <span className={styles.tileTitle}>Looks for your plans</span>
+                    <Mascot prop="shades" size={44} className={styles.tileCheese} />
+                    <span className={styles.tileSub}>Have a look ›</span>
+                  </button>
+                );
+                if (!plan) return plain;
+                // Tonight's look for the top plan (founder, 20 Nov 2026); the
+                // plain tile until there's an idea, or for someone without Style.
+                return <WearCard tile className={`${styles.tile} ${styles.style}`} plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} fallback={plain} />;
+              })()}
           </div>
 
           {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}

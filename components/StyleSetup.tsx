@@ -16,7 +16,12 @@ import s from "./StyleScreens.module.css";
 // 3. Their styles: read from the photos (or picked), shown as a lineup.
 // 4. Brands they love (optional), like the places they love.
 // 5. Clothes budget, in their city's currency.
+// The first run is three steps, 1 → 3 → 5 (founder, 20 Nov 2026: setup was
+// getting long); 2 and 4 open from their cards on Style home and from You.
 type Step = 1 | 2 | 3 | 4 | 5;
+const FLOW: Step[] = [1, 3, 5];
+const NEXT: Record<Step, Step> = { 1: 3, 2: 3, 3: 5, 4: 5, 5: 5 };
+const PREV: Record<Step, Step> = { 1: 1, 2: 1, 3: 1, 4: 3, 5: 3 };
 const MAX_PHOTOS = 8;
 
 // How far down the rope sags at a point across the screen (0–1).
@@ -190,7 +195,7 @@ export default function StyleSetup() {
             type="button"
             onClick={() =>
               step > 1
-                ? setStep((step - 1) as Step)
+                ? setStep(PREV[step])
                 : editing
                   ? // A full load back to Style while editing (see finish()).
                     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
@@ -206,13 +211,13 @@ export default function StyleSetup() {
             </button>
           ) : (
             <span>
-              Your style · {step} of 5
+              Your style · {Math.max(1, FLOW.filter((n) => n <= step).length)} of 3
             </span>
           )}
         </div>
         <div className={s.progress} aria-label="Steps">
-          {([1, 2, 3, 4, 5] as Step[]).map((n) => (
-            <button key={n} type="button" className={n <= step ? s.doneBar : ""} aria-label={`Step ${n}: ${["", "shop for and photos", "on you", "your styles", "brands you love", "budget"][n]}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
+          {FLOW.map((n) => (
+            <button key={n} type="button" className={n <= step ? s.doneBar : ""} aria-label={`Step ${FLOW.indexOf(n) + 1}: ${["", "shop for and photos", "on you", "your styles", "brands you love", "budget"][n]}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
               <span />
             </button>
           ))}
@@ -276,7 +281,7 @@ export default function StyleSetup() {
             <input ref={files} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ""))} />
             {editing && !photos.length && <p className={s.small}>Your styles are saved. Add new photos to read them again, or go straight to any step above.</p>}
             <div className={s.bottomBar}>
-              <button type="button" className={s.primary} onClick={() => setStep(2)}>
+              <button type="button" className={s.primary} onClick={() => setStep(NEXT[1])}>
                 {photos.length ? `Next · ${photos.length} photo${photos.length === 1 ? "" : "s"}` : "Next"}
               </button>
               {!photos.length && <span className={s.quiet}>No photos handy? You&apos;ll pick styles yourself.</span>}
@@ -320,7 +325,7 @@ export default function StyleSetup() {
               </span>
             </div>
             <div className={s.bottomBar}>
-              <button type="button" className={s.primary} onClick={() => setStep(3)}>
+              <button type="button" className={s.primary} onClick={() => setStep(NEXT[2])}>
                 {selfie ? "Draw my styles on me" : "Skip, use Feta's figures"}
               </button>
               {selfie && (
@@ -499,7 +504,7 @@ export default function StyleSetup() {
               })()
             )}
             <div className={s.bottomBar}>
-              <button type="button" className={s.primary} disabled={reading || !styles.length} onClick={() => setStep(4)}>
+              <button type="button" className={s.primary} disabled={reading || !styles.length} onClick={() => setStep(NEXT[3])}>
                 {reading ? "Reading…" : styles.length ? `Continue with ${styles.length} style${styles.length === 1 ? "" : "s"} ›` : "Pick at least one style to continue"}
               </button>
             </div>
@@ -583,7 +588,7 @@ export default function StyleSetup() {
               </div>
             )}
             <div className={s.bottomBar}>
-              <button type="button" className={s.primary} onClick={() => setStep(5)}>
+              <button type="button" className={s.primary} onClick={() => setStep(NEXT[4])}>
                 {loved.length ? "Next" : "Skip for now"}
               </button>
             </div>
