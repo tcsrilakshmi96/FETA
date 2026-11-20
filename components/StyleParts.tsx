@@ -40,6 +40,10 @@ export function StyleTop({ back = "/home", backLabel = "Home", right }: { back?:
           </span>
         )}
       </div>
+      {/* Style is new (founder, 20 Nov 2026): a beta bar until it settles. */}
+      <div className={s.beta}>
+        <strong>BETA</strong> Style is new. Tell us what feels off with Feedback.
+      </div>
       {fetaOpen && origin && <FetaPicksSheet origin={origin} when="tonight" onClose={() => setFetaOpen(false)} />}
     </>
   );

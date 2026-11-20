@@ -42,6 +42,24 @@
   gap: 8px;
   min-height: 36px;
 }
+.beta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 176, 32, 0.18);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.beta strong {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--saffron);
+  color: #1a1616;
+}
 .back {
   font-size: 14px;
   color: rgba(var(--inkRGB), 0.65);

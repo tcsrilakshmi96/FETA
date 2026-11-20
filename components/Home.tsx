@@ -296,7 +296,7 @@ export default function Home() {
             </button>
 
             <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
-              <span className={styles.kick}>STYLE</span>
+              <span className={styles.kick}>STYLE · BETA</span>
               <span className={styles.tileTitle}>Looks for your plans</span>
               <Mascot prop="shades" size={44} className={styles.tileCheese} />
               <span className={styles.tileSub}>Have a look ›</span>
