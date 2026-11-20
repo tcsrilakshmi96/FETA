@@ -253,7 +253,8 @@ export default function Picks() {
   const [hero, ...rest] = picks;
   const nothing = !!slot && !slot.loading && picks.length === 0;
   // Google's Search chip, for events and places featured in a city guide (both found with Google Search).
-  const eventChip = picks.find((p) => p.event)?.event?.searchHtml ?? picks.find((p) => p.featured)?.featured?.searchHtml;
+  const eventHtml = picks.find((p) => p.event)?.event?.searchHtml;
+  const eventChip = eventHtml ? { html: eventHtml, found: "events" as const } : picks.find((p) => p.featured)?.featured?.searchHtml ? { html: picks.find((p) => p.featured)!.featured!.searchHtml, found: "guides" as const } : null;
 
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;
@@ -499,7 +500,7 @@ export default function Picks() {
             ))}
           </ul>
 
-          {eventChip && <SearchChip html={eventChip} />}
+          {eventChip && <SearchChip html={eventChip.html} found={eventChip.found} />}
 
           <button type="button" className={styles.more} disabled={slot?.more} onClick={showMore}>
             {slot?.more ? "Finding more…" : "Show me more"}

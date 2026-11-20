@@ -108,7 +108,7 @@ export default function PickDetails({
             <a className={styles.loved} href={pick.featured.url} target="_blank" rel="noopener noreferrer">
               📰 Featured in {pick.featured.guide} ↗
             </a>
-            <SearchChip html={pick.featured.searchHtml} />
+            <SearchChip html={pick.featured.searchHtml} found="guides" />
           </>
         )}
 
@@ -251,10 +251,13 @@ export default function PickDetails({
 
 // Google's "Search Suggestions" chip for an event found by web search.
 // Google requires it shown unaltered, next to and as wide as the result.
-export function SearchChip({ html }: { html: string }) {
+// Google's Search suggestions, shown as Google gives them, next to what
+// they found: events, or the guides a "Featured in" place came from (Round 5
+// review: on the food list it said "Events found" above a guide search).
+export function SearchChip({ html, found = "events" }: { html: string; found?: "events" | "guides" }) {
   return (
     <div className={styles.searchWrap}>
-      <span className={styles.searchLabel}>Events found with Google Search:</span>
+      <span className={styles.searchLabel}>{found === "events" ? "Events" : "City guides"} found with Google Search:</span>
       <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
