@@ -115,8 +115,10 @@ export function Logo({ name, src, big }: { name: string; src: string | null; big
   return (
     <span className={`${s.logo} ${big ? s.logoBig : ""}`} aria-hidden="true">
       {src && !broken ? (
+        // A logo that fails, or is only a tiny tracking-pixel-sized image, shows
+        // the brand's first letter instead of a blank tile (Round 5 review).
         // eslint-disable-next-line @next/next/no-img-element -- the brand's own logo, from its site
-        <img src={src} alt="" onError={() => setBroken(true)} />
+        <img src={src} alt="" onError={() => setBroken(true)} onLoad={(e) => e.currentTarget.naturalWidth < 24 && setBroken(true)} />
       ) : (
         name.replace(/^the /i, "").slice(0, 1).toUpperCase()
       )}
