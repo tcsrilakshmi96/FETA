@@ -138,13 +138,12 @@ export default function PickDetails({
               <p className={styles.because}>{pick.event.priceText}, on {pick.event.site}.</p>
             </>
           )
-        ) : (
+        ) : notes && notes.items.length === 0 ? null : (
+          // Nothing found: the section goes, rather than a wait then nothing (Round 5 review).
           <>
             <p className={styles.label}>{pick.kind === "DO" ? "HIGHLIGHTS" : "WHAT TO ORDER"}</p>
             {notes === null ? (
               <p className={styles.loading}>Reading what people say…</p>
-            ) : notes.items.length === 0 ? (
-              <p className={styles.loading}>Nothing clear from reviews yet.</p>
             ) : (
               <>
                 <ol className={styles.notes}>

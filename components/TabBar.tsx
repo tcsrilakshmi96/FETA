@@ -31,10 +31,12 @@ export default function TabBar({ active: page }: { active: "home" | "lists" | "a
         {TABS.map((tab) =>
           tab.id === "ask" ? (
             <button key={tab.id} type="button" className={styles.item} aria-label="Ask Feta" onClick={() => router.push("/ask")}>
+              {/* Says what it is (Round 5 review: a tester didn't know the cheese was a chat). */}
               <span className={styles.askTile}>
                 <span className={styles.pop}>
                   <Cheese />
                 </span>
+                <span className={styles.askLabel}>Ask</span>
               </span>
             </button>
           ) : (

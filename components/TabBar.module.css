@@ -66,13 +66,20 @@
 }
 
 .askTile {
-  width: 46px;
   height: 46px;
+  padding: 0 12px 0 8px;
   border-radius: 16px;
   background: rgba(255, 214, 90, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
+}
+
+.askLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .pop {
