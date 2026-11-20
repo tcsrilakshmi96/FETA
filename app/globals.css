@@ -95,23 +95,23 @@ button {
 }
 
 /* The app is a phone-width column; on wider screens it sits in the middle. */
+/* The haze (saffron, turquoise and rose glows) is painted once as soft
+   gradients. It used to be three blurred blobs drifting forever, which a
+   phone redraws every frame, and the blurred tab bar with them: taps and
+   scrolling lagged behind it (founder, 20 Nov 2026). */
 .app {
   position: relative;
   max-width: 430px;
   height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
-  background: var(--bg);
+  background:
+    radial-gradient(circle at calc(100% - 30px) 90px, color-mix(in srgb, var(--saffron) 45%, transparent), transparent 250px),
+    radial-gradient(circle at 10px calc(100% - 220px), color-mix(in srgb, var(--turquoise) 32%, transparent), transparent 250px),
+    radial-gradient(circle at 60px 380px, color-mix(in srgb, var(--rose) 18%, transparent), transparent 200px),
+    var(--bg);
 }
 
-@keyframes fa-d1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(40px, 50px) scale(1.15); }
-}
-@keyframes fa-d2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-50px, -30px) scale(0.9); }
-}
 @keyframes fa-kb {
   0% { transform: scale(1.04); }
   100% { transform: scale(1.18) translate(-3%, -2%); }
@@ -135,28 +135,6 @@ button {
 @keyframes fa-in {
   0% { opacity: 0; }
   100% { opacity: 1; }
-}
-
-/* Background haze: saffron, turquoise and rose blobs drifting slowly. */
-.haze {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-}
-.haze-saffron {
-  width: 320px; height: 320px; right: -130px; top: -70px;
-  background: var(--saffron); filter: blur(80px); opacity: 0.45;
-  animation: fa-d2 14s ease-in-out infinite;
-}
-.haze-turquoise {
-  width: 320px; height: 320px; left: -150px; bottom: 60px;
-  background: var(--turquoise); filter: blur(85px); opacity: 0.32;
-  animation: fa-d1 16s ease-in-out infinite;
-}
-.haze-rose {
-  width: 240px; height: 240px; left: -60px; top: 260px;
-  background: var(--rose); filter: blur(80px); opacity: 0.18;
-  animation: fa-d1 18s ease-in-out infinite;
 }
 
 /* Shared controls */
@@ -315,7 +293,6 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .haze,
   .kenburns,
   .pulse-pin span {
     animation: none !important;

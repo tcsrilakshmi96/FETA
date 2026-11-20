@@ -47,9 +47,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
         <div className="app">
-          <div className="haze haze-saffron" />
-          <div className="haze haze-turquoise" />
-          <div className="haze haze-rose" />
           <ToastProvider>{children}</ToastProvider>
           {/* Feedback reads the page address, so it waits inside Suspense. */}
           <Suspense>
