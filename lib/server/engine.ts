@@ -45,7 +45,7 @@ import {
 // Alpha: 600 new searches a day across everyone, 20 per person (each
 // category counts once), and an estimated-spend cap per day (costs.ts).
 const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
-const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 20);
+const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 60);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 // How long places wait for what's on. Things to do are led by events now
 // (founder, 19 Nov 2026), so the first search of the day waits for them

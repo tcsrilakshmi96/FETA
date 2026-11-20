@@ -67,10 +67,10 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
   }
 }
 
-export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 170);
+export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 1500);
 // What one person can spend in a day, so no one uses up everyone's (audit,
 // 20 Nov 2026). Admins don't count.
-export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 80);
+export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 250);
 
 // True when today's estimated spend (India time) is over the shared cap or
 // this person's. If the spend can't be read, paid work stops rather than
