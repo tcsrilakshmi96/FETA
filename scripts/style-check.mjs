@@ -24,8 +24,9 @@ await p.evaluate((city) => { sessionStorage.setItem("feta.origin", JSON.stringif
 
 await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" }); await wait(2500);
 const home = await p.evaluate(() => document.body.innerText);
+const homeWaits = await p.evaluate(() => !!document.querySelector("[data-waiting=picks]"));
 ok("Home (only Style chosen) leads with Style", /What to wear today/.test(home));
-ok("Home doesn't search food or things to do", !/Finding your picks/.test(home) && /Tell Feta what you like/.test(home));
+ok("Home doesn't search food or things to do", !homeWaits && !/Finding your picks/.test(home) && /Tell Feta what you like/.test(home));
 ok("Home has no Choose for me or Plan my evening", !/Choose for me/.test(home) && !/PLAN MY EVENING/.test(home));
 await shot("home");
 

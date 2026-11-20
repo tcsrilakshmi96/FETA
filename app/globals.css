@@ -30,7 +30,6 @@
   --kf-up: fa-up;
   --kf-kb: fa-kb;
   --kf-pop: fa-pop;
-  --kf-bar: fa-bar;
 
   color-scheme: light;
 }
@@ -132,10 +131,6 @@ button {
   52% { transform: translateY(-6px) scale(0.96); }
   60% { transform: translateY(-6px) scale(1.04); }
   80% { transform: translateY(0) scale(1); }
-}
-@keyframes fa-bar {
-  0% { transform: scaleX(0); }
-  100% { transform: scaleX(1); }
 }
 @keyframes fa-in {
   0% { opacity: 0; }

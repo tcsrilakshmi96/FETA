@@ -154,7 +154,7 @@ async function main() {
     }
 
     await p.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);
-    await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+    await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
     await wait(3000);
     const home = await p.evaluate(() => document.body.innerText);
     check(/Hi Journey/.test(home), "Home says hello by name");
@@ -163,7 +163,7 @@ async function main() {
     // The picks list scrolled just past where the header shrinks stays put
     // (tester video, 19 Nov 2026: the header flickered between big and small).
     await p.goto(`${BASE}/picks?c=food_drinks`, { waitUntil: "networkidle0" });
-    await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+    await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
     await wait(1500);
     const steady = await p.evaluate(async () => {
       const list = [...document.querySelectorAll("main div")].find((d) => getComputedStyle(d).overflowY === "auto") as HTMLElement;
@@ -196,22 +196,22 @@ async function main() {
     const foodList = async () => {
       await click(p, /^See all/);
       await p.waitForFunction(() => location.pathname === "/picks", { timeout: 15000 }).catch(() => null);
-      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
       await wait(1500);
       return p.evaluate(() => document.body.innerText);
     };
     if (turnOn) {
       await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
-      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
       const before = await foodList();
       await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
-      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
       await p.evaluate(() => (document.querySelector("button[aria-label^='You']") as HTMLButtonElement | null)?.click());
       await p.waitForFunction((l) => [...document.querySelectorAll("button")].some((b) => (b.textContent ?? "").trim() === l), { timeout: 20000 }, turnOn).catch(() => null);
       await click(p, new RegExp(`^${turnOn}$`));
       // Straight back, the way a person does: the search must wait for the save.
       await click(p, /Home$/);
-      await p.waitForFunction(() => location.pathname === "/home" && !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await p.waitForFunction(() => location.pathname === "/home" && !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
       const after = await foodList();
       check(korean.test(after) && !korean.test(before), `Turning on ${turnOn} in You brings Korean places to the picks`, `before: ${korean.test(before)}, after: ${korean.test(after)}`);
     }

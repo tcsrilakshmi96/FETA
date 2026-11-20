@@ -1,5 +1,6 @@
 "use client";
 
+import WaitFun from "@/components/WaitFun";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
@@ -206,7 +207,7 @@ export default function Home() {
             <span className={styles.coverText}>
               <Mascot pose="walk" size={wide ? 72 : 56} />
               <span className={styles.kick}>{label}</span>
-              <span className={styles.loadingText}>Finding your picks…</span>
+              {wide ? <WaitFun kind="picks" compact /> : <span className={styles.loadingText}>Finding your picks…</span>}
             </span>
           </>
         ) : !top ? (

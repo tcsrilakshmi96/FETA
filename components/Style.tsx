@@ -1,5 +1,6 @@
 "use client";
 
+import WaitFun from "@/components/WaitFun";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
@@ -212,14 +213,14 @@ export default function Style() {
                       <span>{outfit.pieces.bottom}</span>
                       <span>{outfit.pieces.shoes}</span>
                     </span>
-                    <span className={s.small} style={{ color: "#1a1616" }}>{drawingLook ? "Drawing this look…" : ""}</span>
+                    {drawingLook && <WaitFun kind="draw" compact onLight />}
                   </div>
                 )}
               </>
             ) : thinking ? (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
                 <Mascot pose="think" size={80} prop="shades" />
-                <span style={{ fontSize: 13 }}>Picking a look…</span>
+                <WaitFun kind="look" compact onLight />
               </div>
             ) : (
               <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 12, zIndex: 3 }}>

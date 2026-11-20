@@ -289,37 +289,6 @@
   animation: var(--kf-in) 0.3s ease-out;
 }
 
-.loadBars {
-  display: flex;
-  gap: 5px;
-}
-
-.loadBars span {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(var(--inkRGB), 0.1);
-  overflow: hidden;
-}
-
-.loadBars span::after {
-  content: "";
-  display: block;
-  height: 100%;
-  background: var(--ink);
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: var(--kf-bar) 0.5s ease-out forwards;
-}
-
-.loadBars span:nth-child(2)::after {
-  animation-delay: 0.45s;
-}
-
-.loadBars span:nth-child(3)::after {
-  animation-delay: 0.9s;
-}
-
 .panelTitle {
   font-size: 34px;
   font-weight: 300;

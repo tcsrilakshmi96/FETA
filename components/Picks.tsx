@@ -1,5 +1,6 @@
 "use client";
 
+import WaitFun from "@/components/WaitFun";
 import { loadWants } from "@/lib/profile";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -355,15 +356,7 @@ export default function Picks() {
       {(!slot || slot.loading) && (
         <div className={styles.panel}>
           <Mascot pose="walk" size={120} />
-          <div className={styles.loadBars}>
-            <span />
-            <span />
-            <span />
-          </div>
-          <p className={styles.panelTitle}>
-            Finding <strong>your picks</strong>…
-          </p>
-          <p className={styles.panelText}>Skipping the overhyped ones…</p>
+          <WaitFun kind="picks" game />
         </div>
       )}
 

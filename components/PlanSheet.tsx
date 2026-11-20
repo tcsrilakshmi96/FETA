@@ -1,5 +1,6 @@
 "use client";
 
+import WaitFun from "@/components/WaitFun";
 import { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
@@ -93,9 +94,12 @@ export default function PlanSheet({
       <div className={styles.dim} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-label="Plan my evening">
         {loading || searching ? (
-          <p className={styles.title}>
-            Putting your evening <strong>together…</strong>
-          </p>
+          <>
+            <p className={styles.title}>
+              Putting your evening <strong>together…</strong>
+            </p>
+            <WaitFun kind="plan" game />
+          </>
         ) : !plan ? (
           <>
             <p className={styles.title}>

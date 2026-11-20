@@ -1,5 +1,6 @@
 "use client";
 
+import WaitFun from "@/components/WaitFun";
 import { useEffect, useRef, useState } from "react";
 import Mascot from "@/components/Mascot";
 import { Figure, Line, Logo, vars } from "@/components/StyleParts";
@@ -359,6 +360,9 @@ export default function StyleSetup() {
                     </span>
                   ))}
                   <span className={s.drawingWait} aria-hidden="true" />
+                </div>
+                <div style={{ position: "absolute", left: 0, right: 0, bottom: -64 }}>
+                  <WaitFun kind="read" compact />
                 </div>
               </div>
             ) : (
