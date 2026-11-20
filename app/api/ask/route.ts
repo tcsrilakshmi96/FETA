@@ -345,11 +345,12 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   // "What should I wear…" always gets the outfit card: the model sometimes
   // answered in words only (audit, 20 Nov 2026).
   const wearAsk = /\b(what (should|do|can) i wear|what to wear|outfit|how (should|do) i dress|dress (up )?for)\b/i.test(message);
-  if (!parsed.outfit && wearAsk && !searches.length && !itinerary && !tripId) {
+  // …unless it's asking what kind of outing first (then the card comes with the answer).
+  if (!parsed.outfit && wearAsk && !(parsed.options ?? []).length && !searches.length && !itinerary && !tripId) {
     const occ = /\b(drinks?|bar|pub|club|party)\b/i.test(message) ? "drinks" : /\b(dinner|lunch|brunch|restaurant|date)\b/i.test(message) ? "dinner" : /\b(work|office|errands|day)\b/i.test(message) ? "day" : "do";
     parsed.outfit = { occasion: occ, vibe: message.slice(0, 60) };
   }
-  if (parsed.outfit && typeof parsed.outfit === "object" && !searches.length && !itinerary && !tripId) {
+  if (parsed.outfit && typeof parsed.outfit === "object" && !(parsed.options ?? []).length && !searches.length && !itinerary && !tripId) {
     const o = parsed.outfit;
     const occasion = OCCASIONS.some((x) => x.id === o.occasion) ? (o.occasion as Occasion) : null;
     const cut = (v: unknown, n: number) => (v ? String(v).slice(0, n) : null);

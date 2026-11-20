@@ -127,11 +127,14 @@ export default function StyleSetup() {
   }, [step, photos, wears, reading, readCount, toast]);
 
   // Their styles drawn as them, one at a time as they appear (about ₹4 each).
+  // Each style is tried once per photo: a drawing that fails isn't retried
+  // in a loop (audit, 20 Nov 2026: it retried at ₹4 a go until the budget ran out).
+  const tried = useRef(new Set<string>());
   useEffect(() => {
     if (step !== 3 || !selfie || reading) return;
     for (const id of styles) {
-      if (drawn[id] || drawing[id]) continue;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the drawing as started
+      if (drawn[id] || drawing[id] || tried.current.has(`${selfie.length}:${id}`)) continue;
+      tried.current.add(`${selfie.length}:${id}`);
       setDrawing((d) => ({ ...d, [id]: true }));
       drawStyle(selfie, id).then(async (r) => {
         setDrawing((d) => ({ ...d, [id]: false }));

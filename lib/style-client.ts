@@ -571,9 +571,22 @@ export async function drawLook(o: Outfit, wears: Wears): Promise<string | null> 
   const key = `look:${wears}:${o.title}:${o.pieces.top}:${o.pieces.bottom}:${o.pieces.shoes}`;
   const kept = await fromPhone(key);
   if (kept) return kept;
+  // A drawing that failed today isn't tried again on every visit (₹4 a go).
+  const failedKey = `feta.drawFailed:${localDay(new Date())}:${key}`;
+  try {
+    if (sessionStorage.getItem(failedKey)) return null;
+  } catch {
+    // Tried again.
+  }
   const photo = await fromPhone("selfie");
   const r = await post<{ image?: string }>("/api/style/draw", { style: o.style, outfit: { title: o.title, pieces: o.pieces }, wears, photo });
   if (r?.image) await keepOnPhone(key, r.image);
+  else
+    try {
+      sessionStorage.setItem(failedKey, "1");
+    } catch {
+      // Tried again next time.
+    }
   return r?.image ?? null;
 }
 

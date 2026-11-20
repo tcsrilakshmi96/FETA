@@ -1,5 +1,6 @@
 "use client";
 
+import { loadWants } from "@/lib/profile";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
@@ -230,7 +231,8 @@ export default function Picks() {
   const otherKey = origin ? slotKey(origin, when, other) : "";
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
-    if (origin && slots[key] && !slots[otherKey]) load(when, other);
+    // Only a category they chose (audit, 20 Nov 2026: it searched the other one anyway, ₹12–20).
+    if (origin && slots[key] && !slots[otherKey] && loadWants().includes(other === "food_drinks" ? "food" : "do")) load(when, other);
   }, [origin, key, otherKey, slots, load, when, other]);
 
   // Both categories for this tab, for Plan my evening.
