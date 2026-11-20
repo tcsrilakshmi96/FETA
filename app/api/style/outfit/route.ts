@@ -34,6 +34,8 @@ export async function POST(request: Request) {
     city: cityById(body.cityId)?.name ?? "their city",
     localTime: String(body.localTime ?? "").slice(0, 30),
     avoid: short(body.avoid, 6),
+    usedStyles: short(body.usedStyles, 8, 30),
+    cues: short(body.cues, 8, 80),
     loved: short(body.loved, 6),
     notMe: short(body.notMe, 6),
   };

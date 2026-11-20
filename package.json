@@ -11,7 +11,8 @@
     "journey": "node --env-file=.env.local --import tsx scripts/journey.ts",
     "schema": "node --import tsx scripts/schema.ts",
     "style-research": "node --env-file=.env.local --conditions=react-server --import tsx scripts/style-research.ts",
-    "import-brands": "node --import tsx scripts/import-brands.ts"
+    "import-brands": "node --import tsx scripts/import-brands.ts",
+    "style-check": "node scripts/style-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

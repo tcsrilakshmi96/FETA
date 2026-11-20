@@ -73,3 +73,12 @@ export async function spentToday(db: SupabaseClient): Promise<number> {
 }
 
 export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 170);
+
+// Building the style brand library (Feta's research, brand lookups) has its
+// own daily cap and doesn't count toward the one above (founder, 20 Nov 2026).
+export const LIBRARY_BUDGET_INR = Number(process.env.LIBRARY_BUDGET_INR ?? 1500);
+
+export async function librarySpentToday(db: SupabaseClient): Promise<number> {
+  const { data, error } = await db.rpc("library_spend_today_inr");
+  return error ? 0 : Number(data ?? 0);
+}

@@ -7,7 +7,7 @@ import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/style";
-import { brandsFor, fromPhone, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
+import { acrossStyles, brandsFor, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Style home (founder, 20 Nov 2026), one job per part:
@@ -29,6 +29,7 @@ export default function Style() {
   const [notice, setNotice] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [shown, setShown] = useState<string[]>([]);
+  const [shownStyles, setShownStyles] = useState<string[]>([]); // so Another moves through their styles
   const [leaving, setLeaving] = useState(false);
   const [brands, setBrands] = useState<BrandCard[] | null>(null);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
@@ -43,7 +44,12 @@ export default function Style() {
       setProfile(p);
       if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((all) => setDrawn(Object.fromEntries(all.filter(([, v]) => v)) as Record<string, string>));
       if (origin) {
-        const load = () => brandsFor(p.styles, origin.city.country, p.wears).then((b) => setBrands(p.homegrownOnly ? b.filter((x) => x.homegrown) : b));
+        // Brands for their styles, ordered for them by Feta.
+        const load = async () => {
+          const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
+          const mine = p.homegrownOnly ? all.filter((x) => x.homegrown) : all;
+          setBrands(await rankForMe(mine, p, origin.city.countryName, loved.map((l) => l.name)));
+        };
         load();
         researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load());
       }
@@ -53,7 +59,7 @@ export default function Style() {
   }, [router]);
 
   const think = useCallback(
-    async (p: StyleProfile, o: Occasion | null, tonight: TonightPlan | null, avoid: string[]) => {
+    async (p: StyleProfile, o: Occasion | null, tonight: TonightPlan | null, avoid: string[], usedStyles: string[] = []) => {
       if (!origin) return;
       setThinking(true);
       setNotice(null);
@@ -64,6 +70,8 @@ export default function Style() {
         plan: tonight,
         cityId: origin.city.id,
         avoid,
+        usedStyles,
+        cues: p.cues,
         loved: p.votes.filter((v) => v.verdict === "love").map((v) => v.look).slice(-6),
         notMe: p.votes.filter((v) => v.verdict === "not_me").map((v) => v.look).slice(-6),
       });
@@ -72,6 +80,7 @@ export default function Style() {
       if (r?.outfit) {
         setOutfit(r.outfit);
         setShown((x) => [...x, r.outfit!.title]);
+        setShownStyles((x) => [...x, r.outfit!.style]);
       } else setNotice(r?.notice ?? "Feta couldn't think of a look just now.");
     },
     [origin],
@@ -88,6 +97,7 @@ export default function Style() {
   function pick(o: Occasion) {
     setOccasion(o);
     setShown([]);
+    setShownStyles([]);
     setOutfit(null);
     think(profile!, o, null, []);
   }
@@ -95,7 +105,7 @@ export default function Style() {
   function another() {
     if (!outfit) return;
     setLeaving(true);
-    setTimeout(() => think(profile!, occasion, plan ?? null, shown), 300);
+    setTimeout(() => think(profile!, occasion, plan ?? null, shown, shownStyles), 300);
   }
 
   async function vote(verdict: "love" | "not_me") {
@@ -108,7 +118,7 @@ export default function Style() {
 
   const loved = outfit && profile.votes.some((v) => v.look === outfit.title && v.verdict === "love");
   const heading = plan ? `For your plan: ${plan.title}` : occasion ? `For ${OCCASIONS.find((o) => o.id === occasion)?.label.toLowerCase()}` : "Heading out tonight?";
-  const lineBrands = (brands ?? []).filter((b, i, all) => all.findIndex((x) => x.id === b.id) === i).slice(0, 5);
+  const lineBrands = acrossStyles(brands ?? [], profile.styles, 5);
 
   return (
     <>

@@ -93,17 +93,21 @@ export default function Home() {
     nearMeIfAllowed(saved).then((here) => setOrigin(here ?? saved));
   }, [router]);
 
-  // Both categories for the chosen time, shared with the picks list.
+  // The categories they chose, for the chosen time, shared with the picks
+  // list. One they didn't choose isn't searched (founder, 20 Nov 2026: "I
+  // chose only style, why have random food and to-do picks shown?"); its
+  // tile asks its questions first.
   useEffect(() => {
     if (!origin) return;
-    for (const c of ["food_drinks", "experiences"] as Category[]) {
+    const chosen: Category[] = [...(wants.includes("food") ? ["food_drinks" as const] : []), ...(wants.includes("do") ? ["experiences" as const] : [])];
+    for (const c of chosen) {
       const k = slotKey(origin, when, c);
       if (slots[k]) continue;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the slot as loading before the request
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
       loadSlot(origin, when, c).then((slot) => setSlots((s) => ({ ...s, [k]: slot })));
     }
-  }, [origin, when, slots]);
+  }, [origin, when, slots, wants]);
 
   const food = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
   const exp = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
@@ -130,6 +134,9 @@ export default function Home() {
   const plan = plans[0];
   const leadSlot = lead === "food_drinks" ? food : exp;
   const nothingYet = !leadSlot || leadSlot.loading;
+  // Only Style (or a trip) chosen: Style leads, places wait until asked for.
+  const noPlaces = !wantsFood && !wantsDo;
+  const styleLeads = noPlaces && wants.includes("style");
 
   function open(c: Category) {
     const asked = c === "food_drinks" ? wantsFood : wantsDo;
@@ -223,6 +230,17 @@ export default function Home() {
     );
   }
 
+  // A category they didn't choose: its questions first, no picks yet.
+  function askTile(c: Category, className: string) {
+    return (
+      <button type="button" className={`${styles.tile} ${styles.ask} ${className}`} onClick={() => open(c)}>
+        <span className={styles.kick}>{c === "food_drinks" ? "FOOD & DRINKS" : "THINGS TO DO"}</span>
+        <span className={styles.tileTitle}>{c === "food_drinks" ? "Places to eat and drink" : "Things to do"}</span>
+        <span className={styles.tileSub}>Tell Feta what you like ›</span>
+      </button>
+    );
+  }
+
   const areaLabel = origin.source === "area" ? origin.label : origin.source === "gps" ? "Near you" : `All of ${city.name}`;
   return (
     <>
@@ -271,36 +289,60 @@ export default function Home() {
             ))}
           </div>
 
-          <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet}>
-            <span>
-              <strong>Choose for me</strong>
-              <small>{nothingYet ? "Finding places first…" : `One answer for ${when === "tonight" ? "tonight" : "this weekend"}. No scrolling.`}</small>
-            </span>
-            <Mascot pose={late ? "sleep" : "think"} size={64} className={styles.cheese} />
-          </button>
+          {!noPlaces && (
+            <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet}>
+              <span>
+                <strong>Choose for me</strong>
+                <small>{nothingYet ? "Finding places first…" : `One answer for ${when === "tonight" ? "tonight" : "this weekend"}. No scrolling.`}</small>
+              </span>
+              <Mascot pose={late ? "sleep" : "think"} size={64} className={styles.cheese} />
+            </button>
+          )}
 
           <div className={styles.grid} key={when}>
-            {cover(lead, leadSlot, true)}
-            {cover(lead === "food_drinks" ? "experiences" : "food_drinks", lead === "food_drinks" ? exp : food, false)}
+            {styleLeads ? (
+              <button type="button" className={`${styles.tile} ${styles.style} ${styles.styleLead}`} onClick={() => router.push("/style")}>
+                <span className={styles.kick}>STYLE · BETA</span>
+                <span className={styles.tileTitle}>What to wear today</span>
+                <Mascot prop="shades" size={84} className={styles.tileCheese} />
+                <span className={styles.tileSub}>And brands for your style ›</span>
+              </button>
+            ) : (
+              cover(lead, leadSlot, true)
+            )}
+            {noPlaces ? (
+              <>
+                {askTile("food_drinks", styles.second)}
+                {askTile("experiences", styles.planArea)}
+              </>
+            ) : (lead === "food_drinks" ? wantsDo : wantsFood) ? (
+              cover(lead === "food_drinks" ? "experiences" : "food_drinks", lead === "food_drinks" ? exp : food, false)
+            ) : (
+              askTile(lead === "food_drinks" ? "experiences" : "food_drinks", styles.second)
+            )}
 
             {/* Always Plan my evening (testers: a weekend-morning "Plan my whole
                 day" jumped to chat, and Plan my evening seemed missing). */}
-            <button type="button" className={`${styles.tile} ${styles.plan}`} onClick={() => setPlanOpen(true)}>
-              <span className={styles.kick}>✦ {arrived ? "YOUR FIRST EVENING" : "PLAN MY EVENING"}</span>
-              <span className={styles.tileTitle}>
-                {plan
-                  ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
-                  : "Dinner and something nearby"}
-              </span>
-              <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
-            </button>
+            {!noPlaces && (
+              <button type="button" className={`${styles.tile} ${styles.plan}`} onClick={() => setPlanOpen(true)}>
+                <span className={styles.kick}>✦ {arrived ? "YOUR FIRST EVENING" : "PLAN MY EVENING"}</span>
+                <span className={styles.tileTitle}>
+                  {plan
+                    ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
+                    : "Dinner and something nearby"}
+                </span>
+                <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
+              </button>
+            )}
 
-            <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
-              <span className={styles.kick}>STYLE · BETA</span>
-              <span className={styles.tileTitle}>Looks for your plans</span>
-              <Mascot prop="shades" size={44} className={styles.tileCheese} />
-              <span className={styles.tileSub}>Have a look ›</span>
-            </button>
+            {!styleLeads && (
+              <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
+                <span className={styles.kick}>STYLE · BETA</span>
+                <span className={styles.tileTitle}>Looks for your plans</span>
+                <Mascot prop="shades" size={44} className={styles.tileCheese} />
+                <span className={styles.tileSub}>Have a look ›</span>
+              </button>
+            )}
           </div>
 
           {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}
@@ -315,7 +357,7 @@ export default function Home() {
       <CheckIn />
       <RepliesPill />
       <TesterForm />
-      <SaveTaste ready={!!food && !food.loading} onRestored={() => window.location.reload()} />
+      <SaveTaste ready={noPlaces || (!!leadSlot && !leadSlot.loading)} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
       {planOpen && (

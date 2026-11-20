@@ -45,7 +45,7 @@ function SavedBrands() {
     );
   const rows = Math.ceil(brands.length / 2);
   return (
-    <div className={s.screen} style={{ minHeight: 0, padding: "4px 16px 0", background: "transparent" }}>
+    <div className={s.vars} style={{ paddingTop: 4 }}>
       <Line height={rows * 230 + 20} rows={Array.from({ length: rows }, (_, r) => r * 230)}>
         {brands.map((b, i) => {
           const f = i % 2 ? 0.72 : 0.28;

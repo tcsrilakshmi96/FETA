@@ -19,6 +19,7 @@ export type StyleProfile = {
   homegrownOnly: boolean;
   onYou: boolean;
   votes: { look: string; verdict: "love" | "not_me"; at: string }[];
+  cues: string[]; // what Feta saw in their photos, in style words (never the photos)
 };
 
 async function token() {
@@ -42,15 +43,13 @@ export async function loadStyleProfile(): Promise<StyleProfile | null> {
   if (!(await currentUserId())) return null;
   const { data } = await supabase().from("style_profiles").select("*").maybeSingle();
   if (!data) return null;
-  return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [] };
+  return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [], cues: data.cues ?? [] };
 }
 
 export async function saveStyleProfile(p: StyleProfile, city: City | null) {
   const userId = await currentUserId();
   if (!userId) return;
-  const { error } = await supabase()
-    .from("style_profiles")
-    .upsert({
+  const row = {
       user_id: userId,
       wears: p.wears,
       styles: p.styles,
@@ -59,12 +58,18 @@ export async function saveStyleProfile(p: StyleProfile, city: City | null) {
       homegrown_only: p.homegrownOnly,
       on_you: p.onYou,
       outfit_votes: p.votes.slice(-40),
+      cues: p.cues.slice(0, 8),
       city_id: city?.id ?? null,
       country: city?.country ?? null,
       time_zone: city?.timeZone ?? null,
       currency: city?.currency ?? null,
       updated_at: new Date().toISOString(),
-    });
+    };
+  let { error } = await supabase().from("style_profiles").upsert(row);
+  // Before the cues column exists (migration 20261120160000), save the rest.
+  if (error?.message.includes("cues")) {
+    ({ error } = await supabase().from("style_profiles").upsert({ ...row, cues: undefined }));
+  }
   if (error) console.error("Saving style failed", error.message);
 }
 
@@ -166,7 +171,7 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
 }
 
 // One idea at a time; kept for the day so opening Style again costs nothing.
-export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; plan: TonightPlan | null; cityId: string; avoid: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
+export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
   const key = `feta.outfit:${localDay(new Date())}:${ask.occasion ?? "plan"}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
   try {
     const kept = sessionStorage.getItem(key);
@@ -184,6 +189,8 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
     cityId: ask.cityId,
     localTime,
     avoid: ask.avoid,
+    usedStyles: ask.usedStyles,
+    cues: ask.cues,
     loved: ask.loved,
     notMe: ask.notMe,
   });
@@ -214,6 +221,7 @@ export type BrandCard = {
   note?: string | null; // her note
   lovers?: number; // other people who love and recommend it
   youLove?: boolean;
+  forYou?: string; // why it suits them, from the ranking
 };
 
 type Row = {
@@ -297,7 +305,7 @@ export async function loadSavedBrands(): Promise<SavedBrand[]> {
 // when a style gains brands, so the screen can show them.
 let researching = false;
 
-export async function researchCountry(cityId: string, country: string, first: string[], onFound: (style: string) => void) {
+export async function researchCountry(cityId: string, country: string, first: string[], onFound: (style: string) => void, onStyle?: (style: string | null) => void) {
   if (researching || !(await currentUserId())) return;
   researching = true;
   try {
@@ -306,12 +314,14 @@ export async function researchCountry(cityId: string, country: string, first: st
     const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
     const order = [...first, ...STYLES.map((x) => x.id).filter((id) => !first.includes(id))].filter((id) => !fresh.has(id));
     for (const style of order) {
+      onStyle?.(style);
       const r = await post<{ found?: number; skipped?: string }>("/api/style/research", { style, cityId });
       if (r?.skipped === "budget" || r?.skipped === "test mode") break;
       if (r?.found) onFound(style);
     }
   } finally {
     researching = false;
+    onStyle?.(null);
   }
 }
 
@@ -368,4 +378,63 @@ export async function searchBrands(q: string): Promise<{ id: string; name: strin
 
 export function lookupNewBrand(name: string, cityId: string) {
   return post<{ brand?: { id: string; name: string }; notice?: string }>("/api/style/brand", { name, cityId });
+}
+
+// Their brands ordered for them by Feta (what their photos showed, their
+// styles, budget, loved brands), with a line on why; Feta Picks stay first.
+// Kept for the session so going back and forth costs nothing.
+export async function rankForMe(cards: BrandCard[], p: StyleProfile, countryName: string, loved: string[]): Promise<BrandCard[]> {
+  if (cards.length < 2) return cards;
+  const key = `feta.brandRank:${[p.styles.join(","), p.cues.join("|"), p.budget.join(","), p.wears, loved.join(","), cards.map((c) => `${c.id}:${c.style}`).sort().join(",")].join("#").slice(0, 2000)}`;
+  let order: { id: string; why: string }[] | null = null;
+  try {
+    order = JSON.parse(sessionStorage.getItem(key) ?? "null");
+  } catch {
+    // Not kept.
+  }
+  if (!order) {
+    // One line per brand (a brand under two of their styles is ranked once).
+    const unique = cards.filter((c, i) => cards.findIndex((x) => x.id === c.id) === i);
+    const r = await post<{ order: { id: string; why: string }[] }>("/api/style/rank", {
+      cues: p.cues,
+      styles: p.styles,
+      wears: p.wears,
+      budget: p.budget,
+      loved,
+      country: countryName,
+      brands: unique.map((c) => ({ id: c.id, name: c.name, style: c.style, cues: c.why, priceFeel: c.priceFeel, homegrown: c.homegrown, lovers: c.lovers ?? 0 })),
+    });
+    order = r?.order?.length ? r.order : null;
+    if (order) {
+      try {
+        sessionStorage.setItem(key, JSON.stringify(order));
+      } catch {
+        // Not kept.
+      }
+    }
+  }
+  if (!order) return cards;
+  const rank = new Map(order.map((o, i) => [o.id, i]));
+  const why = new Map(order.map((o) => [o.id, o.why]));
+  return cards
+    .map((c) => ({ ...c, forYou: why.get(c.id) || undefined }))
+    .sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
+}
+
+// The best few across their styles, taking turns, so one style doesn't fill
+// the line (founder, 20 Nov 2026: "all streetwear").
+export function acrossStyles(cards: BrandCard[], styles: string[], n: number): BrandCard[] {
+  const out: BrandCard[] = [];
+  const used = new Set<string>();
+  const queues = styles.map((st) => cards.filter((c) => c.style === st));
+  for (let round = 0; out.length < n && queues.some((q) => q.length > round); round++) {
+    for (const q of queues) {
+      const c = q.slice(round).find((x) => !used.has(x.id));
+      if (c && out.length < n) {
+        out.push(c);
+        used.add(c.id);
+      }
+    }
+  }
+  return out;
 }

@@ -3,27 +3,38 @@
    clothes that open a label, a lineup of looks with depth, and photos,
    price tags and brands hanging on a swaying line. */
 
-.screen {
+.screen,
+.vars {
   --tan: #7a4f27;
   --rope: #8a6a4f;
   --stage: #dcdbd7;
   --peg: #b98a5e;
-  min-height: 100dvh;
+}
+
+/* The app frame is the phone's height and doesn't scroll, so each screen
+   scrolls itself, like Home (the first Style screens didn't: nothing below
+   the fold could be reached). */
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   background: var(--bg);
   color: var(--ink);
   /* Room at the top for the Feedback pill, like Home. */
   padding: 48px 16px 120px;
-  /* clip, not hidden: hidden would stop the Continue button staying pinned to the bottom. */
-  overflow-x: clip;
 }
 
 @media (prefers-color-scheme: dark) {
-  :global(:root:not([data-theme="light"])) .screen {
+  :global(:root:not([data-theme="light"])) .screen,
+  :global(:root:not([data-theme="light"])) .vars {
     --tan: #d7a777;
     --rope: #a88866;
   }
 }
-:global(:root[data-theme="dark"]) .screen {
+:global(:root[data-theme="dark"]) .screen,
+:global(:root[data-theme="dark"]) .vars {
   --tan: #d7a777;
   --rope: #a88866;
 }
@@ -619,6 +630,26 @@
 .fromPhotos span {
   margin-left: 4px;
 }
+.drawingNote {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 12;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1a1616;
+  font-size: 12px;
+}
+.lookCount {
+  position: absolute;
+  right: 16px;
+  top: 18px;
+  z-index: 11;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  color: rgba(26, 22, 22, 0.6);
+}
 .allStyles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -784,6 +815,30 @@
   color: var(--roseText);
   animation: pop 0.4s ease;
 }
+.forYou {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--tan);
+  font-weight: 500;
+}
+.researching {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 176, 32, 0.14);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.researching span {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--saffron);
+  animation: ping 1.4s ease-out infinite;
+}
 .link {
   color: var(--tan);
   font-size: 12.5px;
@@ -882,7 +937,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .screen * {
+  .screen *,
+  .vars * {
     animation: none !important;
     transition: none !important;
   }

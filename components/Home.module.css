@@ -222,6 +222,12 @@
 .second { grid-area: 4 / 1 / 6 / 4; border-radius: 28px; animation-delay: 0.15s; }
 .plan { grid-area: 4 / 4 / 5 / 7; background: var(--plan); color: var(--planText); animation-delay: 0.22s; }
 .style { grid-area: 5 / 4 / 6 / 7; background: var(--mint); animation-delay: 0.29s; }
+/* Only Style chosen: it takes the big tile; places wait until asked for. */
+.styleLead { grid-area: 1 / 1 / 4 / 7; border-radius: 32px; animation-delay: 0.05s; }
+.styleLead .tileTitle { font-size: 26px; }
+.planArea { grid-area: 4 / 4 / 6 / 7; border-radius: 28px; animation-delay: 0.22s; }
+.ask { background: var(--sheet); color: var(--ink); }
+.ask .kick { color: var(--roseText); }
 .trip {
   width: 100%;
   min-height: 96px;

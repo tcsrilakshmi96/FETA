@@ -6,7 +6,7 @@ import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { fitsBudget, styleById } from "@/lib/style";
-import { brandsFor, fromPhone, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
+import { brandsFor, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Brand discovery (founder, 20 Nov 2026): "if you like X style here, these
@@ -20,6 +20,7 @@ export default function StyleBrands() {
   const [all, setAll] = useState<BrandCard[] | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState(0);
+  const [researching, setResearching] = useState<string | null>(null); // the style Feta is researching now
   const [drawn, setDrawn] = useState<Record<string, string>>({});
   const origin = typeof window === "undefined" ? null : loadOrigin();
 
@@ -28,9 +29,13 @@ export default function StyleBrands() {
       if (!p || !origin) return;
       setProfile(p);
       setTab((t) => (t && p.styles.includes(t) ? t : p.styles[0]));
-      const load = () => brandsFor(p.styles, origin.city.country, p.wears).then(setAll);
+      // Ordered for them by Feta, with a line on why.
+      const load = async () => {
+        const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
+        setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
+      };
       load();
-      researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load());
+      researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load(), setResearching);
       if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((x) => setDrawn(Object.fromEntries(x.filter(([, v]) => v)) as Record<string, string>));
     });
     savedBrandIds().then(setSaved);
@@ -96,7 +101,12 @@ export default function StyleBrands() {
           </button>
 
           <div key={`list-${tab}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {all !== null && list.length === 0 && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet. It&apos;s growing every week.</p>}
+            {researching === tab && (
+              <p className={s.researching}>
+                <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {origin.city.countryName} now. New ones appear here in a couple of minutes.
+              </p>
+            )}
+            {all !== null && list.length === 0 && researching !== tab && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet. Feta will look for some.</p>}
             {list.map((b, i) => {
               const fit = fitsBudget(b.priceFeel, profile.budget);
               return (
@@ -115,6 +125,7 @@ export default function StyleBrands() {
                           {b.youLove ? "♥ You love this" : `♥ Loved by ${b.lovers} Feta user${b.lovers === 1 ? "" : "s"}`}
                         </span>
                       )}
+                      {b.forYou && <span className={s.forYou}>{b.forYou}</span>}
                       <span className={s.small} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {fit === true && <span className={s.fits}>✓ In your budget</span>}

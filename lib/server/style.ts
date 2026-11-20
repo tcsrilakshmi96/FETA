@@ -116,6 +116,8 @@ export type OutfitAsk = {
   city: string;
   localTime: string; // "Thursday 7:40 pm"
   avoid: string[]; // ideas already shown this time
+  usedStyles: string[]; // their styles those ideas were based on
+  cues: string[]; // what Feta saw in outfits they love
   loved: string[]; // titles they loved before
   notMe: string[]; // titles they said weren't them
 };
@@ -124,11 +126,14 @@ const OCCASION_WORDS: Record<Occasion, string> = { dinner: "going out for dinner
 
 export async function outfitIdea(ask: OutfitAsk): Promise<Outfit> {
   const mine = ask.styles.map(styleById).filter((s) => s !== null);
-  if (FAKE) return fakeOutfit(mine[ask.avoid.length % Math.max(1, mine.length)]?.id ?? "smart-casual", ask);
+  if (FAKE) return fakeOutfit(mine[ask.usedStyles.length % Math.max(1, mine.length)]?.id ?? "smart-casual", ask);
+  // Another moves on to a style of theirs not used yet (founder, 20 Nov 2026: "I have only gotten streetstyle").
+  const fresh = mine.filter((m) => !ask.usedStyles.includes(m.id));
   track("gemini_rank");
   const what = ask.stops.length ? `Their plan: ${ask.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${ask.walkKm ? ` About ${ask.walkKm.toFixed(1)} km on foot between stops.` : ""}` : ask.occasion ? `They are ${OCCASION_WORDS[ask.occasion]}.` : "They haven't said where they're going.";
   const prompt = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
-Their styles: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}. They wear ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
+Their styles: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}.
+${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.usedStyles.length && fresh.length ? `Base this idea on one of these styles of theirs, not used yet: ${fresh.map((m) => m.id).join(", ")}.\n` : ""} They wear ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
 ${what}
 ${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
 Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not exact items, brands or colours. Plain, warm, short. Never comment on body, size or looks.
@@ -159,4 +164,40 @@ function fakeOutfit(id: string, ask: OutfitAsk): Outfit {
     pieces: { top: "An easy top layer", bottom: "Relaxed trousers", shoes: "Comfortable shoes" },
     chips: ask.stops.length ? ["Your plan", "Test mode"] : ["Test mode"],
   };
+}
+
+// Brands ranked for this person (founder, 20 Nov 2026: "it feels like a
+// hardcoded thing"): what Feta saw in their photos, their styles, budget,
+// what they shop for and the brands they love decide the order, with one
+// line on why each suits them. Library facts only (no Google content).
+export type RankAsk = {
+  cues: string[];
+  styles: string[];
+  wears: Wears;
+  budget: string[]; // c1…c4
+  loved: string[]; // brand names
+  country: string;
+  brands: { id: string; name: string; style: string; cues: string; priceFeel: string | null; homegrown: boolean; lovers: number }[];
+};
+
+export async function rankBrands(ask: RankAsk): Promise<{ id: string; why: string }[]> {
+  if (FAKE) return ask.brands.map((b) => ({ id: b.id, why: `Test mode: fits your ${styleById(b.style)?.short.toLowerCase() ?? "style"}` }));
+  track("gemini_rank");
+  const top = Math.max(...ask.budget.map((b) => Number(b.slice(1))).filter(Number.isFinite), 0);
+  const prompt = `You are Feta's stylist in ${ask.country}. Order these clothing brands for one person, best for them first, and say in one short line why each suits THEM.
+What Feta saw in outfits they love: ${ask.cues.length ? ask.cues.join("; ") : "no photos"}.
+Their styles, strongest first: ${ask.styles.map((id) => styleById(id)?.name ?? id).join(", ")}.
+They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}. Clothes budget per piece: up to level ${top || "any"} of 4 (1 budget, 2 mid, 3 premium, 4 luxury).
+${ask.loved.length ? `Brands they already love: ${ask.loved.join(", ")}.` : ""}
+Put first the brands whose clothes look most like what they wear and fit their budget; spread across their styles rather than one style filling the top; homegrown and lesser-known labels are a plus. "why" is at most 12 words, about the clothes and them (e.g. "Same relaxed cargo shapes as your photos, within budget"), never about bodies or looks.
+Brands (id | name | style | what it sells | price | homegrown | loved by others):
+${ask.brands.map((b) => `${b.id} | ${b.name} | ${b.style} | ${b.cues.slice(0, 140)} | ${b.priceFeel ?? "?"} | ${b.homegrown ? "yes" : "no"} | ${b.lovers}`).join("\n")}
+Reply with only JSON: {"order": [{"id", "why"}]} including every brand once.`;
+  const data = await gemini("gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+  const parsed = JSON.parse(textOf(data)) as { order?: { id: string; why?: string }[] };
+  const known = new Set(ask.brands.map((b) => b.id));
+  const seen = new Set<string>();
+  const order = (parsed.order ?? []).filter((o) => known.has(o.id) && !seen.has(o.id) && seen.add(o.id)).map((o) => ({ id: o.id, why: String(o.why ?? "").slice(0, 100) }));
+  // Anything the model left out keeps its place at the end.
+  return [...order, ...ask.brands.filter((b) => !seen.has(b.id)).map((b) => ({ id: b.id, why: "" }))];
 }

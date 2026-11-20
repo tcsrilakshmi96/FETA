@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { LIBRARY_BUDGET_INR, librarySpentToday, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { loadBrief, researchStyle, saveResearch } from "@/lib/server/style-research";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const style = styleById(String(body.style ?? ""));
   if (!city || !style) return Response.json({ error: "Bad request" }, { status: 400 });
   if (FAKE) return Response.json({ skipped: "test mode" });
-  if ((await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ skipped: "budget" });
+  if ((await librarySpentToday(db)) >= LIBRARY_BUDGET_INR) return Response.json({ skipped: "budget" });
   const { data: claimed, error } = await db.rpc("start_style_research", { p_key: process.env.USAGE_REPORT_KEY, p_country: city.country, p_style: style.id });
   if (error || !claimed) return Response.json({ skipped: error ? "unavailable" : "done or running" });
   return withCosts(db, "style_research", async () => {
