@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { curate, pickFrom } from "@/lib/server/curate";
 import { buildPick, kindOf, needsDietCheck, type Category, type When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   if (!city || !Number.isFinite(body.origin.lat) || !Number.isFinite(body.origin.lng) || !["food_drinks", "experiences"].includes(body.category) || !["tonight", "weekend"].includes(body.when)) {
     return Response.json({ error: "Bad request" }, { status: 400 });
   }
-  if ((await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
+  if ((await overBudget(db))) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
 
   return withCosts(db, "surprise", async () => {
     const [loaded, actions] = await Promise.all([loadTaste(db), db.from("pick_actions").select("place_id")]);

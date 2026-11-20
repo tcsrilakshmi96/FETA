@@ -90,12 +90,31 @@ export async function markAsked(placeId: string) {
     .eq("action", "saved");
 }
 
+// A place's name and area (and a photo unless lite), read live from Google
+// (nothing stored). Signed in, the lookup is counted as theirs; the same
+// place isn't asked for twice within the hour on this phone (audit, 20 Nov
+// 2026: Saved and trips looked the same places up on every open).
+export type LivePlace = { name: string; area: string; mapsUri: string; photo?: string | null; credit?: string | null };
+const placeCache = new Map<string, { at: number; place: Promise<LivePlace | null> }>();
+export function livePlace(placeId: string, lite = true): Promise<LivePlace | null> {
+  const key = `${placeId}:${lite}`;
+  const hit = placeCache.get(key);
+  if (hit && Date.now() - hit.at < 3600 * 1000) return hit.place;
+  const place = (async () => {
+    const { data } = await supabase()
+      .auth.getSession()
+      .catch(() => ({ data: { session: null } }));
+    const token = data.session?.access_token;
+    const res = await fetch(`/api/place/${encodeURIComponent(placeId)}${lite ? "?lite=1" : ""}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    return res.ok ? ((await res.json()) as LivePlace) : null;
+  })().catch(() => null);
+  placeCache.set(key, { at: Date.now(), place });
+  // A failed lookup can be tried again.
+  place.then((p) => p || placeCache.delete(key));
+  return place;
+}
+
 // The place's name for the question, read live (nothing stored).
 export async function placeName(placeId: string): Promise<string | null> {
-  try {
-    const res = await fetch(`/api/place/${encodeURIComponent(placeId)}?lite=1`);
-    return res.ok ? (((await res.json()) as { name?: string }).name ?? null) : null;
-  } catch {
-    return null;
-  }
+  return (await livePlace(placeId))?.name ?? null;
 }

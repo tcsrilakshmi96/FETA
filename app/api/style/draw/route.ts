@@ -1,5 +1,5 @@
 import { FAKE } from "@/lib/server/fake-places";
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { drawOnYou, drawOutfit } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { lookImage, styleById, type Wears } from "@/lib/style";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const style = styleById(String(body.style ?? ""));
   const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") && body.photo.length < 2_000_000 ? body.photo : null;
   if (!style || (!photo && !body.outfit)) return Response.json({ error: "Bad request" }, { status: 400 });
-  if (!FAKE && (await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ notice: "Feta has done all its drawing for today." });
+  if (!FAKE && (await overBudget(db))) return Response.json({ notice: "Feta has done all its drawing for today." });
   return withCosts(db, "style_draw", async () => {
     try {
       const ref = await fetch(new URL(lookImage(style.id), request.url));

@@ -230,8 +230,8 @@ export default function Picks() {
   const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
   const otherKey = origin ? slotKey(origin, when, other) : "";
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
     // Only a category they chose (audit, 20 Nov 2026: it searched the other one anyway, ₹12–20).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
     if (origin && slots[key] && !slots[otherKey] && loadWants().includes(other === "food_drinks" ? "food" : "do")) load(when, other);
   }, [origin, key, otherKey, slots, load, when, other]);
 

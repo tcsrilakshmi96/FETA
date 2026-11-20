@@ -29,7 +29,7 @@ export async function founderPlacesNear(db: SupabaseClient, opts: { city: City; 
   if (due.length) {
     const found = (await Promise.all(due.map(async (r) => ({ r, at: await placeLocation(r.place_id).catch(() => null) })))).filter((x) => x.at);
     for (const { r, at } of found) Object.assign(r, { lat: at!.lat, lng: at!.lng });
-    if (found.length) await db.rpc("locate_founder_places", { p_places: found.map(({ r, at }) => ({ place_id: r.place_id, ...at })) });
+    if (found.length) await db.rpc("locate_founder_places", { p_key: process.env.USAGE_REPORT_KEY, p_places: found.map(({ r, at }) => ({ place_id: r.place_id, ...at })) });
   }
   return rows
     .filter((r) => r.lat !== null && r.lng !== null)

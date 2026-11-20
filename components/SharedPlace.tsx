@@ -1,5 +1,6 @@
 "use client";
 
+import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -14,9 +15,8 @@ export default function SharedPlace() {
   const [place, setPlace] = useState<Shared | null | "missing">(null);
 
   useEffect(() => {
-    fetch(`/api/place/${encodeURIComponent(id)}`)
-      .then((r) => (r.ok ? r.json() : "missing"))
-      .then(setPlace)
+    livePlace(id, false)
+      .then((p) => setPlace(p ? (p as Shared) : "missing"))
       .catch(() => setPlace("missing"));
   }, [id]);
 

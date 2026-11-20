@@ -1,6 +1,6 @@
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
-import { withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
@@ -84,6 +84,8 @@ export async function POST(request: Request) {
   const db = userDb(token);
   const userId = await userIdFor(db, token);
   if (!userId) return Response.json({ error: "Not signed in" }, { status: 401 });
+  // Chat counts toward today's budgets too (audit, 20 Nov 2026).
+  if (await overBudget(db)) return Response.json({ reply: "That's all I can do for today. Ask me again tomorrow morning.", picks: [], added: [], trip: null } satisfies AskReply);
 
   const here = body.origin ?? null;
   const homeCity = cityById(here?.city?.id);
@@ -148,7 +150,8 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
 
   let parsed: VeniceReply;
   try {
-    parsed = await veniceJson<VeniceReply>(
+    // Counted as chat spend (Venice).
+    parsed = await withCosts(db, "ask", () => veniceJson<VeniceReply>(
       [
         { role: "system", content: system },
         // Its own past replies in the same JSON it must answer in, with the
@@ -158,7 +161,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         { role: "user", content: message },
       ],
       3000,
-    );
+    ));
   } catch (error) {
     console.error(error);
     return Response.json({ reply: "I couldn't think just now. Try again in a moment.", picks: [], added: [], trip: null } satisfies AskReply);
@@ -231,7 +234,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     ((it && ((it.days ?? 1) > 3 || isCountryName(it.place ?? "") || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
       (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? "")));
   if (wantsRoute) {
-    const route = await routeFor(past, message, system).catch((error) => {
+    const route = await withCosts(db, "ask", () => routeFor(past, message, system)).catch((error) => {
       console.error(error);
       return null;
     });

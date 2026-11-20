@@ -1,6 +1,6 @@
 import { FAKE } from "@/lib/server/fake-places";
 import { cityById } from "@/lib/server/cities";
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { outfitIdea, type OutfitAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { OCCASIONS, styleById, type Outfit } from "@/lib/style";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
   const styles = (body.styles ?? []).filter((s) => styleById(s)).slice(0, 6);
   if (!styles.length) return Response.json({ error: "No styles" }, { status: 400 });
-  if (!FAKE && (await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ notice: "Feta has done all its thinking for today. Try again tomorrow." });
+  if (!FAKE && (await overBudget(db))) return Response.json({ notice: "Feta has done all its thinking for today. Try again tomorrow." });
   const short = (a: unknown, n: number, len = 60) => (Array.isArray(a) ? a : []).slice(0, n).map((x) => String(x).slice(0, len));
   const ask: OutfitAsk = {
     styles,

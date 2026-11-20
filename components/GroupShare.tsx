@@ -1,5 +1,6 @@
 "use client";
 
+import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -32,8 +33,8 @@ export default function GroupShare() {
         stops
           .filter((st) => !st.event)
           .map(async (st) => {
-            const r = await fetch(`/api/place/${encodeURIComponent(st.placeId)}${choice ? "?lite=1" : ""}`);
-            return r.ok ? ([st.placeId, (await r.json()) as Live] as const) : null;
+            const p = await livePlace(st.placeId, choice);
+            return p ? ([st.placeId, p as Live] as const) : null;
           }),
       );
       setLive(Object.fromEntries(found.filter(Boolean) as [string, Live][]));

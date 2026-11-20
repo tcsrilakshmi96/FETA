@@ -1,4 +1,4 @@
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { rankBrands, type RankAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     brands: (body.brands ?? []).slice(0, 80).map((b) => ({ id: s(b.id, 40), name: s(b.name, 60), style: s(b.style, 30), cues: s(b.cues, 160), priceFeel: b.priceFeel ? s(b.priceFeel, 10) : null, homegrown: !!b.homegrown, lovers: Number(b.lovers) || 0 })),
   };
   if (!ask.brands.length) return Response.json({ order: [] });
-  if (!FAKE && (await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ order: [] });
+  if (!FAKE && (await overBudget(db))) return Response.json({ order: [] });
   return withCosts(db, "style_rank", async () => {
     try {
       return Response.json({ order: await rankBrands(ask) });

@@ -1,11 +1,21 @@
+import { withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails } from "@/lib/server/places";
+import { userDb, userIdFor } from "@/lib/server/taste";
 
 // For the public share page (/p/<place id>): the place's name, area and a
 // photo, fetched live from Google (nothing stored). No personal data.
 // ?lite=1: name and area only, without the photo (for "How was it?").
+// Friends opening a share have no account; from the app, the lookup is
+// counted as the signed-in person's (audit, 20 Nov 2026: it was never counted).
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[A-Za-z0-9_.-]{10,300}$/.test(id)) return Response.json({ error: "Not found" }, { status: 404 });
+  const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
+  const db = token ? userDb(token) : null;
+  return withCosts(db && (await userIdFor(db, token!)) ? db : null, "place", () => live(request, id));
+}
+
+async function live(request: Request, id: string) {
   const place = await placeDetails(id, false, true);
   if (!place) return Response.json({ error: "Not found" }, { status: 404 });
   const parts = place.addressComponents ?? [];

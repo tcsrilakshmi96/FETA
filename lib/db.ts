@@ -1,6 +1,7 @@
 "use client";
 
 import { loadCity, saveCity, type City } from "@/lib/cities";
+import { forgetLists } from "@/lib/lists-client";
 import { saveAnswers, withSpendRange, type Answers } from "@/lib/onboarding";
 import { saveName, saveWants, type Want } from "@/lib/profile";
 import { syncFetaPicks } from "@/lib/picks-client";
@@ -176,6 +177,7 @@ export function savePickAction(
   action: "saved" | "skipped" | "been",
   extra: { reason?: string; because?: string; category: string; cityId: string },
 ) {
+  forgetLists();
   return run("pick action", async (userId) => {
     const row = {
       user_id: userId,
@@ -201,16 +203,24 @@ export async function saveListNote(placeId: string, action: "saved" | "been", no
   if (action === "been") void syncFetaPicks();
 }
 
-// "I've been": moves a place from Want to try to Been, keeping its note.
+// "I've been": moves a place from Want to try to Been, keeping its note,
+// and its category and city (audit, 20 Nov 2026: a new Been row had neither).
 export function markBeen(placeId: string, note: string) {
-  return run("been", (userId) =>
-    supabase()
+  forgetLists();
+  return run("been", async (userId) => {
+    const { data: saved } = await supabase().from("pick_actions").select("category, city_id").eq("user_id", userId).eq("place_id", placeId).not("category", "is", null).limit(1).maybeSingle();
+    const city = loadCity();
+    return supabase()
       .from("pick_actions")
-      .upsert({ user_id: userId, place_id: placeId, action: "been", note: note.trim() || null }, { onConflict: "user_id,place_id,action" }),
-  );
+      .upsert(
+        { user_id: userId, place_id: placeId, action: "been", note: note.trim() || null, category: saved?.category ?? null, city_id: saved?.city_id ?? city?.id ?? null },
+        { onConflict: "user_id,place_id,action" },
+      );
+  });
 }
 
 export async function removeFromList(placeId: string, action: "saved" | "been") {
+  forgetLists();
   await run("remove", (userId) =>
     supabase().from("pick_actions").delete().eq("user_id", userId).eq("place_id", placeId).eq("action", action),
   );

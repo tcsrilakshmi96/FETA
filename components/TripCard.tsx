@@ -1,5 +1,6 @@
 "use client";
 
+import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ItineraryView from "@/components/ItineraryView";
@@ -332,8 +333,7 @@ function ChosenHotel({ city, placeId }: { city: string; placeId: string }) {
   const [hotel, setHotel] = useState<{ name: string; mapsUri: string } | null>(null);
   useEffect(() => {
     let live = true;
-    fetch(`/api/place/${encodeURIComponent(placeId)}?lite=1`)
-      .then((r) => (r.ok ? r.json() : null))
+    livePlace(placeId)
       .then((p) => live && setHotel(p))
       .catch(() => null);
     return () => {
@@ -365,8 +365,7 @@ function SavedDayRow({ city, day }: { city: string; day: SavedDay }) {
     if (open || Object.keys(names).length) return;
     const found = await Promise.all(
       day.stops.map((st) =>
-        fetch(`/api/place/${encodeURIComponent(st.placeId)}?lite=1`)
-          .then((r) => (r.ok ? r.json() : null))
+        livePlace(st.placeId)
           .then((p) => (p ? ([st.placeId, p] as const) : null))
           .catch(() => null),
       ),

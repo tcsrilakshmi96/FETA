@@ -26,6 +26,7 @@ export const PRICE_USD = {
   gemini_search: 0.035, // Grounding with Google Search, about 2 queries (events)
   gemini_vision: 0.004, // reading up to 8 inspiration photos into styles (tokens, roughly)
   gemini_image: 0.045, // one drawing of a person in a style (Gemini image model)
+  venice_chat: 0.006, // one Ask Feta reply (Venice, tokens, roughly)
 } as const;
 export type Sku = keyof typeof PRICE_USD;
 
@@ -66,13 +67,23 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
   }
 }
 
-// Estimated spend today (India time) across everyone, for the daily cap.
-export async function spentToday(db: SupabaseClient): Promise<number> {
-  const { data, error } = await db.rpc("spend_today_inr");
-  return error ? 0 : Number(data ?? 0);
-}
-
 export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 170);
+// What one person can spend in a day, so no one uses up everyone's (audit,
+// 20 Nov 2026). Admins don't count.
+export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 80);
+
+// True when today's estimated spend (India time) is over the shared cap or
+// this person's. If the spend can't be read, paid work stops rather than
+// running with no limit; before the per-person check exists, only the
+// shared cap applies (Admin's database check names the missing migration).
+export async function overBudget(db: SupabaseClient): Promise<boolean> {
+  const [all, mine] = await Promise.all([db.rpc("spend_today_inr"), db.rpc("spend_today_inr_mine")]);
+  if (all.error) {
+    console.error("budget check", all.error.message);
+    return true;
+  }
+  return Number(all.data ?? 0) >= DAILY_BUDGET_INR || (!mine.error && Number(mine.data ?? 0) >= USER_BUDGET_INR);
+}
 
 // Building the style brand library (Feta's research, brand lookups) has its
 // own daily cap and doesn't count toward the one above (founder, 20 Nov 2026).

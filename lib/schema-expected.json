@@ -448,5 +448,10 @@
   "kind": "table",
   "name": "brand_tag_votes",
   "file": "20261120190000_brands_open_tags.sql"
+ },
+ {
+  "kind": "function",
+  "name": "spend_today_inr_mine",
+  "file": "20261120200000_budget_per_person.sql"
  }
 ]

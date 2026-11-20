@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { runPicks } from "@/lib/server/engine";
 import type { Pick, When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const lat = body.near?.lat;
   const lng = body.near?.lng;
   if (!city || typeof lat !== "number" || typeof lng !== "number") return Response.json({ error: "Bad request" }, { status: 400 });
-  if ((await spentToday(db)) >= DAILY_BUDGET_INR) return Response.json({ picks: [] });
+  if ((await overBudget(db))) return Response.json({ picks: [] });
 
   const taste = await loadTaste(db);
   const exclude = new Set([...(body.exclude ?? []).slice(0, 20), body.near?.placeId ?? ""]);

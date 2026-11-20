@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { distanceKm } from "@/lib/cities";
-import { withCosts } from "@/lib/server/costs";
+import { overBudget, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails, type Place } from "@/lib/server/places";
 import type { StoredPick } from "@/lib/server/picks";
 
@@ -63,6 +63,8 @@ export async function GET(request: Request) {
     for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId)) events.set(p.placeId, p.event);
   }
 
+  // Over today's budget: the phone keeps showing the list it has.
+  if (await overBudget(db)) return Response.json({ items: [], notice: "busy" });
   const items = await withCosts(db, "lists", () => Promise.all(
     rows.map(async (r, i): Promise<ListItem | null> => {
       const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;

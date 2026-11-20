@@ -1,4 +1,5 @@
 import "server-only";
+import { track } from "@/lib/server/costs";
 
 // Venice AI (OpenAI-compatible), with the founder's credits. Used for chat
 // and profile updates only; it never receives Google Maps or Places content.
@@ -23,6 +24,7 @@ export async function veniceJson<T>(messages: ChatTurn[], maxTokens = 1500): Pro
     signal: AbortSignal.timeout(maxTokens > 1500 ? 35000 : 20000),
   });
   if (!res.ok) throw new Error(`Venice failed: ${res.status} ${await res.text()}`);
+  track("venice_chat");
   const data = await res.json();
   const text: string = data.choices?.[0]?.message?.content ?? "{}";
   // Now and then it answers in plain words instead of JSON (after a tapped

@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { DAILY_BUDGET_INR, spentToday } from "@/lib/server/costs";
+import { overBudget } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
@@ -155,11 +155,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const keptBanner: string | null = previous.length ? latest!.banner : null;
 
   // 2. Daily cost limits: searches, and today's estimated spend.
-  const [{ data: counts }, spent] = await Promise.all([
+  const [{ data: counts }, over] = await Promise.all([
     db.rpc("pick_searches_today").single<{ everyone: number; mine: number }>(),
-    spentToday(db),
+    overBudget(db),
   ]);
-  if ((counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) || spent >= DAILY_BUDGET_INR) {
+  if ((counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) || over) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
     if (latest) {
       const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });
