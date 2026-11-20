@@ -21,7 +21,8 @@ const WEARS = ["women", "men", "unisex", "women+men"];
 // The style ids in the reference workbook (style_lenses).
 const STYLES = new Set(["athleisure", "avant-garde", "balletcore", "blokecore", "bohemian", "coquette", "cottagecore", "dark-academia", "disco", "eclectic-grandpa", "egirl", "gorpcore", "goth", "grunge", "indian-fusion", "ivy", "kurta", "lolita", "maximalist", "minimalist", "mod", "modest", "polished-minimal", "preppy", "punk", "rockabilly", "sari", "skatewear", "smart-casual", "streetwear", "tailoring", "techwear", "utility", "western", "workwear", "y2k", "basics"]);
 
-// Country names or codes to ISO codes.
+// Country names or codes to ISO codes (current codes win over retired ones
+// like FX, UK and YU, which display with the same names).
 const names = new Intl.DisplayNames(["en"], { type: "region" });
 const CODES = new Map<string, string>();
 for (let a = 65; a <= 90; a++)
@@ -30,7 +31,7 @@ for (let a = 65; a <= 90; a++)
     const name = names.of(code);
     if (name && name !== code) CODES.set(name.toLowerCase(), code);
   }
-for (const [alias, code] of [["uae", "AE"], ["usa", "US"], ["uk", "GB"], ["england", "GB"], ["south korea", "KR"], ["korea", "KR"], ["turkey", "TR"], ["türkiye", "TR"], ["czech republic", "CZ"], ["russia", "RU"], ["vietnam", "VN"], ["hong kong", "HK"], ["the bahamas", "BS"], ["bahamas", "BS"], ["macau", "MO"], ["macao", "MO"], ["taiwan", "TW"]]) CODES.set(alias, code);
+for (const [alias, code] of [["uae", "AE"], ["usa", "US"], ["uk", "GB"], ["england", "GB"], ["south korea", "KR"], ["korea", "KR"], ["turkey", "TR"], ["türkiye", "TR"], ["czech republic", "CZ"], ["russia", "RU"], ["vietnam", "VN"], ["france", "FR"], ["united kingdom", "GB"], ["serbia", "RS"], ["hong kong", "HK"], ["the bahamas", "BS"], ["bahamas", "BS"], ["macau", "MO"], ["macao", "MO"], ["taiwan", "TW"]]) CODES.set(alias, code);
 const isoOf = (s: string) => (/^[A-Za-z]{2}$/.test(s.trim()) ? s.trim().toUpperCase() : (CODES.get(s.trim().toLowerCase()) ?? null));
 
 function parseCsv(text: string): string[][] {

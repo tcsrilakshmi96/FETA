@@ -32,6 +32,8 @@ export default function StyleBrands() {
       // Ordered for them by Feta, with a line on why.
       const load = async () => {
         const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
+        // Shown straight away, then reordered for them when Feta's ranking arrives.
+        setAll(all);
         setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
       };
       load();
@@ -126,7 +128,7 @@ export default function StyleBrands() {
                         </span>
                       )}
                       {b.forYou && <span className={s.forYou}>{b.forYou}</span>}
-                      <span className={s.small} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>
+                      <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {fit === true && <span className={s.fits}>✓ In your budget</span>}
                         {fit === false && <span className={s.small}>Mostly above your budget</span>}

@@ -262,8 +262,7 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
     }));
   // Feta Picks (the founder's brands) first, then the ones people love most;
   // within those, the order above.
-  const love = await brandLove(cards.map((c) => c.id));
-  const mine = await lovedBrandIds();
+  const [love, mine] = await Promise.all([brandLove(cards.map((c) => c.id)), lovedBrandIds()]);
   const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) }));
   // A stable sort keeps the order above within each group.
   return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0));
@@ -313,11 +312,16 @@ export async function researchCountry(cityId: string, country: string, first: st
     const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
     const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
     const order = [...first, ...STYLES.map((x) => x.id).filter((id) => !first.includes(id))].filter((id) => !fresh.has(id));
+    // Starts once the screen has settled, and stops at the first problem
+    // (founder, 20 Nov 2026: "the app feels really slow": a failing research
+    // call used to be retried for all 37 styles on every Style screen).
+    await new Promise((r) => setTimeout(r, 4000));
     for (const style of order) {
+      if (document.hidden) break;
       onStyle?.(style);
       const r = await post<{ found?: number; skipped?: string }>("/api/style/research", { style, cityId });
-      if (r?.skipped === "budget" || r?.skipped === "test mode") break;
-      if (r?.found) onFound(style);
+      if (!r || (r.skipped && r.skipped !== "done or running")) break;
+      if (r.found) onFound(style);
     }
   } finally {
     researching = false;
