@@ -18,6 +18,8 @@ export async function askFeta(message: string, origin: Origin | null): Promise<A
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ message, origin }),
     });
+    // Took too long (the server stopped it): say so, not "no internet".
+    if (res.status === 504) return { ...offline, reply: "That took me too long. Try asking again?" };
     return (await res.json()) as AskReply;
   } catch {
     return offline;

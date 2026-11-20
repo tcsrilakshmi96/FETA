@@ -119,10 +119,16 @@ export default function Picks() {
   // the full header, so shrinking it never moves the list. When it was part
   // of the list, shrinking pulled the list back above the point where it
   // shrinks, and it flickered between big and small (tester video, 19 Nov 2026).
+  // Measured when the header's size changes, not on every render (audit, 20 Nov 2026).
   useLayoutEffect(() => {
-    const height = head.current?.offsetHeight ?? 0;
-    if (!compact && height !== headSpace) setHeadSpace(height);
-  });
+    const el = head.current;
+    if (!el || compact) return;
+    const measure = () => setHeadSpace(el.offsetHeight);
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [compact]);
 
   useEffect(() => {
     const saved = loadOrigin();

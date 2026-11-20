@@ -110,7 +110,10 @@ export async function POST(request: Request) {
     ? `Their styles, strongest first: ${myStyles.map((id) => styleById(id)?.name ?? id).join(", ")}. They shop for ${styleProfile.wears === "both" ? "womenswear and menswear" : styleProfile.wears === "men" ? "menswear" : "womenswear"}.${styleProfile.cues?.length ? ` Outfits they love: ${styleProfile.cues.join("; ")}.` : ""}${(lovedBrands ?? []).length ? ` Brands they love: ${(lovedBrands as unknown as { brands: { name: string } }[]).map((b) => b.brands.name).join(", ")}.` : ""}`
     : "They haven't set up Style yet (Home → Style: a few outfit photos and Feta learns their style).";
   const people = (peopleLines ?? []).map((l) => `- ${String(l.line_key).split(":")[1]}: ${l.text}`).join("\n");
-  const past = (history ?? []).reverse();
+  // "Why this one?" answers are Gemini's reasons, written from Google's place
+  // data, so the chat model gets a stand-in for them (Venice never receives
+  // Google content; audit, 20 Nov 2026).
+  const past = (history ?? []).reverse().map((m) => (m.extras?.why ? { ...m, content: "(Explained why those places were picked.)" } : m));
   const currentTripId = (lastTripMessage?.extras?.trip_id as string | undefined) ?? null;
   const { data: currentTrip } = currentTripId ? await db.from("trips").select("*").eq("id", currentTripId).maybeSingle<Trip>() : { data: null };
 
@@ -173,9 +176,13 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   const tripLabel = parsed.trip?.place ? [parsed.trip.place, parsed.trip.dates].filter(Boolean).join(" · ").slice(0, 60) : null;
 
   // "Why this one?": answer from the reasons Feta already wrote.
+  let explained = false;
   if (parsed.why) {
     const lastPicks = past.map((m) => m.extras?.picks as StoredPick[] | undefined).filter(Boolean).pop();
-    if (lastPicks?.length) reply = lastPicks.map((p) => p.because).join("\n");
+    if (lastPicks?.length) {
+      reply = lastPicks.map((p) => p.because).join("\n");
+      explained = true;
+    }
   }
 
   // Things learned go straight into the profile, shown with Undo.
@@ -407,6 +414,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         added,
         trip: tripLabel,
         weekend,
+        ...(explained ? { why: true } : {}),
         ...(options.length && !searches.length && !tripId ? { options } : {}),
         ...(tripId ? { trip_id: tripId } : {}),
         ...(itinerary
