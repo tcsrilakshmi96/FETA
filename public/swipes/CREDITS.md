@@ -51,6 +51,7 @@ Free photos from [Unsplash](https://unsplash.com) under the Unsplash License.
 | File | Photo |
 |---|---|
 | style.jpg | [qnKhZJPKFD8](https://unsplash.com/photos/clothing-boutique-interior-with-hanging-racks-qnKhZJPKFD8), clothing boutique with warm lamps |
+| eat-drink.jpg | [Zrp9b3PMIy8](https://unsplash.com/photos/turned-on-filament-bulb-lights-at-bar-counter-Zrp9b3PMIy8), a bar counter under warm filament bulbs (founder chose it for Places to eat and drink, 20 Nov 2026) |
 | night-sober.jpg | [KZYzpLx43DE](https://unsplash.com/photos/man-in-white-t-shirt-playing-guitar-KZYzpLx43DE), Goldpark playing at Summer Moon Coffee |
 | crowd.jpg | [So6YckShOVA](https://unsplash.com/photos/people-watching-band-on-the-stage-So6YckShOVA), crowd with arms up |
 | dance.jpg | [0JufVigFHj8](https://unsplash.com/photos/two-women-dancing-on-floor-0JufVigFHj8), two friends dancing |
