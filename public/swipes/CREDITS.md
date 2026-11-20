@@ -4,11 +4,8 @@ Free photos from [Unsplash](https://unsplash.com) under the Unsplash License.
 
 | File | Photo | Photographer |
 |---|---|---|
-| badminton.jpg | [photo-1722087642932-9b070e9a066e](https://unsplash.com/photos/badminton-player-jumping-in-indoor-court-sxwRpLJTuXc) | Irish83 |
 | bakery.jpg | [photo-1483695028939-5bb13f8648b0](https://unsplash.com/photos/close-up-photography-of-baked-treats-on-tray-qZ5lPCPvdXE) | Mink Mingle |
 | bowl.jpg | [photo-1546069901-ba9599a7e63c](https://unsplash.com/photos/vegetable-and-meat-on-bowl-kcA-c3f_3FE) | Anh Nguyen |
-| crowd.jpg | [photo-1470229722913-7c0e2dbbafd3](https://unsplash.com/photos/stage-light-front-of-audience-NYrVisodQ2M) | Yvette de Wit |
-| dance.jpg | [photo-1524594152303-9fd13543fe6e](https://unsplash.com/photos/1524594152303-9fd13543fe6e) | Danielle Cerullo |
 | fine-dining.jpg | [photo-1467003909585-2f8a72700288](https://unsplash.com/photos/salmon-fillet-with-salsa-and-red-wine-awj7sRviVXo) | Casey Lee |
 | indo-chinese.jpg | [photo-1710508774177-7ac2f3492675](https://unsplash.com/photos/a-white-plate-topped-with-meat-covered-in-sauce-7NEGLCTAMzg) | Sxanghai Joe |
 | italian.jpg | [photo-1621996346565-e3dbc646d9a9](https://unsplash.com/photos/penne-pasta-with-meat-sauce-flFd8L7_B3g) | Ben Lei |
@@ -48,3 +45,14 @@ Free photos from [Unsplash](https://unsplash.com) under the Unsplash License.
 |---|---|---|
 | ../welcome.jpg | [UEjjO-aJtZ8](https://unsplash.com/photos/people-enjoying-a-candlelit-dinner-at-a-dimly-lit-restaurant-UEjjO-aJtZ8), friends at a candlelit dinner (cropped) | Unsplash License |
 | trip.jpg | The Lisbon tram, formerly the welcome photo | Unsplash License |
+
+## Founder's picks, round 2 (20 Nov 2026), all free under the Unsplash License
+
+| File | Photo |
+|---|---|
+| style.jpg | [qnKhZJPKFD8](https://unsplash.com/photos/clothing-boutique-interior-with-hanging-racks-qnKhZJPKFD8), clothing boutique with warm lamps |
+| night-sober.jpg | [KZYzpLx43DE](https://unsplash.com/photos/man-in-white-t-shirt-playing-guitar-KZYzpLx43DE), Goldpark playing at Summer Moon Coffee |
+| crowd.jpg | [So6YckShOVA](https://unsplash.com/photos/people-watching-band-on-the-stage-So6YckShOVA), crowd with arms up |
+| dance.jpg | [0JufVigFHj8](https://unsplash.com/photos/two-women-dancing-on-floor-0JufVigFHj8), two friends dancing |
+| badminton.jpg | [Stb4Tx7YqXI](https://unsplash.com/photos/two-men-playing-padel-tennis-on-a-blue-court-Stb4Tx7YqXI), padel outdoors |
+| veg-world-street.jpg | [27NrDHX2G1o](https://unsplash.com/photos/a-street-vendor-cart-selling-baked-goods-at-sunset-27NrDHX2G1o), street cart at sunset |
