@@ -46,11 +46,20 @@ export default function SaveTaste({ ready, onRestored }: { ready: boolean; onRes
     } catch {
       return;
     }
+    // A moment to see their picks first (audit, 20 Nov 2026: it covered them
+    // on arrival), then only when nothing else is open: never on top of
+    // Choose for me or another sheet (Round 5 review: two sheets stacked).
     let live = true;
-    const t = setTimeout(async () => {
-      if (live && !(await isSignedIn())) setOpen(true);
-      // A moment to see their picks first (audit, 20 Nov 2026: it covered them on arrival).
-    }, 8000);
+    let t = 0;
+    const tryOpen = async () => {
+      if (!live) return;
+      if (document.querySelector('[role="dialog"]')) {
+        t = window.setTimeout(tryOpen, 2000);
+        return;
+      }
+      if (!(await isSignedIn()) && live) setOpen(true);
+    };
+    t = window.setTimeout(tryOpen, 8000);
     return () => {
       live = false;
       clearTimeout(t);
