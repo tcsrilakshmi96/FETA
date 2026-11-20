@@ -28,7 +28,7 @@ export default function YourStyle() {
   const [open, setOpen] = useState<Open>(null);
   const [saved, setSaved] = useState(false);
   const [wanted, setWanted] = useState(false);
-  const origin = typeof window === "undefined" ? null : loadOrigin();
+  const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
   const currency = knownCurrency(origin?.city.currency);
 
   useEffect(() => {

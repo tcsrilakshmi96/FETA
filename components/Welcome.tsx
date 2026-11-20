@@ -12,11 +12,12 @@ import { supabase } from "@/lib/supabase";
 import styles from "./Welcome.module.css";
 
 // Three swipeable intro cards that say what Feta is (testers: "explain the
-// concept first"; wording B, founder, 14 Nov 2026), then the 18+ check on
-// the last one. Back with ‹, a dot, or a swipe right.
+// concept first"; wording B, founder, 14 Nov 2026): going out, style
+// (20 Nov 2026), trips; then the 18+ check on the last one. Back with ‹, a dot, or a swipe right.
 const SLIDES = [
-  { kick: "Meet Feta", head: "Where should we go tonight?", em: "Ask Feta.", sub: "Where to eat, what to do and what to wear. Picked for you.", photo: "/welcome.jpg" },
-  { kick: "Feta does the homework", head: "Reviews, opening hours,", em: "your budget.", sub: "Feta checks it all, so you only choose between places that already fit you.", photo: "/swipes/night.jpg" },
+  { kick: "Meet Feta", head: "Where should we go tonight?", em: "Ask Feta.", sub: "Places to eat and things to do, checked against your budget and opening hours. Picked for you.", photo: "/welcome.jpg" },
+  // Style has its own card (founder, 20 Nov 2026: the intro said nothing about it).
+  { kick: "Your stylist", head: "Dressed for", em: "your plans.", sub: "What to wear for wherever you're going, from your own style, and brands that fit it.", photo: "/swipes/style.jpg" },
   { kick: "Your travel planner", head: "Trips,", em: "planned for you.", sub: "Any city, day by day, to your taste.", photo: "/swipes/trip.jpg" },
 ];
 

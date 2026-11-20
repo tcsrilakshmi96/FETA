@@ -438,5 +438,15 @@
   "kind": "function",
   "name": "start_style_research_more",
   "file": "20261120180000_research_more.sql"
+ },
+ {
+  "kind": "function",
+  "name": "apply_tag_votes",
+  "file": "20261120190000_brands_open_tags.sql"
+ },
+ {
+  "kind": "table",
+  "name": "brand_tag_votes",
+  "file": "20261120190000_brands_open_tags.sql"
  }
 ]

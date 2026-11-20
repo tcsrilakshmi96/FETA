@@ -40,7 +40,10 @@ export default function Style() {
   const [brands, setBrands] = useState<BrandCard[] | null>(null);
   const [lovedCount, setLovedCount] = useState(-1);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
-  const origin = typeof window === "undefined" ? null : loadOrigin();
+  // Read once: a new object each render made "think" change every render, and
+  // the plan effect then asked for a look in a loop (20 Nov 2026: "Picking a
+  // look" forever and the screen froze).
+  const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
 
   useEffect(() => {
     loadStyleProfile().then((p) => {

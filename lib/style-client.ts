@@ -32,7 +32,9 @@ async function post<T>(path: string, body: unknown): Promise<T | null> {
   const t = await token();
   if (!t) return null;
   try {
-    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body) });
+    // A stuck request gives up instead of leaving "Picking a look…" forever
+    // (drawings take longest, so they get more time).
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(path.endsWith("/draw") ? 75000 : 35000) });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
     return null;
@@ -229,6 +231,18 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
   } catch {
     // Not kept.
   }
+  // The same ask already on its way shares its answer (one look, not three).
+  const waiting = asking.get(key);
+  if (waiting) return waiting;
+  const work = askOutfit(ask, key);
+  asking.set(key, work);
+  work.finally(() => asking.delete(key));
+  return work;
+}
+
+const asking = new Map<string, Promise<{ outfit?: Outfit; notice?: string } | null>>();
+
+async function askOutfit(ask: Parameters<typeof outfitFor>[0], key: string): Promise<{ outfit?: Outfit; notice?: string } | null> {
   const localTime = new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date());
   const res = await post<{ outfit?: Outfit; notice?: string }>("/api/style/outfit", {
     styles: ask.styles,
@@ -324,6 +338,21 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
     }));
   // Feta Picks (the founder's brands) first, then the ones people love most;
   // within those, the order above.
+  // Their own tag changes: a style they removed from a brand hides it there;
+  // a style they added shows the brand there too.
+  const votes = await myTagVotes();
+  const removed = new Set(votes.filter((v) => v.vote === -1).map((v) => `${v.brand_id}|${v.style_id}`));
+  const added = votes.filter((v) => v.vote === 1 && styles.includes(v.style_id) && !cards.some((c) => c.id === v.brand_id && c.style === v.style_id));
+  if (added.length) {
+    const { data: extra } = await supabase().from("brands").select("id, name, website, logo_url, origin_country, wears, brand_markets!inner (country, presence_type, price_feel)").in("id", [...new Set(added.map((v) => v.brand_id))]).eq("brand_markets.country", country);
+    for (const v of added) {
+      const b = (extra ?? []).find((x) => x.id === v.brand_id) as unknown as Row["brands"] | undefined;
+      const market = b?.brand_markets?.[0];
+      if (b && market && market.presence_type !== "ships from abroad")
+        cards.push({ id: b.id, name: b.name, website: b.website, logo: b.logo_url, homegrown: b.origin_country === country, why: "You tagged it", style: v.style_id, priceFeel: market.price_feel, approved: true });
+    }
+  }
+  for (let i = cards.length - 1; i >= 0; i--) if (removed.has(`${cards[i].id}|${cards[i].style}`)) cards.splice(i, 1);
   const [love, mine] = await Promise.all([brandLove(cards.map((c) => c.id)), lovedBrandIds()]);
   const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) }));
   // A stable sort keeps the order above within each group.
@@ -546,4 +575,32 @@ export async function drawLook(o: Outfit, wears: Wears): Promise<string | null> 
   const r = await post<{ image?: string }>("/api/style/draw", { style: o.style, outfit: { title: o.title, pieces: o.pieces }, wears, photo });
   if (r?.image) await keepOnPhone(key, r.image);
   return r?.image ?? null;
+}
+
+// People's own style tags on a brand (founder, 20 Nov 2026: "users can add
+// or edit the tags associated with the brands"). Their change shows to them
+// at once; when 2 people agree, the database changes it for everyone.
+export async function brandTags(brandId: string): Promise<{ tags: string[]; mine: Record<string, 1 | -1> }> {
+  const [{ data: rows }, { data: votes }] = await Promise.all([
+    supabase().from("brand_styles").select("style_id").eq("brand_id", brandId).neq("review_status", "rejected"),
+    supabase().from("brand_tag_votes").select("style_id, vote").eq("brand_id", brandId),
+  ]);
+  const mine = Object.fromEntries((votes ?? []).map((v) => [v.style_id as string, v.vote as 1 | -1]));
+  const base = (rows ?? []).map((r) => r.style_id as string);
+  const tags = [...new Set([...base.filter((t) => mine[t] !== -1), ...Object.keys(mine).filter((t) => mine[t] === 1)])];
+  return { tags, mine };
+}
+
+export async function setTagVote(brandId: string, styleId: string, vote: 1 | -1 | null) {
+  const userId = await currentUserId();
+  if (!userId) return;
+  const db = supabase().from("brand_tag_votes");
+  const { error } = vote === null ? await db.delete().eq("brand_id", brandId).eq("style_id", styleId) : await db.upsert({ user_id: userId, brand_id: brandId, style_id: styleId, vote });
+  if (error) console.error("Saving tag failed", error.message);
+}
+
+// Their own tag changes, applied to a brand list for them.
+async function myTagVotes(): Promise<{ brand_id: string; style_id: string; vote: number }[]> {
+  const { data, error } = await supabase().from("brand_tag_votes").select("brand_id, style_id, vote");
+  return error ? [] : ((data ?? []) as { brand_id: string; style_id: string; vote: number }[]);
 }

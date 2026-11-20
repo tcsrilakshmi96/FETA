@@ -209,7 +209,7 @@ export default function AdminBrands() {
                     <span>{b.origin_country === country ? "homegrown" : "international"}</span>
                     <span>{m?.presence_type}</span>
                     {m?.price_feel && <span>{m.price_feel}</span>}
-                    <span>{r.found_by === "feta" ? "Feta's research" : "your AI's list"}</span>
+                    <span>{{ feta: "Feta's research", import: "your AI's list", people: "tagged by Feta users", founder: "you" }[r.found_by] ?? r.found_by}</span>
                     {r.confidence !== "verified_collection" && <span className={styles.warn}>not seen in collection</span>}
                   </span>
                 </div>

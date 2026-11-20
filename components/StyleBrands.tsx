@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
-import { fitsBudget, styleById } from "@/lib/style";
-import { brandsFor, findMoreBrands, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
+import { STYLES, fitsBudget, styleById } from "@/lib/style";
+import { brandTags, brandsFor, findMoreBrands, setTagVote, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Brand discovery (founder, 20 Nov 2026): "if you like X style here, these
@@ -21,8 +21,9 @@ export default function StyleBrands() {
   const [researching, setResearching] = useState<string[]>([]); // styles Feta is researching now
   const [moreNote, setMoreNote] = useState<string | null>(null);
   const reload = useRef<() => Promise<unknown>>(async () => null);
+  const [tagsFor, setTagsFor] = useState<{ id: string; tags: string[]; mine: Record<string, 1 | -1> } | null>(null);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
-  const origin = typeof window === "undefined" ? null : loadOrigin();
+  const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
 
   useEffect(() => {
     loadStyleProfile().then((p) => {
@@ -56,6 +57,29 @@ export default function StyleBrands() {
     const p = { ...profile!, homegrownOnly: !home };
     setProfile(p);
     saveStyleProfile(p, origin!.city);
+  }
+
+  // Their own style tags on a brand (founder, 20 Nov 2026).
+  async function openTags(id: string) {
+    if (tagsFor?.id === id) {
+      setTagsFor(null);
+      reload.current();
+      return;
+    }
+    const t = await brandTags(id);
+    setTagsFor({ id, ...t });
+  }
+
+  async function toggleTag(id: string, style: string, on: boolean) {
+    if (!tagsFor) return;
+    const mine = tagsFor.mine[style];
+    // Off → add (or undo their removal); on → remove (or undo their addition).
+    const vote = on ? (mine === 1 ? null : -1) : mine === -1 ? null : 1;
+    const nextMine = { ...tagsFor.mine };
+    if (vote === null) delete nextMine[style];
+    else nextMine[style] = vote;
+    setTagsFor({ id, mine: nextMine, tags: on ? tagsFor.tags.filter((x) => x !== style) : [...tagsFor.tags, style] });
+    await setTagVote(id, style, vote);
   }
 
   function heart(b: BrandCard) {
@@ -139,7 +163,25 @@ export default function StyleBrands() {
                             Visit site ↗
                           </a>
                         )}
+                        <button type="button" className={s.link} onClick={() => openTags(b.id)} aria-expanded={tagsFor?.id === b.id}>
+                          {tagsFor?.id === b.id ? "Done" : "Edit styles"}
+                        </button>
                       </div>
+                      {tagsFor?.id === b.id && (
+                        <div className={s.tagEdit}>
+                          <span className={s.small}>Tap to add or remove. Your change shows for you now, and for everyone once others agree.</span>
+                          <span className={s.chips}>
+                            {STYLES.map((st) => {
+                              const on = tagsFor.tags.includes(st.id);
+                              return (
+                                <button key={st.id} type="button" className={`${s.chip} ${on ? s.chipOn : ""}`} style={{ padding: "5px 10px", fontSize: 12 }} aria-pressed={on} onClick={() => toggleTag(b.id, st.id, on)}>
+                                  {st.short}
+                                </button>
+                              );
+                            })}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <button type="button" className={`${s.heart} ${saved.has(b.id) ? s.hearted : ""}`} aria-label={`Save ${b.name}`} aria-pressed={saved.has(b.id)} onClick={() => heart(b)}>
                       ♥

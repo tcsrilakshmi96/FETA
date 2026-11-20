@@ -47,7 +47,11 @@ const VERDICT_SCORE: Record<string, number> = { "Worth a detour": 0, "Good if yo
 // Up to "max" different evenings, best first, with no place in two of them,
 // so "not this one" always offers something new.
 export function planEvenings(food: Pick[], experiences: Pick[], when: When, now = new Date(), max = 4): Plan[] {
-  const firsts = food.filter((p) => p.kind === "EAT" || p.kind === "DRINK");
+  // Someone who only chose things to do gets two things to do (founder,
+  // 20 Nov 2026: "they might just choose an experience"); only food gets
+  // dinner, then drinks.
+  const eats = food.filter((p) => p.kind === "EAT" || p.kind === "DRINK");
+  const firsts = eats.length ? eats : experiences;
   const afters = [...experiences, ...food.filter((p) => p.kind === "DRINK")];
   const found: { plan: Plan; score: number }[] = [];
 

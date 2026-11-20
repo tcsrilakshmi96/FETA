@@ -71,6 +71,13 @@ ok("An outfit idea with its pieces shows", /Another/.test(await p.evaluate(() =>
 await click(/^Another/); await wait(3500);
 ok("Another moves to a different style", true);
 await shot("outfit2");
+// Founder, 20 Nov 2026: with a plan to dress for, Style home asked for a look in a loop and froze.
+let outfitCalls = 0;
+p.on("request", (r) => r.url().includes("/api/style/outfit") && outfitCalls++);
+await p.evaluate(() => sessionStorage.setItem("feta.wearFor", JSON.stringify({ stops: [{ name: "Test Cafe", kind: "dinner", time: "7:30pm" }], walkKm: null, title: "Test Cafe at 7:30pm", day: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })() })));
+await p.goto(`${BASE}/style`, { waitUntil: "networkidle0" }); await wait(8000);
+ok(`Style home with a plan asks for one look, not a loop (${outfitCalls} asked)`, outfitCalls === 1);
+ok("Style home with a plan shows the look", /Another/.test(await p.evaluate(() => document.body.innerText)));
 // Edit opens any step.
 await p.goto(`${BASE}/style/setup?step=3`, { waitUntil: "networkidle0" }); await wait(2500);
 await p.evaluate(() => document.querySelector("[aria-label^='Step 1']")?.click()); await wait(800);

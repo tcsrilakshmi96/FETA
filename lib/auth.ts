@@ -1,5 +1,6 @@
 "use client";
 
+import { forgetPhone } from "@/lib/profile-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // After Google, people come back to the consent step of sign-in, unless
@@ -94,10 +95,5 @@ export async function signInToExistingAccount(returnPath: string) {
 // This phone forgets everything it kept for it.
 export async function signOut() {
   await supabase().auth.signOut({ scope: "local" });
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {
-    // Nothing more to clear.
-  }
+  await forgetPhone();
 }

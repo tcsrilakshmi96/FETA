@@ -113,9 +113,14 @@ export default function Home() {
 
   const food = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
   const exp = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
+  // Only from places they asked for: picks kept on the phone from before
+  // (another account, or food they no longer want) never make a plan
+  // (founder, 20 Nov 2026: "it has set up a random plan which I never set").
+  const planFood = wants.includes("food") ? food : undefined;
+  const planDo = wants.includes("do") ? exp : undefined;
   const plans = useMemo(
-    () => (food && exp && !food.loading && !exp.loading ? planEvenings(food.picks, exp.picks, when) : []),
-    [food, exp, when],
+    () => ((planFood || planDo) && !planFood?.loading && !planDo?.loading ? planEvenings(planFood?.picks ?? [], planDo?.picks ?? [], when) : []),
+    [planFood, planDo, when],
   );
   // Style home dresses them for this plan unless they chose another (founder, 20 Nov 2026).
   useEffect(() => {
@@ -336,7 +341,7 @@ export default function Home() {
                 <span className={styles.tileTitle}>
                   {plan
                     ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
-                    : "Dinner and something nearby"}
+                    : wantsFood ? "Dinner and something nearby" : "Two things to do nearby"}
                 </span>
                 <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
               </button>
@@ -375,7 +380,7 @@ export default function Home() {
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
       {planOpen && (
-        <PlanSheet when={when} cityId={city.id} loading={!food || food.loading || !exp || exp.loading} food={food?.picks ?? []} experiences={exp?.picks ?? []} onClose={() => setPlanOpen(false)} />
+        <PlanSheet when={when} cityId={city.id} loading={(!planFood && !planDo) || !!planFood?.loading || !!planDo?.loading} food={planFood?.picks ?? []} experiences={planDo?.picks ?? []} onClose={() => setPlanOpen(false)} />
       )}
       {moodOpen && (
         <>

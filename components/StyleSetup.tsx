@@ -58,7 +58,7 @@ export default function StyleSetup() {
   const [recommend, setRecommend] = useState(true);
   const files = useRef<HTMLInputElement>(null);
   const selfieFile = useRef<HTMLInputElement>(null);
-  const origin = typeof window === "undefined" ? null : loadOrigin();
+  const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
   const currency = knownCurrency(origin?.city.currency);
 
   // Changing it later starts from what they have, at the step they asked
