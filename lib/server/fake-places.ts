@@ -188,7 +188,7 @@ export function fakeRank(candidates: Candidate[], wanted: Intent[]): Ranked[] {
       const serves = (c.intents ?? []).filter((id) => ids.includes(id));
       const score = (serves.length ? 3 : 0) + (c.place.rating ?? 4) - ((c.place.userRatingCount ?? 0) >= 3000 ? 0.3 : 0);
       const first = wanted.find((w) => serves.includes(w.id));
-      return { index, score, serves, because: first?.reason ?? "Because it fits what you told me." };
+      return { index, score, serves, because: first?.reason ?? "" };
     })
     .sort((a, b) => b.score - a.score)
     .slice(0, 14)

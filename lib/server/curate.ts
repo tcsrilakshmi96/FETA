@@ -262,7 +262,8 @@ export function selectPicks(
 
 // "Because you…" when Gemini's line is missing or doesn't fit: the first
 // thing they asked for that this place is, else a taste-card side that fits
-// the kind of place, else a plain line.
+// the kind of place, else nothing: no reason beats a filler one (Round 5
+// review: "Because it fits what you told me" on 4 of 8 picks).
 const KIND_SIDES: Record<string, string[]> = { DRINK: ["buzzing", "buzzing_sober", "quiet_cafe"], EAT: ["hole_in_wall", "dressed_up", "quiet_cafe"] };
 
 export function becauseFor(c: Candidate | null, intents: Intent[], taste: Taste, kind: Kind, aiLine?: string) {
@@ -272,5 +273,5 @@ export function becauseFor(c: Candidate | null, intents: Intent[], taste: Taste,
   const side = taste.yes.find((y) => KIND_SIDES[kind]?.includes(y) && (!c || reasonFits(sideById(y, taste.answers)?.label ?? "", { ...taste, no: [] }, c.place)));
   const label = side ? sideById(side, taste.answers)?.label : null;
   if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
-  return "Because it fits what you told me.";
+  return "";
 }

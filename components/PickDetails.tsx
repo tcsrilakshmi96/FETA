@@ -120,7 +120,7 @@ export default function PickDetails({
         )}
         {!pick.featured && curatedLabel(pick) && <p className={styles.loved}>{curatedLabel(pick)}</p>}
         <p className={styles.label}>WHY IT&apos;S YOURS</p>
-        <p className={styles.because}>{pick.because}</p>
+        {pick.because && <p className={styles.because}>{pick.because}</p>}
         <div className={styles.chips}>
           {pick.chips.map((c) => (
             <span key={c}>{c}</span>

@@ -42,7 +42,9 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
   return reads.slice(0, 5).map((r, i) => ({
     id: `${r.from}_${i}`,
     label: r.label,
-    reason: r.from === "said" ? `Because you said you love ${r.label.toLowerCase()}.` : "Because it's like the places you love.",
+    // What the loved places have in common, not their names (sets store only
+    // Feta's words; Round 5 review: "like the places you love" read as filler).
+    reason: r.from === "said" ? `Because you said you love ${r.label.toLowerCase()}.` : `Because you love ${r.label.toLowerCase()} places like this.`,
     query: r.query,
     // A thing to do that happens in a bar or café ("karaoke", "board games").
     def: { searches: [r.query], foodDrink: !food && AT_A_BAR.test(r.query) },
