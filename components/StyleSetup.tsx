@@ -46,6 +46,9 @@ export default function StyleSetup() {
   const swipe = useRef<number | null>(null);
   const [reading, setReading] = useState(false);
   const [readCount, setReadCount] = useState(0); // photos already read into the styles
+  // Why the photos couldn't be read, shown in place of the lineup (founder,
+  // 20 Nov 2026: a toast vanished and left an empty box, "has it given up?").
+  const [readFailed, setReadFailed] = useState<string | null>(null);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
   const [drawing, setDrawing] = useState<Record<string, boolean>>({});
   const [budget, setBudget] = useState<string[]>(["c2"]);
@@ -109,11 +112,12 @@ export default function StyleSetup() {
     if (step !== 3 || reading || photos.length === 0 || readCount === photos.length) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- shows the reading animation before the request
     setReading(true);
+    setReadFailed(null);
     readStylePhotos(photos, wears).then((r) => {
       setReading(false);
       setReadCount(photos.length);
       if (!r?.styles?.length) {
-        toast(r?.notice ?? "Feta couldn't read those photos. Pick your styles below.");
+        setReadFailed(r?.notice ?? (r ? "Feta couldn't spot a clear outfit in those photos." : "Feta couldn't read those photos just now."));
         return;
       }
       const ids = r.styles.map((x) => x.id);
@@ -423,9 +427,17 @@ export default function StyleSetup() {
                           </span>
                         </>
                       ) : (
-                        <p className={s.sub} style={{ padding: 20, color: "#1a1616" }}>
-                          Tap the styles below that feel like you.
-                        </p>
+                        <div style={{ padding: 20, color: "#1a1616", display: "flex", flexDirection: "column", gap: 12, alignItems: "flex-start" }}>
+                          {readFailed && <p className={s.sub} style={{ margin: 0, color: "#1a1616" }}>{readFailed}</p>}
+                          <p className={s.sub} style={{ margin: 0, color: "#1a1616" }}>
+                            {readFailed ? "Try again, or tap the styles below that feel like you." : "Tap the styles below that feel like you."}
+                          </p>
+                          {readFailed && photos.length > 0 && (
+                            <button type="button" className={s.chip} onClick={() => setReadCount(0)}>
+                              Try again
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 

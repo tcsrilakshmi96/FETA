@@ -32,9 +32,11 @@ async function post<T>(path: string, body: unknown): Promise<T | null> {
   const t = await token();
   if (!t) return null;
   try {
-    // A stuck request gives up instead of leaving "Picking a look…" forever
-    // (drawings take longest, so they get more time).
-    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(path.endsWith("/draw") ? 75000 : 35000) });
+    // A stuck request gives up instead of leaving "Picking a look…" forever,
+    // but never before the server would have answered: drawings take up to
+    // 60 s there, reading photos up to 40 s.
+    const wait = path.endsWith("/draw") ? 75000 : path.endsWith("/read") ? 45000 : 35000;
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(wait) });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
     return null;
