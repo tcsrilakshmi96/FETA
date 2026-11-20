@@ -49,7 +49,8 @@ export default function SaveTaste({ ready, onRestored }: { ready: boolean; onRes
     let live = true;
     const t = setTimeout(async () => {
       if (live && !(await isSignedIn())) setOpen(true);
-    }, 1500);
+      // A moment to see their picks first (audit, 20 Nov 2026: it covered them on arrival).
+    }, 8000);
     return () => {
       live = false;
       clearTimeout(t);

@@ -10,7 +10,7 @@ export type Want = "food" | "do" | "style" | "trip";
 export const WANTS: { id: Want; label: string; sub: string; image: string | null }[] = [
   { id: "food", label: "Places to eat and drink", sub: "Tonight, this weekend", image: "/swipes/italian.jpg" },
   { id: "do", label: "Things to do", sub: "Gigs, classes, comedy", image: "/swipes/crowd.jpg" },
-  { id: "style", label: "What to wear", sub: "Looks for your plans", image: null },
+  { id: "style", label: "What to wear", sub: "Looks for your plans", image: "/style/looks/smart-casual.jpg" },
   { id: "trip", label: "Plan a trip", sub: "Any city, day by day", image: "/swipes/local.jpg" },
 ];
 

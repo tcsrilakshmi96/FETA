@@ -189,7 +189,8 @@ export default function PlanSheet({
             </a>
           </>
         )}
-        <WhatsAppBox />
+        {/* Only once there's a plan to send (audit, 20 Nov 2026: it asked for a number while the plan was still loading). */}
+        {plan && !loading && !searching && <WhatsAppBox />}
         <button type="button" className={styles.close} onClick={onClose}>
           Close
         </button>

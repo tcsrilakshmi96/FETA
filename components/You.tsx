@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import InstallFeta from "@/components/InstallFeta";
 import Mascot from "@/components/Mascot";
 import TabBar from "@/components/TabBar";
+import YourStyle from "@/components/YourStyle";
 import YourTaste from "@/components/YourTaste";
 import { useToast } from "@/components/Toast";
 import {
@@ -297,6 +298,7 @@ export default function You() {
           </div>
         )}
         <YourTaste lines={mine} onChange={async () => setProfile(await loadProfile())} />
+        <YourStyle />
         <div className={styles.links}>
           <button
             type="button"
