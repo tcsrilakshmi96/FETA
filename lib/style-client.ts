@@ -278,3 +278,28 @@ export async function loadSavedBrands(): Promise<SavedBrand[]> {
     country: r.country,
   }));
 }
+
+// Feta's own research for every style in their country (founder, 20 Nov
+// 2026), one style at a time while Style is open: their own styles first,
+// then the rest. Styles researched in the last 120 days are skipped; the
+// server makes sure two phones never research the same one. Calls onFound
+// when a style gains brands, so the screen can show them.
+let researching = false;
+
+export async function researchCountry(cityId: string, country: string, first: string[], onFound: (style: string) => void) {
+  if (researching || !(await currentUserId())) return;
+  researching = true;
+  try {
+    const { STYLES } = await import("@/lib/style");
+    const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
+    const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
+    const order = [...first, ...STYLES.map((x) => x.id).filter((id) => !first.includes(id))].filter((id) => !fresh.has(id));
+    for (const style of order) {
+      const r = await post<{ found?: number; skipped?: string }>("/api/style/research", { style, cityId });
+      if (r?.skipped === "budget" || r?.skipped === "test mode") break;
+      if (r?.found) onFound(style);
+    }
+  } finally {
+    researching = false;
+  }
+}

@@ -7,7 +7,7 @@ import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/style";
-import { brandsFor, fromPhone, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
+import { brandsFor, fromPhone, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Style home (founder, 20 Nov 2026), one job per part:
@@ -42,7 +42,11 @@ export default function Style() {
       }
       setProfile(p);
       if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((all) => setDrawn(Object.fromEntries(all.filter(([, v]) => v)) as Record<string, string>));
-      if (origin) brandsFor(p.styles, origin.city.country, p.wears).then((b) => setBrands(p.homegrownOnly ? b.filter((x) => x.homegrown) : b));
+      if (origin) {
+        const load = () => brandsFor(p.styles, origin.city.country, p.wears).then((b) => setBrands(p.homegrownOnly ? b.filter((x) => x.homegrown) : b));
+        load();
+        researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load());
+      }
     });
     tonightPlan().then(setPlan);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open

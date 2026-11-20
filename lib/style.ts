@@ -1,4 +1,4 @@
-// Style (founder, 20 Nov 2026): the 36 styles from her reference workbook,
+// Style (founder, 20 Nov 2026): the 36 styles from her reference workbook plus Basics,
 // each with its illustration (a man and a woman wearing it; which side the
 // woman stands on, so "What do you shop for?" shows the right figure), and
 // the clothes budget levels per currency. Shared by the phone and the server.
@@ -48,6 +48,8 @@ export const STYLES: StyleLens[] = [
   { id: "polished-minimal", name: "Polished minimal", short: "Polished", big: "POLISHED", woman: "left" },
   { id: "egirl", name: "E-girl / e-boy", short: "E-girl", big: "E-GIRL", woman: "left" },
   { id: "indian-fusion", name: "Indian fusion", short: "Fusion", big: "FUSION", woman: "left" },
+  // Added by the founder, 20 Nov 2026: plain everyday tees, jeans and layers.
+  { id: "basics", name: "Everyday basics", short: "Basics", big: "BASICS", woman: "right" },
 ];
 
 const BY_ID = new Map(STYLES.map((s) => [s.id, s]));

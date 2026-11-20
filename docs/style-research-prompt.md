@@ -54,3 +54,20 @@ confidence (verified_collection | written_evidence_only), checked_date (YYYY-MM-
 
 After the table, list any brand you considered but left out, and why, in one line each.
 ```
+
+## Updates (founder, 20 Nov 2026)
+
+Add these lines to the RULES before the next run:
+
+```
+- Styles overlap, so one brand can appear under several styles. Big chains (Zara, H&M,
+  Uniqlo, Mango, Jack & Jones, local chains) belong under every style a real part of their
+  current range carries (a section, an edit, several pieces). Look across the range, never
+  judge from one item.
+- Denim brands count by cut: baggy → streetwear/skatewear; low-rise or bootcut → y2k; raw or
+  selvedge → workwear; ripped → grunge; plain everyday denim → basics.
+- New style_id "basics" (Everyday basics): plain tees, regular jeans, chinos, simple shirts,
+  plain hoodies, everyday dresses, simple sneakers. Not minimalist, not streetwear.
+- Look hard for outliers: small independent labels, new designers, city-specific and
+  Instagram-first labels with their own site.
+```

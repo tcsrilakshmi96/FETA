@@ -393,5 +393,20 @@
   "kind": "table",
   "name": "saved_brands",
   "file": "20261120130000_style_profiles.sql"
+ },
+ {
+  "kind": "function",
+  "name": "start_style_research",
+  "file": "20261120140000_basics_and_research_queue.sql"
+ },
+ {
+  "kind": "column",
+  "name": "style_research.started_at",
+  "file": "20261120140000_basics_and_research_queue.sql"
+ },
+ {
+  "kind": "column",
+  "name": "style_research.done",
+  "file": "20261120140000_basics_and_research_queue.sql"
  }
 ]

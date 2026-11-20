@@ -6,7 +6,7 @@ import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { fitsBudget, styleById } from "@/lib/style";
-import { brandsFor, fromPhone, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
+import { brandsFor, fromPhone, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Brand discovery (founder, 20 Nov 2026): "if you like X style here, these
@@ -28,7 +28,9 @@ export default function StyleBrands() {
       if (!p || !origin) return;
       setProfile(p);
       setTab((t) => (t && p.styles.includes(t) ? t : p.styles[0]));
-      brandsFor(p.styles, origin.city.country, p.wears).then(setAll);
+      const load = () => brandsFor(p.styles, origin.city.country, p.wears).then(setAll);
+      load();
+      researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load());
       if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((x) => setDrawn(Object.fromEntries(x.filter(([, v]) => v)) as Record<string, string>));
     });
     savedBrandIds().then(setSaved);
