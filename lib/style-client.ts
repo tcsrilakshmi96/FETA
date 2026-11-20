@@ -300,35 +300,66 @@ export async function loadSavedBrands(): Promise<SavedBrand[]> {
 }
 
 // Feta's own research for every style in their country (founder, 20 Nov
-// 2026), one style at a time while Style is open: their own styles first,
-// then the rest. Styles researched in the last 120 days are skipped; the
-// server makes sure two phones never research the same one. Calls onFound
-// when a style gains brands, so the screen can show them.
-let researching = false;
+// 2026). Each style is claimed and researched on the server in the
+// background (about 2 minutes), so nobody waits on the screen: their own
+// styles first, thinnest first, all at once; then a few more of the
+// country's styles per visit, so the whole library fills over time. While
+// the screen is open it checks back every 30 seconds and shows new brands.
+let started = false;
+const MORE_PER_VISIT = 3;
 
-export async function researchCountry(cityId: string, country: string, first: string[], onFound: (style: string) => void, onStyle?: (style: string | null) => void) {
-  if (researching || !(await currentUserId())) return;
-  researching = true;
-  try {
-    const { STYLES } = await import("@/lib/style");
-    const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
-    const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
-    const order = [...first, ...STYLES.map((x) => x.id).filter((id) => !first.includes(id))].filter((id) => !fresh.has(id));
-    // Starts once the screen has settled, and stops at the first problem
-    // (founder, 20 Nov 2026: "the app feels really slow": a failing research
-    // call used to be retried for all 37 styles on every Style screen).
-    await new Promise((r) => setTimeout(r, 4000));
-    for (const style of order) {
-      if (document.hidden) break;
-      onStyle?.(style);
-      const r = await post<{ found?: number; skipped?: string }>("/api/style/research", { style, cityId });
-      if (!r || (r.skipped && r.skipped !== "done or running")) break;
-      if (r.found) onFound(style);
+async function startResearch(style: string, cityId: string, more = false) {
+  const r = await post<{ started?: boolean; skipped?: string }>("/api/style/research", { style, cityId, more });
+  return r?.started ? "started" : (r?.skipped ?? "failed");
+}
+
+// Checks back while research runs: calls onDone with styles that finished.
+function watch(country: string, styles: string[], onDone: (style: string) => void, onResearching: (styles: string[]) => void) {
+  const left = new Set(styles);
+  onResearching([...left]);
+  const since = Date.now();
+  const tick = async () => {
+    if (!left.size || Date.now() - since > 6 * 60000) {
+      onResearching([]);
+      return;
     }
-  } finally {
-    researching = false;
-    onStyle?.(null);
+    if (!document.hidden) {
+      const { data } = await supabase().from("style_research").select("style_id, done, researched_at").eq("country", country).in("style_id", [...left]);
+      for (const r of data ?? []) {
+        if (r.done && new Date(r.researched_at).getTime() >= since - 5000) {
+          left.delete(r.style_id as string);
+          onDone(r.style_id as string);
+        }
+      }
+      onResearching([...left]);
+    }
+    setTimeout(tick, 30000);
+  };
+  setTimeout(tick, 30000);
+}
+
+export async function researchCountry(cityId: string, country: string, mine: { style: string; brands: number }[], onDone: (style: string) => void, onResearching?: (styles: string[]) => void) {
+  if (started || !(await currentUserId())) return;
+  started = true;
+  const { STYLES } = await import("@/lib/style");
+  const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
+  const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
+  const myOrder = [...mine].sort((a, b) => a.brands - b.brands).map((m) => m.style).filter((id) => !fresh.has(id));
+  const others = STYLES.map((x) => x.id).filter((id) => !mine.some((m) => m.style === id) && !fresh.has(id)).slice(0, MORE_PER_VISIT);
+  const results = await Promise.all([...myOrder, ...others].map(async (id) => [id, await startResearch(id, cityId)] as const));
+  const running = results.filter(([, r]) => r === "started" || r === "done or running").map(([id]) => id).filter((id) => myOrder.includes(id));
+  if (running.length) watch(country, running, onDone, onResearching ?? (() => {}));
+}
+
+// "Find more brands" for one style: another round now, for brands Feta
+// doesn't have yet. Returns what happened, in plain words.
+export async function findMoreBrands(style: string, cityId: string, country: string, onDone: (style: string) => void, onResearching: (styles: string[]) => void): Promise<string | null> {
+  const r = await startResearch(style, cityId, true);
+  if (r === "started" || r === "done or running") {
+    watch(country, [style], onDone, onResearching);
+    return null;
   }
+  return r === "budget" ? "Feta has done all its brand research for today. Try again tomorrow." : "Feta couldn't start looking just now. Try again in a bit.";
 }
 
 // Brands they love (founder, 20 Nov 2026), like the places they love.

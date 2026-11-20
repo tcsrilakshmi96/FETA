@@ -75,6 +75,12 @@ await shot("outfit2");
 await p.goto(`${BASE}/style/setup?step=3`, { waitUntil: "networkidle0" }); await wait(2500);
 await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "1")?.click()); await wait(800);
 ok("Editing can go back to step 1", /What do you/.test(await p.evaluate(() => document.body.innerText)));
+// Founder, 20 Nov 2026: after Edit, saving got stuck and landed back on setup.
+await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "5")?.click()); await wait(600);
+await click(/^Done$/);
+await p.waitForFunction(() => location.pathname === "/style", { timeout: 15000 }).catch(() => null);
+await wait(4000);
+ok("Done after editing goes back to Style home and stays", p.url().endsWith("/style"));
 await p.goto(`${BASE}/style/brands`, { waitUntil: "networkidle0" }); await wait(3500);
 await shot("brands");
 const sb = await scrollEnd();

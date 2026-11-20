@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { fitsBudget, styleById } from "@/lib/style";
-import { brandsFor, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
+import { brandsFor, findMoreBrands, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Brand discovery (founder, 20 Nov 2026): "if you like X style here, these
@@ -14,13 +13,14 @@ import s from "./StyleScreens.module.css";
 // "Homegrown only" lives here (founder: not in setup); international ones
 // fall off the list. A heart saves a brand to Saved → Brands.
 export default function StyleBrands() {
-  const params = useSearchParams();
   const [profile, setProfile] = useState<StyleProfile | null>(null);
-  const [tab, setTab] = useState<string | null>(params.get("style"));
+  const [tab, setTab] = useState<string | null>(null);
   const [all, setAll] = useState<BrandCard[] | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState(0);
-  const [researching, setResearching] = useState<string | null>(null); // the style Feta is researching now
+  const [researching, setResearching] = useState<string[]>([]); // styles Feta is researching now
+  const [moreNote, setMoreNote] = useState<string | null>(null);
+  const reload = useRef<() => Promise<unknown>>(async () => null);
   const [drawn, setDrawn] = useState<Record<string, string>>({});
   const origin = typeof window === "undefined" ? null : loadOrigin();
 
@@ -28,16 +28,18 @@ export default function StyleBrands() {
     loadStyleProfile().then((p) => {
       if (!p || !origin) return;
       setProfile(p);
-      setTab((t) => (t && p.styles.includes(t) ? t : p.styles[0]));
+      const asked = new URLSearchParams(window.location.search).get("style");
+      setTab(asked && p.styles.includes(asked) ? asked : p.styles[0]);
       // Ordered for them by Feta, with a line on why.
       const load = async () => {
         const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
         // Shown straight away, then reordered for them when Feta's ranking arrives.
         setAll(all);
         setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
+        return all;
       };
-      load();
-      researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load(), setResearching);
+      reload.current = load;
+      load().then((all) => researchCountry(origin.city.id, origin.city.country, p.styles.map((style) => ({ style, brands: all.filter((b) => b.style === style).length })), () => load(), setResearching));
       if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((x) => setDrawn(Object.fromEntries(x.filter(([, v]) => v)) as Record<string, string>));
     });
     savedBrandIds().then(setSaved);
@@ -103,12 +105,12 @@ export default function StyleBrands() {
           </button>
 
           <div key={`list-${tab}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {researching === tab && (
+            {researching.includes(tab) && (
               <p className={s.researching}>
-                <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {origin.city.countryName} now. New ones appear here in a couple of minutes.
+                <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {origin.city.countryName} now. New ones appear here in a couple of minutes, even if you leave.
               </p>
             )}
-            {all !== null && list.length === 0 && researching !== tab && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet. Feta will look for some.</p>}
+            {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet.</p>}
             {list.map((b, i) => {
               const fit = fitsBudget(b.priceFeel, profile.budget);
               return (
@@ -147,6 +149,22 @@ export default function StyleBrands() {
               );
             })}
           </div>
+          {/* Ask Feta to dig for more (founder: "there is no button for me to ask for more"). */}
+          {all !== null && (
+            <button
+              type="button"
+              className={s.findMore}
+              disabled={researching.includes(tab)}
+              onClick={async () => {
+                setMoreNote(null);
+                const note = await findMoreBrands(tab, origin.city.id, origin.city.country, () => reload.current(), setResearching);
+                setMoreNote(note);
+              }}
+            >
+              {researching.includes(tab) ? `Looking for more ${lens.short.toLowerCase()} brands…` : `Find more ${lens.short.toLowerCase()} brands in ${origin.city.countryName}`}
+            </button>
+          )}
+          {moreNote && <p className={s.small}>{moreNote}</p>}
         </div>
       </main>
       {toast > 0 && (

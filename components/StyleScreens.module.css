@@ -88,6 +88,18 @@
   gap: 8px;
   align-items: center;
 }
+.done {
+  padding: 8px 16px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 70px; /* clear of the Feedback pill */
+}
+.done:disabled {
+  opacity: 0.4;
+}
 .acct {
   width: 34px;
   height: 34px;
@@ -164,7 +176,11 @@
 }
 .bottomBar {
   position: sticky;
-  bottom: 16px;
+  bottom: 0;
+  /* A fade behind the pinned button, so it reads as a footer over what scrolls beneath. */
+  margin: 0 -16px;
+  padding: 28px 16px 16px;
+  background: linear-gradient(to top, var(--bg) 62%, rgba(var(--bgRGB), 0));
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -977,6 +993,17 @@
 .pieceName {
   flex: 1;
   font-size: 14px;
+}
+.findMore {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1.5px dashed var(--tan);
+  color: var(--tan);
+  font-size: 14px;
+  font-weight: 600;
+}
+.findMore:disabled {
+  opacity: 0.6;
 }
 .forYou {
   font-size: 12.5px;

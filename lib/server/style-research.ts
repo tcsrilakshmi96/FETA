@@ -109,7 +109,7 @@ Example brands that fit (calibration only; they show the kind and level of brand
 ${b.examples.map((e) => `- ${e.name} (${e.country}, ${e.labelType}, ${e.association}): ${e.cues}`).join("\n") || "- none"}`;
 
 // Pass 1: candidates, the way a fashion editor would find them.
-async function discover(brief: Brief, country: { code: string; name: string }, want: number) {
+async function discover(brief: Brief, country: { code: string; name: string }, want: number, known: string[] = []) {
   const prompt = `You are a fashion researcher for Feta, an app that helps people discover clothing brands that fit their style in their own country.
 
 ${briefText(brief)}
@@ -122,7 +122,7 @@ Mix homegrown labels from ${country.name} with international brands that genuine
 
 Styles overlap, so one brand can fit several styles: that's fine. Include big chains (Zara, H&M, Uniqlo, Mango, Jack & Jones and local chains) when a real part of their current range (a section, an edit, several pieces) carries this style, and denim brands when their cuts match it (baggy → streetwear, skatewear; low-rise or bootcut → Y2K; raw or selvedge → workwear; ripped → grunge; plain everyday denim → basics).
 
-Rules: brands only, never a marketplace or multi-brand store (no Myntra, Ajio, Nykaa, Amazon, Namshi, Farfetch, ASOS, Zalando). Never invent a brand, URL or handle; fewer real brands beat more guessed ones. No comments about bodies, sizes or who should wear something.
+${known.length ? `Feta already has these for this style in ${country.name}; find OTHER brands, especially smaller, newer and lesser-known labels: ${known.join(", ")}.\n\n` : ""}Rules: brands only, never a marketplace or multi-brand store (no Myntra, Ajio, Nykaa, Amazon, Namshi, Farfetch, ASOS, Zalando). Never invent a brand, URL or handle; fewer real brands beat more guessed ones. No comments about bodies, sizes or who should wear something.
 
 Reply with only a JSON array, one item per brand:
 {"brand_name", "website": the brand's own site, "instagram": handle or null, "origin_country": ISO code, "presence_type": "stores" (physical stores in ${country.name}) | "official local site" (a ${country.name} site or local-currency store) | "own site delivers here" (ships within ${country.name} from inside it) | "ships from abroad" (only international shipping into ${country.name}, duties may apply), "presence_url": a page proving it, "collection_url": a page of its current collection that shows this style, "editorial_url": an article that recommends it, or null}`;
@@ -162,14 +162,14 @@ export async function linkAlive(url: string | null | undefined) {
   }
 }
 
-export async function researchStyle(brief: Brief, country: { code: string; name: string }, want = 14): Promise<Research> {
-  const { candidates, searchHtml } = await discover(brief, country, want);
+export async function researchStyle(brief: Brief, country: { code: string; name: string }, want = 14, known: string[] = []): Promise<Research> {
+  const { candidates, searchHtml } = await discover(brief, country, want, known);
   const dropped: Research["dropped"] = [];
   const seen = new Set<string>();
   const real = candidates.filter((c) => {
     const name = (c.brand_name ?? "").trim();
     const key = nameKey(name);
-    if (!name || seen.has(key)) return false;
+    if (!name || seen.has(key) || known.some((k) => nameKey(k) === key)) return false;
     seen.add(key);
     if (MARKETPLACES.test(c.website ?? "")) {
       dropped.push({ name, why: "a marketplace, not a brand" });

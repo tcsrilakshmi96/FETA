@@ -433,5 +433,10 @@
   "kind": "column",
   "name": "style_profiles.cues",
   "file": "20261120160000_style_cues_and_research_budget.sql"
+ },
+ {
+  "kind": "function",
+  "name": "start_style_research_more",
+  "file": "20261120180000_research_more.sql"
  }
 ]

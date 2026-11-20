@@ -57,9 +57,9 @@ export default function Style() {
           // Shown straight away, then reordered for them when Feta's ranking arrives.
           setBrands(mine);
           setBrands(await rankForMe(mine, p, origin.city.countryName, loved.map((l) => l.name)));
+          return all;
         };
-        load();
-        researchCountry(origin.city.id, origin.city.country, p.styles, (style) => p.styles.includes(style) && load());
+        load().then((all) => researchCountry(origin.city.id, origin.city.country, p.styles.map((style) => ({ style, brands: all.filter((b) => b.style === style).length })), () => load()));
       }
     });
     tonightPlan().then(setPlan);

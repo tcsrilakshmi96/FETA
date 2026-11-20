@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import { useToast } from "@/components/Toast";
 import { knownCurrency } from "@/lib/currency";
@@ -23,10 +22,8 @@ const MAX_PHOTOS = 8;
 const sag = (f: number) => 10 + 48 * f * (1 - f);
 
 export default function StyleSetup() {
-  const router = useRouter();
-  const params = useSearchParams();
   const toast = useToast();
-  const [step, setStep] = useState<Step>((Number(params.get("step")) as Step) || 1);
+  const [step, setStep] = useState<Step>(1);
   const [wears, setWears] = useState<Wears>("women");
   const [photos, setPhotos] = useState<string[]>([]);
   const [selfie, setSelfie] = useState<string | null>(null);
@@ -58,8 +55,12 @@ export default function StyleSetup() {
   const origin = typeof window === "undefined" ? null : loadOrigin();
   const currency = knownCurrency(origin?.city.currency);
 
-  // Changing it later starts from what they have.
+  // Changing it later starts from what they have, at the step they asked
+  // for (read once from the address, so the screen never waits on it).
   useEffect(() => {
+    const asked = Number(new URLSearchParams(window.location.search).get("step"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is only readable in the browser
+    if (asked >= 1 && asked <= 5) setStep(asked as Step);
     loadStyleProfile().then((p) => {
       if (!p) return;
       setEditing(p.styles.length > 0);
@@ -164,7 +165,10 @@ export default function StyleSetup() {
   async function finish() {
     setSaving(true);
     await saveStyleProfile({ wears, styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou: !!selfie, votes, cues }, origin?.city ?? null);
-    router.replace("/style");
+    // A full load back to Style home: the in-app move back from Edit could
+    // be overtaken by the earlier move into Edit and land on setup again
+    // (founder, 20 Nov 2026: "its stuck in saving the budget").
+    window.location.replace("/style");
   }
 
   const sentence = (() => {
@@ -179,7 +183,22 @@ export default function StyleSetup() {
   return (
     <main className={s.screen}>
       <div className={s.page}>
-        <StyleTop back={step === 1 ? "/home" : () => setStep((step - 1) as Step)} backLabel={step === 1 ? "Home" : "Back"} right={<span style={{ width: 70 }} />} />
+        <StyleTop
+          // A full load back to Style while editing (see finish()).
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+          back={step === 1 ? (editing ? () => window.location.assign("/style") : "/home") : () => setStep((step - 1) as Step)}
+          backLabel={step === 1 ? (editing ? "Style" : "Home") : "Back"}
+          right={
+            // Changing it later: Done saves and goes back to Style from any step.
+            editing ? (
+              <button type="button" className={s.done} disabled={saving || !styles.length || reading} onClick={finish}>
+                {saving ? "Saving…" : "Done"}
+              </button>
+            ) : (
+              <span style={{ width: 70 }} />
+            )
+          }
+        />
         <div className={s.steps} aria-label="Steps">
           {([1, 2, 3, 4, 5] as Step[]).map((n) => (
             <button key={n} type="button" className={`${s.stepDot} ${step === n ? s.stepOn : ""}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
