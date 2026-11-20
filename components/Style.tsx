@@ -29,6 +29,8 @@ export default function Style() {
   const [own, setOwn] = useState("");
   const [look, setLook] = useState<string | null>(null); // the idea drawn
   const [drawingLook, setDrawingLook] = useState(false);
+  const [changing, setChanging] = useState<"top" | "bottom" | "shoes" | null>(null); // one piece being swapped
+  const [tried, setTried] = useState<Record<string, string[]>>({});
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
@@ -114,6 +116,7 @@ export default function Style() {
 
   function pickKind(kind: string) {
     setVibe(kind);
+    setTried({});
     setShown([]);
     setShownStyles([]);
     setOutfit(null);
@@ -123,7 +126,39 @@ export default function Style() {
   function another() {
     if (!outfit) return;
     setLeaving(true);
+    setTried({});
     setTimeout(() => think(profile!, occasion, plan ?? null, shown, shownStyles, vibe), 300);
+  }
+
+  // Change one piece and keep the rest (founder, 20 Nov 2026: "some might
+  // like the pant idea but not the top").
+  async function changePiece(piece: "top" | "bottom" | "shoes") {
+    if (!outfit || !origin) return;
+    setChanging(piece);
+    const before = [...(tried[piece] ?? []), outfit.pieces[piece]];
+    setTried({ ...tried, [piece]: before });
+    const r = await outfitFor({
+      styles: profile!.styles,
+      wears: profile!.wears,
+      occasion,
+      vibe,
+      plan: plan ?? null,
+      cityId: origin.city.id,
+      avoid: before,
+      usedStyles: [],
+      cues: profile!.cues,
+      loved: [],
+      notMe: [],
+      change: { piece, outfit },
+    });
+    setChanging(null);
+    if (!r?.outfit) return;
+    setOutfit(r.outfit);
+    setLook(null);
+    setDrawingLook(true);
+    const img = await drawLook(r.outfit, profile!.wears);
+    setDrawingLook(false);
+    setLook(img);
   }
 
   async function vote(verdict: "love" | "not_me") {
@@ -224,6 +259,17 @@ export default function Style() {
           {outfit && !thinking && (
             <>
               <p className={s.sub} style={{ color: "var(--ink)" }}>{outfit.line}</p>
+              <div className={s.pieces}>
+                {(["top", "bottom", "shoes"] as const).map((k) => (
+                  <div key={k} className={s.pieceRow}>
+                    <span className={s.pieceKind}>{k === "top" ? "Top" : k === "bottom" ? "Bottom" : "Shoes"}</span>
+                    <span className={s.pieceName}>{changing === k ? "Finding another…" : outfit.pieces[k]}</span>
+                    <button type="button" className={s.link} disabled={!!changing || drawingLook} onClick={() => changePiece(k)}>
+                      Change
+                    </button>
+                  </div>
+                ))}
+              </div>
               <div className={s.chips}>
                 {outfit.chips.map((c) => (
                   <span key={c} className={s.fact}>

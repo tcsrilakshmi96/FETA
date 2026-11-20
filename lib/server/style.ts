@@ -140,6 +140,10 @@ export type OutfitAsk = {
   cues: string[]; // what Feta saw in outfits they love
   loved: string[]; // titles they loved before
   notMe: string[]; // titles they said weren't them
+  note?: string | null; // anything else they said (from Ask Feta)
+  // Change one piece and keep the rest (founder, 20 Nov 2026: "some might
+  // like the pant idea but not the top").
+  change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } | null;
 };
 
 const OCCASION_WORDS: Record<Occasion, string> = { dinner: "going out for dinner", drinks: "going out for drinks", do: "going out to do something fun", day: "an everyday day look" };
@@ -151,19 +155,27 @@ export async function outfitIdea(ask: OutfitAsk): Promise<Outfit> {
   const fresh = mine.filter((m) => !ask.usedStyles.includes(m.id));
   track("gemini_rank");
   const what = ask.stops.length ? `Their plan: ${ask.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${ask.walkKm ? ` About ${ask.walkKm.toFixed(1)} km on foot between stops.` : ""}` : ask.occasion ? `They are ${OCCASION_WORDS[ask.occasion]}.` : "They haven't said where they're going.";
-  const kind = ask.vibe ? `What kind of outing: ${ask.vibe}. Dress for exactly that (a fun, loud place is not a formal dinner).` : "";
+  const kind = [ask.vibe ? `What kind of outing: ${ask.vibe}. Dress for exactly that (a fun, loud place is not a formal dinner).` : "", ask.note ? `They also said: ${ask.note}` : ""].filter(Boolean).join("\n");
+  const change = ask.change
+    ? `They like this idea, "${ask.change.outfit.title}" (top: ${ask.change.outfit.pieces.top}; bottom: ${ask.change.outfit.pieces.bottom}; shoes: ${ask.change.outfit.pieces.shoes}), except the ${ask.change.piece}. Keep everything else exactly the same (same title idea and the other two pieces word for word) and suggest a different ${ask.change.piece} that works with them for this outing.${ask.avoid.length ? ` ${ask.change.piece === "bottom" ? "Bottoms" : ask.change.piece === "top" ? "Tops" : "Shoes"} already tried: ${ask.avoid.join("; ")}.` : ""}\n`
+    : "";
   const prompt = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
 Their styles: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}.
 ${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.usedStyles.length && fresh.length ? `Base this idea on one of these styles of theirs, not used yet: ${fresh.map((m) => m.id).join(", ")}.\n` : ""} They wear ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
 ${what}
 ${kind}
-${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
+${change}${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length && !ask.change ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
 Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not brands or colours. "style" must be the one of their styles the pieces really belong to. Plain, warm, short. Never comment on body, size or looks.
 Reply with only JSON: {"style": the style id it is based on (one of theirs), "title": 2 to 4 words, e.g. "Smart casual" or "Streetwear, dressed up", "big1": one word in capitals for a poster, e.g. "SMART", "big2": one or two lowercase words, e.g. "casual", "line": one or two sentences on why it suits tonight, "pieces": {"top": 2 to 5 words, "bottom": 2 to 5 words, "shoes": 2 to 6 words}, "chips": 2 to 4 short facts it is based on, e.g. "Relaxed brewpub", "900 m walk", "Late dinner"}`;
   const data = await gemini("gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
   const o = JSON.parse(textOf(data)) as Outfit;
   const style = styleById(o.style) && ask.styles.includes(o.style) ? o.style : (mine[0]?.id ?? "smart-casual");
   const cut = (s: unknown, n: number) => String(s ?? "").slice(0, n);
+  if (ask.change) {
+    const keep = ask.change.outfit;
+    const piece = ask.change.piece;
+    return { ...keep, pieces: { ...keep.pieces, [piece]: cut(o.pieces?.[piece], piece === "shoes" ? 48 : 40) || keep.pieces[piece] }, line: cut(o.line, 260) || keep.line };
+  }
   return {
     style,
     title: cut(o.title, 40),

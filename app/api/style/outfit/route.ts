@@ -3,13 +3,25 @@ import { cityById } from "@/lib/server/cities";
 import { DAILY_BUDGET_INR, spentToday, withCosts } from "@/lib/server/costs";
 import { outfitIdea, type OutfitAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
-import { OCCASIONS, styleById } from "@/lib/style";
+import { OCCASIONS, styleById, type Outfit } from "@/lib/style";
 
 export const maxDuration = 20;
 
 // What to wear (founder, 20 Nov 2026): a direction from their own styles for
 // tonight's plan, or for the outing they tapped when there's no plan.
 type Body = Partial<Omit<OutfitAsk, "city">> & { cityId?: string };
+
+// One piece to change, with the outfit it belongs to.
+function changeOf(c: unknown): OutfitAsk["change"] {
+  const x = c as { piece?: string; outfit?: Outfit } | null;
+  if (!x || !["top", "bottom", "shoes"].includes(String(x.piece)) || !x.outfit?.pieces) return null;
+  const t = (v: unknown, n: number) => String(v ?? "").slice(0, n);
+  const o = x.outfit;
+  return {
+    piece: x.piece as "top" | "bottom" | "shoes",
+    outfit: { style: t(o.style, 30), title: t(o.title, 40), big1: t(o.big1, 10), big2: t(o.big2, 16), line: t(o.line, 260), pieces: { top: t(o.pieces.top, 40), bottom: t(o.pieces.bottom, 40), shoes: t(o.pieces.shoes, 48) }, chips: (o.chips ?? []).slice(0, 4).map((c2) => t(c2, 24)) },
+  };
+}
 
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
@@ -36,6 +48,8 @@ export async function POST(request: Request) {
     localTime: String(body.localTime ?? "").slice(0, 30),
     avoid: short(body.avoid, 6),
     usedStyles: short(body.usedStyles, 8, 30),
+    note: body.note ? String(body.note).slice(0, 160) : null,
+    change: changeOf(body.change),
     cues: short(body.cues, 8, 80),
     loved: short(body.loved, 6),
     notMe: short(body.notMe, 6),

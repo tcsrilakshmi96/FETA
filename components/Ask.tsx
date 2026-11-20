@@ -7,6 +7,7 @@ import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
 import PickDetails, { kindLabel } from "@/components/PickDetails";
 import ItineraryView from "@/components/ItineraryView";
+import OutfitCard from "@/components/OutfitCard";
 import PickPhoto from "@/components/PickPhoto";
 import TripCard from "@/components/TripCard";
 import { useToast } from "@/components/Toast";
@@ -117,6 +118,7 @@ export default function Ask() {
           <div key={m.id} className={styles.msg}>
             <div className={`${styles.bubble} ${m.role === "user" ? styles.fromMe : styles.fromFeta}`}>{m.text}</div>
             {m.role === "assistant" && m.reply?.itinerary && <ItineraryView itinerary={m.reply.itinerary} onStop={setDetail} />}
+            {m.role === "assistant" && m.reply?.outfit && <OutfitCard outfit={m.reply.outfit} brands={m.reply.brands ?? []} />}
             {/* One card per trip: the latest one, after an edit. */}
             {m.role === "assistant" && m.tripId && lastTripCard.get(m.tripId) === m.id && <TripCard key={`${m.tripId}-${m.id}`} id={m.tripId} home={origin?.city ?? null} onStop={setDetail} />}
             {m.role === "assistant" && m.reply && m.reply.picks.length > 0 && (

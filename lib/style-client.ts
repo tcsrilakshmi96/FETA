@@ -171,8 +171,8 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
 }
 
 // One idea at a time; kept for the day so opening Style again costs nothing.
-export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
-  const key = `feta.outfit:${localDay(new Date())}:${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
+export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[]; change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } }): Promise<{ outfit?: Outfit; notice?: string } | null> {
+  const key = `feta.outfit:${localDay(new Date())}:${ask.change ? `${ask.change.piece}:${JSON.stringify(ask.change.outfit.pieces)}:` : ""}${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
   try {
     const kept = sessionStorage.getItem(key);
     if (kept) return JSON.parse(kept);
@@ -194,6 +194,7 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
     cues: ask.cues,
     loved: ask.loved,
     notMe: ask.notMe,
+    change: ask.change,
   });
   if (res?.outfit) {
     try {

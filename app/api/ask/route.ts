@@ -5,6 +5,8 @@ import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
 import { planDays } from "@/lib/server/plan-days";
+import { outfitIdea } from "@/lib/server/style";
+import { OCCASIONS, styleById, type Occasion, type Outfit } from "@/lib/style";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 import { weekendSaturday } from "@/lib/weekend";
@@ -31,6 +33,7 @@ type VeniceReply = {
   search?: Search | Search[] | null;
   why?: boolean;
   options?: string[];
+  outfit?: { occasion?: string; vibe?: string; note?: string } | null;
 };
 
 type Search = {
@@ -55,6 +58,11 @@ export type AskReply = {
   weekend?: { id: string; text: string } | null; // added to their weekend plan
   itinerary?: Itinerary | null; // a full day (or up to 3), stop by stop
   tripId?: string | null; // a trip planner card (route, getting around, stays, days)
+  // What to wear (founder, 20 Nov 2026: Ask Feta "should ideally" give style
+  // suggestions): an outfit from their styles, drawn on the phone, with a few
+  // brands for the look in their country.
+  outfit?: Outfit | null;
+  brands?: { id: string; name: string; logo: string | null; homegrown: boolean }[];
 };
 
 // Who a learned line is about, for the People group on You.
@@ -90,6 +98,15 @@ export async function POST(request: Request) {
     // boyfriend likes what she likes).
     db.from("profile_lines").select("line_key, text").like("line_key", "people:%").is("removed_at", null),
   ]);
+  // Their style (Style), so "what should I wear?" is about them.
+  const [{ data: styleProfile }, { data: lovedBrands }] = await Promise.all([
+    db.from("style_profiles").select("*").maybeSingle(),
+    db.from("loved_brands").select("brands (name)").limit(12),
+  ]);
+  const myStyles: string[] = styleProfile?.styles ?? [];
+  const styleText = myStyles.length
+    ? `Their styles, strongest first: ${myStyles.map((id) => styleById(id)?.name ?? id).join(", ")}. They shop for ${styleProfile.wears === "both" ? "womenswear and menswear" : styleProfile.wears === "men" ? "menswear" : "womenswear"}.${styleProfile.cues?.length ? ` Outfits they love: ${styleProfile.cues.join("; ")}.` : ""}${(lovedBrands ?? []).length ? ` Brands they love: ${(lovedBrands as unknown as { brands: { name: string } }[]).map((b) => b.brands.name).join(", ")}.` : ""}`
+    : "They haven't set up Style yet (Home → Style: a few outfit photos and Feta learns their style).";
   const people = (peopleLines ?? []).map((l) => `- ${String(l.line_key).split(":")[1]}: ${l.text}`).join("\n");
   const past = (history ?? []).reverse();
   const currentTripId = (lastTripMessage?.extras?.trip_id as string | undefined) ?? null;
@@ -103,6 +120,9 @@ Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countr
 What Feta knows about them (this person only):
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 
+Their style:
+${styleText}
+
 What they've told Feta about the people they go out with:
 ${people || "Nothing yet."}
 
@@ -113,6 +133,7 @@ Real places come only from Feta's own search, which checks them against their di
 Besides talking, you can do one of these per reply (leave the others null).
 - "search": up to 2 searches at once (an array), e.g. something to do and somewhere to eat for an evening out. Each: places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match for each.
 - "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
+- "outfit": what to wear, whenever they ask what to wear or how to dress for something: {"occasion": "dinner", "drinks", "do" (something to do) or "day" (an everyday look), "vibe": the kind of outing in a few words, e.g. "date night", "rooftop bar", "office party", "note": anything else that matters, e.g. "it'll be cold", "my boyfriend's parents"}. Feta shows a drawn outfit from their own styles with brands for it; your reply adds a line of advice, never a list of items. Ask the kind of outing first (one question with options) if you don't know it.
 - "route": any trip: travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
@@ -121,7 +142,7 @@ Reply with only a JSON object:
  "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
  "weekend": null, or a short phrase when they mention something they want to do this weekend,
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
- "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above,
+ "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above, "outfit": null or as above,
  "why": true if they ask why a pick was chosen}
 Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong or Macau): no search, itinerary or route; give up to 3 ideas from what you know in "reply", saying they're less reliable than usual.`;
 
@@ -317,6 +338,52 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   const notices = results.map((r) => r.notice).filter(Boolean);
   if (notices.length) notice = notices.join(" ");
 
+  // What to wear: an outfit from their styles (Gemini, Feta's own data
+  // only), with brands for the look that sell in their country.
+  let outfit: Outfit | null = null;
+  let brands: AskReply["brands"] = [];
+  if (parsed.outfit && typeof parsed.outfit === "object" && !searches.length && !itinerary && !tripId) {
+    const o = parsed.outfit;
+    const occasion = OCCASIONS.some((x) => x.id === o.occasion) ? (o.occasion as Occasion) : null;
+    const cut = (v: unknown, n: number) => (v ? String(v).slice(0, n) : null);
+    outfit = await withCosts(db, "ask_outfit", () =>
+      outfitIdea({
+        styles: myStyles.length ? myStyles : ["smart-casual", "basics"],
+        wears: styleProfile?.wears ?? "women",
+        occasion,
+        vibe: cut(o.vibe, 60),
+        note: cut(o.note, 160),
+        stops: [],
+        walkKm: null,
+        city: homeCity?.name ?? "their city",
+        localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, timeZone: homeCity?.timeZone ?? "UTC" }).format(new Date()),
+        avoid: [],
+        usedStyles: [],
+        cues: styleProfile?.cues ?? [],
+        loved: [],
+        notMe: [],
+      }),
+    ).catch((error) => {
+      console.error(error);
+      return null;
+    });
+    if (outfit && homeCity) {
+      const { data: rows } = await db
+        .from("brand_styles")
+        .select("association, review_status, brands!inner (id, name, logo_url, origin_country, brand_markets!inner (country, presence_type))")
+        .eq("style_id", outfit.style)
+        .neq("review_status", "rejected")
+        .eq("brands.brand_markets.country", homeCity.country)
+        .limit(40);
+      type Row = { association: string; review_status: string; brands: { id: string; name: string; logo_url: string | null; origin_country: string | null; brand_markets: { presence_type: string }[] } };
+      brands = ((rows ?? []) as unknown as Row[])
+        .filter((r) => r.brands.brand_markets.every((m) => m.presence_type !== "ships from abroad"))
+        .sort((a, b) => Number(b.review_status === "approved") - Number(a.review_status === "approved") || Number(b.association === "main") - Number(a.association === "main"))
+        .slice(0, 4)
+        .map((r) => ({ id: r.brands.id, name: r.brands.name, logo: r.brands.logo_url, homegrown: r.brands.origin_country === homeCity.country }));
+    }
+  }
+
   await db.from("chat_messages").insert([
     { user_id: userId, role: "user", content: message },
     {
@@ -338,7 +405,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
 }
 
 // The day and time asked for, in the city's own time: a time with no day

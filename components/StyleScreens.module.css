@@ -912,6 +912,72 @@
 .ownKind button:disabled {
   opacity: 0.35;
 }
+/* The outfit card in Ask Feta. */
+.chatOutfit {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 20px;
+  background: var(--sheet);
+  color: var(--ink);
+  max-width: 340px;
+}
+.chatLook {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 184px;
+  border-radius: 14px;
+  background: #dcdbd7;
+  overflow: hidden;
+}
+.chatLook img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: multiply;
+}
+.chatPieces {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.chatBrands {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0;
+}
+/* The outfit's pieces, each changeable on its own. */
+.pieces {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--sheet);
+  overflow: hidden;
+}
+.pieceRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.pieceRow + .pieceRow {
+  border-top: 1px solid rgba(var(--inkRGB), 0.08);
+}
+.pieceKind {
+  width: 52px;
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--inkRGB), 0.55);
+}
+.pieceName {
+  flex: 1;
+  font-size: 14px;
+}
 .forYou {
   font-size: 12.5px;
   line-height: 1.35;
