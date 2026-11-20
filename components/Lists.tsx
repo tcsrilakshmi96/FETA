@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AddPlace from "@/components/AddPlace";
 import Mascot from "@/components/Mascot";
+import SavedBrands from "@/components/SavedBrands";
 import NightPlan, { type NightStart } from "@/components/NightPlan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
@@ -21,7 +22,8 @@ import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
 
-type Tab = "want" | "been" | "plans";
+// "brands" is Want to try → Brands (founder, 20 Nov 2026: Style's saved brands sit beside saved places).
+type Tab = "want" | "been" | "plans" | "brands";
 const TABS: { id: Tab; label: string }[] = [
   { id: "want", label: "Want to try" },
   { id: "been", label: "Been" },
@@ -110,6 +112,7 @@ export default function Lists() {
     loadMyShares().then((s) => live && setShares(s));
     // Home's "Priya is in" pill opens Plans.
     if (window.location.hash === "#plans") setTab("plans");
+    if (new URLSearchParams(window.location.search).get("show") === "brands") setTab("brands");
     return () => {
       live = false;
     };
@@ -238,14 +241,14 @@ export default function Lists() {
           <strong>Saved</strong>
         </h1>
         <div className={styles.segment} role="tablist">
-          <span className={styles.thumb} style={{ transform: `translateX(${TABS.findIndex((t) => t.id === tab) * 100}px)` }} />
+          <span className={styles.thumb} style={{ transform: `translateX(${Math.max(0, TABS.findIndex((t) => t.id === tab)) * 100}px)` }} />
           {TABS.map((t) => (
             <button
               key={t.id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              className={`${styles.segBtn} ${tab === t.id ? styles.segOn : ""}`}
+              aria-selected={tab === t.id || (t.id === "want" && tab === "brands")}
+              className={`${styles.segBtn} ${tab === t.id || (t.id === "want" && tab === "brands") ? styles.segOn : ""}`}
               onClick={() => {
                 setTab(t.id);
                 setPicking(false);
@@ -257,6 +260,8 @@ export default function Lists() {
           ))}
         </div>
         <p className={styles.private}>Private. Only you can see these.</p>
+        {(tab === "want" || tab === "brands") && <SavedBrands.Filter on={tab === "brands"} onChange={(brands) => setTab(brands ? "brands" : "want")} />}
+        {tab === "brands" && <SavedBrands />}
 
         {/* Plan a night (founder, 17 Nov 2026): tick 2 to 5, then plan. */}
         {tab === "want" && (items ?? []).filter(plannable).length >= 2 &&
@@ -418,11 +423,11 @@ export default function Lists() {
           </section>
         )}
 
-        {items === null && (
+        {items === null && tab !== "brands" && (
           <p className={styles.loading}>Getting your places…</p>
         )}
 
-        {items !== null && tab !== "plans" && shown.length === 0 && (
+        {items !== null && tab !== "plans" && tab !== "brands" && shown.length === 0 && (
           <div className={styles.empty}>
             <Mascot pose={tab === "want" ? "wave" : "bite"} size={100} />
             <p className={styles.emptyTitle}>
