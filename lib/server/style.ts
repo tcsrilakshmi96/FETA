@@ -42,24 +42,51 @@ function inline(dataUrl: string) {
   return { inline_data: { mime_type: m[1], data: m[2] } };
 }
 
-export type StyleRead = { styles: { id: string; why: string }[] };
+// Each photo read on its own (what Feta saw, which styles), then the styles
+// across all of them with the photos each came from, so the person can see
+// why (founder, 20 Nov 2026: "I couldn't relate… I don't understand how it
+// is interpreting the style").
+export type StyleRead = {
+  photos: { saw: string; styles: string[] }[];
+  styles: { id: string; why: string; photos: number[] }[];
+};
 
 export async function readPhotos(db: SupabaseClient, photos: string[], wears: Wears): Promise<StyleRead> {
-  if (FAKE) return { styles: [{ id: "streetwear", why: "Relaxed layers and cargo trousers" }, { id: "smart-casual", why: "Crisp shirts and loose trousers" }, { id: "y2k", why: "Baby tees and low-rise denim" }] };
+  if (FAKE)
+    return {
+      photos: photos.map((_, i) => ({ saw: ["Puffer jacket, cargo trousers", "Blazer, loose trousers", "Baby tee, low-rise jeans"][i % 3], styles: [["streetwear"], ["smart-casual"], ["y2k"]][i % 3] })),
+      styles: [
+        { id: "streetwear", why: "Relaxed layers and cargo trousers", photos: photos.map((_, i) => i).filter((i) => i % 3 === 0) },
+        { id: "smart-casual", why: "Crisp shirts and loose trousers", photos: photos.map((_, i) => i).filter((i) => i % 3 === 1) },
+        { id: "y2k", why: "Baby tees and low-rise denim", photos: photos.map((_, i) => i).filter((i) => i % 3 === 2) },
+      ].filter((x) => x.photos.length),
+    };
   const all = await lenses(db);
   track("gemini_vision");
-  const prompt = `You are Feta's stylist. These ${photos.length} photos are outfits a person loves (screenshots or their own). They shop for ${wears === "both" ? "womenswear and menswear" : wears === "women" ? "womenswear" : "menswear"}.
-Read ONLY the clothes: silhouette, fabric, colour, pattern, details, how pieces are put together. Never guess or mention anyone's age, religion, ethnicity, body, size, looks, income or gender. A photo with no clear outfit counts for nothing.
+  const prompt = `You are Feta's stylist. These ${photos.length} photos (numbered 1 to ${photos.length} in order) are outfits a person loves: screenshots or their own. They shop for ${wears === "both" ? "womenswear and menswear" : wears === "women" ? "womenswear" : "menswear"}.
+Read ONLY the clothes: silhouette, fabric, colour, pattern, details, how pieces are put together. Never guess or mention anyone's age, religion, ethnicity, body, size, looks, income or gender.
 
-Match what you see to these styles (use the id). Follow each "keep separate" rule.
-${all.map((l) => `- ${l.style_id}: ${l.name}. ${l.definition} Looks like: ${l.visible_signals}${l.keep_separate ? ` Keep separate: ${l.keep_separate}` : ""}`).join("\n")}
+Styles (use the id). Styles overlap; a photo can show more than one.
+${all.map((l) => `- ${l.style_id}: ${l.name}. ${l.definition} Looks like: ${l.visible_signals}`).join("\n")}
 
-Reply with only JSON: {"styles": [{"id": style id, "why": what you saw, at most 8 words, e.g. "Oversized hoodies, cargo trousers, chunky sneakers"}]}: the 2 to 4 styles that best describe these photos together, strongest first. Only styles clearly visible in at least one photo.`;
-  const data = await gemini("gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 30000);
-  const parsed = JSON.parse(textOf(data)) as StyleRead;
+Be true to what people would recognise in themselves. Everyday outfits are usually basics, smart-casual, minimalist, polished-minimal, streetwear or athleisure; name a niche aesthetic (coquette, dark-academia, y2k, goth, cottagecore…) only when its signals are clearly there, never from one detail.
+
+Reply with only JSON:
+{"photos": [one per photo, in order: {"saw": what the outfit is, at most 8 plain words, e.g. "Oversized blazer, white tee, straight jeans", "styles": 1 or 2 style ids}],
+ "styles": [the 2 to 5 styles that run through these photos, strongest first: {"id", "why": what they have in common, at most 8 words, "photos": the photo numbers that show it}]}
+A photo with no clear outfit: {"saw": "No clear outfit", "styles": []}.`;
+  const data = await gemini("gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 40000);
+  const parsed = JSON.parse(textOf(data)) as { photos?: { saw?: string; styles?: string[] }[]; styles?: { id: string; why?: string; photos?: number[] }[] };
   const seen = new Set<string>();
   return {
-    styles: (parsed.styles ?? []).filter((s) => styleById(s.id) && !seen.has(s.id) && seen.add(s.id)).slice(0, 4).map((s) => ({ id: s.id, why: String(s.why ?? "").slice(0, 80) })),
+    photos: photos.map((_, i) => {
+      const p = parsed.photos?.[i];
+      return { saw: String(p?.saw ?? "").slice(0, 80), styles: (p?.styles ?? []).filter((id) => styleById(id)).slice(0, 2) };
+    }),
+    styles: (parsed.styles ?? [])
+      .filter((x) => styleById(x.id) && !seen.has(x.id) && seen.add(x.id))
+      .slice(0, 5)
+      .map((x) => ({ id: x.id, why: String(x.why ?? "").slice(0, 80), photos: (x.photos ?? []).map((n) => Number(n) - 1).filter((n) => Number.isInteger(n) && n >= 0 && n < photos.length) })),
   };
 }
 

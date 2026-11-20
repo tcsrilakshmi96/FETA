@@ -91,7 +91,7 @@ export function shrink(file: File, max = 900): Promise<string> {
 }
 
 export function readStylePhotos(photos: string[], wears: Wears) {
-  return post<{ styles?: { id: string; why: string }[]; notice?: string }>("/api/style/read", { photos, wears });
+  return post<{ photos?: { saw: string; styles: string[] }[]; styles?: { id: string; why: string; photos: number[] }[]; notice?: string }>("/api/style/read", { photos, wears });
 }
 
 export function drawStyle(photo: string, style: string) {

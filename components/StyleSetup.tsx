@@ -32,7 +32,10 @@ export default function StyleSetup() {
   const [selfie, setSelfie] = useState<string | null>(null);
   const [styles, setStyles] = useState<string[]>([]);
   const [why, setWhy] = useState<Record<string, string>>({});
-  const [front, setFront] = useState<string | null>(null);
+  const [seenIn, setSeenIn] = useState<Record<string, number[]>>({}); // which of their photos showed each style
+  const [photoReads, setPhotoReads] = useState<{ saw: string; styles: string[] }[]>([]);
+  const [notMe, setNotMe] = useState<string[]>([]); // styles Feta suggested that they said aren't them
+  const [browse, setBrowse] = useState(false);
   const [reading, setReading] = useState(false);
   const [readCount, setReadCount] = useState(0); // photos already read into the styles
   const [drawn, setDrawn] = useState<Record<string, string>>({});
@@ -57,7 +60,6 @@ export default function StyleSetup() {
       if (!p) return;
       setWears(p.wears);
       setStyles(p.styles);
-      setFront(p.styles[0] ?? null);
       setBudget(p.budget.length ? p.budget : ["c2"]);
       setHomegrown(p.homegrownOnly);
       setVotes(p.votes);
@@ -102,8 +104,10 @@ export default function StyleSetup() {
       }
       const ids = r.styles.map((x) => x.id);
       setStyles(ids);
-      setFront(ids[0]);
+      setNotMe([]);
       setWhy(Object.fromEntries(r.styles.map((x) => [x.id, x.why])));
+      setSeenIn(Object.fromEntries(r.styles.map((x) => [x.id, x.photos])));
+      setPhotoReads(r.photos ?? []);
     });
   }, [step, photos, wears, reading, readCount, toast]);
 
@@ -155,8 +159,6 @@ export default function StyleSetup() {
     router.replace("/style");
   }
 
-  const frontId = front && styles.includes(front) ? front : styles[0];
-  const others = styles.filter((id) => id !== frontId);
   const sentence = (() => {
     const n = (id: string) => (styleById(id)?.short ?? id).toLowerCase().replace("y2k", "Y2K");
     if (!styles.length) return "Pick the styles that feel like you";
@@ -164,7 +166,6 @@ export default function StyleSetup() {
     if (styles.length === 2) return `Mostly ${n(styles[0])}, with a bit of ${n(styles[1])}.`;
     return `Mostly ${n(styles[0])} and ${n(styles[1])}, with a bit of ${styles.slice(2).map(n).join(" and ")}.`;
   })();
-  const seeds = [["-160px", "-60px", "-14deg"], ["140px", "-120px", "12deg"], ["-60px", "160px", "-8deg"], ["180px", "90px", "10deg"]];
   const labels = budgetLabels(currency);
 
   return (
@@ -288,85 +289,119 @@ export default function StyleSetup() {
         {step === 3 && (
           <>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span className={s.kick}>{reading ? `READING YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : photos.length ? `FETA READ YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : "YOUR STYLES"}</span>
+              <span className={s.kick}>{reading ? `READING YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : photos.length ? `WHAT FETA SAW IN YOUR ${photos.length} PHOTO${photos.length === 1 ? "" : "S"}` : "YOUR STYLES"}</span>
               <h1 className={s.title} style={{ fontSize: 27 }}>
-                {reading ? "Looking at the clothes…" : sentence}
+                {reading ? "Looking at the clothes…" : styles.length ? sentence : "Which styles feel like you?"}
               </h1>
             </div>
-            <div className={`${s.stage} ${s.lineup}`} style={{ margin: 0, height: 440 }}>
-              {reading ? (
+
+            {reading ? (
+              <div className={s.stage} style={{ height: 260 }}>
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {photos.slice(0, 5).map((p, i) => (
-                    <span key={i} className={s.polaroid} style={{ position: "absolute", transform: `rotate(${(i - 2) * 7}deg) translateX(${(i - 2) * 26}px)`, animation: `none` }}>
+                    <span key={i} className={s.polaroid} style={{ position: "absolute", transform: `rotate(${(i - 2) * 7}deg) translateX(${(i - 2) * 26}px)` }}>
                       {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
                       <img src={p} alt="" />
                     </span>
                   ))}
                   <span className={s.drawingWait} aria-hidden="true" />
                 </div>
-              ) : frontId ? (
-                <>
-                  <span key={`big-${frontId}`} className={`${s.big} ${s.rise}`} style={{ top: 18, left: -8, right: "auto", alignItems: "flex-start", fontSize: (styleById(frontId)?.big.length ?? 0) > 5 ? 72 : 100, color: "rgba(26,22,22,0.12)" }}>
-                    {styleById(frontId)?.big}
-                  </span>
-                  {others.map((id, j) => {
-                    const h = Math.round(290 * Math.pow(0.8, j));
-                    const lens = styleById(id)!;
-                    const half = drawn[id] ? "drawn" : figureHalf(lens, wears);
-                    const w = drawn[id] ? Math.round((h * 9) / 16) : half === "both" ? h : Math.round(h / 2);
-                    return (
-                      <button key={id} type="button" className={s.behind} aria-label={`Bring ${lens.name} to the front`} onClick={() => setFront(id)} style={vars({ left: `calc(52% + ${j * 58}px)`, width: w, height: h, zIndex: 9 - j, opacity: 1 - j * 0.15, "--fx": seeds[j % 4][0], "--fy": seeds[j % 4][1], "--fr": seeds[j % 4][2], "--delay": `${0.1 + j * 0.08}s` })}>
-                        <span className={drawn[id] ? s.drawing : s.bob} style={{ display: "block" }}>
-                          {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
-                          <img src={drawn[id] ?? lookImage(id)} alt="" style={drawn[id] ? undefined : { height: h, width: h, left: half === "right" ? -w : 0 }} />
+              </div>
+            ) : (
+              <>
+                {/* Each photo with what Feta saw in it, so the styles make sense. */}
+                {photoReads.length > 0 && (
+                  <div className={s.thumbs} style={{ gap: 12 }}>
+                    {photos.map((p, i) => (
+                      <div key={i} className={s.seen}>
+                        <span className={s.polaroid} style={{ width: 84, height: 108 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
+                          <img src={p} alt={`Your photo ${i + 1}`} />
                         </span>
-                        {drawing[id] && <span className={s.drawingWait} aria-hidden="true" />}
-                      </button>
+                        <span className={s.seenText}>{photoReads[i]?.saw || "…"}</span>
+                        <span className={s.seenStyle}>{(photoReads[i]?.styles ?? []).map((id) => styleById(id)?.short).join(" · ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* The styles: each says where it came from, with Me / Not me. */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[...styles, ...notMe.filter((id) => !styles.includes(id))].map((id, i) => {
+                    const lens = styleById(id);
+                    if (!lens) return null;
+                    const on = styles.includes(id);
+                    const from = seenIn[id] ?? [];
+                    const half = drawn[id] ? "drawn" : figureHalf(lens, wears);
+                    return (
+                      <div key={id} className={`${s.styleCard} ${on ? "" : s.styleCardOff}`} style={vars({ "--delay": `${i * 0.06}s` })}>
+                        <span className={s.thumbImg} style={{ width: 72, height: 96, borderRadius: 14, flex: "none" }}>
+                          {drawing[id] ? (
+                            <span className={s.drawingWait} aria-hidden="true" />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element -- cropped to one figure
+                            <img src={drawn[id] ?? lookImage(id)} alt="" style={drawn[id] ? { height: 96, width: 72, objectFit: "contain", left: 0, top: 0 } : { height: 120, width: 120, top: -4, left: half === "right" ? -52 : half === "both" ? -24 : 4 }} />
+                          )}
+                        </span>
+                        <span style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0 }}>
+                          <span className={s.brandName}>{lens.name}</span>
+                          {why[id] && <span className={s.small}>{why[id]}</span>}
+                          {from.length > 0 ? (
+                            <span className={s.fromPhotos}>
+                              {from.slice(0, 4).map((n) => (
+                                // eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone
+                                <img key={n} src={photos[n]} alt={`Photo ${n + 1}`} />
+                              ))}
+                              <span>
+                                In {from.length} of your {photos.length} photo{photos.length === 1 ? "" : "s"}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className={s.small}>Added by you</span>
+                          )}
+                          <span style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                            <button type="button" className={`${s.chip} ${on ? s.chipOn : ""}`} style={{ padding: "6px 12px", fontSize: 13 }} aria-pressed={on} onClick={() => { setStyles(on ? styles : [...styles, id]); setNotMe(notMe.filter((x) => x !== id)); }}>
+                              ✓ That&apos;s me
+                            </button>
+                            <button type="button" className={`${s.chip} ${!on ? s.chipOn : ""}`} style={{ padding: "6px 12px", fontSize: 13 }} aria-pressed={!on} onClick={() => { setStyles(styles.filter((x) => x !== id)); setNotMe([...notMe.filter((x) => x !== id), id]); }}>
+                              Not me
+                            </button>
+                          </span>
+                        </span>
+                      </div>
                     );
                   })}
-                  <Figure key={`front-${frontId}-${drawn[frontId] ? 1 : 0}`} style={frontId} wears={wears} drawn={drawn[frontId]} height={drawn[frontId] ? 370 : 360} pos={{ left: 12, marginLeft: 0, bottom: 60, zIndex: 10 }} />
-                  {drawing[frontId] && (
-                    <span className={s.small} style={{ position: "absolute", left: 16, top: 16, zIndex: 12, padding: "6px 10px", borderRadius: 12, background: "rgba(255,255,255,0.85)", color: "#1a1616" }}>
-                      Drawing you…
-                    </span>
-                  )}
-                  <div className={s.lineupName} style={{ bottom: 14, color: "#1a1616" }}>
-                    <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      <span style={{ fontSize: 11, letterSpacing: "0.24em", opacity: 0.6 }}>
-                        LOOK {String(styles.indexOf(frontId) + 1).padStart(2, "0")} / {String(styles.length).padStart(2, "0")}
-                      </span>
-                      <span className={s.styleName}>{styleById(frontId)?.name}</span>
-                      {why[frontId] && <span style={{ fontSize: 12, opacity: 0.7 }}>{why[frontId]}</span>}
-                    </span>
-                    <button type="button" className={s.chip} style={{ padding: "8px 12px", fontSize: 13, borderColor: "#1a1616" }} onClick={() => setStyles(styles.filter((x) => x !== frontId))}>
-                      Not me ✕
-                    </button>
+                </div>
+                {Object.keys(drawn).length > 0 || selfie ? (
+                  <p className={s.small}>The drawings are sketches of each style from your photo, not a replica of you.</p>
+                ) : (
+                  <p className={s.small}>The figures show each style, not you.</p>
+                )}
+
+                <button type="button" className={s.chip} style={{ alignSelf: "flex-start", fontSize: 13 }} onClick={() => setBrowse(!browse)} aria-expanded={browse}>
+                  {browse ? "Hide all styles" : styles.length ? "Not quite? See all 37 styles" : "See all 37 styles"}
+                </button>
+                {browse && (
+                  <div className={s.allStyles}>
+                    {STYLES.filter((l) => !styles.includes(l.id)).map((l) => {
+                      const half = figureHalf(l, wears);
+                      return (
+                        <button key={l.id} type="button" className={s.thumb} style={{ width: "auto" }} onClick={() => { setStyles([...styles, l.id]); setNotMe(notMe.filter((x) => x !== l.id)); }}>
+                          <span className={s.thumbImg}>
+                            {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
+                            <img src={lookImage(l.id)} alt="" style={{ left: half === "right" ? -64 : half === "both" ? -32 : 0 }} />
+                          </span>
+                          {l.short} ＋
+                        </button>
+                      );
+                    })}
                   </div>
-                </>
-              ) : (
-                <p className={s.sub} style={{ padding: 20, color: "#1a1616" }}>
-                  Tap the styles below that feel like you.
-                </p>
-              )}
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{styles.length ? "Also feels like you? Tap to add" : "Which feel like you?"}</span>
-            <div className={s.thumbs}>
-              {STYLES.filter((l) => !styles.includes(l.id)).map((l) => {
-                const half = figureHalf(l, wears);
-                return (
-                  <button key={l.id} type="button" className={s.thumb} onClick={() => { setStyles([...styles, l.id]); setFront(l.id); }}>
-                    <span className={s.thumbImg}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
-                      <img src={lookImage(l.id)} alt="" style={{ left: half === "right" ? -64 : half === "both" ? -32 : 0 }} />
-                    </span>
-                    {l.short}
-                  </button>
-                );
-              })}
-            </div>
+                )}
+              </>
+            )}
             <div className={s.bottomBar}>
               <button type="button" className={s.primary} disabled={reading || !styles.length} onClick={() => setStep(4)}>
-                That&apos;s me
+                {reading ? "Reading…" : styles.length ? `Continue with ${styles.length} style${styles.length === 1 ? "" : "s"} ›` : "Pick at least one style to continue"}
               </button>
             </div>
           </>

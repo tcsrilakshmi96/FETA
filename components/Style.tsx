@@ -116,7 +116,7 @@ export default function Style() {
         <div className={s.page}>
           <StyleTop />
 
-          <section className={s.stage} style={{ height: outfit || thinking ? 430 : 300 }}>
+          <section className={s.stage} style={{ height: outfit || thinking ? 430 : 360 }}>
             <div style={{ position: "absolute", left: 16, top: 14, right: 16, zIndex: 5, display: "flex", flexDirection: "column", gap: 2 }}>
               <span className={s.kick} style={{ color: "#7a4f27" }}>
                 WHAT TO WEAR {new Date().getHours() < 16 ? "TODAY" : "TONIGHT"}
@@ -138,7 +138,7 @@ export default function Style() {
                 <span style={{ fontSize: 13 }}>Picking a look…</span>
               </div>
             ) : (
-              <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, top: 70, display: "flex", flexDirection: "column", justifyContent: "flex-end", gap: 12, zIndex: 3 }}>
+              <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 12, zIndex: 3 }}>
                 <span className={s.small} style={{ color: "#1a1616", opacity: 0.75 }}>
                   {notice ?? "No plan saved for today. Where are you going?"}
                 </span>
@@ -153,9 +153,9 @@ export default function Style() {
             )}
             {/* Their styles stand behind the question, so the stage isn't empty. */}
             {!outfit && !thinking && (
-              <div aria-hidden="true" style={{ position: "absolute", right: 0, top: 30, height: 200, width: "60%", opacity: 0.9 }}>
+              <div aria-hidden="true" style={{ position: "absolute", right: 0, top: 56, height: 150, width: "62%", opacity: 0.9 }}>
                 {profile.styles.slice(0, 3).map((id, i) => (
-                  <Figure key={id} style={id} wears={profile.wears} drawn={drawn[id]} height={200 - i * 30} pos={{ left: `${30 + i * 26}%`, zIndex: 3 - i, opacity: 1 - i * 0.2, animationDelay: `${i * 0.1}s` }} />
+                  <Figure key={id} style={id} wears={profile.wears} drawn={drawn[id]} height={150 - i * 22} pos={{ left: `${30 + i * 26}%`, zIndex: 3 - i, opacity: 1 - i * 0.2, animationDelay: `${i * 0.1}s` }} />
                 ))}
               </div>
             )}
