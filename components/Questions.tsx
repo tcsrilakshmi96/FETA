@@ -189,7 +189,9 @@ export default function Questions() {
     else setStep(step - 1);
   }
 
-  const style = swipeCards(answers, city?.country).find((c) => c.id === "style") as PairCard;
+  const cards = swipeCards(answers, city?.country);
+  // The one vibe card: about food when they chose places to eat, else about outings.
+  const style = cards.find((c) => c.id === (food ? "style" : "energy")) as PairCard;
   const styleChoice = (id: string) => swipes.some((s) => s.cardId === id && s.verdict === "yes");
   const cuisines = cuisinesFor(city?.country, veg);
 
@@ -222,7 +224,8 @@ export default function Questions() {
           <h1 className={styles.title}>
             Just <strong>the basics</strong>
           </h1>
-          <p className={styles.sub}>So Feta never shows you a place you can&apos;t eat at or don&apos;t want to pay for.</p>
+          {/* Without Places to eat, every screen speaks to things to do (founder, 20 Nov 2026: it read like a food setup). */}
+          <p className={styles.sub}>{food ? "So Feta never shows you a place you can't eat at or don't want to pay for." : "So Feta never suggests something you'd rather not pay for or travel to."}</p>
           {food && (
             <>
               <p className={styles.label}>What do you eat?</p>
@@ -246,7 +249,7 @@ export default function Questions() {
               </div>
             </>
           )}
-          <p className={styles.label}>Spend per person · tick all that are fine</p>
+          <p className={styles.label}>{food ? "Spend per person · tick all that are fine" : "Spend on a night out, per person · tick all that are fine"}</p>
           <div className={styles.chips}>
             {optionsFor(q("spend"), currency, city?.country).map((o) => (
               <button key={o.id} type="button" aria-pressed={answers.spend.includes(o.id)} className={answers.spend.includes(o.id) ? styles.on : ""} onClick={() => set({ spend: toggleSpend(answers.spend, o.id), spendCurrency: currency })}>
@@ -280,9 +283,9 @@ export default function Questions() {
       {current === "loves" && (
         <>
           <h1 className={styles.title}>
-            Name a few places <strong>you love</strong>
+            Name a few places <strong>{food ? "you love" : "you love going"}</strong>
           </h1>
-          <p className={styles.sub}>Feta looks at what they&apos;re like (the price, the vibe, the food) and finds new places in the same spirit.</p>
+          <p className={styles.sub}>{food ? "Feta looks at what they're like (the price, the vibe, the food) and finds new places in the same spirit." : "A studio, a comedy club, a climbing gym, a park. Feta looks at what they're like (the vibe, the crowd, the price) and finds more like them."}</p>
           <p className={styles.hint}>Type a name, tap it to add, then add the next one. The more you add, the better Feta knows you.</p>
           {loved.length > 0 && (
             <ul className={styles.loved}>
@@ -305,7 +308,7 @@ export default function Questions() {
               setTyped(e.target.value);
               if (e.target.value.trim().length < 2) setSuggestions([]);
             }}
-            placeholder={loved.length ? "Add another place" : "A café, bar or restaurant"}
+            placeholder={loved.length ? "Add another place" : food && doing ? "A café, restaurant, venue or studio" : food ? "A café, bar or restaurant" : "A venue, studio, club or park"}
             aria-label="A place you love"
           />
           {suggestions.length > 0 && typed.trim().length >= 2 && (
@@ -371,14 +374,28 @@ export default function Questions() {
       {current === "vibe" && style && (
         <>
           <h1 className={styles.title}>
-            A good night out <strong>looks like…</strong>
+            {food ? (
+              <>
+                A good night out <strong>looks like…</strong>
+              </>
+            ) : (
+              <>
+                Your kind of <strong>outing</strong>
+              </>
+            )}
           </h1>
           <p className={styles.sub}>Tap one, or both.</p>
           <div className={styles.pair}>
-            {[
-              { side: style.b, pick: "b" as const, title: "Dressed up and polished", sub: "Great cocktails, a stylish crowd" },
-              { side: style.a, pick: "a" as const, title: "Easy and casual", sub: "Come as you are, great food" },
-            ].map(({ side, pick, title, sub }) => (
+            {(food
+              ? [
+                  { side: style.b, pick: "b" as const, title: "Dressed up and polished", sub: "Great cocktails, a stylish crowd" },
+                  { side: style.a, pick: "a" as const, title: "Easy and casual", sub: "Come as you are, great food" },
+                ]
+              : [
+                  { side: style.a, pick: "a" as const, title: "Get moving", sub: "A dance class, a game, a hike" },
+                  { side: style.b, pick: "b" as const, title: "Slow down", sub: "Pottery, a book club, a gallery" },
+                ]
+            ).map(({ side, pick, title, sub }) => (
               <button key={side.id} type="button" aria-pressed={styleChoice(side.id)} className={`${styles.side} ${styleChoice(side.id) ? styles.sideOn : ""}`} onClick={() => chooseSide(style, pick)}>
                 <Image src={side.image} alt="" fill sizes="200px" />
                 <strong>{title}</strong>
