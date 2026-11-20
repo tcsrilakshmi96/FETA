@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Mascot from "@/components/Mascot";
+import { GoogleLine } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { formatDistance } from "@/lib/cities";
 import type { Origin } from "@/lib/origin";
@@ -158,9 +159,8 @@ export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onC
               {pick.event ? (
                 pick.chips[0]
               ) : (
-                <a href={pick.mapsUri} target="_blank" rel="noopener noreferrer" translate="no">
-                  Google Maps
-                </a>
+                // Opening hours, as on the picks list (Round 5 review).
+                <GoogleLine pick={pick} />
               )}
               {pick.photo?.credit && ` · Photo: ${pick.photo.credit}`}
             </small>
