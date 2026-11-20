@@ -1,10 +1,10 @@
 "use client";
 
-import WaitFun from "@/components/WaitFun";
 import { kindLabel } from "@/components/PickDetails";
 import PickPhoto from "@/components/PickPhoto";
 import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
+import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
 import WhatsAppBox from "@/components/WhatsAppBox";
 import { planFromStops } from "@/lib/style-client";

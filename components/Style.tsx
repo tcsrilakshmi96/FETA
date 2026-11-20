@@ -1,11 +1,11 @@
 "use client";
 
-import WaitFun from "@/components/WaitFun";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
 import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
+import WaitFun from "@/components/WaitFun";
 import { loadOrigin } from "@/lib/origin";
 import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/style";
 import { acrossStyles, brandsFor, drawLook, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";

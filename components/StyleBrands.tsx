@@ -154,7 +154,8 @@ export default function StyleBrands() {
                         </span>
                       )}
                       {b.forYou && <span className={s.forYou}>{b.forYou}</span>}
-                      <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>
+                      {/* Feta's line on why it suits them; the research's line only when there isn't one. */}
+                      {!b.forYou && b.why && <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>}
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {fit === true && <span className={s.fits}>✓ In your budget</span>}
                         {fit === false && <span className={s.small}>Mostly above your budget</span>}

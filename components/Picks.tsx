@@ -1,7 +1,5 @@
 "use client";
 
-import WaitFun from "@/components/WaitFun";
-import { loadWants } from "@/lib/profile";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
@@ -14,8 +12,10 @@ import TabBar from "@/components/TabBar";
 import TellFeta from "@/components/TellFeta";
 import type { PillPart } from "@/components/TopPill";
 import { useToast } from "@/components/Toast";
+import WaitFun from "@/components/WaitFun";
 import { removeTweakLines, savePickAction, saveTweakLines } from "@/lib/db";
 import { loadAnswers, type Answers } from "@/lib/onboarding";
+import { loadWants } from "@/lib/profile";
 import { removeLine } from "@/lib/profile-client";
 import { loadSwipes } from "@/lib/swipes";
 import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";

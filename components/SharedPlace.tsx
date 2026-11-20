@@ -1,9 +1,9 @@
 "use client";
 
-import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { livePlace } from "@/lib/my-places";
 import styles from "./SharedPlace.module.css";
 
 type Shared = { name: string; area: string; mapsUri: string; photo: string | null; credit: string | null };

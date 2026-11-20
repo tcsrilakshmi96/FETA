@@ -1,10 +1,10 @@
 "use client";
 
-import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatDistance } from "@/lib/cities";
+import { livePlace } from "@/lib/my-places";
 import { clock } from "@/lib/plan";
 import { castVote, loadShare, loadVotes, type ChoicePayload, type ShareKind, type SharePayload, type ShareStop, type Vote } from "@/lib/share-client";
 import styles from "./GroupShare.module.css";

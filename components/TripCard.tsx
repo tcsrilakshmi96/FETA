@@ -1,6 +1,5 @@
 "use client";
 
-import { livePlace } from "@/lib/my-places";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import ItineraryView from "@/components/ItineraryView";
@@ -8,6 +7,7 @@ import PickPhoto from "@/components/PickPhoto";
 import { useToast } from "@/components/Toast";
 import type { City } from "@/lib/cities";
 import { formatMoney } from "@/lib/currency";
+import { livePlace } from "@/lib/my-places";
 import type { Pick } from "@/lib/picks-client";
 import type { Itinerary } from "@/lib/server/itinerary";
 import type { SavedDay } from "@/lib/server/trip";

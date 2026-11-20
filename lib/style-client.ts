@@ -300,10 +300,18 @@ type Row = {
 
 // Research notes meant for the founder, not for people ("(MX URL live,
 // bot-blocked to scripts)", "Viewed catalog:"), taken out of what's shown.
+// The research's notes, as a line about the clothes: no prices or where
+// it's stocked (audit, 20 Nov 2026: "2,499 to 3,499 INR; Shoppers Stop…").
 function cleanCues(t: string) {
   return t
     .replace(/\([^)]*(url|bot|script|verified|evidence|blocked|checked|pending|inspected|own page|document)[^)]*\)/gi, "")
     .replace(/^(viewed catalog|inspected|observed)\s*:\s*/i, "")
+    .split(/;\s*/)
+    .map((part) => part.replace(/[,(]?\s*(?:[₹$€£]|\b(?:INR|USD|EUR|GBP|AED|Rs\.?)\b)\s*[\d,.]+.*$|[,(]?\s*\b[\d,.]+\s*(?:to|–|-)\s*[\d,.]+\s*(?:INR|USD|EUR|GBP|AED|Rs)\b.*$/i, "").trim())
+    .filter((part) => part && !/\b(stocked|sold at|available at|retail(?:er|s)?|stockists?|marketplace|price[sd]?)\b/i.test(part))
+    // A part that is only names ("Shoppers Stop and Myntra") is where it's sold.
+    .filter((part) => !/^(?:[A-Z][\w'&.-]*(?:\s+|$)|(?:and|&)\s+|,\s*)+$/.test(part))
+    .join("; ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }

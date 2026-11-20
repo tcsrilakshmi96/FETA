@@ -1,10 +1,10 @@
 "use client";
 
-import WaitFun from "@/components/WaitFun";
 import { useEffect, useRef, useState } from "react";
 import Mascot from "@/components/Mascot";
 import { Figure, Line, Logo, vars } from "@/components/StyleParts";
 import { useToast } from "@/components/Toast";
+import WaitFun from "@/components/WaitFun";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
 import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, figureHalf, lookImage, styleById, type Wears } from "@/lib/style";

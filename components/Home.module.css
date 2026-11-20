@@ -226,8 +226,6 @@
 .styleLead { grid-area: 1 / 1 / 4 / 7; border-radius: 32px; animation-delay: 0.05s; }
 .styleLead .tileTitle { font-size: 26px; }
 .planArea { grid-area: 4 / 4 / 6 / 7; border-radius: 28px; animation-delay: 0.22s; }
-.ask { background: var(--sheet); color: var(--ink); }
-.ask .kick { color: var(--roseText); }
 .trip {
   width: 100%;
   min-height: 96px;

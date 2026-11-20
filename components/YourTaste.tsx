@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
+import FirstTime from "@/components/FirstTime";
 import { saveSwipesToDb } from "@/lib/db";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, spendText, toggleSpend, type Answers } from "@/lib/onboarding";
+import { loadWants, type Want } from "@/lib/profile";
 import { addLine, removeLine, type Line } from "@/lib/profile-client";
 import { cuisinesFor, loadSwipes, saveSwipes, typedCuisines, type Swipe } from "@/lib/swipes";
 import { changingTaste } from "@/lib/picks-store";
@@ -47,6 +49,11 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
   const [typed, setTyped] = useState({ food: "", do: "" });
   const [ask, setAsk] = useState<{ diet: string; text: string } | null>(null);
   const [saved, setSaved] = useState<{ section: Section; text: string } | null>(null);
+  // A category they didn't choose is a short card that asks its questions
+  // (founder, 20 Nov 2026: You showed diet and cuisines to someone who only
+  // chose things to do). Spend, distance and drinks sit with the one they chose.
+  const [wants, setWants] = useState<Want[] | null>(null);
+  const [firstTime, setFirstTime] = useState<"food" | "do" | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -54,6 +61,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     setAnswers(loadAnswers());
     setSwipes(loadSwipes());
     setCity(loadCity());
+    setWants(loadWants());
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
@@ -246,8 +254,37 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     </p>
   );
 
+  // Before wants are read (and for people from before wants), both show.
+  const food = !wants || !wants.length || wants.includes("food");
+  const doing = !wants || !wants.length || wants.includes("do");
+  const notChosen = (want: "food" | "do") => (
+    <section className={styles.card}>
+      <h2>{want === "food" ? "Food & drinks" : "Things to do"}</h2>
+      <p className={styles.label}>{want === "food" ? "Want Feta to find places to eat and drink too? A few quick questions first." : "Want Feta to find things to do too? One quick question first."}</p>
+      <button type="button" className={styles.link} onClick={() => setFirstTime(want)}>
+        {want === "food" ? "Add places to eat and drink ›" : "Add things to do ›"}
+      </button>
+    </section>
+  );
+
   return (
     <>
+      {firstTime && (
+        <FirstTime
+          want={firstTime}
+          onClose={() => setFirstTime(null)}
+          onDone={() => {
+            setFirstTime(null);
+            setWants(loadWants());
+            setAnswers(loadAnswers());
+            setSwipes(loadSwipes());
+            void onChange();
+          }}
+        />
+      )}
+      {!food ? (
+        notChosen("food")
+      ) : (
       <section className={styles.card}>
         <h2>Food &amp; drinks</h2>
         <p className={styles.label}>Feta always follows</p>
@@ -302,9 +339,19 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
         )}
         {status("food")}
       </section>
+      )}
 
+      {!doing ? (
+        notChosen("do")
+      ) : (
       <section className={styles.card}>
         <h2>Things to do</h2>
+        {!food && (
+          <>
+            <p className={styles.label}>Feta always follows</p>
+            <div className={styles.rules}>{(["spend", "distance", "drinks"] as const).map(rule)}</div>
+          </>
+        )}
         <p className={styles.label}>You&apos;re into</p>
         <span className={styles.chips}>
           {interests.map((o) => {
@@ -332,6 +379,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
         </form>
         {status("do")}
       </section>
+      )}
 
       <section className={styles.card}>
         <h2>How you go out</h2>

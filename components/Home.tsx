@@ -1,7 +1,7 @@
 "use client";
 
-import WaitFun from "@/components/WaitFun";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
@@ -18,6 +18,7 @@ import PlanSheet from "@/components/PlanSheet";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import TesterForm from "@/components/TesterForm";
+import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
 import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
@@ -26,7 +27,7 @@ import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
-import { loadName, loadWants, type Want } from "@/lib/profile";
+import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { offerWearFor, planFromStops } from "@/lib/style-client";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
@@ -243,13 +244,19 @@ export default function Home() {
     );
   }
 
-  // A category they didn't choose: its questions first, no picks yet.
+  // A category they didn't choose: its questions first, no picks yet. The
+  // same photo as its tile in setup (audit, 20 Nov 2026: it was a blank card).
   function askTile(c: Category, className: string) {
+    const want = WANTS.find((w) => w.id === (c === "food_drinks" ? "food" : "do"))!;
     return (
-      <button type="button" className={`${styles.tile} ${styles.ask} ${className}`} onClick={() => open(c)}>
-        <span className={styles.kick}>{c === "food_drinks" ? "FOOD & DRINKS" : "THINGS TO DO"}</span>
-        <span className={styles.tileTitle}>{c === "food_drinks" ? "Places to eat and drink" : "Things to do"}</span>
-        <span className={styles.tileSub}>Tell Feta what you like ›</span>
+      <button type="button" className={`${styles.tile} ${styles.cover} ${className}`} onClick={() => open(c)}>
+        <Image src={want.image!} alt="" fill sizes="(max-width: 430px) 50vw, 215px" className="kenburns" />
+        <span className={styles.shade} />
+        <span className={styles.coverText}>
+          <span className={styles.kick}>{c === "food_drinks" ? "FOOD & DRINKS" : "THINGS TO DO"}</span>
+          <span className={styles.coverName}>{want.label}</span>
+          <span className={styles.coverSub}>Tell Feta what you like ›</span>
+        </span>
       </button>
     );
   }
