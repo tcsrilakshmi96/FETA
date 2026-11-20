@@ -17,7 +17,7 @@ import styles from "./Welcome.module.css";
 const SLIDES = [
   { kick: "Meet Feta", head: "Where should we go tonight?", em: "Ask Feta.", sub: "Where to eat, what to do and what to wear. Picked for you.", photo: "/welcome.jpg" },
   { kick: "Feta does the homework", head: "Reviews, opening hours,", em: "your budget.", sub: "Feta checks it all, so you only choose between places that already fit you.", photo: "/swipes/night.jpg" },
-  { kick: "Your travel planner", head: "Trips,", em: "planned for you.", sub: "Any city, day by day, to your taste.", photo: "/swipes/local.jpg" },
+  { kick: "Your travel planner", head: "Trips,", em: "planned for you.", sub: "Any city, day by day, to your taste.", photo: "/swipes/trip.jpg" },
 ];
 
 export default function Welcome() {

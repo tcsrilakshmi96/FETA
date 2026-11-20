@@ -41,3 +41,10 @@ Free photos from [Unsplash](https://unsplash.com) under the Unsplash License.
 | veg-thai.jpg | [photo-1761315412830-2f59480377b0](https://unsplash.com/photos/a-close-up-of-a-green-curry-with-mushrooms-and-chili-rhR7wf0aH28) | Diego Arenas de Rodrigo |
 | veg-world-street.jpg | [photo-1791410316072-66f46a8a3ec1](https://unsplash.com/photos/spiced-potatoes-and-tofu-street-food-Wt--VACCILU) | Zoshua Colah |
 | veg-world-spicy.jpg | [photo-1736680056470-948527554276](https://unsplash.com/photos/a-large-pot-of-food-on-a-table-XCL-jHI4BTU) | Nosh Caterers |
+
+## Welcome and trips (founder's picks, 20 Nov 2026)
+
+| File | Photo | Photographer |
+|---|---|---|
+| ../welcome.jpg | [UEjjO-aJtZ8](https://unsplash.com/photos/people-enjoying-a-candlelit-dinner-at-a-dimly-lit-restaurant-UEjjO-aJtZ8), friends at a candlelit dinner (cropped) | Unsplash License |
+| trip.jpg | The Lisbon tram, formerly the welcome photo | Unsplash License |
