@@ -38,6 +38,8 @@ export default function StyleSetup() {
   const [browse, setBrowse] = useState(false);
   const [front, setFront] = useState<string | null>(null); // the style standing in front of the lineup
   const [cues, setCues] = useState<string[]>([]);
+  const [editing, setEditing] = useState(false); // they have a style already: any step can be opened
+  const swipe = useRef<number | null>(null);
   const [reading, setReading] = useState(false);
   const [readCount, setReadCount] = useState(0); // photos already read into the styles
   const [drawn, setDrawn] = useState<Record<string, string>>({});
@@ -60,6 +62,7 @@ export default function StyleSetup() {
   useEffect(() => {
     loadStyleProfile().then((p) => {
       if (!p) return;
+      setEditing(p.styles.length > 0);
       setWears(p.wears);
       setStyles(p.styles);
       setBudget(p.budget.length ? p.budget : ["c2"]);
@@ -177,7 +180,14 @@ export default function StyleSetup() {
     <main className={s.screen}>
       <div className={s.page}>
         <StyleTop back={step === 1 ? "/home" : () => setStep((step - 1) as Step)} backLabel={step === 1 ? "Home" : "Back"} right={<span style={{ width: 70 }} />} />
-        <span className={s.step}>STEP {step} OF 5</span>
+        <div className={s.steps} aria-label="Steps">
+          {([1, 2, 3, 4, 5] as Step[]).map((n) => (
+            <button key={n} type="button" className={`${s.stepDot} ${step === n ? s.stepOn : ""}`} aria-current={step === n ? "step" : undefined} disabled={!editing && n > step} onClick={() => setStep(n)}>
+              {n}
+            </button>
+          ))}
+          <span className={s.step} style={{ marginLeft: 6 }}>{["", "SHOP FOR · PHOTOS", "ON YOU", "YOUR STYLES", "BRANDS YOU LOVE", "BUDGET"][step]}</span>
+        </div>
 
         {step === 1 && (
           <>
@@ -234,6 +244,7 @@ export default function StyleSetup() {
               </span>
             </div>
             <input ref={files} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ""))} />
+            {editing && !photos.length && <p className={s.small}>Your styles are saved. Add new photos to read them again, or go straight to any step above.</p>}
             <div className={s.bottomBar}>
               <button type="button" className={s.primary} onClick={() => setStep(2)}>
                 {photos.length ? `Next · ${photos.length} photo${photos.length === 1 ? "" : "s"}` : "Next"}
@@ -315,19 +326,33 @@ export default function StyleSetup() {
             ) : (
               (() => {
                 const frontId = front && styles.includes(front) ? front : styles[0];
-                const behind = styles.filter((id) => id !== frontId);
+                // The ones after the front come next, wrapping round; three at most stand behind.
+                const at = frontId ? styles.indexOf(frontId) : 0;
+                const behind = [...styles.slice(at + 1), ...styles.slice(0, at)];
                 const fan = [["-160px", "-60px", "-14deg"], ["140px", "-120px", "12deg"], ["-60px", "160px", "-8deg"], ["180px", "90px", "10deg"]];
                 const from = frontId ? (seenIn[frontId] ?? []) : [];
                 return (
                   <>
                     {/* The lineup: their styles, one in front; tap one behind to bring it forward. */}
-                    <div className={`${s.stage} ${s.lineup}`} style={{ margin: 0, height: 400 }}>
+                    <div
+                      className={`${s.stage} ${s.lineup}`}
+                      style={{ margin: 0, height: 400, touchAction: "pan-y" }}
+                      onTouchStart={(e) => (swipe.current = e.touches[0].clientX)}
+                      onTouchEnd={(e) => {
+                        // Swipe through their styles (founder: "I am not able to see the 4th one I am adding").
+                        const dx = swipe.current === null ? 0 : e.changedTouches[0].clientX - swipe.current;
+                        swipe.current = null;
+                        if (Math.abs(dx) < 40 || !frontId) return;
+                        const i = styles.indexOf(frontId);
+                        setFront(styles[(i + (dx < 0 ? 1 : styles.length - 1)) % styles.length]);
+                      }}
+                    >
                       {frontId ? (
                         <>
                           <span key={`big-${frontId}`} className={`${s.big} ${s.rise}`} style={{ top: 18, left: -8, right: "auto", alignItems: "flex-start", fontSize: (styleById(frontId)?.big.length ?? 0) > 5 ? 72 : 100, color: "rgba(26,22,22,0.12)" }}>
                             {styleById(frontId)?.big}
                           </span>
-                          {behind.map((id, j) => {
+                          {behind.slice(0, 3).map((id, j) => {
                             const h = Math.round(270 * Math.pow(0.8, j));
                             const lens = styleById(id)!;
                             const half = drawn[id] ? "drawn" : figureHalf(lens, wears);
@@ -344,6 +369,13 @@ export default function StyleSetup() {
                           })}
                           <Figure key={`front-${frontId}-${drawn[frontId] ? 1 : 0}`} style={frontId} wears={wears} drawn={drawn[frontId]} height={drawn[frontId] ? 350 : 340} pos={{ left: 10, marginLeft: 0, bottom: 30, zIndex: 10 }} />
                           {drawing[frontId] && <span className={s.drawingNote}>Drawing you…</span>}
+                          {styles.length > 1 && (
+                            <span className={s.lineupDots}>
+                              {styles.map((id) => (
+                                <button key={id} type="button" className={id === frontId ? s.dotOn : ""} aria-label={styleById(id)?.name} onClick={() => setFront(id)} />
+                              ))}
+                            </span>
+                          )}
                           <span className={s.lookCount}>
                             LOOK {String(styles.indexOf(frontId) + 1).padStart(2, "0")} / {String(styles.length).padStart(2, "0")}
                           </span>

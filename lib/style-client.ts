@@ -171,8 +171,8 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
 }
 
 // One idea at a time; kept for the day so opening Style again costs nothing.
-export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
-  const key = `feta.outfit:${localDay(new Date())}:${ask.occasion ?? "plan"}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
+export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
+  const key = `feta.outfit:${localDay(new Date())}:${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
   try {
     const kept = sessionStorage.getItem(key);
     if (kept) return JSON.parse(kept);
@@ -184,6 +184,7 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
     styles: ask.styles,
     wears: ask.wears,
     occasion: ask.plan ? null : ask.occasion,
+    vibe: ask.plan ? null : ask.vibe,
     stops: ask.plan?.stops ?? [],
     walkKm: ask.plan?.walkKm ?? null,
     cityId: ask.cityId,
@@ -441,4 +442,16 @@ export function acrossStyles(cards: BrandCard[], styles: string[], n: number): B
     }
   }
   return out;
+}
+
+// The suggested outfit drawn (on them when they added their photo), kept on
+// this phone so the same idea is never drawn twice.
+export async function drawLook(o: Outfit, wears: Wears): Promise<string | null> {
+  const key = `look:${wears}:${o.title}:${o.pieces.top}:${o.pieces.bottom}:${o.pieces.shoes}`;
+  const kept = await fromPhone(key);
+  if (kept) return kept;
+  const photo = await fromPhone("selfie");
+  const r = await post<{ image?: string }>("/api/style/draw", { style: o.style, outfit: { title: o.title, pieces: o.pieces }, wears, photo });
+  if (r?.image) await keepOnPhone(key, r.image);
+  return r?.image ?? null;
 }

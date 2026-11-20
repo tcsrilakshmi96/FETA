@@ -7,7 +7,7 @@ import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
 import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/style";
-import { acrossStyles, brandsFor, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
+import { acrossStyles, brandsFor, drawLook, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Style home (founder, 20 Nov 2026), one job per part:
@@ -25,6 +25,10 @@ export default function Style() {
   const [profile, setProfile] = useState<StyleProfile | null | undefined>(undefined);
   const [plan, setPlan] = useState<TonightPlan | null | undefined>(undefined);
   const [occasion, setOccasion] = useState<Occasion | null>(null);
+  const [vibe, setVibe] = useState<string | null>(null); // what kind of dinner, drinks… (founder: "it never asked me what kind of dinner")
+  const [own, setOwn] = useState("");
+  const [look, setLook] = useState<string | null>(null); // the idea drawn
+  const [drawingLook, setDrawingLook] = useState(false);
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
@@ -61,7 +65,7 @@ export default function Style() {
   }, [router]);
 
   const think = useCallback(
-    async (p: StyleProfile, o: Occasion | null, tonight: TonightPlan | null, avoid: string[], usedStyles: string[] = []) => {
+    async (p: StyleProfile, o: Occasion | null, tonight: TonightPlan | null, avoid: string[], usedStyles: string[] = [], kind: string | null = null) => {
       if (!origin) return;
       setThinking(true);
       setNotice(null);
@@ -69,6 +73,7 @@ export default function Style() {
         styles: p.styles,
         wears: p.wears,
         occasion: o,
+        vibe: kind,
         plan: tonight,
         cityId: origin.city.id,
         avoid,
@@ -81,6 +86,12 @@ export default function Style() {
       setLeaving(false);
       if (r?.outfit) {
         setOutfit(r.outfit);
+        // Draw this exact outfit (the style's own picture shows a different one).
+        setLook(null);
+        setDrawingLook(true);
+        const drawnLook = await drawLook(r.outfit, p.wears);
+        setDrawingLook(false);
+        setLook(drawnLook);
         setShown((x) => [...x, r.outfit!.title]);
         setShownStyles((x) => [...x, r.outfit!.style]);
       } else setNotice(r?.notice ?? "Feta couldn't think of a look just now.");
@@ -98,16 +109,21 @@ export default function Style() {
 
   function pick(o: Occasion) {
     setOccasion(o);
+    setVibe(null);
+  }
+
+  function pickKind(kind: string) {
+    setVibe(kind);
     setShown([]);
     setShownStyles([]);
     setOutfit(null);
-    think(profile!, o, null, []);
+    think(profile!, occasion, null, [], [], kind);
   }
 
   function another() {
     if (!outfit) return;
     setLeaving(true);
-    setTimeout(() => think(profile!, occasion, plan ?? null, shown, shownStyles), 300);
+    setTimeout(() => think(profile!, occasion, plan ?? null, shown, shownStyles, vibe), 300);
   }
 
   async function vote(verdict: "love" | "not_me") {
@@ -119,7 +135,8 @@ export default function Style() {
   }
 
   const loved = outfit && profile.votes.some((v) => v.look === outfit.title && v.verdict === "love");
-  const heading = plan ? `For your plan: ${plan.title}` : occasion ? `For ${OCCASIONS.find((o) => o.id === occasion)?.label.toLowerCase()}` : "Heading out tonight?";
+  const occ = OCCASIONS.find((o) => o.id === occasion);
+  const heading = plan ? `For your plan: ${plan.title}` : occ ? `${occ.label}${vibe ? ` · ${vibe.toLowerCase()}` : ""}` : "Heading out tonight?";
   const lineBrands = acrossStyles(brands ?? [], profile.styles, 5);
 
   return (
@@ -142,7 +159,19 @@ export default function Style() {
                   <span>{outfit.big1}</span>
                   <i>{outfit.big2}</i>
                 </div>
-                <Figure key={`fig-${outfit.title}`} style={outfit.style} wears={profile.wears} drawn={drawn[outfit.style]} height={330} spots={outfit.pieces} leaving={leaving} pos={{ zIndex: 2 }} />
+                {look ? (
+                  <Figure key={`fig-${outfit.title}`} style={outfit.style} wears={profile.wears} drawn={look} height={330} spots={outfit.pieces} leaving={leaving} pos={{ zIndex: 2 }} label={`${outfit.title}: ${outfit.pieces.top}, ${outfit.pieces.bottom}, ${outfit.pieces.shoes}`} />
+                ) : (
+                  <div className={s.lookWait}>
+                    {drawingLook && <span className={s.drawingWait} aria-hidden="true" />}
+                    <span className={s.lookPieces}>
+                      <span>{outfit.pieces.top}</span>
+                      <span>{outfit.pieces.bottom}</span>
+                      <span>{outfit.pieces.shoes}</span>
+                    </span>
+                    <span className={s.small} style={{ color: "#1a1616" }}>{drawingLook ? "Drawing this look…" : ""}</span>
+                  </div>
+                )}
               </>
             ) : thinking ? (
               <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
@@ -152,19 +181,38 @@ export default function Style() {
             ) : (
               <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 12, zIndex: 3 }}>
                 <span className={s.small} style={{ color: "#1a1616", opacity: 0.75 }}>
-                  {notice ?? "No plan saved for today. Where are you going?"}
+                  {notice ?? (occ ? `What kind of ${occ.label.toLowerCase()}?` : "No plan saved for today. Where are you going?")}
                 </span>
-                <div className={s.chips}>
-                  {OCCASIONS.map((o) => (
-                    <button key={o.id} type="button" className={s.chip} style={{ borderColor: "#1a1616", background: "#fff", color: "#1a1616" }} onClick={() => pick(o.id)}>
-                      {o.label}
+                {occ ? (
+                  <>
+                    <div className={s.chips}>
+                      {occ.kinds.map((k) => (
+                        <button key={k} type="button" className={s.chip} style={{ borderColor: "#1a1616", background: "#fff", color: "#1a1616" }} onClick={() => pickKind(k)}>
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                    <form className={s.ownKind} onSubmit={(e) => { e.preventDefault(); if (own.trim()) pickKind(own.trim()); }}>
+                      <input value={own} onChange={(e) => setOwn(e.target.value)} placeholder="Or say it, e.g. rooftop with work friends" aria-label="What kind of outing" maxLength={60} />
+                      <button type="submit" disabled={!own.trim()}>Go</button>
+                    </form>
+                    <button type="button" className={s.small} style={{ alignSelf: "flex-start", color: "#1a1616" }} onClick={() => setOccasion(null)}>
+                      ‹ Somewhere else
                     </button>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <div className={s.chips}>
+                    {OCCASIONS.map((o) => (
+                      <button key={o.id} type="button" className={s.chip} style={{ borderColor: "#1a1616", background: "#fff", color: "#1a1616" }} onClick={() => pick(o.id)}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {/* Their styles stand behind the question, so the stage isn't empty. */}
-            {!outfit && !thinking && (
+            {!outfit && !thinking && !occ && (
               <div aria-hidden="true" style={{ position: "absolute", right: 0, top: 56, height: 150, width: "62%", opacity: 0.9 }}>
                 {profile.styles.slice(0, 3).map((id, i) => (
                   <Figure key={id} style={id} wears={profile.wears} drawn={drawn[id]} height={150 - i * 22} pos={{ left: `${30 + i * 26}%`, zIndex: 3 - i, opacity: 1 - i * 0.2, animationDelay: `${i * 0.1}s` }} />
@@ -195,7 +243,7 @@ export default function Style() {
                 </button>
               </div>
               {!plan && (
-                <button type="button" className={s.quiet} style={{ padding: 0, textAlign: "left" }} onClick={() => { setOutfit(null); setOccasion(null); }}>
+                <button type="button" className={s.quiet} style={{ padding: 0, textAlign: "left" }} onClick={() => { setOutfit(null); setOccasion(null); setVibe(null); setLook(null); }}>
                   Going somewhere else? Change
                 </button>
               )}

@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     styles,
     wears: body.wears === "men" || body.wears === "both" ? body.wears : "women",
     occasion: OCCASIONS.some((o) => o.id === body.occasion) ? body.occasion! : null,
+    vibe: body.vibe ? String(body.vibe).slice(0, 60) : null,
     stops: (body.stops ?? []).slice(0, 5).map((s) => ({ name: String(s.name).slice(0, 60), kind: String(s.kind).slice(0, 40), time: s.time ? String(s.time).slice(0, 10) : undefined })),
     walkKm: typeof body.walkKm === "number" && Number.isFinite(body.walkKm) ? body.walkKm : null,
     city: cityById(body.cityId)?.name ?? "their city",

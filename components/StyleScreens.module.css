@@ -650,6 +650,51 @@
   letter-spacing: 0.24em;
   color: rgba(26, 22, 22, 0.6);
 }
+/* Setup steps as dots: once they have a style, any step can be opened. */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.stepDot {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(var(--inkRGB), 0.3);
+  font-size: 12px;
+  color: rgba(var(--inkRGB), 0.7);
+}
+.stepDot:disabled {
+  opacity: 0.35;
+}
+.stepOn {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+.lineupDots {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  z-index: 12;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.lineupDots button {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(26, 22, 22, 0.25);
+  padding: 0;
+}
+.lineupDots .dotOn {
+  width: 20px;
+  border-radius: 4px;
+  background: #1a1616;
+}
 .allStyles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -821,6 +866,51 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+/* While the outfit is being drawn: its pieces, big, on the stage. */
+.lookWait {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 190px;
+  bottom: 16px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.lookPieces {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 20px;
+  color: #1a1616;
+}
+.ownKind {
+  display: flex;
+  gap: 6px;
+}
+.ownKind input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #1a1616;
+  background: #fff;
+  color: #1a1616;
+  font-size: 16px; /* 16px so iPhones don't zoom in */
+}
+.ownKind button {
+  padding: 0 16px;
+  border-radius: 20px;
+  background: #1a1616;
+  color: #fff;
+  font-size: 14px;
+}
+.ownKind button:disabled {
+  opacity: 0.35;
 }
 .forYou {
   font-size: 12.5px;

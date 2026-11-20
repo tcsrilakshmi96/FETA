@@ -107,10 +107,30 @@ Keep the person recognisably themselves: face, skin tone, hair and body exactly 
   return `data:${img.mime_type ?? img.mimeType ?? "image/png"};base64,${img.data}`;
 }
 
+// The outfit Feta suggested, drawn (founder, 20 Nov 2026: the idea said a
+// sleeveless knit top while the picture showed a streetwear figure in
+// cargos): on them when they added their photo, else a figure in the same
+// illustration style. About ₹4 an idea.
+export async function drawOutfit(o: { pieces: { top: string; bottom: string; shoes: string }; title: string; wears: Wears }, reference: string, photo: string | null): Promise<string> {
+  if (FAKE) return reference;
+  track("gemini_image");
+  const who = photo ? "the person in the FIRST image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)" : `one ${o.wears === "men" ? "man" : o.wears === "both" ? "person" : "woman"}`;
+  const prompt = `Make a fashion illustration of ${who}, full body, standing, alone, on a plain light grey background, in exactly the same illustration style as the ${photo ? "SECOND" : ""} reference image (soft hand-drawn fashion illustration, natural proportions).
+They wear exactly this outfit ("${o.title}"): top: ${o.pieces.top}; bottom: ${o.pieces.bottom}; shoes: ${o.pieces.shoes}. Nothing from the reference's outfit unless it matches these pieces.
+No text, no logos, no other people.`;
+  const parts = photo ? [{ text: prompt }, inline(photo), inline(reference)] : [{ text: prompt }, inline(reference)];
+  const data = await gemini("gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
+  const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
+  const img = part?.inline_data ?? part?.inlineData;
+  if (!img?.data) throw new Error("No drawing came back");
+  return `data:${img.mime_type ?? img.mimeType ?? "image/png"};base64,${img.data}`;
+}
+
 export type OutfitAsk = {
   styles: string[];
   wears: Wears;
   occasion: Occasion | null;
+  vibe: string | null; // what kind: "Date night", "Club / dancing", or their own words
   stops: { name: string; kind: string; time?: string }[]; // tonight's plan, if any
   walkKm: number | null;
   city: string;
@@ -131,12 +151,14 @@ export async function outfitIdea(ask: OutfitAsk): Promise<Outfit> {
   const fresh = mine.filter((m) => !ask.usedStyles.includes(m.id));
   track("gemini_rank");
   const what = ask.stops.length ? `Their plan: ${ask.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${ask.walkKm ? ` About ${ask.walkKm.toFixed(1)} km on foot between stops.` : ""}` : ask.occasion ? `They are ${OCCASION_WORDS[ask.occasion]}.` : "They haven't said where they're going.";
+  const kind = ask.vibe ? `What kind of outing: ${ask.vibe}. Dress for exactly that (a fun, loud place is not a formal dinner).` : "";
   const prompt = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
 Their styles: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}.
 ${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.usedStyles.length && fresh.length ? `Base this idea on one of these styles of theirs, not used yet: ${fresh.map((m) => m.id).join(", ")}.\n` : ""} They wear ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
 ${what}
+${kind}
 ${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
-Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not exact items, brands or colours. Plain, warm, short. Never comment on body, size or looks.
+Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not brands or colours. "style" must be the one of their styles the pieces really belong to. Plain, warm, short. Never comment on body, size or looks.
 Reply with only JSON: {"style": the style id it is based on (one of theirs), "title": 2 to 4 words, e.g. "Smart casual" or "Streetwear, dressed up", "big1": one word in capitals for a poster, e.g. "SMART", "big2": one or two lowercase words, e.g. "casual", "line": one or two sentences on why it suits tonight, "pieces": {"top": 2 to 5 words, "bottom": 2 to 5 words, "shoes": 2 to 6 words}, "chips": 2 to 4 short facts it is based on, e.g. "Relaxed brewpub", "900 m walk", "Late dinner"}`;
   const data = await gemini("gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
   const o = JSON.parse(textOf(data)) as Outfit;

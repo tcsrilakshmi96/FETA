@@ -116,9 +116,9 @@ export type Outfit = {
 };
 
 export type Occasion = "dinner" | "drinks" | "do" | "day";
-export const OCCASIONS: { id: Occasion; label: string }[] = [
-  { id: "dinner", label: "Dinner" },
-  { id: "drinks", label: "Drinks" },
-  { id: "do", label: "Something to do" },
-  { id: "day", label: "Just a day look" },
+export const OCCASIONS: { id: Occasion; label: string; kinds: string[] }[] = [
+  { id: "dinner", label: "Dinner", kinds: ["Casual", "Date night", "Fancy", "Fun and loud"] },
+  { id: "drinks", label: "Drinks", kinds: ["Chill bar", "Rooftop", "Club or dancing", "House party"] },
+  { id: "do", label: "Something to do", kinds: ["Gig or show", "Active", "Day out", "Hanging out"] },
+  { id: "day", label: "Just a day look", kinds: ["Work", "Errands", "Brunch", "Travel"] },
 ];
