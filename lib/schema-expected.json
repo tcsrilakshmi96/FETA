@@ -383,5 +383,15 @@
   "kind": "table",
   "name": "style_research",
   "file": "20261120100000_style_brands.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_profiles",
+  "file": "20261120130000_style_profiles.sql"
+ },
+ {
+  "kind": "table",
+  "name": "saved_brands",
+  "file": "20261120130000_style_profiles.sql"
  }
 ]

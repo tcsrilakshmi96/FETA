@@ -1,0 +1,280 @@
+"use client";
+
+import type { City } from "@/lib/cities";
+import { distanceKm } from "@/lib/cities";
+import { fetchNightPlaces, loadPlans, localDay } from "@/lib/night-client";
+import { currentUserId, supabase } from "@/lib/supabase";
+import type { Occasion, Outfit, Wears } from "@/lib/style";
+
+// Style on the phone (founder, 20 Nov 2026): the person's style profile,
+// photos made small before they're read, their drawings (kept only on this
+// phone, never on Feta's servers), brands from the library, and what to
+// wear tonight.
+
+export type StyleProfile = {
+  wears: Wears;
+  styles: string[];
+  readFromPhotos: number;
+  budget: string[];
+  homegrownOnly: boolean;
+  onYou: boolean;
+  votes: { look: string; verdict: "love" | "not_me"; at: string }[];
+};
+
+async function token() {
+  await currentUserId();
+  const { data } = await supabase().auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+async function post<T>(path: string, body: unknown): Promise<T | null> {
+  const t = await token();
+  if (!t) return null;
+  try {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body) });
+    return res.ok ? ((await res.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function loadStyleProfile(): Promise<StyleProfile | null> {
+  if (!(await currentUserId())) return null;
+  const { data } = await supabase().from("style_profiles").select("*").maybeSingle();
+  if (!data) return null;
+  return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [] };
+}
+
+export async function saveStyleProfile(p: StyleProfile, city: City | null) {
+  const userId = await currentUserId();
+  if (!userId) return;
+  const { error } = await supabase()
+    .from("style_profiles")
+    .upsert({
+      user_id: userId,
+      wears: p.wears,
+      styles: p.styles,
+      read_from_photos: p.readFromPhotos,
+      budget: p.budget,
+      homegrown_only: p.homegrownOnly,
+      on_you: p.onYou,
+      outfit_votes: p.votes.slice(-40),
+      city_id: city?.id ?? null,
+      country: city?.country ?? null,
+      time_zone: city?.timeZone ?? null,
+      currency: city?.currency ?? null,
+      updated_at: new Date().toISOString(),
+    });
+  if (error) console.error("Saving style failed", error.message);
+}
+
+// A photo made small (longest side 900 px, JPEG) so reading is quick and cheap.
+export function shrink(file: File, max = 900): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't open that photo"));
+    };
+    img.src = url;
+  });
+}
+
+export function readStylePhotos(photos: string[], wears: Wears) {
+  return post<{ styles?: { id: string; why: string }[]; notice?: string }>("/api/style/read", { photos, wears });
+}
+
+export function drawStyle(photo: string, style: string) {
+  return post<{ image?: string; notice?: string }>("/api/style/draw", { photo, style });
+}
+
+// Their photo and drawings live in this phone's storage only.
+const DB_NAME = "feta-style";
+function idb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open(DB_NAME, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore("kept");
+    open.onsuccess = () => resolve(open.result);
+    open.onerror = () => reject(open.error);
+  });
+}
+
+export async function keepOnPhone(key: string, value: string | null) {
+  try {
+    const db = await idb();
+    const tx = db.transaction("kept", "readwrite");
+    if (value === null) tx.objectStore("kept").delete(key);
+    else tx.objectStore("kept").put(value, key);
+  } catch {
+    // Private browsing: the drawings simply aren't kept.
+  }
+}
+
+export async function fromPhone(key: string): Promise<string | null> {
+  try {
+    const db = await idb();
+    return await new Promise((resolve) => {
+      const get = db.transaction("kept").objectStore("kept").get(key);
+      get.onsuccess = () => resolve((get.result as string) ?? null);
+      get.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function forgetOnYou() {
+  try {
+    const db = await idb();
+    db.transaction("kept", "readwrite").objectStore("kept").clear();
+  } catch {
+    // Nothing kept.
+  }
+}
+
+// Tonight's saved plan (Saved → Plans), read live: names, kinds and the walk.
+export type TonightPlan = { stops: { name: string; kind: string; time?: string }[]; walkKm: number | null; title: string };
+
+export async function tonightPlan(): Promise<TonightPlan | null> {
+  const today = localDay(new Date());
+  const plan = (await loadPlans()).find((p) => p.day === today);
+  if (!plan) return null;
+  const read = await fetchNightPlaces(plan.placeIds);
+  const places = read?.places ?? [];
+  if (!places.length) return null;
+  const kindWord = { EAT: "dinner", DRINK: "drinks", DO: "something to do" } as const;
+  let walk = 0;
+  for (let i = 1; i < places.length; i++) walk += distanceKm(places[i - 1], places[i]);
+  const h = Math.floor(plan.startMinute / 60);
+  const m = plan.startMinute % 60;
+  const time = `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
+  return {
+    stops: places.map((p, i) => ({ name: p.name, kind: kindWord[p.kind], time: i === 0 ? time : undefined })),
+    walkKm: walk && walk < 3 ? walk : null,
+    title: `${places[0].name} at ${time}${places.length > 1 ? `, then ${places.length === 2 ? places[1].name : `${places.length - 1} more`}` : ""}`,
+  };
+}
+
+// One idea at a time; kept for the day so opening Style again costs nothing.
+export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; plan: TonightPlan | null; cityId: string; avoid: string[]; loved: string[]; notMe: string[] }): Promise<{ outfit?: Outfit; notice?: string } | null> {
+  const key = `feta.outfit:${localDay(new Date())}:${ask.occasion ?? "plan"}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
+  try {
+    const kept = sessionStorage.getItem(key);
+    if (kept) return JSON.parse(kept);
+  } catch {
+    // Not kept.
+  }
+  const localTime = new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date());
+  const res = await post<{ outfit?: Outfit; notice?: string }>("/api/style/outfit", {
+    styles: ask.styles,
+    wears: ask.wears,
+    occasion: ask.plan ? null : ask.occasion,
+    stops: ask.plan?.stops ?? [],
+    walkKm: ask.plan?.walkKm ?? null,
+    cityId: ask.cityId,
+    localTime,
+    avoid: ask.avoid,
+    loved: ask.loved,
+    notMe: ask.notMe,
+  });
+  if (res?.outfit) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(res));
+    } catch {
+      // Not kept.
+    }
+  }
+  return res;
+}
+
+// Brands for their styles that sell in their country, from the library:
+// "ships from abroad" only with international shipping (not offered yet),
+// never a rejected tag. Homegrown = started in that country.
+export type BrandCard = {
+  id: string;
+  name: string;
+  website: string | null;
+  logo: string | null;
+  homegrown: boolean;
+  why: string;
+  style: string;
+  priceFeel: string | null;
+  approved: boolean;
+};
+
+type Row = {
+  style_id: string;
+  association: string;
+  visible_cues: string;
+  review_status: string;
+  brands: { id: string; name: string; website: string | null; logo_url: string | null; origin_country: string | null; wears: string | null; brand_markets: { country: string; presence_type: string; price_feel: string | null }[] };
+};
+
+export async function brandsFor(styles: string[], country: string, wears: Wears): Promise<BrandCard[]> {
+  if (!styles.length || !(await currentUserId())) return [];
+  const { data, error } = await supabase()
+    .from("brand_styles")
+    .select("style_id, association, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets!inner (country, presence_type, price_feel))")
+    .in("style_id", styles)
+    .neq("review_status", "rejected")
+    .eq("brands.brand_markets.country", country);
+  if (error) {
+    console.error("Loading brands failed", error.message);
+    return [];
+  }
+  const fitsWear = (w: string | null) => !w || wears === "both" || w === "unisex" || w === "women+men" || w === wears;
+  return ((data ?? []) as unknown as Row[])
+    .map((r) => ({ r, market: r.brands.brand_markets.find((m) => m.country === country) }))
+    .filter(({ r, market }) => market && market.presence_type !== "ships from abroad" && fitsWear(r.brands.wears))
+    .sort((a, b) => styles.indexOf(a.r.style_id) - styles.indexOf(b.r.style_id) || Number(b.r.review_status === "approved") - Number(a.r.review_status === "approved") || Number(b.r.association === "main") - Number(a.r.association === "main"))
+    .map(({ r, market }) => ({
+      id: r.brands.id,
+      name: r.brands.name,
+      website: r.brands.website,
+      logo: r.brands.logo_url,
+      homegrown: r.brands.origin_country === country,
+      why: r.visible_cues,
+      style: r.style_id,
+      priceFeel: market!.price_feel,
+      approved: r.review_status === "approved",
+    }));
+}
+
+export async function savedBrandIds(): Promise<Set<string>> {
+  if (!(await currentUserId())) return new Set();
+  const { data } = await supabase().from("saved_brands").select("brand_id");
+  return new Set((data ?? []).map((r) => r.brand_id as string));
+}
+
+export async function toggleSavedBrand(b: BrandCard, on: boolean, country: string) {
+  const userId = await currentUserId();
+  if (!userId) return;
+  const db = supabase().from("saved_brands");
+  const { error } = on ? await db.upsert({ user_id: userId, brand_id: b.id, style_id: b.style, country }) : await db.delete().eq("brand_id", b.id);
+  if (error) console.error("Saving brand failed", error.message);
+}
+
+export type SavedBrand = { id: string; name: string; website: string | null; logo: string | null; style: string | null; country: string | null };
+
+export async function loadSavedBrands(): Promise<SavedBrand[]> {
+  if (!(await currentUserId())) return [];
+  const { data } = await supabase().from("saved_brands").select("style_id, country, brands (id, name, website, logo_url)").order("created_at", { ascending: false });
+  return ((data ?? []) as unknown as { style_id: string | null; country: string | null; brands: { id: string; name: string; website: string | null; logo_url: string | null } }[]).map((r) => ({
+    id: r.brands.id,
+    name: r.brands.name,
+    website: r.brands.website,
+    logo: r.brands.logo_url,
+    style: r.style_id,
+    country: r.country,
+  }));
+}

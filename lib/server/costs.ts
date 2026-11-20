@@ -24,6 +24,8 @@ export const PRICE_USD = {
   gemini_rank: 0.001, // ranking and reasons (tokens, roughly)
   gemini_maps: 0.025, // Grounding with Google Maps (What to order)
   gemini_search: 0.035, // Grounding with Google Search, about 2 queries (events)
+  gemini_vision: 0.004, // reading up to 8 inspiration photos into styles (tokens, roughly)
+  gemini_image: 0.045, // one drawing of a person in a style (Gemini image model)
 } as const;
 export type Sku = keyof typeof PRICE_USD;
 
