@@ -21,8 +21,11 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://askfeta.com"),
   title: "Feta",
   description: "Tonight's picks, chosen for your taste.",
+  // The preview a shared link shows on WhatsApp and elsewhere.
+  openGraph: { title: "Feta", description: "Where to eat, what to do and what to wear tonight, chosen for your taste.", url: "https://askfeta.com", siteName: "Feta", images: [{ url: "/og.jpg", width: 1200, height: 630 }] },
   // Added to an iPhone's home screen, Feta opens full-screen as an app.
   appleWebApp: { capable: true, title: "Feta", statusBarStyle: "default" },
 };

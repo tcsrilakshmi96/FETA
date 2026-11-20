@@ -39,6 +39,7 @@ Free photos from [Unsplash](https://unsplash.com) under the Unsplash License.
 | File | Photo | Photographer |
 |---|---|---|
 | ../welcome.jpg | [UEjjO-aJtZ8](https://unsplash.com/photos/people-enjoying-a-candlelit-dinner-at-a-dimly-lit-restaurant-UEjjO-aJtZ8), friends at a candlelit dinner (cropped) | Unsplash License |
+| ../og.jpg | The same photo as welcome.jpg, cropped 1200×630 for link previews | Unsplash License |
 | trip.jpg | The Lisbon tram, formerly the welcome photo | Unsplash License |
 
 ## Founder's picks, round 2 (20 Nov 2026), all free under the Unsplash License
