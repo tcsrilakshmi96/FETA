@@ -29,6 +29,7 @@ import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/
 import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { offerWearFor, planFromStops } from "@/lib/style-client";
+import ThemeToggle from "@/components/ThemeToggle";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
 
@@ -293,7 +294,11 @@ export default function Home() {
               </>
             )}
           </h1>
-          {name && <p className={styles.hello}>Hi {name}!</p>}
+          {/* Light or dark from Home (founder, 21 Nov 2026), the same setting as in You. */}
+          <div className={styles.helloRow}>
+            {name ? <p className={styles.hello}>Hi {name}!</p> : <span />}
+            <ThemeToggle />
+          </div>
           <IphoneInstall />
           <div className={styles.seg} role="tablist" aria-label="When">
             {(["tonight", "weekend"] as const).map((w) => (

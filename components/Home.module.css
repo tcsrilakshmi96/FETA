@@ -34,7 +34,7 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 48px 16px 96px;
+  padding: 30px 16px 96px;
 }
 
 .dateline {
@@ -80,6 +80,18 @@
 
 .acct:active {
   transform: scale(0.92);
+}
+
+.helloRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.helloRow .hello {
+  margin-top: 0;
 }
 
 .hello {
