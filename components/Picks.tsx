@@ -112,7 +112,9 @@ export default function Picks() {
   const [withKids, setWithKids] = useState(false);
   const [compact, setCompact] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
-  const head = useRef<HTMLDivElement>(null);
+  // State, not a ref: the header first appears after loading, and must be
+  // measured then (founder, 21 Nov 2026: it covered half the top photo).
+  const [head, setHead] = useState<HTMLDivElement | null>(null);
   const [headSpace, setHeadSpace] = useState(0);
 
   // The header sits above the list, not in it, and the list keeps room for
@@ -121,14 +123,14 @@ export default function Picks() {
   // shrinks, and it flickered between big and small (tester video, 19 Nov 2026).
   // Measured when the header's size changes, not on every render (audit, 20 Nov 2026).
   useLayoutEffect(() => {
-    const el = head.current;
+    const el = head;
     if (!el || compact) return;
     const measure = () => setHeadSpace(el.offsetHeight);
     measure();
     const watch = new ResizeObserver(measure);
     watch.observe(el);
     return () => watch.disconnect();
-  }, [compact]);
+  }, [head, compact]);
 
   useEffect(() => {
     const saved = loadOrigin();
@@ -305,7 +307,7 @@ export default function Picks() {
   return (
     <main className={styles.screen}>
       {/* The header shrinks to one line once the list scrolls (testers: it took 40% of the screen). */}
-      <div ref={head} className={`${styles.head} ${compact ? styles.compact : ""}`}>
+      <div ref={setHead} className={`${styles.head} ${compact ? styles.compact : ""}`}>
         <div className={styles.top}>
           <div className={styles.segment} role="tablist" aria-label="When">
             <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
