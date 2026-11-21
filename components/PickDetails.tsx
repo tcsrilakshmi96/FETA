@@ -161,7 +161,8 @@ export default function PickDetails({
                   </p>
                 )}
                 <p className={styles.sources}>
-                  From reviews on{" "}
+                  {/* Sources' own titles ("Review of …"), so not "From reviews on Review of…" (Round 6). */}
+                  Sources:{" "}
                   {notes.sources.length > 0 ? (
                     notes.sources.map((s, i) => (
                       <span key={s.uri}>
