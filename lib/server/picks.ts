@@ -318,6 +318,15 @@ const NEVER_PICKS = [
   "hotel", "lodging", "resort_hotel", "motel", "guest_house", "bed_and_breakfast", "hostel", "inn", "extended_stay_hotel", "budget_japanese_inn", "japanese_inn",
 ];
 
+// Global fast-food chains (founder, 21 Nov 2026, after a Taco Bell: "yes,
+// unless that's the only option"). Kept only when nothing else found fits
+// something they asked for (curate.ts, chainsOnlyIfNeeded).
+const FAST_FOOD_CHAINS = /\b(mc ?donald'?s|kfc|kentucky fried|burger king|taco bell|domino'?s|pizza hut|subway|wendy'?s|popeyes|papa john'?s|little caesars|carl'?s jr|hardee'?s|jack in the box|arby'?s|chick-fil-a|sonic drive-in|del taco|dunkin'?)\b/i;
+
+export function fastFoodChain(place: Place) {
+  return FAST_FOOD_CHAINS.test((place.displayName?.text ?? "").normalize("NFKC").replace(/[’`]/g, "'"));
+}
+
 // Words that don't tell two places apart ("Café Savoy" vs "Café Imperial").
 const GENERIC = new Set(["the", "cafe", "café", "restaurant", "bar", "pub", "kitchen", "house", "coffee", "bakery", "bistro", "brasserie", "trattoria", "osteria", "pizzeria", "la", "le", "les", "el", "il", "da", "de", "di", "der", "die", "das", "new", "old", "little", "royal", "grand", "sri", "shree", "hotel"]);
 

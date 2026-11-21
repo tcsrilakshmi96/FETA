@@ -67,6 +67,17 @@ const PERSONAS: Persona[] = [
     rule: (n) => (/bbq|barbecue|kebab|biryani|steak|chicken|mutton|seafood|fish/i.test(n) ? "mainly meat or fish for a vegetarian" : null),
   },
   {
+    // Founder, 21 Nov 2026: out with Feta, it showed a Taco Bell. A global
+    // fast-food chain only when it's the only option.
+    name: "Mexican tonight: Casa Taco, never a fast-food chain",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything" },
+    note: "mexican",
+    never: /Taco Bell/,
+    some: /Casa Taco/,
+  },
+  {
     name: "Curated layer: the founder's places that fit come before Google's",
     city: "Bengaluru",
     category: "food_drinks",

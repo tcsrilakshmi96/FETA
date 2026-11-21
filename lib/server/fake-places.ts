@@ -49,6 +49,8 @@ export const CATALOGUE: Row[] = [
   ["Sakura Sushi Bar", "sushi_restaurant", ["japanese_restaurant", "restaurant"], "japanese sushi", true, 3, 4.5, 900, "eve", 2.3, 40],
   ["Ramen Republic", "ramen_restaurant", ["japanese_restaurant", "restaurant"], "japanese ramen", true, 2, 4.3, 700, "eve", 1.6, 230],
   ["Casa Taco", "mexican_restaurant", ["restaurant"], "mexican tacos burritos", true, 2, 4.2, 800, "eve", 2.7, 280],
+  // A global fast-food chain, rated well and close: never shown while another place fits.
+  ["Taco Bell", "fast_food_restaurant", ["mexican_restaurant", "restaurant"], "mexican tacos burritos fast food", true, 1, 4.3, 2600, "late", 0.8, 300],
   ["Beirut Grill", "lebanese_restaurant", ["restaurant"], "lebanese middle eastern falafel", true, 2, 4.4, 1000, "eve", 3.1, 150],
   ["Wok This Way", "chinese_restaurant", ["restaurant"], "indo chinese chinese noodles", true, 2, 4.1, 1600, "late", 1.0, 270],
   // Mainly meat or fish (never for vegetarians; meat never for pescatarians).

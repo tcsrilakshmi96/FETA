@@ -10,6 +10,7 @@ import {
   distanceLimitKm,
   TRIP_OUT_KM,
   emptyDrops,
+  fastFoodChain,
   DOING_TYPES,
   FOOD_DRINK_TYPES,
   mainlyOf,
@@ -121,7 +122,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       reachKm: (p) => Math.max(limit, ...plan.searched.filter((i) => matched(p).includes(i.id)).map(reach)),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
-  const passed = filter();
+  const passed = chainsOnlyIfNeeded(filter());
   let pool = roundRobin(passed, plan.searched);
 
   const favourites = input.favourites ? await input.favourites(pool, intents).catch(() => [] as Candidate[]) : [];
@@ -288,4 +289,13 @@ export function becauseFor(c: Candidate | null, intents: Intent[], taste: Taste,
   const label = side ? sideById(side, taste.answers)?.label : null;
   if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
   return "";
+}
+
+// A global fast-food chain stays only when it's the only place found for
+// something they asked for (founder, 21 Nov 2026); with nothing asked, only
+// when nothing else passed.
+function chainsOnlyIfNeeded(passed: Candidate[]): Candidate[] {
+  const others = passed.filter((c) => !fastFoodChain(c.place));
+  const served = new Set(others.flatMap((c) => c.intents ?? []));
+  return passed.filter((c) => !fastFoodChain(c.place) || (c.intents?.length ? c.intents.some((id) => !served.has(id)) : others.length === 0));
 }
