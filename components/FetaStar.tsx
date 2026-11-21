@@ -34,7 +34,7 @@ export default function FetaStar({ cityId, cityName, onOpen }: { cityId: string;
   const [away, setAway] = useState(false); // the star is in the pill, not the button
   const [landed, setLanded] = useState(false);
   const [seen, setSeen] = useState(true);
-  const button = useRef<HTMLButtonElement>(null);
+  const button = useRef<HTMLSpanElement>(null);
   const pillRef = useRef<HTMLDivElement>(null);
   const flyer = useRef<HTMLSpanElement>(null);
   const parts: PillPart[] = [{ text: "★ Feta Picks", tone: "star" }, { text: `in ${cityName}` }];
@@ -97,14 +97,12 @@ export default function FetaStar({ cityId, cityName, onOpen }: { cityId: string;
 
   return (
     <>
-      <button
-        ref={button}
-        type="button"
-        className={`${styles.star} ${away ? styles.away : ""} ${landed ? styles.landed : ""} ${seen ? "" : styles.pulse}`}
-        onClick={open}
-        aria-label="Feta Picks near you"
-      >
-        ★
+      {/* Named under the star (founder, 21 Nov 2026: people miss the pill). */}
+      <button type="button" className="labelled" onClick={open} aria-label="Feta Favourites near you">
+        <span ref={button} className={`${styles.star} ${away ? styles.away : ""} ${landed ? styles.landed : ""} ${seen ? "" : styles.pulse}`}>
+          ★
+        </span>
+        <small aria-hidden="true">Favourites</small>
       </button>
       <TopPill state={pill} parts={parts} width={pillWidth(parts)} pillRef={pillRef} />
       <span ref={flyer} className={styles.flyer} aria-hidden="true" hidden>

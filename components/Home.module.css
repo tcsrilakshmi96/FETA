@@ -59,7 +59,7 @@
   flex: none;
   display: flex;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 /* Preferences and account: a round button with their initial. */
@@ -74,6 +74,8 @@
   font-weight: 600;
   letter-spacing: 0;
   transition: transform 0.2s var(--ease-press);
+  display: grid;
+  place-items: center;
 }
 
 .acct:active {

@@ -298,3 +298,18 @@ button {
     animation: none !important;
   }
 }
+
+/* A round header button with its name under it, like "Ask" under the
+   cheese (founder, 21 Nov 2026: people missed what the ★ was). */
+.labelled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.labelled > small {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(var(--inkRGB), 0.7);
+}

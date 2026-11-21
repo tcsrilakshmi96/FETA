@@ -40,8 +40,9 @@ export function StyleTop({ back, backLabel = "Home", right }: { back?: string | 
         {right ?? (
           <span className={s.buttons}>
             {origin && <FetaStar cityId={origin.city.id} cityName={origin.city.name} onOpen={() => setFetaOpen(true)} />}
-            <button type="button" className={s.acct} onClick={() => router.push("/you")} aria-label="You: your preferences and account">
-              {name ? name[0].toUpperCase() : "◯"}
+            <button type="button" className="labelled" onClick={() => router.push("/you")} aria-label="You: your preferences and account">
+              <span className={s.acct}>{name ? name[0].toUpperCase() : "◯"}</span>
+              <small aria-hidden="true">You</small>
             </button>
           </span>
         )}

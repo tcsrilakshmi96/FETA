@@ -276,8 +276,9 @@ export default function Home() {
             </span>
             <span className={styles.buttons}>
               <FetaStar cityId={city.id} cityName={city.name} onOpen={() => setFetaOpen(true)} />
-              <button type="button" className={styles.acct} onClick={() => router.push("/you")} aria-label="You: your preferences and account">
-                {name ? name[0].toUpperCase() : "◯"}
+              <button type="button" className="labelled" onClick={() => router.push("/you")} aria-label="You: your preferences and account">
+                <span className={styles.acct}>{name ? name[0].toUpperCase() : "◯"}</span>
+                <small aria-hidden="true">You</small>
               </button>
             </span>
           </div>
