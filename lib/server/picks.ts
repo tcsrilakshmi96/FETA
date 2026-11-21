@@ -26,6 +26,7 @@ export type Taste = {
   saved?: string[]; // Feta's reasons for places they saved lately
   skipped?: string[]; // why they skipped places lately ("Too pricey")
   notInto?: string[]; // kinds of place they said no to ("Not into brewpubs" on a skip): Google types, never shown again
+  unlearned?: string[]; // what Feta picked up from loved places that they removed in You (`loved:<food|do>:<label>`), never searched again
   // Places they've been and rated (My places, check-in): counts, and their
   // own words about ones they loved or didn't.
   places?: { loved: number; regulars: number; notForThem: number; lovedNotes: string[]; dislikedNotes: string[] };

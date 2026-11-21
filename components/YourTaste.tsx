@@ -171,7 +171,9 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
   const foodWords = words((l) => l.key === "food_other" || l.key.startsWith("you:food:"));
   const doWords = words((l) => l.key === "loves_other" || l.key.startsWith("you:do:"));
   const tasteCards = words((l) => l.source === "swipes" && l.key !== "cuisines");
-  const otherWords = words((l) => l.source !== "answers" && l.source !== "swipes" && !foodWords.includes(l) && !doWords.includes(l));
+  const learnedFood = words((l) => l.source === "loved" && l.key.startsWith("loved:food:"));
+  const learnedDo = words((l) => l.source === "loved" && l.key.startsWith("loved:do:"));
+  const otherWords = words((l) => l.source !== "answers" && l.source !== "swipes" && l.source !== "loved" && !foodWords.includes(l) && !doWords.includes(l));
 
   function rule(id: RuleId) {
     const q = question(id);
@@ -248,6 +250,24 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     );
   }
 
+  // What Feta picked up from the places they love (founder, 21 Nov 2026:
+  // Burmese kept coming and nothing in You said why). ✕ stops it.
+  function learned(list: Line[], section: Section) {
+    if (list.length === 0) return null;
+    return (
+      <>
+        <p className={styles.label}>Learned from places you love</p>
+        <span className={styles.chips}>
+          {list.map((l) => (
+            <button key={l.id} type="button" className={`${styles.chip} ${styles.learned}`} aria-label={`Stop searching for ${l.text}`} onClick={() => remove(l, section)}>
+              {l.text} <span aria-hidden="true">✕</span>
+            </button>
+          ))}
+        </span>
+      </>
+    );
+  }
+
   const status = (section: Section) => (
     <p className={styles.saved} aria-live="polite">
       {saved?.section === section ? saved.text : ""}
@@ -300,6 +320,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
             );
           })}
         </span>
+        {learned(learnedFood, "food")}
         {foodWords.length > 0 && <p className={styles.label}>In your words</p>}
         {wordList(foodWords, "food")}
         <form className={styles.add} onSubmit={typeFood}>
@@ -369,6 +390,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
             );
           })}
         </span>
+        {learned(learnedDo, "do")}
         {doWords.length > 0 && <p className={styles.label}>In your words</p>}
         {wordList(doWords, "do")}
         <form className={styles.add} onSubmit={typeDo}>

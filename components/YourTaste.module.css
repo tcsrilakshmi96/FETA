@@ -86,6 +86,12 @@
   color: var(--bg);
 }
 
+/* Picked up from places they love: tap to stop it. */
+.learned {
+  background: color-mix(in srgb, var(--saffron) 22%, transparent);
+  border-color: color-mix(in srgb, var(--saffron) 70%, transparent);
+}
+
 .doneBtn,
 .link {
   align-self: flex-start;

@@ -8,7 +8,7 @@ import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
 import { allIntents, type Intent } from "@/lib/server/intents";
-import { readTaste } from "@/lib/server/taste-reader";
+import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
@@ -188,6 +188,14 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       console.error(error);
       return [] as Intent[];
     });
+  // What it picked up from loved places shows in You, where ✕ stops it
+  // (founder, 21 Nov 2026). A line removed before stays removed.
+  const learned = extra.filter((i) => i.source === "loved").map((i) => ({ user_id: userId, line_key: learnedKey(body.category, i.label), text: i.label, source: "loved" }));
+  if (learned.length)
+    after(async () => {
+      const { error } = await db.from("profile_lines").upsert(learned, { onConflict: "user_id,line_key", ignoreDuplicates: true });
+      if (error) console.error("learned lines", error.message);
+    });
 
   // Things to do look for what's on that they're into, at the same time as
   // places. Places don't wait more than a few seconds for them: a slow
@@ -328,7 +336,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 // A short hash of everything that shapes a search.
 function tasteFingerprint(t: Taste) {
   const a = t.answers;
-  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id), [...t.lines].sort(), t.notInto ?? []]);
+  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id), [...t.lines].sort(), t.notInto ?? [], [...(t.unlearned ?? [])].sort()]);
   let h = 2166136261;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
   return (h >>> 0).toString(36);

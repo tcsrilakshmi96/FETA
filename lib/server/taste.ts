@@ -23,7 +23,7 @@ export async function userIdFor(db: SupabaseClient, token: string) {
 export async function loadTaste(db: SupabaseClient, trip?: string | null): Promise<Taste> {
   const [answersRes, linesRes, swipesRes, actionsRes, beenRes] = await Promise.all([
     db.from("answers").select("*").maybeSingle(),
-    db.from("profile_lines").select("text, trip, source, line_key").is("removed_at", null),
+    db.from("profile_lines").select("text, trip, source, line_key, removed_at"),
     db.from("swipes").select("card_id, verdict"),
     db.from("pick_actions").select("action, reason, because").order("created_at", { ascending: false }).limit(20),
     // Places they've been, how it was and in their own words (My places and check-in).
@@ -48,7 +48,11 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
       })
     : EMPTY_ANSWERS;
   const swipes = swipesRes.data ?? [];
-  const lines = (linesRes.data ?? []).filter((l) => !l.trip || (trip && l.trip === trip));
+  // Removed lines are read too, only so what they took out of "Learned
+  // from places you love" is never searched for again.
+  const all = linesRes.data ?? [];
+  const live = all.filter((l) => !l.removed_at);
+  const lines = live.filter((l) => !l.trip || (trip && l.trip === trip)).filter((l) => l.source !== "loved");
   // Their own words: typed at setup ("Something else", "Anything else"),
   // added in You, or learned in chat. Lines about the people they go out
   // with only count when those people come along (chat says so).
@@ -61,7 +65,8 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
     no: swipes.filter((s) => s.verdict === "no").map((s) => s.card_id),
     saved: actions.filter((a) => a.action === "saved" && a.because).slice(0, 5).map((a) => a.because as string),
     skipped: actions.filter((a) => a.action === "skipped" && a.reason).slice(0, 8).map((a) => a.reason as string),
-    notInto: (linesRes.data ?? []).filter((l) => String(l.line_key ?? "").startsWith("notinto:")).map((l) => String(l.line_key).slice(8)),
+    notInto: live.filter((l) => String(l.line_key ?? "").startsWith("notinto:")).map((l) => String(l.line_key).slice(8)),
+    unlearned: all.filter((l) => l.removed_at && String(l.line_key ?? "").startsWith("loved:")).map((l) => String(l.line_key)),
     places: {
       loved: been.filter((b) => b.verdict === "loved").length,
       regulars: been.filter((b) => b.visits === "regular" && b.verdict !== "not_for_me").length,

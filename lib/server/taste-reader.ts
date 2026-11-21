@@ -39,7 +39,8 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     memo.set(key, { at: Date.now(), reads });
   }
   const food = category === "food_drinks";
-  return reads.slice(0, 5).map((r, i) => ({
+  const unlearned = new Set(taste.unlearned ?? []);
+  return reads.filter((r) => r.from === "said" || !unlearned.has(learnedKey(category, r.label))).slice(0, 5).map((r, i) => ({
     id: `${r.from}_${i}`,
     label: r.label,
     // What the loved places have in common, not their names (sets store only
@@ -52,6 +53,11 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     source: r.from === "said" ? "typed" : "loved",
     food,
   }));
+}
+
+// The You line for something picked up from loved places ("loved:food:burmese").
+export function learnedKey(category: Category, label: string) {
+  return `loved:${category === "food_drinks" ? "food" : "do"}:${label.toLowerCase().trim()}`;
 }
 
 // One JSON answer from Gemini (Feta's own data only, plus place descriptions).
