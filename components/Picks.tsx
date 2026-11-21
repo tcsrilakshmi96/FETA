@@ -376,6 +376,10 @@ export default function Picks() {
               <>
                 Feta <strong>melted.</strong>
               </>
+            ) : slot?.limited ? (
+              <>
+                That&apos;s all for <strong>today.</strong>
+              </>
             ) : (
               <>
                 Nothing <strong>yet.</strong>
@@ -386,6 +390,10 @@ export default function Picks() {
           {slot?.failed ? (
             <button type="button" className={styles.panelBtn} onClick={() => window.location.reload()}>
               Try again
+            </button>
+          ) : slot?.limited ? (
+            <button type="button" className={styles.panelBtn} onClick={() => router.push("/lists")}>
+              See Saved
             </button>
           ) : (
             <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>

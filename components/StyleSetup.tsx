@@ -8,7 +8,7 @@ import WaitFun from "@/components/WaitFun";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
 import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
-import { drawStyle, forgetOnYou, fromPhone, keepOnPhone, loadLovedBrands, loadStyleProfile, lookupNewBrand, loveBrand, readStylePhotos, saveStyleProfile, searchBrands, setRecommendBrands, shrink, type LovedBrand, type StyleProfile } from "@/lib/style-client";
+import { drawStyle, forgetOnYou, fromPhone, keepOnPhone, loadLovedBrands, loadStyleProfile, lookupNewBrand, loveBrand, readStylePhotos, saveStyleProfile, searchBrands, setRecommendBrands, shrink, styleLimit, type LovedBrand, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
 // Style setup (founder, 20 Nov 2026), once, changeable later:
@@ -60,6 +60,8 @@ export default function StyleSetup() {
   const [found, setFound] = useState<{ id: string; name: string; logo: string | null }[]>([]);
   const [looking, setLooking] = useState(false);
   const [recommend, setRecommend] = useState(true);
+  // Over today's limit, said before any questions (founder, 21 Nov 2026).
+  const [resting, setResting] = useState<string | null>(null);
   const files = useRef<HTMLInputElement>(null);
   const selfieFile = useRef<HTMLInputElement>(null);
   const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
@@ -72,6 +74,7 @@ export default function StyleSetup() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the address is only readable in the browser
     if (asked >= 1 && asked <= 5) setStep(asked as Step);
     loadStyleProfile().then((p) => {
+      if (!p?.styles.length) styleLimit().then((r) => r?.notice && setResting(r.notice));
       if (!p) return;
       setEditing(p.styles.length > 0);
       setWears(p.wears);
@@ -193,6 +196,22 @@ export default function StyleSetup() {
     return `Mostly ${n(styles[0])} and ${n(styles[1])}, with a bit of ${styles.slice(2).map(n).join(" and ")}.`;
   })();
   const labels = budgetLabels(currency);
+
+  if (resting)
+    return (
+      <main className={s.screen}>
+        <div className={`${s.page} ${s.resting}`}>
+          <Mascot pose="sorry" prop="shades" size={110} pop />
+          <h1 className={s.title}>
+            Style is <strong>resting.</strong>
+          </h1>
+          <p className={s.sub}>{resting}</p>
+          <button type="button" className={s.primary} onClick={() => window.history.back()}>
+            OK
+          </button>
+        </div>
+      </main>
+    );
 
   return (
     <main className={s.screen}>

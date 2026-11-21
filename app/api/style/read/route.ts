@@ -1,5 +1,5 @@
 import { FAKE } from "@/lib/server/fake-places";
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { readPhotos } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import type { Wears } from "@/lib/style";
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const photos = (body.photos ?? []).filter((p) => typeof p === "string" && p.startsWith("data:image/") && p.length < 1_500_000).slice(0, 8);
   const wears = body.wears === "men" || body.wears === "both" ? body.wears : "women";
   if (!photos.length) return Response.json({ error: "No photos" }, { status: 400 });
-  if (!FAKE && (await overBudget(db))) return Response.json({ notice: "Feta has done all its reading for today. Pick your styles yourself, or try again tomorrow." });
+  if (!FAKE && (await overBudget(db))) return Response.json({ notice: `${await limitNoticeHere("style")} Or pick your styles yourself.` });
   return withCosts(db, "style_read", async () => {
     try {
       return Response.json(await readPhotos(db, photos, wears));

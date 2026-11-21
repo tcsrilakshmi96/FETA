@@ -1,6 +1,6 @@
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   const userId = await userIdFor(db, token);
   if (!userId) return Response.json({ error: "Not signed in" }, { status: 401 });
   // Chat counts toward today's budgets too (audit, 20 Nov 2026).
-  if (await overBudget(db)) return Response.json({ reply: "That's all I can do for today. Ask me again tomorrow morning.", picks: [], added: [], trip: null } satisfies AskReply);
+  if (await overBudget(db)) return Response.json({ reply: await limitNoticeHere("ask"), picks: [], added: [], trip: null } satisfies AskReply);
 
   const here = body.origin ?? null;
   const homeCity = cityById(here?.city?.id);

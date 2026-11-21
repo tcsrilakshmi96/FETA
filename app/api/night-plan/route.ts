@@ -1,4 +1,4 @@
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { weeklyHours } from "@/lib/server/picks";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   }
   const ids = Array.isArray(body.placeIds) ? [...new Set(body.placeIds.filter((id): id is string => typeof id === "string" && !!id && !id.startsWith("event:") && id.length < 300))].slice(0, MAX_PLACES) : [];
   if (ids.length < 2) return Response.json({ error: "Bad request" }, { status: 400 });
-  if ((await overBudget(db))) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
+  if ((await overBudget(db))) return Response.json({ notice: await limitNoticeHere("picks") });
 
   return withCosts(db, "night_plan", async () => {
     // Saved from Things to do: a thing to do, even if Google also calls it

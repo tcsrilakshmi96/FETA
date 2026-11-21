@@ -1322,3 +1322,14 @@
     transition: none !important;
   }
 }
+
+/* Over today's limit: said before setup's questions. */
+.resting {
+  min-height: 70dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+}

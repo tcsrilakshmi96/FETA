@@ -100,6 +100,11 @@ export function shrink(file: File, max = 900): Promise<string> {
   });
 }
 
+// Whether today's limit leaves room for Style, asked before setup's questions.
+export function styleLimit() {
+  return post<{ notice?: string }>("/api/style/limit", {});
+}
+
 export function readStylePhotos(photos: string[], wears: Wears) {
   return post<{ photos?: { saw: string; styles: string[] }[]; styles?: { id: string; why: string; photos: number[] }[]; notice?: string }>("/api/style/read", { photos, wears });
 }

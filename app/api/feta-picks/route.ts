@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { applyHardFilters, buildPick, needsDietCheck, type Candidate, type Kind, type Pick, type When } from "@/lib/server/picks";
 import { founderPlacesNear, syncFounderLoved } from "@/lib/server/feta-places";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
   const city = cityById(body.cityId);
   if (!city || typeof body.lat !== "number" || typeof body.lng !== "number") return Response.json({ error: "Bad request" }, { status: 400 });
-  if ((await overBudget(db))) return Response.json({ picks: [], notice: "Feta has done all its searching for today. Try again tomorrow." });
+  if ((await overBudget(db))) return Response.json({ picks: [], notice: await limitNoticeHere("picks") });
   const when: When = body.when === "weekend" ? "weekend" : "tonight";
 
   return withCosts(db, "feta_picks", async () => {

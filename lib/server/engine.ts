@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday } from "@/lib/server/costs";
+import { budgetToday, limitNoticeHere } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
@@ -75,7 +75,9 @@ type Body = {
 };
 
 // spares: the next best places, kept on the phone for "Show me more".
-type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string };
+// left: new searches left today, when 3 or fewer (the phone says so);
+// limited: today's limit is reached.
+type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; left?: number; limited?: boolean };
 
 function json(body: Reply | { error: string }, status = 200) {
   return Response.json(body, { status });
@@ -153,13 +155,15 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   //    the founder can change them in Vercel without a code change).
   const budget = await budgetToday(db);
   if (budget.left <= 0 || budget.over) {
-    if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
+    if (kept.picks.length > 0) return json({ picks: kept.picks, notice: await limitNoticeHere("kept"), limited: true });
     if (latest) {
       const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });
-      if (shown.picks.length > 0) return json({ ...shown.reply, notice: "That's all the new searching for today, so here are your latest picks." });
+      if (shown.picks.length > 0) return json({ ...shown.reply, notice: await limitNoticeHere("kept"), limited: true });
     }
-    return json({ picks: [], notice: "Feta has done all its searching for today. Fresh picks tomorrow morning." });
+    return json({ picks: [], notice: await limitNoticeHere("picks"), limited: true });
   }
+  // This search uses one of them.
+  const left = budget.left - 1 <= 3 ? { left: budget.left - 1 } : {};
 
   // 3. New search. "Show me more" and tweaks skip anything shown (or kept
   //    as backup) in the last day; topping up skips what is already kept.
@@ -314,7 +318,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     ];
     const counts = await loveCounts(db, fresh.map((p) => p.placeId)).catch(() => new Map<string, number>());
     const withLove = fresh.map((p) => (counts.get(p.placeId) ? { ...p, lovedBy: counts.get(p.placeId) } : p));
-    return json({ picks: [...kept.picks, ...withLove.filter((p) => !p.spare)], spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}) });
+    return json({ picks: [...kept.picks, ...withLove.filter((p) => !p.spare)], spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}), ...left });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);

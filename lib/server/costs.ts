@@ -1,7 +1,9 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { headers } from "next/headers";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { limitNotice, type LimitWhat } from "@/lib/limits";
 
 // Every paid call is counted while a request runs and written to api_costs
 // at the end, one row per kind, with Google's standard list price (US
@@ -103,6 +105,17 @@ export async function budgetToday(db: SupabaseClient): Promise<{ over: boolean; 
 
 export async function overBudget(db: SupabaseClient): Promise<boolean> {
   return (await budgetToday(db)).over;
+}
+
+// The person's time zone, from where Vercel sees the request come from
+// (none when running locally: India time).
+export async function requestTimeZone(): Promise<string | undefined> {
+  return (await headers()).get("x-vercel-ip-timezone") ?? undefined;
+}
+
+// What a screen says when today's limit is reached, in their own time.
+export async function limitNoticeHere(what: LimitWhat): Promise<string> {
+  return limitNotice(what, await requestTimeZone());
 }
 
 // Building the style brand library (Feta's research, brand lookups) has its

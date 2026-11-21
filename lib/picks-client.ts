@@ -2,11 +2,14 @@
 
 import type { Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/server/picks";
+import { announce } from "@/components/Toast";
+import { leftNotice } from "@/lib/limits";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 export type { Category, Pick, When };
 
-export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; error?: string };
+// left: new searches left today, when 3 or fewer; limited: today's limit is reached.
+export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; error?: string; left?: number; limited?: boolean };
 
 // Asks Feta's server for picks (8 to show, the rest as backup). The server reads the user's answers and
 // swipes from the database itself.
@@ -38,7 +41,9 @@ export async function fetchPicks(
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ category, when, origin, more, ...tweak }),
     });
-    return (await res.json()) as PicksReply;
+    const reply = (await res.json()) as PicksReply;
+    if (typeof reply.left === "number") announce(leftNotice(reply.left));
+    return reply;
   } catch {
     return { picks: [], notice: "No connection just now. Try again in a moment." };
   }

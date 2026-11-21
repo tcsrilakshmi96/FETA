@@ -16,6 +16,7 @@ export type Slot = {
   banner?: string;
   notice?: string;
   failed?: boolean; // the search itself went wrong, not just nothing found
+  limited?: boolean; // today's limit is reached
 };
 
 // Kept in memory while the app is open, never stored: a reload starts
@@ -78,6 +79,7 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       banner: reply.banner,
       notice: reply.notice ?? reply.error,
       failed: !!reply.error,
+      limited: reply.limited,
     };
     if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
     return slot;
