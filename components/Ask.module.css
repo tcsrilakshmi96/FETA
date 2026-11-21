@@ -2,6 +2,9 @@
   position: absolute;
   inset: 0;
   z-index: 85;
+  /* The glow reaches past the edge; without this the chat slid ~100px left
+     after the first reply (tester, 21 Nov 2026). */
+  overflow: hidden;
   background: var(--bg);
   transform-origin: 50% calc(100% - 50px);
   animation: fa-grow 0.55s var(--ease-enter);
@@ -98,6 +101,7 @@
   top: 134px;
   bottom: 140px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 4px 16px 12px;
   display: flex;
   flex-direction: column;
