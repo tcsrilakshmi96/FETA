@@ -143,20 +143,23 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const wide = body.reach || body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: body.reach === "walk" ? "walk_2km" : (body.reach ?? "city") } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
-  // 1. Recent picks for the same place come back the same: one fresh search
-  //    (one search returns 20 places, cheaper than re-checking 8 one by
-  //    one), with the places shown last time first, in the same order and
-  //    with the same words, as long as they still pass the hard filters.
-  const kept: { stored: StoredPick[]; picks: Pick[] } = { stored: [], picks: [] };
+  // 1. Recent picks for the same place come back the same: the places and
+  //    events shown last time, re-checked live against the hard filters, in
+  //    the same order and with the same words. No new search, so it's quick,
+  //    costs only the re-checks and isn't one of their searches for the day
+  //    (testers, 21 Nov 2026: every Home visit searched again, about 20 s and
+  //    ₹100). If most no longer pass (closed now), it searches afresh.
   const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
   const previous = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date() ? firstShown(latest) : [];
-  const keptBanner: string | null = previous.length ? latest!.banner : null;
+  if (previous.length) {
+    const shown = await showStored(previous, latest!.banner, { taste, body, city, origin, exclude, needsDiet });
+    if (shown.picks.length >= Math.min(4, previous.length)) return json(shown.reply);
+  }
 
   // 2. Daily cost limits: searches, and today's estimated spend (costs.ts;
   //    the founder can change them in Vercel without a code change).
   const budget = await budgetToday(db);
   if (budget.left <= 0 || budget.over) {
-    if (kept.picks.length > 0) return json({ picks: kept.picks, notice: await limitNoticeHere("kept"), limited: true });
     if (latest) {
       const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });
       if (shown.picks.length > 0) return json({ ...shown.reply, notice: await limitNoticeHere("kept"), limited: true });
@@ -175,8 +178,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       if (new Date(set.created_at).getTime() > dayAgo) for (const p of set.picks as StoredPick[]) exclude.add(p.placeId);
     }
   }
-  for (const k of kept.stored) exclude.add(k.placeId);
-  const need = SHOW - kept.picks.length;
+  const need = SHOW;
   const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
   // The same search words as last time, so the same places come back.
   const rotation = previous.length ? Math.max(0, todaysSets - 1) : todaysSets;
@@ -253,7 +255,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     });
   } catch (error) {
     console.error(error);
-    if (body.category === "food_drinks" && kept.picks.length === 0) {
+    if (body.category === "food_drinks") {
       return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     }
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
@@ -276,7 +278,6 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const taken = events.map((e) => e.stored.serves?.[0]).filter((k): k is string => !!k);
   const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
   if (result.chosen.length === 0 && events.length === 0) {
-    if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
     return json({ picks: [], notice: whyNothing(result.drops, effective.answers, body.when, city.country) });
   }
@@ -290,7 +291,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     const before = previous.find((p) => p.placeId === candidate.place.id);
     if (before) return { ...before, ...(i >= shownCount ? { spare: true } : {}) };
     // The last pick shown says "Skip unless…" when there is a real compromise.
-    const weakest = i === shownCount - 1 && kept.picks.length + events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
+    const weakest = i === shownCount - 1 && events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
     const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
     return {
       placeId: candidate.place.id,
@@ -306,19 +307,19 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     };
   });
   // One "Worth a detour" among the ones shown at most, across events and places.
-  let detours = kept.stored.filter((p) => p.verdict === "Worth a detour").length;
+  let detours = 0;
   const capped = (p: StoredPick): StoredPick => (p.verdict === "Worth a detour" && detours++ > 0 ? { ...p, verdict: "Good if you're nearby" } : p);
   for (const e of events) e.stored = capped(e.stored) as typeof e.stored;
   placeStored.forEach((p, i) => (placeStored[i] = capped(p)));
-  const stored: StoredPick[] = [...kept.stored, ...events.map((e) => e.stored), ...placeStored];
-  const shownTotal = kept.picks.length + events.length + shownCount;
+  const stored: StoredPick[] = [...events.map((e) => e.stored), ...placeStored];
+  const shownTotal = events.length + shownCount;
   const short = shownTotal < 3;
   const whenText = body.when === "tonight" ? "tonight" : "this weekend";
   // Said plainly when something they asked for found nothing that fits.
   const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
   const banner = short
     ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}. No weak filler.`
-    : (missing ?? keptBanner);
+    : missing;
 
   await db.from("pick_sets").insert({
     user_id: userId,
@@ -344,7 +345,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     ];
     const counts = await loveCounts(db, fresh.map((p) => p.placeId)).catch(() => new Map<string, number>());
     const withLove = fresh.map((p) => (counts.get(p.placeId) ? { ...p, lovedBy: counts.get(p.placeId) } : p));
-    return json({ picks: [...kept.picks, ...withLove.filter((p) => !p.spare)], spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}), ...left });
+    return json({ picks: withLove.filter((p) => !p.spare), spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}), ...left });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
