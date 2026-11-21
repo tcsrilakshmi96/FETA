@@ -466,8 +466,8 @@ export default function Picks() {
                   onClick={() => setSheet({ type: "details", pick: p })}
                   onKeyDown={(e) => e.key === "Enter" && setSheet({ type: "details", pick: p })}
                 >
-                  <span className={styles.pic}>
-                    <PickPhoto photo={p.photo} />
+                  <span className={`${styles.pic} ${p.photo ? "" : styles.picNone}`}>
+                    {p.photo ? <PickPhoto photo={p.photo} /> : <span aria-hidden="true">{p.event ? "🎟" : "📍"}</span>}
                     {p.fetaNote !== undefined && <span className={styles.picStar}>★</span>}
                   </span>
                   <span className={styles.rowText}>

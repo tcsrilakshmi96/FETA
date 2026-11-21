@@ -643,7 +643,27 @@
   height: 64px;
   border-radius: 14px;
   overflow: hidden;
-  background: rgba(var(--inkRGB), 0.08);
+  display: grid;
+  place-items: center;
+  /* A soft shimmer while the photo loads (testers read the grey box as broken). */
+  background: linear-gradient(100deg, rgba(var(--inkRGB), 0.06) 30%, rgba(var(--inkRGB), 0.12) 50%, rgba(var(--inkRGB), 0.06) 70%) 0 0 / 200% 100%;
+  animation: picShimmer 1.4s linear infinite;
+}
+
+@keyframes picShimmer {
+  to { background-position: -200% 0; }
+}
+
+/* No photo at all (most events): a quiet sign of what it is. */
+.picNone {
+  animation: none;
+  background: rgba(var(--inkRGB), 0.06);
+  font-size: 24px;
+  color: rgba(var(--inkRGB), 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pic { animation: none; }
 }
 
 .pic img {
@@ -679,13 +699,15 @@
   line-height: 1.15;
 }
 
+/* Two lines: the most personal part of the card (Round 6: cut at one). */
 .rowWhy {
   font-size: 12.5px;
   line-height: 1.3;
   color: rgba(var(--inkRGB), 0.75);
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .rowMeta {
