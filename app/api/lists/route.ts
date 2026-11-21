@@ -63,8 +63,9 @@ export async function GET(request: Request) {
     for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId)) events.set(p.placeId, p.event);
   }
 
-  // Over today's budget: the phone keeps showing the list it has.
-  if (await overBudget(db)) return Response.json({ items: [], notice: "busy" });
+  // Saved always shows what they saved (Round 6: a tester over the limit
+  // hearted a place and Saved stayed empty); over today's budget, without photos.
+  const over = await overBudget(db);
   const items = await withCosts(db, "lists", () => Promise.all(
     rows.map(async (r, i): Promise<ListItem | null> => {
       const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
         lat: place.location?.latitude ?? null,
         lng: place.location?.longitude ?? null,
         mapsUri: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${place.id}`,
-        photo: i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
+        photo: !over && i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
       };
     }),
   ));
