@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Mascot from "@/components/Mascot";
+import WearCard from "@/components/WearCard";
 import NightTrail from "@/components/NightTrail";
 import SendToGroup from "@/components/SendToGroup";
 import { useToast } from "@/components/Toast";
@@ -9,6 +10,7 @@ import { logEvent } from "@/lib/db";
 import { dayName, fetchNightPlaces, localDay, savePlan, type SavedPlan } from "@/lib/night-client";
 import { minuteClock, planNight, roomForOne, routeUri, timeOrder, type Night, type NightPlace } from "@/lib/night-plan";
 import type { Origin } from "@/lib/origin";
+import { planFromStops } from "@/lib/style-client";
 import sheet from "./Sheet.module.css";
 import styles from "./NightPlan.module.css";
 
@@ -289,6 +291,15 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
             )}
           </div>
           {idea && <Idea idea={idea} onAdd={addIdea} onNo={() => setNoIdea(true)} />}
+          {/* What to wear for this plan, straight away (founder, 21 Nov 2026). */}
+          {night.stops.length > 0 && (
+            <WearCard
+              plan={planFromStops(
+                night.stops.map((st) => ({ name: st.place.name, kind: st.place.kind, time: new Date(`${day}T${String(Math.floor(st.at / 60) % 24).padStart(2, "0")}:${String(st.at % 60).padStart(2, "0")}:00`) })),
+                null,
+              )}
+            />
+          )}
           <p className={styles.credit}>
             Places: <span translate="no">Google Maps</span> · times are rough
           </p>

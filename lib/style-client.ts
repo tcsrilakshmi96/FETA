@@ -160,21 +160,18 @@ export async function forgetOnYou() {
 // Tonight's saved plan (Saved → Plans), read live: names, kinds and the walk.
 export type TonightPlan = { stops: { name: string; kind: string; time?: string }[]; walkKm: number | null; title: string };
 
-// What Feta is dressing them for, handed over from a plan or a place they
-// opened ("See the look" on Home, Plan my evening, a place's details), so
-// Style home uses it (founder, 20 Nov 2026: Style said "no plan saved" while
-// Home showed tonight's plan).
-const WEAR_FOR = "feta.wearFor";
+// What Feta is dressing them for: a plan or place they chose (Plan my
+// evening, "See the look", a place's details), so Style home uses it. Never
+// Home's suggested plan (founder, 21 Nov 2026: "it has automatically chosen
+// my plan for me").
+// (A new key on 21 Nov 2026, so a plan Home chose earlier that day is dropped.)
+const WEAR_FOR = "feta.wearFor.chosen";
 export function setWearFor(plan: TonightPlan) {
   try {
     sessionStorage.setItem(WEAR_FOR, JSON.stringify({ ...plan, day: localDay(new Date()) }));
   } catch {
     // Style home asks instead.
   }
-}
-// Home's plan for tonight, unless they already chose one to dress for.
-export function offerWearFor(plan: TonightPlan) {
-  if (!wearForToday()) setWearFor(plan);
 }
 function wearForToday(): TonightPlan | null {
   try {

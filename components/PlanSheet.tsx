@@ -7,7 +7,7 @@ import SendToGroup from "@/components/SendToGroup";
 import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
 import WhatsAppBox from "@/components/WhatsAppBox";
-import { planFromStops } from "@/lib/style-client";
+import { planFromStops, setWearFor } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
@@ -88,6 +88,13 @@ export default function PlanSheet({
 
   const plans = onScreen.length > 0 ? onScreen : near?.key === nearKey && dinner ? planEvenings(food, near.picks, when) : [];
   const plan = plans[Math.min(choice, plans.length - 1)] ?? null;
+  // The plan they're looking at tonight is the one Style dresses them for
+  // (founder, 21 Nov 2026: only plans they chose, never Home's suggestion).
+  const planKey = plan ? plan.stops.map((st) => st.pick.placeId).join(",") : "";
+  useEffect(() => {
+    if (plan && plan.day === "Tonight") setWearFor(planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the same stops are the same plan
+  }, [planKey]);
   const [a, b] = plan ? plan.stops : [null, null];
   return (
     <>

@@ -28,7 +28,7 @@ import type { Category, Pick, When } from "@/lib/picks-client";
 import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
-import { offerWearFor, planFromStops } from "@/lib/style-client";
+import { tonightPlan, type TonightPlan } from "@/lib/style-client";
 import ThemeToggle from "@/components/ThemeToggle";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
@@ -125,11 +125,12 @@ export default function Home() {
     () => ((planFood || planDo) && !planFood?.loading && !planDo?.loading ? planEvenings(planFood?.picks ?? [], planDo?.picks ?? [], when) : []),
     [planFood, planDo, when],
   );
-  // Style home dresses them for this plan unless they chose another (founder, 20 Nov 2026).
+  // What to wear only for a plan they chose (opened in Plan my evening or
+  // saved for today), never this suggestion (founder, 21 Nov 2026).
+  const [chosenPlan, setChosenPlan] = useState<TonightPlan | null>(null);
   useEffect(() => {
-    const top = plans[0];
-    if (top && when === "tonight") offerWearFor(planFromStops(top.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), top.mode === "walk" ? top.km : null));
-  }, [plans, when]);
+    tonightPlan().then(setChosenPlan);
+  }, []);
 
   // A trip alone doesn't count as wanting either (founder, 15 Nov 2026:
   // "I didn't choose things to do but it asked"): those questions come the
@@ -371,10 +372,10 @@ export default function Home() {
                     <span className={styles.tileSub}>Have a look ›</span>
                   </button>
                 );
-                if (!plan) return plain;
-                // Tonight's look for the top plan (founder, 20 Nov 2026); the
-                // plain tile until there's an idea, or for someone without Style.
-                return <WearCard tile className={`${styles.tile} ${styles.style}`} plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} fallback={plain} />;
+                if (!chosenPlan) return plain;
+                // Tonight's look for the plan they chose; the plain tile until
+                // there's an idea, or for someone without Style.
+                return <WearCard tile className={`${styles.tile} ${styles.style}`} plan={chosenPlan} fallback={plain} />;
               })()}
           </div>
 
