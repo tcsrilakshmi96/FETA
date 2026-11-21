@@ -40,6 +40,7 @@ type Persona = {
   some?: RegExp; // at least one of these test places must show
   rule?: (name: string, primary: string) => string | null; // a hard rule, checked live too
   min?: number; // at least this many picks
+  most?: Record<string, number>; // at most this many picks for one intent
   founder?: RegExp; // test places that are the founder's
   founderMin?: number; // at least this many of them show (the ones that fit come before Google's)
   local?: RegExp; // test places that are local favourites
@@ -299,6 +300,17 @@ const PERSONAS: Persona[] = [
     some: /Smash Pickleball/,
   },
   {
+    // Round 6: pottery took 5 of 8 and tea 4 of 8; no one thing passes 3
+    // when they chose more than one.
+    name: "Variety: Thai and Korean lover gets at most 3 Thai",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "everything" },
+    yes: ["cuisine_thai", "cuisine_korean"],
+    covers: ["cuisine_thai", "cuisine_korean"],
+    most: { cuisine_thai: 3, cuisine_korean: 3 },
+  },
+  {
     // Founder, 21 Nov 2026: "never pottery, horse riding or cooking class".
     name: "Try something new: pottery and horse riding, chosen inside their groups",
     city: "Bengaluru",
@@ -413,6 +425,10 @@ async function run(p: Persona) {
   if (!LIVE && p.never) for (const n of names) if (p.never.test(n)) fails.push(`showed ${n}`);
   if (!LIVE && p.some && !names.some((n) => p.some!.test(n))) fails.push(`none of ${p.some.source}`);
   if (p.min && shown.length < p.min) fails.push(`only ${shown.length} picks`);
+  for (const [id, n] of Object.entries(p.most ?? {})) {
+    const count = shown.filter((c) => c.candidate.intents?.includes(id)).length;
+    if (count > n) fails.push(`${count} picks for ${id}, more than ${n}`);
+  }
   for (const c of shown) {
     const why = p.rule?.(c.candidate.place.displayName?.text ?? "", c.candidate.place.primaryType ?? "");
     if (why) fails.push(`${c.candidate.place.displayName?.text}: ${why}`);

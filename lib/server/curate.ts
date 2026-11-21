@@ -157,7 +157,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
 // backup, and what they asked for that found nothing ("missing").
 // only: just the places that match one intent ("asked": what they asked
 // for in chat or Plan my evening), never the rest of their everyday set.
-export function pickFrom(found: CurateResult, opts: { room: number; small: boolean; popularCap: number; only?: string }) {
+export function pickFrom(found: CurateResult, opts: { room: number; small: boolean; popularCap: number; only?: string; taken?: string[] }) {
   const result = opts.only ? onlyFor(found, opts.only) : found;
   const explicit = result.intents.filter((i) => i.explicit);
   const all = selectPicks(result.ranked, result.pool, { ...opts, explicit });
@@ -200,13 +200,17 @@ function roundRobin(cands: Candidate[], searched: Intent[]): Candidate[] {
 // the best… keep Google search the last"); places for
 // what they asked for up to half; then the ranking. Never two branches of
 // one chain, at most popularCap very popular places, and a few of one kind
-// at most (more of one kind when they asked for only one or two things).
+// at most (3 of 8 when they asked for only one or two things, events of
+// that kind already shown included: Round 6, pottery took 5 of 8).
 // A small city only takes places Gemini ranked ("no weak filler", a "Skip
 // unless" only to reach 2); a bigger city fills up in the filtered order.
+// The most of one thing they're into among the 8, places and events together.
+export const KIND_MAX = 3;
+
 export function selectPicks(
   ranked: Ranked[],
   pool: Candidate[],
-  opts: { room: number; small: boolean; popularCap: number; explicit: Intent[] },
+  opts: { room: number; small: boolean; popularCap: number; explicit: Intent[]; taken?: string[] },
 ): (Chosen & { spare: boolean })[] {
   const byIndex = new Map(ranked.map((r) => [r.index, r]));
   const good = ranked.filter((r) => r.verdict !== "Skip unless").map((r) => r.index);
@@ -223,7 +227,8 @@ export function selectPicks(
   const order: number[] = (opts.small && ranked.length ? [...good, ...weak] : [...good, ...weak, ...unranked]).filter((i) => !opts.explicit.length || fits(i));
   const rankOf = new Map(order.map((i, k) => [i, k]));
   const explicitIds = opts.explicit.map((i) => i.id);
-  const kindCap = opts.explicit.length <= 1 ? 4 : opts.explicit.length === 2 ? 3 : 2;
+  const kindCap = opts.explicit.length <= 2 ? KIND_MAX : 2;
+  const taken = (k: string) => (opts.taken ?? []).filter((t) => t === k).length;
 
   const chosen: number[] = [];
   const isPopular = (i: number) => (pool[i].place.userRatingCount ?? 0) >= POPULAR_REVIEWS;
@@ -234,7 +239,7 @@ export function selectPicks(
     if (chosen.includes(i) || chosen.some((c) => brand(c) === brand(i))) return false;
     if (rules.popular !== false && isPopular(i) && chosen.filter(isPopular).length >= opts.popularCap) return false;
     const k = kind(i);
-    if (rules.kinds !== false && k && chosen.filter((c) => kind(c) === k).length >= (explicitIds.includes(k) ? kindCap : 2)) return false;
+    if (rules.kinds !== false && k && chosen.filter((c) => kind(c) === k).length + taken(k) >= (explicitIds.includes(k) ? kindCap : 2)) return false;
     return true;
   };
   const room = opts.small && ranked.length ? Math.min(opts.room, good.length + Math.max(0, 2 - good.length)) : opts.room;
@@ -252,9 +257,12 @@ export function selectPicks(
   for (const i of order) if (can(i)) take(i);
   // Short of places: one more of what they asked for beats a famous place
   // they didn't (live check, 15 Nov 2026: a Thai lover in London got Dishoom).
-  for (const i of order) if (forExplicit(i) && can(i, { kinds: false })) take(i);
+  // With two or more things chosen, no one thing passes KIND_MAX: a shorter
+  // list beats 5 of the same (Round 6).
+  const one = opts.explicit.length <= 1;
+  if (one) for (const i of order) if (forExplicit(i) && can(i, { kinds: false })) take(i);
   for (const i of order) if (can(i, { popular: false })) take(i);
-  for (const i of order) if (can(i, { popular: false, kinds: false })) take(i);
+  if (one) for (const i of order) if (can(i, { popular: false, kinds: false })) take(i);
 
   // Shown curated first (founder, 19 Nov 2026: "feta picks and local
   // recommendations should be shown before the google searches"): hers,

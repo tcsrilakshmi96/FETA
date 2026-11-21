@@ -6,7 +6,7 @@ import { cityById, isSmallCity } from "@/lib/server/cities";
 import { budgetToday, limitNoticeHere } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
-import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
+import { KIND_MAX, becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
 import { allIntents, type Intent } from "@/lib/server/intents";
 import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
@@ -255,9 +255,22 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
   const allEvents = await allEventsPromise;
-  const events = body.only ? [] : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))].slice(0, need);
+  // At most KIND_MAX events for any one thing they're into, and places for
+  // it count those (Round 6: pottery took 5 of 8 and crowded out riding).
+  const perKind = new Map<string, number>();
+  const events = body.only
+    ? []
+    : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))]
+        .filter((e) => {
+          const k = e.stored.serves?.[0];
+          if (!k) return true;
+          perKind.set(k, (perKind.get(k) ?? 0) + 1);
+          return perKind.get(k)! <= KIND_MAX;
+        })
+        .slice(0, need);
   const room = Math.max(0, need - events.length);
-  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), ...(body.only ? { only: body.only } : {}) }) };
+  const taken = events.map((e) => e.stored.serves?.[0]).filter((k): k is string => !!k);
+  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
   if (result.chosen.length === 0 && events.length === 0) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, ...(keptBanner ? { banner: keptBanner } : {}) });
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
