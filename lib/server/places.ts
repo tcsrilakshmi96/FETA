@@ -196,16 +196,22 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
       // No country for "places you love": they can be anywhere in the world.
       ...(country ? { includedRegionCodes: [country.toLowerCase()] } : {}),
       locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 40000 } },
+      // Nearest first, so Toit in their city comes before Toit Pune (tester,
+      // 21 Nov 2026); places elsewhere still come after.
+      origin: { latitude: near.lat, longitude: near.lng },
     }),
   });
   track("places_autocomplete");
   if (!res.ok) return [];
   const data = (await res.json()) as {
-    suggestions?: { placePrediction?: { placeId: string; types?: string[]; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
+    suggestions?: { placePrediction?: { placeId: string; types?: string[]; distanceMeters?: number; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
   };
   return (data.suggestions ?? [])
     .map((s) => s.placePrediction)
     .filter((p): p is NonNullable<typeof p> => !!p?.structuredFormat?.mainText)
+    .map((p, i) => ({ p, i, near: (p.distanceMeters ?? Infinity) <= 50000 }))
+    .sort((a, b) => Number(b.near) - Number(a.near) || a.i - b.i)
+    .map(({ p }) => p)
     .slice(0, 5)
     .map((p) => ({ placeId: p.placeId, name: p.structuredFormat!.mainText!.text, detail: p.structuredFormat?.secondaryText?.text ?? "", types: p.types ?? [] }));
 }
