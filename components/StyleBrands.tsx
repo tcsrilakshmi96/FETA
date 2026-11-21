@@ -135,8 +135,12 @@ export default function StyleBrands() {
               </p>
             )}
             {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet.</p>}
+            {/* When none fits, one line says so, not the same label on every card (Round 6: 13 of 13). */}
+            {list.length > 1 && list.every((b) => fitsBudget(b.priceFeel, profile.budget) === false) && (
+              <p className={s.small}>Most {lens.short.toLowerCase()} brands Feta knows here are above your budget. Feta is looking for more.</p>
+            )}
             {list.map((b, i) => {
-              const fit = fitsBudget(b.priceFeel, profile.budget);
+              const fit = list.length > 1 && list.every((x) => fitsBudget(x.priceFeel, profile.budget) === false) ? null : fitsBudget(b.priceFeel, profile.budget);
               return (
                 <div key={b.id} className={`${s.leaving} ${home && !b.homegrown ? s.gone : ""}`}>
                   <div className={s.brandCard} style={vars({ "--delay": `${i * 0.06}s` })}>
