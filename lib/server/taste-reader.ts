@@ -45,7 +45,7 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     label: r.label,
     // What the loved places have in common, not their names (sets store only
     // Feta's words; Round 5 review: "like the places you love" read as filler).
-    reason: r.from === "said" ? `Because you said you love ${r.label.toLowerCase()}.` : `Because you love ${r.label.toLowerCase()} places like this.`,
+    reason: r.from === "said" ? `Because you said you love ${inSentence(r.label)}.` : `Because you love ${inSentence(r.label)} places like this.`,
     query: r.query,
     // A thing to do that happens in a bar or café ("karaoke", "board games").
     def: { searches: [r.query], foodDrink: !food && AT_A_BAR.test(r.query) },
@@ -53,6 +53,13 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     source: r.from === "said" ? "typed" : "loved",
     food,
   }));
+}
+
+// A label inside a sentence: only its first word lowered, so names keep
+// their capitals ("brewpubs in Bengaluru", not "bengaluru"; tester, 21 Nov
+// 2026), and a name ("Burmese", "SE Asian") keeps its own.
+function inSentence(label: string) {
+  return /^[A-Z][a-z]/.test(label) && !/^(Burmese|Thai|Korean|Japanese|Italian|Mexican|Indian|Chinese|French|Greek|Lebanese|Turkish|Vietnamese|Spanish|Portuguese|South|North|Middle|Southeast|SE)\b/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
 }
 
 // The You line for something picked up from loved places ("loved:food:burmese").
