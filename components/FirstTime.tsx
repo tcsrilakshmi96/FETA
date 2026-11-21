@@ -5,6 +5,7 @@ import Mascot from "@/components/Mascot";
 import { loadCity } from "@/lib/cities";
 import { detectCurrency } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
+import InterestChips from "@/components/InterestChips";
 import { QUESTIONS, isVegDiet, loadAnswers, saveAnswers } from "@/lib/onboarding";
 import { loadName, loadWants, saveWants, type Want } from "@/lib/profile";
 import { MAX_CUISINES, cuisinesFor, typedCuisines, loadSwipes, pickedUpLines, saveProfileLines, saveSwipes, type ProfileLine } from "@/lib/swipes";
@@ -51,7 +52,6 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
   }
 
   const diet = QUESTIONS.find((q) => q.id === "diet")!;
-  const interests = QUESTIONS.find((q) => q.id === "interests")!;
   return (
     <>
       <div className={styles.dim} onClick={onClose} />
@@ -85,18 +85,17 @@ export default function FirstTime({ want, onDone, onClose }: { want: "food" | "d
             </div>
           </>
         ) : (
-          <div className={styles.chips} style={{ marginTop: 16 }}>
-            {interests.options.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className={answers.interests.includes(o.id) ? styles.on : ""}
-                onClick={() => setAnswers({ ...answers, interests: answers.interests.includes(o.id) ? answers.interests.filter((x) => x !== o.id) : [...answers.interests, o.id] })}
-              >
+          <InterestChips
+            className={styles.chips}
+            style={{ marginTop: 16 }}
+            chosen={answers.interests}
+            onChange={(next) => setAnswers({ ...answers, interests: next })}
+            chip={(o, on, toggle) => (
+              <button key={o.id} type="button" className={on ? styles.on : ""} onClick={toggle}>
                 {o.label}
               </button>
-            ))}
-          </div>
+            )}
+          />
         )}
         <input className={styles.field} value={own} onChange={(e) => setOwn(e.target.value)} placeholder={food ? "Anything else? e.g. Burmese, Parsi" : "Anything else? In your own words"} aria-label="Anything else" maxLength={100} />
         <button type="button" className={`btn-primary ${styles.go}`} onClick={save}>

@@ -6,7 +6,8 @@ import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
 import FirstTime from "@/components/FirstTime";
 import { saveSwipesToDb } from "@/lib/db";
-import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, spendText, toggleSpend, type Answers } from "@/lib/onboarding";
+import InterestChips from "@/components/InterestChips";
+import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, spendText, toggleInterest, toggleSpend, type Answers } from "@/lib/onboarding";
 import { loadWants, type Want } from "@/lib/profile";
 import { addLine, removeLine, type Line } from "@/lib/profile-client";
 import { cuisinesFor, loadSwipes, saveSwipes, typedCuisines, type Swipe } from "@/lib/swipes";
@@ -155,7 +156,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
     setTyped({ ...typed, do: "" });
     const found = typedCuisines(text, interests.map((o) => ({ ...o, image: "" })));
     if (found.ids.length) {
-      const into = [...new Set([...answers.interests, ...found.ids])];
+      const into = found.ids.reduce((list, id) => (list.includes(id) ? list : toggleInterest(list, id)), answers.interests);
       await apply({ ...answers, interests: into }, "do", `${interests.filter((o) => found.ids.includes(o.id)).map((o) => o.label).join(", ")} on`);
     }
     if (found.rest) await note(found.rest, "do");
@@ -374,22 +375,16 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
           </>
         )}
         <p className={styles.label}>You&apos;re into</p>
-        <span className={styles.chips}>
-          {interests.map((o) => {
-            const on = answers.interests.includes(o.id);
-            return (
-              <button
-                key={o.id}
-                type="button"
-                className={styles.chip}
-                aria-pressed={on}
-                onClick={() => apply({ ...answers, interests: on ? answers.interests.filter((i) => i !== o.id) : [...answers.interests, o.id] }, "do", `${o.label} ${on ? "off" : "on"}`)}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </span>
+        <InterestChips
+          className={styles.chips}
+          chosen={answers.interests}
+          onChange={(next, o, on) => apply({ ...answers, interests: next }, "do", `${o.label} ${on ? "on" : "off"}`)}
+          chip={(o, on, toggle) => (
+            <button key={o.id} type="button" className={styles.chip} aria-pressed={on} onClick={toggle}>
+              {o.label}
+            </button>
+          )}
+        />
         {learned(learnedDo, "do")}
         {doWords.length > 0 && <p className={styles.label}>In your words</p>}
         {wordList(doWords, "do")}

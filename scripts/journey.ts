@@ -103,7 +103,8 @@ async function main() {
     // The questions, screen by screen.
     const city = await p.evaluate(() => JSON.parse(localStorage.getItem("feta.city") ?? "null") as { country: string; name: string } | null);
     const expectedCuisines = cuisinesFor(city?.country).map((c) => c.label);
-    const expectedInterests = QUESTIONS.find((q) => q.id === "interests")!.options.map((o) => o.label);
+    // The broad things to do; a group's specifics show once it's chosen.
+    const expectedInterests = QUESTIONS.find((q) => q.id === "interests")!.options.filter((o) => !o.parent).map((o) => o.label);
     const ticked = expectedCuisines.slice(0, 4);
     const typedKnown = expectedCuisines.find((l) => /mexican/i.test(l)) ?? expectedCuisines[expectedCuisines.length - 1];
     let sawTaste = false;
@@ -123,6 +124,9 @@ async function main() {
         await p.type("input[aria-label='Another cuisine']", `${typedKnown}, Burmese`);
         await click(p, /^Live music$/);
         await click(p, /^Board games$/);
+        await click(p, /^Classes and workshops$/);
+        check((await texts(p, "button")).includes("Pottery"), "Choosing Classes and workshops shows Pottery and the other specifics");
+        await click(p, /^Pottery$/);
         const own = await p.$("input[placeholder*='own words'], textarea[placeholder*='own words']");
         if (own) await own.type("pottery with friends");
       } else if (/basics/i.test(heading)) {
@@ -150,7 +154,7 @@ async function main() {
       check([...ticked, typedKnown].every((l) => fav.includes(l)), `Ticked cuisines and typed "${typedKnown}" are favourites`, `saved: ${fav}`);
       check(lines.some((l) => l.line_key === "food_other" && /Burmese/.test(l.text) && !new RegExp(typedKnown, "i").test(l.text)), 'Typed "Burmese" is kept in their own words', JSON.stringify(lines));
       const answers = ((await rest(token, "answers?select=diet,interests,spend")) as { diet: string; interests: string[]; spend: string[] }[])[0];
-      check(answers?.diet === "everything" && answers.interests.includes("live_music") && answers.interests.includes("board_games") && answers.spend.length > 0, "Diet, spend and things to do are saved", JSON.stringify(answers));
+      check(answers?.diet === "everything" && answers.interests.includes("live_music") && answers.interests.includes("board_games") && answers.interests.includes("workshops") && answers.interests.includes("class_pottery") && answers.spend.length > 0, "Diet, spend and things to do are saved", JSON.stringify(answers));
     }
 
     await p.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);

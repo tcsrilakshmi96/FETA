@@ -4,7 +4,9 @@ import { spendBounds, spendLabels, formatMoney, type Currency } from "@/lib/curr
 // The 6 onboarding questions. Each option has a stable id (what we store and
 // filter on) and a label (what the user sees), so copy can change safely.
 
-export type Option = { id: string; label: string };
+// parent: a more specific choice inside a broad one ("Pottery" inside
+// "Classes and workshops"), shown once the broad one is chosen.
+export type Option = { id: string; label: string; parent?: string };
 
 export type Question = {
   id: keyof Omit<Answers, "halal" | "spendCurrency" | "avoid">;
@@ -135,14 +137,51 @@ export const QUESTIONS: Question[] = [
       { id: "art_culture", label: "Art and galleries" },
       { id: "games_sports", label: "Sports to play" },
       { id: "hidden_bars", label: "Hidden bars" },
-      { id: "outdoors", label: "Outdoors" },
-      { id: "workshops", label: "Workshops" },
       { id: "markets", label: "Markets" },
       { id: "nightlife", label: "Nightlife" },
+      // Try something new (founder, 21 Nov 2026: "never pottery, horse riding
+      // or cooking class"): broad groups true in every city, each with
+      // optional specifics. None chosen means any kind; a specific one is
+      // searched for itself. ("workshops" and "outdoors" keep their ids so
+      // earlier answers stay chosen.)
+      { id: "workshops", label: "Classes and workshops" },
+      { id: "class_pottery", label: "Pottery", parent: "workshops" },
+      { id: "class_cooking", label: "Cooking class", parent: "workshops" },
+      { id: "class_painting", label: "Painting", parent: "workshops" },
+      { id: "class_dance", label: "Dance class", parent: "workshops" },
+      { id: "class_candle", label: "Candle and perfume making", parent: "workshops" },
+      { id: "tastings", label: "Tastings" },
+      { id: "taste_wine", label: "Wine tasting", parent: "tastings" },
+      { id: "taste_coffee", label: "Coffee tasting", parent: "tastings" },
+      { id: "taste_chocolate", label: "Chocolate tasting", parent: "tastings" },
+      { id: "taste_tea", label: "Tea tasting", parent: "tastings" },
+      { id: "outdoors", label: "Hikes and trails" },
+      { id: "hike_easy", label: "Easy walks", parent: "outdoors" },
+      { id: "hike_day", label: "Day hikes", parent: "outdoors" },
+      { id: "hike_sunrise", label: "Sunrise treks", parent: "outdoors" },
+      { id: "adventures", label: "Outdoor adventures" },
+      { id: "adv_riding", label: "Horse riding", parent: "adventures" },
+      { id: "adv_surfing", label: "Surfing", parent: "adventures" },
+      { id: "adv_kayaking", label: "Kayaking", parent: "adventures" },
+      { id: "adv_climbing", label: "Climbing", parent: "adventures" },
+      { id: "adv_cycling", label: "Cycling tours", parent: "adventures" },
+      { id: "wellness", label: "Wellness" },
+      { id: "well_yoga", label: "Yoga", parent: "wellness" },
+      { id: "well_sound", label: "Sound baths", parent: "wellness" },
+      { id: "well_spa", label: "Spa days", parent: "wellness" },
     ],
     multi: true,
   },
 ];
+
+// Choosing or dropping a thing to do: a specific one also chooses its
+// group; dropping a group drops its specifics.
+export function toggleInterest(chosen: string[], id: string): string[] {
+  const options = QUESTIONS.find((q) => q.id === "interests")!.options;
+  if (chosen.includes(id)) return chosen.filter((x) => x !== id && options.find((o) => o.id === x)?.parent !== id);
+  const parent = options.find((o) => o.id === id)?.parent;
+  return [...new Set([...chosen, ...(parent ? [parent] : []), id])];
+}
 
 // Distances in miles for the US and UK (the limits stay 2 and 5 km).
 const MILES: Record<string, string> = { walk_2km: "Walking distance · about 1 mile", ride_5km: "Short ride · 3 miles" };

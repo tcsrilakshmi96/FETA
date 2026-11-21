@@ -299,6 +299,16 @@ const PERSONAS: Persona[] = [
     some: /Smash Pickleball/,
   },
   {
+    // Founder, 21 Nov 2026: "never pottery, horse riding or cooking class".
+    name: "Try something new: pottery and horse riding, chosen inside their groups",
+    city: "Bengaluru",
+    category: "experiences",
+    when: "weekend",
+    answers: { interests: ["workshops", "class_pottery", "adventures", "adv_riding"] },
+    covers: ["interest_class_pottery", "interest_adv_riding"],
+    some: /Wheel and Kiln/,
+  },
+  {
     name: "Day plan (Calicut-style trip day): sights, not only evening places",
     city: "Bengaluru",
     category: "experiences",

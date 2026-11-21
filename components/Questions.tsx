@@ -9,6 +9,7 @@ import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
+import InterestChips from "@/components/InterestChips";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, toggleSpend, type Answers } from "@/lib/onboarding";
 import { loadWants, type Want } from "@/lib/profile";
 import {
@@ -132,10 +133,6 @@ export default function Questions() {
       if (!on && chosen >= MAX_CUISINES) return all;
       return [...all.filter((s) => s.cardId !== key), { cardId: key, verdict: on ? "no" : "yes" }];
     });
-  }
-
-  function toggleInterest(id: string) {
-    set({ interests: answers.interests.includes(id) ? answers.interests.filter((i) => i !== id) : [...answers.interests, id] });
   }
 
   function chooseSide(card: PairCard, choice: "a" | "b" | "both") {
@@ -358,13 +355,16 @@ export default function Questions() {
           {doing && (
             <>
               <p className={styles.label}>To do</p>
-              <div className={`${styles.chips} ${styles.small}`}>
-                {q("interests").options.map((o) => (
-                  <button key={o.id} type="button" className={answers.interests.includes(o.id) ? styles.on : ""} onClick={() => toggleInterest(o.id)}>
+              <InterestChips
+                className={`${styles.chips} ${styles.small}`}
+                chosen={answers.interests}
+                onChange={(interests) => set({ interests })}
+                chip={(o, on, toggle) => (
+                  <button key={o.id} type="button" className={on ? styles.on : ""} onClick={toggle}>
                     {o.label}
                   </button>
-                ))}
-              </div>
+                )}
+              />
             </>
           )}
           <input className={styles.field} value={anythingElse} onChange={(e) => setAnythingElse(e.target.value)} placeholder="Anything else? In your own words" aria-label="Anything else you love" maxLength={100} />

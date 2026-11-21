@@ -74,7 +74,12 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   }
   // Hidden bars and rooftops are places to drink: Food & drinks searches
   // them, Things to do doesn't.
+  // A group with specifics chosen inside it ("Pottery" in "Classes and
+  // workshops") is searched as those, not as any kind.
+  const options = QUESTIONS.find((q) => q.id === "interests")?.options ?? [];
+  const narrowed = new Set(taste.answers.interests.map((id) => options.find((o) => o.id === id)?.parent).filter(Boolean));
   for (const id of taste.answers.interests) {
+    if (narrowed.has(id)) continue;
     const def = INTEREST_SEARCH[id];
     if (!def || !!def.drinkPlace !== food || (def.alcohol && sober)) continue;
     const label = interestLabel(id);
