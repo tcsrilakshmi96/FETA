@@ -26,8 +26,10 @@ export function whatsNew(fresh: Pick[]): PillPart[] {
   ];
 }
 
-const THRESH = 95; // how far to pull before letting go refreshes
-const MAX = 140;
+// How far to pull before letting go refreshes: a deliberate pull, not a
+// flick back to the top (founder, 21 Nov 2026: scrolling kept refreshing).
+const THRESH = 125;
+const MAX = 170;
 const REST = 72; // where the cheese hangs while Feta looks
 const MIN_WAIT = 1400; // the bounce plays at least this long
 const SIZE = 1.3; // the cheese's size
@@ -394,8 +396,16 @@ export default function CheesePull({ scroller, onRefresh, enabled }: { scroller:
       if (!reduce) kick();
     }
 
+    // Only a pull that starts once the list has rested at the top: a
+    // finger still flicking back up the list never refreshes it.
+    let topSince = el!.scrollTop > 0 ? Infinity : 0;
+    function onScroll() {
+      if (el!.scrollTop > 0) topSince = Infinity;
+      else if (topSince === Infinity) topSince = performance.now();
+    }
+
     function onStart(e: TouchEvent) {
-      if (phase !== "idle" || !on.current || el!.scrollTop > 0 || e.touches.length !== 1) return;
+      if (phase !== "idle" || !on.current || el!.scrollTop > 0 || e.touches.length !== 1 || performance.now() - topSince < 450) return;
       tracking = true;
       startY = e.touches[0].clientY;
     }
@@ -427,11 +437,13 @@ export default function CheesePull({ scroller, onRefresh, enabled }: { scroller:
       }
     }
 
+    el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("touchstart", onStart, { passive: true });
     el.addEventListener("touchmove", onMove, { passive: false });
     el.addEventListener("touchend", onEnd);
     el.addEventListener("touchcancel", onEnd);
     return () => {
+      el.removeEventListener("scroll", onScroll);
       el.removeEventListener("touchstart", onStart);
       el.removeEventListener("touchmove", onMove);
       el.removeEventListener("touchend", onEnd);
