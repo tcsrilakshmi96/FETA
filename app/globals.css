@@ -247,12 +247,14 @@ button {
 }
 
 /* Top-right Feedback pill, on every screen. */
+/* Tucked into the corner, so screens start near the top (founder, 21 Nov
+   2026: "so much white space on the top"). */
 .feedback-pill {
   position: absolute;
-  top: 12px;
-  right: 20px;
+  top: 4px;
+  right: 12px;
   z-index: 96;
-  padding: 5px 11px;
+  padding: 3px 9px;
   border-radius: 99px;
   background: rgba(26, 22, 22, 0.55);
   backdrop-filter: blur(10px);
@@ -265,7 +267,7 @@ button {
 .toast {
   position: absolute;
   left: 50%;
-  top: 92px;
+  top: 74px;
   transform: translateX(-50%);
   z-index: 95;
   width: max-content;

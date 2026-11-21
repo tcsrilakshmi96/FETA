@@ -2,7 +2,7 @@
   position: absolute;
   inset: 0;
   overflow-y: auto;
-  padding: 50px 16px 40px;
+  padding: 32px 16px 40px;
   animation: var(--kf-in) 0.35s ease-out;
 }
 

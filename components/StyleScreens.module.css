@@ -24,7 +24,7 @@
      every other screen (audit, 20 Nov 2026: Style looked like another app). */
   color: var(--ink);
   /* Room at the top for the Feedback pill, like Home. */
-  padding: 48px 16px 120px;
+  padding: 30px 16px 120px;
   animation: var(--kf-in) 0.35s ease-out;
 }
 
