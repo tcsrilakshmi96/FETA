@@ -116,6 +116,13 @@ export default function Style() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the first idea once the plan is known
     if (profile && plan) think(profile, null, plan, []);
+    // No plan: a look for the day straight away (founder, 21 Nov 2026: a
+    // tester's first visit showed nothing to wear), never a plan assumed;
+    // "Going somewhere else? Change" asks where they're going.
+    else if (profile && plan === null) {
+      setOccasion("day");
+      think(profile, "day", null, []);
+    }
   }, [profile, plan, think]);
 
   if (!profile || !origin) return null;
@@ -182,7 +189,7 @@ export default function Style() {
 
   const loved = outfit && profile.votes.some((v) => v.look === outfit.title && v.verdict === "love");
   const occ = OCCASIONS.find((o) => o.id === occasion);
-  const heading = plan ? `For your plan: ${plan.title}` : occ ? `${occ.label}${vibe ? ` · ${vibe.toLowerCase()}` : ""}` : "Heading out tonight?";
+  const heading = plan ? `For your plan: ${plan.title}` : occasion === "day" && !vibe ? "A look for today" : occ ? `${occ.label}${vibe ? ` · ${vibe.toLowerCase()}` : ""}` : "Heading out tonight?";
   const lineBrands = acrossStyles(brands ?? [], profile.styles, 5);
 
   return (

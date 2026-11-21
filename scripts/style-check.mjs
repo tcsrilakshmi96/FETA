@@ -65,6 +65,10 @@ const sh = await scrollEnd();
 ok("Style home scrolls to the bottom", sh.scrolls ? sh.moved : true);
 await shot("home-style-bottom");
 const line = await p.evaluate(() => [...document.querySelectorAll("button")].map((x) => x.textContent).join("|"));
+// No plan: a look for the day shows straight away (founder, 21 Nov 2026: a
+// tester's first visit showed nothing to wear).
+ok("With no plan, a look for today shows straight away", await p.evaluate(() => /A look for today/.test(document.body.innerText) && /Another/.test(document.body.innerText)));
+await click(/^Going somewhere else\? Change$/); await wait(500);
 await click(/^Dinner$/); await wait(500);
 ok("Dinner asks what kind", /What kind of dinner/.test(await p.evaluate(() => document.body.innerText)));
 await click(/^Fun and loud$/); await wait(4000); await shot("outfit");
