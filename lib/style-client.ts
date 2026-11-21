@@ -406,11 +406,11 @@ export async function loadSavedBrands(): Promise<SavedBrand[]> {
 // Feta's own research for every style in their country (founder, 20 Nov
 // 2026). Each style is claimed and researched on the server in the
 // background (about 2 minutes), so nobody waits on the screen: their own
-// styles first, thinnest first, all at once; then a few more of the
-// country's styles per visit, so the whole library fills over time. While
-// the screen is open it checks back every 30 seconds and shows new brands.
+// styles, thinnest first, all at once. Only styles someone there chose
+// (founder, 21 Nov 2026: three more per visit for styles nobody chose cost
+// most of a day's Gemini credit). While the screen is open it checks back
+// every 30 seconds and shows new brands.
 let started = false;
-const MORE_PER_VISIT = 3;
 
 async function startResearch(style: string, cityId: string, more = false) {
   const r = await post<{ started?: boolean; skipped?: string }>("/api/style/research", { style, cityId, more });
@@ -445,13 +445,11 @@ function watch(country: string, styles: string[], onDone: (style: string) => voi
 export async function researchCountry(cityId: string, country: string, mine: { style: string; brands: number }[], onDone: (style: string) => void, onResearching?: (styles: string[]) => void) {
   if (started || !(await currentUserId())) return;
   started = true;
-  const { STYLES } = await import("@/lib/style");
   const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
   const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
   const myOrder = [...mine].sort((a, b) => a.brands - b.brands).map((m) => m.style).filter((id) => !fresh.has(id));
-  const others = STYLES.map((x) => x.id).filter((id) => !mine.some((m) => m.style === id) && !fresh.has(id)).slice(0, MORE_PER_VISIT);
-  const results = await Promise.all([...myOrder, ...others].map(async (id) => [id, await startResearch(id, cityId)] as const));
-  const running = results.filter(([, r]) => r === "started" || r === "done or running").map(([id]) => id).filter((id) => myOrder.includes(id));
+  const results = await Promise.all(myOrder.map(async (id) => [id, await startResearch(id, cityId)] as const));
+  const running = results.filter(([, r]) => r === "started" || r === "done or running").map(([id]) => id);
   if (running.length) watch(country, running, onDone, onResearching ?? (() => {}));
 }
 
