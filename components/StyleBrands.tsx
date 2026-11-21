@@ -33,7 +33,7 @@ export default function StyleBrands() {
       setTab(asked && p.styles.includes(asked) ? asked : p.styles[0]);
       // Ordered for them by Feta, with a line on why.
       const load = async () => {
-        const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears), loadLovedBrands()]);
+        const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears, p.budget), loadLovedBrands()]);
         // Shown straight away, then reordered for them when Feta's ranking arrives.
         setAll(all);
         setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
@@ -134,13 +134,10 @@ export default function StyleBrands() {
                 <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {origin.city.countryName} now. New ones appear here in a couple of minutes, even if you leave.
               </p>
             )}
-            {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands for {origin.city.countryName} in Feta&apos;s library yet.</p>}
-            {/* When none fits, one line says so, not the same label on every card (Round 6: 13 of 13). */}
-            {list.length > 1 && list.every((b) => fitsBudget(b.priceFeel, profile.budget) === false) && (
-              <p className={s.small}>Most {lens.short.toLowerCase()} brands Feta knows here are above your budget.</p>
-            )}
+            {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands within your budget in {origin.city.countryName} in Feta&apos;s library yet.</p>}
             {list.map((b, i) => {
-              const fit = list.length > 1 && list.every((x) => fitsBudget(x.priceFeel, profile.budget) === false) ? null : fitsBudget(b.priceFeel, profile.budget);
+              // Brands above their budget aren't shown (brandsFor), except one they love.
+              const fit = fitsBudget(b.priceFeel, profile.budget);
               return (
                 <div key={b.id} className={`${s.leaving} ${home && !b.homegrown ? s.gone : ""}`}>
                   <div className={s.brandCard} style={vars({ "--delay": `${i * 0.06}s` })}>
@@ -162,7 +159,7 @@ export default function StyleBrands() {
                       {!b.forYou && b.why && <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>}
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {fit === true && <span className={s.fits}>✓ In your budget</span>}
-                        {fit === false && <span className={s.small}>Mostly above your budget</span>}
+                        {fit === false && <span className={s.small}>Above your budget</span>}
                         {b.website && (
                           <a className={s.link} href={b.website} target="_blank" rel="noopener noreferrer">
                             Visit site ↗

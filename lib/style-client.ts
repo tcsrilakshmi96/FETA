@@ -4,7 +4,7 @@ import type { City } from "@/lib/cities";
 import { distanceKm } from "@/lib/cities";
 import { fetchNightPlaces, loadPlans, localDay } from "@/lib/night-client";
 import { currentUserId, supabase } from "@/lib/supabase";
-import type { Occasion, Outfit, Wears } from "@/lib/style";
+import { fitsBudget, type Occasion, type Outfit, type Wears } from "@/lib/style";
 
 // Style on the phone (founder, 20 Nov 2026): the person's style profile,
 // photos made small before they're read, their drawings (kept only on this
@@ -320,7 +320,10 @@ function cleanCues(t: string) {
     .trim();
 }
 
-export async function brandsFor(styles: string[], country: string, wears: Wears): Promise<BrandCard[]> {
+// Brands clearly above their clothes budget are left out, as places above
+// their spend are (founder, 21 Nov 2026: a tester saw brands over her
+// budget); one they love themselves stays. No price known: it stays.
+export async function brandsFor(styles: string[], country: string, wears: Wears, budget: string[]): Promise<BrandCard[]> {
   if (!styles.length || !(await currentUserId())) return [];
   const { data, error } = await supabase()
     .from("brand_styles")
@@ -366,7 +369,7 @@ export async function brandsFor(styles: string[], country: string, wears: Wears)
   }
   for (let i = cards.length - 1; i >= 0; i--) if (removed.has(`${cards[i].id}|${cards[i].style}`)) cards.splice(i, 1);
   const [love, mine] = await Promise.all([brandLove(cards.map((c) => c.id)), lovedBrandIds()]);
-  const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) }));
+  const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) })).filter((c) => c.youLove || fitsBudget(c.priceFeel, budget) !== false);
   // A stable sort keeps the order above within each group.
   return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0));
 }
