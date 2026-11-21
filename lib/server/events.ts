@@ -3,7 +3,7 @@ import { FAKE } from "@/lib/server/fake-places";
 
 import eventSites from "@/data/event-sites.json";
 import { distanceKm, type City } from "@/lib/cities";
-import { track } from "@/lib/server/costs";
+import { trackGemini } from "@/lib/server/costs";
 import { searchPlaces, type Place } from "@/lib/server/places";
 
 // This week's events, found by Gemini with Grounding with Google Search,
@@ -85,7 +85,6 @@ Use at most 2 searches. Only events that really are of that kind; none is a fine
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect)}.`;
 
-  track("gemini_search");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: {
@@ -105,6 +104,7 @@ Reply with only a JSON array. Each item:
   });
   if (!res.ok) throw new Error(`Event search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { steps?: Step[] };
+  trackGemini("gemini_search", data);
   const steps = data.steps ?? [];
   const searchHtml =
     steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
@@ -239,7 +239,6 @@ export async function personalizeEvents(
 ): Promise<{ index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[]> {
   if (events.length === 0) return [];
   const list = events.map((e, i) => `${i}. ${e.title} · ${e.venueName} · ${e.date} ${e.time} · ${e.priceText}`).join("\n");
-  track("gemini_rank");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -281,6 +280,7 @@ Choose up to ${max} that genuinely suit them (none if nothing fits), best first.
   });
   if (!res.ok) throw new Error(`Choosing events failed: ${res.status}`);
   const data = await res.json();
+  trackGemini("gemini_rank", data);
   const text: string = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text ?? "{}";
   const chosen = (JSON.parse(text).chosen ?? []) as { index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[];
   return chosen.filter((c, i, all) => Number.isInteger(c.index) && c.index >= 0 && c.index < events.length && all.findIndex((x) => x.index === c.index) === i).slice(0, max);

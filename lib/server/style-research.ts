@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { track } from "@/lib/server/costs";
+import { trackGemini } from "@/lib/server/costs";
 
 // Style brand discovery (founder, 19–20 Nov 2026): brands people can buy
 // from in a country for one style, found with Google Search through Gemini
@@ -77,7 +77,6 @@ export async function loadBrief(db: SupabaseClient, styleId: string): Promise<Br
 type Grounded = { text: string; searchHtml: string };
 
 export async function gemini(prompt: string, tools: object[]): Promise<Grounded> {
-  track("gemini_search");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -86,6 +85,7 @@ export async function gemini(prompt: string, tools: object[]): Promise<Grounded>
   });
   if (!res.ok) throw new Error(`Style research failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
+  trackGemini("gemini_search", data);
   const cand = data.candidates?.[0];
   return {
     text: (cand?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join(""),

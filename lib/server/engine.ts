@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday, limitNoticeHere } from "@/lib/server/costs";
+import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { KIND_MAX, becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
@@ -216,7 +216,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
           return [] as EventPick[];
         })
       : Promise.resolve([] as EventPick[]);
-  after(() => eventsFull);
+  later(eventsFull); // counted with this search even when it finishes after the reply
   const eventsSearch = Promise.race([eventsFull, new Promise<EventPick[]>((resolve) => setTimeout(() => resolve([]), EVENTS_WAIT_MS))]);
 
   // Events shown last time stay while they're still on; new ones wait a

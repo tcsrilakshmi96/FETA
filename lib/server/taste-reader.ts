@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { City } from "@/lib/cities";
-import { track } from "@/lib/server/costs";
+import { trackGemini } from "@/lib/server/costs";
 import { CUISINE_SEARCH, INTEREST_SEARCH } from "@/lib/server/catalog";
 import { FAKE } from "@/lib/server/fake-places";
 import type { Intent } from "@/lib/server/intents";
@@ -69,7 +69,6 @@ export function learnedKey(category: Category, label: string) {
 
 // One JSON answer from Gemini (Feta's own data only, plus place descriptions).
 async function askGemini<T>(prompt: string): Promise<T> {
-  track("gemini_rank");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -81,6 +80,7 @@ async function askGemini<T>(prompt: string): Promise<T> {
   });
   if (!res.ok) throw new Error(`Gemini read failed: ${res.status}`);
   const data = await res.json();
+  trackGemini("gemini_rank", data);
   const text: string = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text ?? "{}";
   return JSON.parse(text) as T;
 }

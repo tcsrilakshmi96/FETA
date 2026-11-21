@@ -1,7 +1,7 @@
 import "server-only";
 import { FAKE } from "@/lib/server/fake-places";
 
-import { track } from "@/lib/server/costs";
+import { trackGemini } from "@/lib/server/costs";
 import type { Place } from "@/lib/server/places";
 
 // "What to order" (food and drinks) or "Highlights" (things to do), from
@@ -42,7 +42,6 @@ export async function placeNotes(place: Place, kind: "EAT" | "DRINK" | "DO", who
     kind !== "DO" && (who?.halal || who?.diet === "jain")
       ? `\nThen, on a last line starting "DIET:", say in under 80 characters what reviews say about ${who?.halal ? "halal food" : "Jain food"} here (e.g. "Several reviews mention halal-certified meat"), or "DIET: none" if reviews don't mention it. Don't guess.`
       : "";
-  track("gemini_maps");
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -58,6 +57,7 @@ export async function placeNotes(place: Place, kind: "EAT" | "DRINK" | "DO", who
   });
   if (!res.ok) throw new Error(`Place notes failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
+  trackGemini("gemini_maps", data);
   const candidate = data.candidates?.[0];
   const text: string = (candidate?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
   const lines = text.split("\n");

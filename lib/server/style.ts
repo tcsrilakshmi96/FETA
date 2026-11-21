@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { track } from "@/lib/server/costs";
+import { trackGemini, type Sku } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { STYLES, styleById, type Occasion, type Outfit, type Wears } from "@/lib/style";
 
@@ -22,7 +22,7 @@ async function lenses(db: SupabaseClient): Promise<Lens[]> {
   return (data as Lens[] | null) ?? [];
 }
 
-async function gemini(model: string, parts: object[], generationConfig: object, timeoutMs: number) {
+async function gemini(sku: Sku, model: string, parts: object[], generationConfig: object, timeoutMs: number) {
   const res = await fetch(`${GEMINI}/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -30,7 +30,9 @@ async function gemini(model: string, parts: object[], generationConfig: object, 
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`Gemini ${model} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
-  return res.json();
+  const data = await res.json();
+  trackGemini(sku, data);
+  return data;
 }
 
 const textOf = (data: { candidates?: { content?: { parts?: { text?: string }[] } }[] }) => data.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text ?? "{}";
@@ -62,7 +64,6 @@ export async function readPhotos(db: SupabaseClient, photos: string[], wears: We
       ].filter((x) => x.photos.length),
     };
   const all = await lenses(db);
-  track("gemini_vision");
   const prompt = `You are Feta's stylist. These ${photos.length} photos (numbered 1 to ${photos.length} in order) are outfits a person loves: screenshots or their own. They shop for ${wears === "both" ? "womenswear and menswear" : wears === "women" ? "womenswear" : "menswear"}.
 Read ONLY the clothes: silhouette, fabric, colour, pattern, details, how pieces are put together. Never guess or mention anyone's age, religion, ethnicity, body, size, looks, income or gender.
 
@@ -75,7 +76,7 @@ Reply with only JSON:
 {"photos": [one per photo, in order: {"saw": what the outfit is, at most 8 plain words, e.g. "Oversized blazer, white tee, straight jeans", "styles": 1 or 2 style ids}],
  "styles": [the 2 to 5 styles that run through these photos, strongest first: {"id", "why": what they have in common, at most 8 words, "photos": the photo numbers that show it}]}
 A photo with no clear outfit: {"saw": "No clear outfit", "styles": []}.`;
-  const data = await gemini("gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 40000);
+  const data = await gemini("gemini_vision", "gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 40000);
   const parsed = JSON.parse(textOf(data)) as { photos?: { saw?: string; styles?: string[] }[]; styles?: { id: string; why?: string; photos?: number[] }[] };
   const seen = new Set<string>();
   return {
@@ -96,11 +97,10 @@ export async function drawOnYou(photo: string, styleId: string, reference: strin
   const style = styleById(styleId);
   if (!style) throw new Error("Unknown style");
   if (FAKE) return reference;
-  track("gemini_image");
   const prompt = `Make a fashion illustration of the person in the FIRST image, full body, standing, alone, on the same plain light grey background and in exactly the same illustration style as the SECOND image (soft hand-drawn fashion illustration, natural proportions).
 Dress them in a ${style.name.toLowerCase()} outfit like the matching figure in the second image, adapted to them.
 Keep the person recognisably themselves: face, skin tone, hair and body exactly as in their photo. Never slim, lighten, beautify or change their body or features. No text, no logos, no other people.`;
-  const data = await gemini("gemini-3.1-flash-image", [{ text: prompt }, inline(photo), inline(reference)], { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
+  const data = await gemini("gemini_image", "gemini-3.1-flash-image", [{ text: prompt }, inline(photo), inline(reference)], { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
   const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
   const img = part?.inline_data ?? part?.inlineData;
   if (!img?.data) throw new Error("No drawing came back");
@@ -113,13 +113,12 @@ Keep the person recognisably themselves: face, skin tone, hair and body exactly 
 // illustration style. About ₹4 an idea.
 export async function drawOutfit(o: { pieces: { top: string; bottom: string; shoes: string }; title: string; wears: Wears }, reference: string, photo: string | null): Promise<string> {
   if (FAKE) return reference;
-  track("gemini_image");
   const who = photo ? "the person in the FIRST image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)" : `one ${o.wears === "men" ? "man" : o.wears === "both" ? "person" : "woman"}`;
   const prompt = `Make a fashion illustration of ${who}, full body, standing, alone, on a plain light grey background, in exactly the same illustration style as the ${photo ? "SECOND" : ""} reference image (soft hand-drawn fashion illustration, natural proportions).
 They wear exactly this outfit ("${o.title}"): top: ${o.pieces.top}; bottom: ${o.pieces.bottom}; shoes: ${o.pieces.shoes}. Nothing from the reference's outfit unless it matches these pieces.
 No text, no logos, no other people.`;
   const parts = photo ? [{ text: prompt }, inline(photo), inline(reference)] : [{ text: prompt }, inline(reference)];
-  const data = await gemini("gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
+  const data = await gemini("gemini_image", "gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
   const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
   const img = part?.inline_data ?? part?.inlineData;
   if (!img?.data) throw new Error("No drawing came back");
@@ -153,7 +152,6 @@ export async function outfitIdea(ask: OutfitAsk): Promise<Outfit> {
   if (FAKE) return fakeOutfit(mine[ask.usedStyles.length % Math.max(1, mine.length)]?.id ?? "smart-casual", ask);
   // Another moves on to a style of theirs not used yet (founder, 20 Nov 2026: "I have only gotten streetstyle").
   const fresh = mine.filter((m) => !ask.usedStyles.includes(m.id));
-  track("gemini_rank");
   const what = ask.stops.length ? `Their plan: ${ask.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${ask.walkKm ? ` About ${ask.walkKm.toFixed(1)} km on foot between stops.` : ""}` : ask.occasion ? `They are ${OCCASION_WORDS[ask.occasion]}.` : "They haven't said where they're going.";
   const kind = [ask.vibe ? `What kind of outing: ${ask.vibe}. Dress for exactly that (a fun, loud place is not a formal dinner).` : "", ask.note ? `They also said: ${ask.note}` : ""].filter(Boolean).join("\n");
   const change = ask.change
@@ -167,7 +165,7 @@ ${kind}
 ${change}${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length && !ask.change ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
 Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not brands or colours. "style" must be the one of their styles the pieces really belong to. Plain, warm, short. Never comment on body, size or looks.
 Reply with only JSON: {"style": the style id it is based on (one of theirs), "title": 2 to 4 words, e.g. "Smart casual" or "Streetwear, dressed up", "big1": one word in capitals for a poster, e.g. "SMART", "big2": one or two lowercase words, e.g. "casual", "line": one or two sentences on why it suits tonight, "pieces": {"top": 2 to 5 words, "bottom": 2 to 5 words, "shoes": 2 to 6 words}, "chips": 2 to 4 short facts it is based on, e.g. "Relaxed brewpub", "900 m walk", "Late dinner"}`;
-  const data = await gemini("gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
+  const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
   const o = JSON.parse(textOf(data)) as Outfit;
   const style = styleById(o.style) && ask.styles.includes(o.style) ? o.style : (mine[0]?.id ?? "smart-casual");
   const cut = (s: unknown, n: number) => String(s ?? "").slice(0, n);
@@ -216,7 +214,6 @@ export type RankAsk = {
 
 export async function rankBrands(ask: RankAsk): Promise<{ id: string; why: string }[]> {
   if (FAKE) return ask.brands.map((b) => ({ id: b.id, why: `Test mode: fits your ${styleById(b.style)?.short.toLowerCase() ?? "style"}` }));
-  track("gemini_rank");
   const top = Math.max(...ask.budget.map((b) => Number(b.slice(1))).filter(Number.isFinite), 0);
   const prompt = `You are Feta's stylist in ${ask.country}. Order these clothing brands for one person, best for them first, and say in one short line why each suits THEM.
 What Feta saw in outfits they love: ${ask.cues.length ? ask.cues.join("; ") : "no photos"}.
@@ -227,7 +224,7 @@ Put first the brands whose clothes look most like what they wear AND fit their b
 Brands (id | name | style | what it sells | price | homegrown | loved by others):
 ${ask.brands.map((b) => `${b.id} | ${b.name} | ${b.style} | ${b.cues.slice(0, 140)} | ${b.priceFeel ?? "?"} | ${b.homegrown ? "yes" : "no"} | ${b.lovers}`).join("\n")}
 Reply with only JSON: {"order": [{"id", "why"}]} including every brand once.`;
-  const data = await gemini("gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+  const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
   const parsed = JSON.parse(textOf(data)) as { order?: { id: string; why?: string }[] };
   const known = new Set(ask.brands.map((b) => b.id));
   const seen = new Set<string>();
