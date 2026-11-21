@@ -45,6 +45,7 @@ export default function Questions() {
   const router = useRouter();
   const [wants, setWants] = useState<Want[]>(["food", "do"]);
   const [step, setStep] = useState(0);
+  const settling = useRef(false); // the screen just changed
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [swipes, setSwipes] = useState<Swipe[]>([]);
   const [city, setCity] = useState<City | null>(null);
@@ -164,7 +165,13 @@ export default function Questions() {
   }
 
   // Places they love: ask once whether to recommend them to others.
+  function settle() {
+    settling.current = true;
+    setTimeout(() => (settling.current = false), 700);
+  }
+
   function recommend(yes: boolean) {
+    settle();
     setAsking(false);
     setAsked(true);
     if (yes) loved.forEach((l) => saveBeen(l.placeId, { recommend: true }));
@@ -172,6 +179,10 @@ export default function Questions() {
   }
 
   function next(answered = false) {
+    // A second tap right after the screen changed lands on the next screen's
+    // Continue and skipped it ("2 of 4" to "4 of 4", testers, 21 Nov 2026).
+    if (!answered && settling.current) return;
+    settle();
     if (current === "loves" && loved.length > 0 && !asked && !answered) {
       setAsking(true);
       return;
