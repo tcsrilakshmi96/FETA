@@ -8,6 +8,7 @@ import {
   brandOf,
   chooseWithGemini,
   distanceLimitKm,
+  TRIP_OUT_KM,
   emptyDrops,
   DOING_TYPES,
   FOOD_DRINK_TYPES,
@@ -91,7 +92,11 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       f.from.add(from);
       found.set(p.id, f);
     });
-  const searches = [...plan.searched.map((i) => text(i.query, limit).then((r) => add(r, i.id))), ...(plan.broad ? [nearby(limit).then((r) => add(r, "popular"))] : [])];
+  // A hike or an adventure at the weekend may be a trip out (founder, 21 Nov
+  // 2026), searched further and allowed that far only for what it matches.
+  const tripOut = when === "weekend" && !input.at;
+  const reach = (i: Intent) => (tripOut && i.def.far ? Math.max(limit, TRIP_OUT_KM) : limit);
+  const searches = [...plan.searched.map((i) => text(i.query, reach(i)).then((r) => add(r, i.id))), ...(plan.broad ? [nearby(limit).then((r) => add(r, "popular"))] : [])];
   const settled = await Promise.allSettled(searches);
   if (settled.length && settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
 
@@ -113,6 +118,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       anyHours: input.dayPlan,
       at: input.at,
       foodDrinkOk: (p) => matched(p).some((id) => plan.searched.find((i) => i.id === id)?.def.foodDrink),
+      reachKm: (p) => Math.max(limit, ...plan.searched.filter((i) => matched(p).includes(i.id)).map(reach)),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
   const passed = filter();

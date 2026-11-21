@@ -150,12 +150,12 @@ function minutes(hhmm: string) {
 
 // Finds the venue on Google Maps (place ID, location, photo) for distance
 // and directions. Uses the cheaper "Pro" fields.
-export async function findVenue(e: FoundEvent, city: City, origin: { lat: number; lng: number }): Promise<{ place: Place; km: number } | null> {
+export async function findVenue(e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm = 30): Promise<{ place: Place; km: number } | null> {
   const [place] = await searchPlaces({
     query: `${e.venueName}, ${city.name}`,
     lat: origin.lat,
     lng: origin.lng,
-    radiusKm: 30,
+    radiusKm,
     openNow: false,
     needsDiet: false,
     regionCode: city.country,

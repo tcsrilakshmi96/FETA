@@ -224,8 +224,13 @@ export function distanceLimitKm(answers: Answers) {
   return DISTANCE_KM[answers.distance ?? ""] ?? 5;
 }
 
+// Hikes and outdoor adventures can be a trip out (founder, 21 Nov 2026: "yes,
+// with a message saying it's away"): up to a day trip, at the weekend.
+export const TRIP_OUT_KM = DISTANCE_KM.day_trip;
+
 // Their distance is a limit, never stretched (founder, 19 Nov 2026: "i only
-// wanna go somewhere in 5km" and got places 10 km away "worth a short ride").
+// wanna go somewhere in 5km" and got places 10 km away "worth a short ride"),
+// except for a hike or an adventure at the weekend (TRIP_OUT_KM).
 export function tooFar(km: number, answers: Answers) {
   return km > distanceLimitKm(answers);
 }
@@ -355,7 +360,7 @@ export function emptyDrops(): DropCounts {
 // thing to do (karaoke, a rooftop, board games).
 export function applyHardFilters(
   places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At },
+  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number },
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
@@ -378,7 +383,7 @@ export function applyHardFilters(
       continue;
     }
     const km = distanceKm(opts.origin, { lat: place.location.latitude, lng: place.location.longitude });
-    if (tooFar(km, answers)) {
+    if (opts.reachKm ? km > opts.reachKm(place) : tooFar(km, answers)) {
       drop("far");
       continue;
     }
@@ -788,7 +793,7 @@ function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): strin
   // The ✓ only when the price is known to be in their range, never for a much cheaper place.
   const spend = spendRange(taste.answers) && spendText(taste.answers, city.currency);
   if (spend && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push(`${spend} ✓`);
-  if (!wholeCity) out.push(`${formatDistance(c.km, city.country)} ✓`);
+  if (!wholeCity) out.push(tooFar(c.km, taste.answers) ? `${formatDistance(c.km, city.country)} away · a trip out` : `${formatDistance(c.km, city.country)} ✓`);
   return out;
 }
 
@@ -884,7 +889,7 @@ export function buildEventPick(
   const limit = distanceLimitKm(opts.taste.answers);
   const km = opts.wholeCity ? undefined : e.distanceKm;
   const maxSpend = spendUpperBound(opts.taste.answers, opts.city);
-  const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${formatDistance(km, opts.city.country)}${km <= limit ? " ✓" : ""}`].filter(Boolean) as string[];
+  const chips = [eventWhen(e, opts.today), e.priceText && `${e.priceText}${maxSpend !== null && /\d/.test(e.priceText) ? " ✓" : ""}`, km !== undefined && `${formatDistance(km, opts.city.country)}${km <= limit ? " ✓" : " away"}`].filter(Boolean) as string[];
   const destination = e.venuePlaceId
     ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
     : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;

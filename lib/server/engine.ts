@@ -20,6 +20,7 @@ import {
   compromiseFor,
   buildPick,
   distanceLimitKm,
+  TRIP_OUT_KM,
   kindOf,
   needsDietCheck,
   spendUpperBound,
@@ -467,8 +468,9 @@ async function eventPicks(ctx: {
   // Each venue is looked up on Google Maps (about ₹1.7), only for as many
   // as could be shown.
   const fresh = turns.slice(0, Math.max(ctx.need, 2));
-  const withVenues = (await Promise.all(fresh.map(async (x) => ({ ...x, venue: await findVenue(x.e, city, origin) })))).filter(
-    ({ venue }) => venue && venue.km <= Math.max(limit * 2, 8),
+  // A hike or an adventure may be a trip out (founder, 21 Nov 2026): the card says so.
+  const withVenues = (await Promise.all(fresh.map(async (x) => ({ ...x, venue: await findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined) })))).filter(
+    ({ venue, intent }) => venue && venue.km <= (intent?.def.far ? Math.max(limit, TRIP_OUT_KM) : Math.max(limit * 2, 8)),
   );
   // Which of these suit this person, and why (no search, about 2 s). If
   // that fails, each was still found for something they're into.

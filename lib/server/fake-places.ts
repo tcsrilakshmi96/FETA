@@ -86,6 +86,7 @@ export const CATALOGUE: Row[] = [
   ["Sunday Flea Market", "market", ["point_of_interest"], "flea market night market", null, 0, 4.3, 1500, "day", 3.5, 355],
   ["Escape Room HQ", "escape_room", ["point_of_interest"], "escape room games group activity", null, 2, 4.7, 800, "eve", 1.8, 195],
   ["Saddle Up Riding School", "equestrian_facility", ["point_of_interest"], "horse riding riding school outdoor adventure", null, 2, 4.7, 400, "day", 4.2, 260],
+  ["Ridge Trail Stables", "equestrian_facility", ["point_of_interest"], "horse riding trail rides outdoor adventure", null, 2, 4.8, 350, "day", 38.0, 300],
   ["Wheel and Kiln", "art_studio", ["point_of_interest"], "pottery class ceramics studio", null, 2, 4.6, 180, "day", 3.1, 140],
   ["City Playhouse", "performing_arts_theater", ["point_of_interest"], "theatre plays concert hall", null, 3, 4.5, 2500, "eve", 2.8, 85],
   // Sights and a breakfast place, for day plans.

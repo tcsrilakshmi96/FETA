@@ -29,6 +29,7 @@ export type SearchDef = {
   drinkPlace?: boolean;
   alcohol?: boolean;
   ahead?: boolean; // booked ahead (a class, a tasting, a hike): its events are looked for across the coming week
+  far?: boolean; // worth a trip out (a hike, horse riding): at the weekend, up to a day trip away, said on the card
 };
 
 const ASIAN = /asian/;
@@ -75,16 +76,16 @@ export const INTEREST_SEARCH: Record<string, SearchDef> = {
   taste_coffee: { searches: ["coffee tasting", "coffee roastery"], types: /coffee_roast|coffee/, ahead: true },
   taste_chocolate: { searches: ["chocolate tasting", "chocolate factory tour"], types: /chocolate/, ahead: true },
   taste_tea: { searches: ["tea tasting", "tea house"], types: /tea/, ahead: true },
-  outdoors: { searches: ["hiking trail", "nature walk", "park"], types: /park|hiking|garden|nature|lake|beach|trail|botanical/, ahead: true },
-  hike_easy: { searches: ["nature walk", "easy walking trail"], types: /park|garden|nature|lake|trail|botanical/, ahead: true },
-  hike_day: { searches: ["hiking trail", "day hike"], types: /hiking|trail|national_park|nature/, ahead: true },
-  hike_sunrise: { searches: ["sunrise trek", "sunrise viewpoint hike"], types: /hiking|trail|viewpoint|nature/, ahead: true },
-  adventures: { searches: ["outdoor adventure activity", "horse riding", "kayaking"], types: /horse|riding|equestrian|surf|kayak|canoe|climbing|adventure|cycling|bicycle/, ahead: true },
-  adv_riding: { searches: ["horse riding", "riding school"], types: /horse|riding|equestrian|stable/, ahead: true },
-  adv_surfing: { searches: ["surfing lessons", "surf school"], types: /surf/, ahead: true },
-  adv_kayaking: { searches: ["kayaking", "canoeing"], types: /kayak|canoe|boat_rental/, ahead: true },
-  adv_climbing: { searches: ["climbing gym", "rock climbing"], types: /climbing/, ahead: true },
-  adv_cycling: { searches: ["cycling tour", "bike tour"], types: /cycling|bicycle|bike/, ahead: true },
+  outdoors: { searches: ["hiking trail", "nature walk", "park"], types: /park|hiking|garden|nature|lake|beach|trail|botanical/, ahead: true, far: true },
+  hike_easy: { searches: ["nature walk", "easy walking trail"], types: /park|garden|nature|lake|trail|botanical/, ahead: true, far: true },
+  hike_day: { searches: ["hiking trail", "day hike"], types: /hiking|trail|national_park|nature/, ahead: true, far: true },
+  hike_sunrise: { searches: ["sunrise trek", "sunrise viewpoint hike"], types: /hiking|trail|viewpoint|nature/, ahead: true, far: true },
+  adventures: { searches: ["outdoor adventure activity", "horse riding", "kayaking"], types: /horse|riding|equestrian|surf|kayak|canoe|climbing|adventure|cycling|bicycle/, ahead: true, far: true },
+  adv_riding: { searches: ["horse riding", "riding school"], types: /horse|riding|equestrian|stable/, ahead: true, far: true },
+  adv_surfing: { searches: ["surfing lessons", "surf school"], types: /surf/, ahead: true, far: true },
+  adv_kayaking: { searches: ["kayaking", "canoeing"], types: /kayak|canoe|boat_rental/, ahead: true, far: true },
+  adv_climbing: { searches: ["climbing gym", "rock climbing"], types: /climbing/, ahead: true, far: true },
+  adv_cycling: { searches: ["cycling tour", "bike tour"], types: /cycling|bicycle|bike/, ahead: true, far: true },
   wellness: { searches: ["yoga studio", "sound bath", "spa"], types: /yoga|spa|wellness|meditation|massage/, ahead: true },
   well_yoga: { searches: ["yoga studio", "yoga class"], types: /yoga/, ahead: true },
   well_sound: { searches: ["sound bath", "sound healing session"], types: /sound|meditation|wellness/, ahead: true },

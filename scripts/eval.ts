@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { curate, pickFrom } from "@/lib/server/curate";
-import { distanceLimitKm, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
@@ -309,6 +309,23 @@ const PERSONAS: Persona[] = [
     some: /Wheel and Kiln/,
   },
   {
+    // Founder, 21 Nov 2026: hikes and adventures may be a trip out, saying so.
+    name: "Horse riding at the weekend may be a trip out; nothing else may",
+    city: "Bengaluru",
+    category: "experiences",
+    when: "weekend",
+    answers: { interests: ["adventures", "adv_riding", "art_culture"] },
+    covers: ["interest_adv_riding"],
+    some: /Ridge Trail Stables/,
+  },
+  {
+    name: "Horse riding tonight stays within their distance",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: { interests: ["adventures", "adv_riding"] },
+    never: /Ridge Trail Stables/,
+  },
+  {
     name: "Day plan (Calicut-style trip day): sights, not only evening places",
     city: "Bengaluru",
     category: "experiences",
@@ -407,7 +424,9 @@ async function run(p: Persona) {
   const curated = shown.map((c) => c.candidate.fetaNote !== undefined || !!c.candidate.lovedBy || !!c.candidate.local || !!c.candidate.featured);
   if (curated.lastIndexOf(true) > curated.indexOf(false) && curated.includes(false)) fails.push("a Google place shown before a curated one");
   // Their distance is a limit (founder, 19 Nov 2026: within 5 km, got 10 km).
-  for (const c of shown) if (c.candidate.km > distanceLimitKm(taste.answers)) fails.push(`${c.candidate.place.displayName?.text}: ${c.candidate.km.toFixed(1)} km, beyond their ${distanceLimitKm(taste.answers)} km`);
+  // Only a hike or an adventure at the weekend may be a trip out.
+  const tripOut = (c: { intents?: string[] }) => (p.when ?? "tonight") === "weekend" && found.intents.some((i) => i.def.far && c.intents?.includes(i.id));
+  for (const c of shown) if (c.candidate.km > (tripOut(c.candidate) ? TRIP_OUT_KM : distanceLimitKm(taste.answers))) fails.push(`${c.candidate.place.displayName?.text}: ${c.candidate.km.toFixed(1)} km, beyond their ${distanceLimitKm(taste.answers)} km`);
   // No filler: once they've shared anything, each place is for something
   // they chose, said or love, or a curated place.
   if (explicit.length)
