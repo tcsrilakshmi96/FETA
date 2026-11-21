@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { overBudget } from "@/lib/server/costs";
+import { budgetToday } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, pickFrom, type CurateResult } from "@/lib/server/curate";
@@ -41,11 +41,6 @@ import {
   type At,
 } from "@/lib/server/picks";
 
-// Cost guards (founder can change these in Vercel without a code change).
-// Alpha: 600 new searches a day across everyone, 20 per person (each
-// category counts once), and an estimated-spend cap per day (costs.ts).
-const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
-const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 60);
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 // How long places wait for what's on. Things to do are led by events now
 // (founder, 19 Nov 2026), so the first search of the day waits for them
@@ -154,12 +149,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const previous = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date() ? firstShown(latest) : [];
   const keptBanner: string | null = previous.length ? latest!.banner : null;
 
-  // 2. Daily cost limits: searches, and today's estimated spend.
-  const [{ data: counts }, over] = await Promise.all([
-    db.rpc("pick_searches_today").single<{ everyone: number; mine: number }>(),
-    overBudget(db),
-  ]);
-  if ((counts && (counts.everyone >= DAILY_LIMIT || counts.mine >= USER_DAILY_LIMIT)) || over) {
+  // 2. Daily cost limits: searches, and today's estimated spend (costs.ts;
+  //    the founder can change them in Vercel without a code change).
+  const budget = await budgetToday(db);
+  if (budget.left <= 0 || budget.over) {
     if (kept.picks.length > 0) return json({ picks: kept.picks, notice: "That's all the new searching for today, so here are your latest picks." });
     if (latest) {
       const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });

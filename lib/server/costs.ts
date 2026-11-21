@@ -71,18 +71,38 @@ export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 1500);
 // What one person can spend in a day, so no one uses up everyone's (audit,
 // 20 Nov 2026). Admins don't count.
 export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 250);
+// Test accounts (?qa=1) have their own pool and never use real people's
+// (founder, 21 Nov 2026: ₹300 each, ₹2,700 for all of them together).
+export const TEST_BUDGET_INR = Number(process.env.TEST_DAILY_BUDGET_INR ?? 2700);
+export const TEST_USER_BUDGET_INR = Number(process.env.TEST_USER_DAILY_BUDGET_INR ?? 300);
+// New searches for picks a day: everyone's (real people, or test accounts
+// together) and one person's.
+const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
+const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 60);
+// Roughly what one new set of picks costs, to turn money left into searches left.
+const SET_INR = 15;
 
-// True when today's estimated spend (India time) is over the shared cap or
-// this person's. If the spend can't be read, paid work stops rather than
-// running with no limit; before the per-person check exists, only the
-// shared cap applies (Admin's database check names the missing migration).
-export async function overBudget(db: SupabaseClient): Promise<boolean> {
-  const [all, mine] = await Promise.all([db.rpc("spend_today_inr"), db.rpc("spend_today_inr_mine")]);
-  if (all.error) {
-    console.error("budget check", all.error.message);
-    return true;
+// How many new searches this person has left today (India time), from
+// whichever runs out first: their searches, their spend, or their pool's
+// (real people's, or test accounts'). If it can't be read, paid work stops
+// rather than running with no limit.
+export async function budgetToday(db: SupabaseClient): Promise<{ over: boolean; left: number }> {
+  const { data, error } = await db.rpc("budget_today");
+  if (error || !data) {
+    console.error("budget check", error?.message);
+    return { over: true, left: 0 };
   }
-  return Number(all.data ?? 0) >= DAILY_BUDGET_INR || (!mine.error && Number(mine.data ?? 0) >= USER_BUDGET_INR);
+  const b = data as { is_test: boolean; pool: number; mine: number; searches: number; searches_mine: number };
+  const [pool, mine] = b.is_test ? [TEST_BUDGET_INR, TEST_USER_BUDGET_INR] : [DAILY_BUDGET_INR, USER_BUDGET_INR];
+  const left = Math.max(
+    0,
+    Math.min(USER_DAILY_LIMIT - b.searches_mine, DAILY_LIMIT - b.searches, Math.floor((mine - Number(b.mine)) / SET_INR), Math.floor((pool - Number(b.pool)) / SET_INR)),
+  );
+  return { over: Number(b.pool) >= pool || Number(b.mine) >= mine, left };
+}
+
+export async function overBudget(db: SupabaseClient): Promise<boolean> {
+  return (await budgetToday(db)).over;
 }
 
 // Building the style brand library (Feta's research, brand lookups) has its

@@ -453,5 +453,10 @@
   "kind": "function",
   "name": "spend_today_inr_mine",
   "file": "20261120200000_budget_per_person.sql"
+ },
+ {
+  "kind": "function",
+  "name": "budget_today",
+  "file": "20261121100000_test_budget.sql"
  }
 ]
