@@ -34,6 +34,8 @@ export default function Style() {
   const [tried, setTried] = useState<Record<string, string[]>>({});
   const [outfit, setOutfit] = useState<Outfit | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Today's limit is reached: only that is said, not a plan or outing choices it can't dress.
+  const [limited, setLimited] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [shown, setShown] = useState<string[]>([]);
   const [shownStyles, setShownStyles] = useState<string[]>([]); // so Another moves through their styles
@@ -102,7 +104,10 @@ export default function Style() {
         setLook(drawnLook);
         setShown((x) => [...x, r.outfit!.title]);
         setShownStyles((x) => [...x, r.outfit!.style]);
-      } else setNotice(r?.notice ?? "Feta couldn't think of a look just now.");
+      } else {
+        setNotice(r?.notice ?? "Feta couldn't think of a look just now.");
+        setLimited(!!r?.limited);
+      }
     },
     [origin],
   );
@@ -194,7 +199,7 @@ export default function Style() {
               <span className={s.kick} style={{ color: "#7a4f27" }}>
                 WHAT TO WEAR {new Date().getHours() < 16 ? "TODAY" : "TONIGHT"}
               </span>
-              <span style={{ fontSize: 13, opacity: 0.75 }}>{plan === undefined ? "Checking your plans…" : heading}</span>
+              {!limited && <span style={{ fontSize: 13, opacity: 0.75 }}>{plan === undefined ? "Checking your plans…" : heading}</span>}
             </div>
 
             {outfit && !thinking ? (
@@ -227,7 +232,7 @@ export default function Style() {
                 <span className={s.small} style={{ color: "#1a1616", opacity: 0.75 }}>
                   {notice ?? (occ ? `What kind of ${occ.label.toLowerCase()}?` : "No plan saved for today. Where are you going?")}
                 </span>
-                {occ ? (
+                {limited ? null : occ ? (
                   <>
                     <div className={s.chips}>
                       {occ.kinds.map((k) => (

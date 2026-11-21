@@ -268,12 +268,15 @@ button {
   top: 92px;
   transform: translateX(-50%);
   z-index: 95;
+  width: max-content;
+  max-width: calc(100% - 32px);
   padding: 10px 16px;
-  border-radius: 99px;
+  border-radius: 18px;
   background: var(--ink);
   color: var(--bg);
   font-size: 13px;
-  white-space: nowrap;
+  line-height: 1.35;
+  text-align: center;
   display: flex;
   align-items: center;
   gap: 10px;

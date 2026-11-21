@@ -71,18 +71,23 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
 
 export const DAILY_BUDGET_INR = Number(process.env.DAILY_BUDGET_INR ?? 1500);
 // What one person can spend in a day, so no one uses up everyone's (audit,
-// 20 Nov 2026). Admins don't count.
-export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 250);
+// 20 Nov 2026; raised to about 10 fresh lists for the testing phase, founder
+// 21 Nov 2026). Admins don't count.
+export const USER_BUDGET_INR = Number(process.env.USER_DAILY_BUDGET_INR ?? 1000);
 // Test accounts (?qa=1) have their own pool and never use real people's
-// (founder, 21 Nov 2026: ₹300 each, ₹2,700 for all of them together).
-export const TEST_BUDGET_INR = Number(process.env.TEST_DAILY_BUDGET_INR ?? 2700);
-export const TEST_USER_BUDGET_INR = Number(process.env.TEST_USER_DAILY_BUDGET_INR ?? 300);
+// (founder, 21 Nov 2026; raised the same day for the testing phase, when a
+// tester was stopped after two lists).
+export const TEST_BUDGET_INR = Number(process.env.TEST_DAILY_BUDGET_INR ?? 5000);
+export const TEST_USER_BUDGET_INR = Number(process.env.TEST_USER_DAILY_BUDGET_INR ?? 1000);
 // New searches for picks a day: everyone's (real people, or test accounts
 // together) and one person's.
 const DAILY_LIMIT = Number(process.env.PICKS_DAILY_LIMIT ?? 600);
 const USER_DAILY_LIMIT = Number(process.env.PICKS_USER_DAILY_LIMIT ?? 60);
-// Roughly what one new set of picks costs, to turn money left into searches left.
-const SET_INR = 15;
+// What one new set of picks costs, to turn money left into searches left:
+// their own average today, else about ₹100 (21 Nov 2026: live checks of
+// curated places, event venues and photos; ₹15 was a guess and the count
+// ran out without warning).
+const SET_INR = 100;
 
 // How many new searches this person has left today (India time), from
 // whichever runs out first: their searches, their spend, or their pool's
@@ -96,9 +101,10 @@ export async function budgetToday(db: SupabaseClient): Promise<{ over: boolean; 
   }
   const b = data as { is_test: boolean; pool: number; mine: number; searches: number; searches_mine: number };
   const [pool, mine] = b.is_test ? [TEST_BUDGET_INR, TEST_USER_BUDGET_INR] : [DAILY_BUDGET_INR, USER_BUDGET_INR];
+  const perSet = b.searches_mine > 0 && Number(b.mine) > 0 ? Math.max(20, Number(b.mine) / b.searches_mine) : SET_INR;
   const left = Math.max(
     0,
-    Math.min(USER_DAILY_LIMIT - b.searches_mine, DAILY_LIMIT - b.searches, Math.floor((mine - Number(b.mine)) / SET_INR), Math.floor((pool - Number(b.pool)) / SET_INR)),
+    Math.min(USER_DAILY_LIMIT - b.searches_mine, DAILY_LIMIT - b.searches, Math.floor((mine - Number(b.mine)) / perSet), Math.floor((pool - Number(b.pool)) / SET_INR)),
   );
   return { over: Number(b.pool) >= pool || Number(b.mine) >= mine, left };
 }

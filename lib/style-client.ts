@@ -230,7 +230,7 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
 }
 
 // One idea at a time; kept for the day so opening Style again costs nothing.
-export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[]; change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } }): Promise<{ outfit?: Outfit; notice?: string } | null> {
+export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[]; change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } }): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
   const key = `feta.outfit:${localDay(new Date())}:${ask.change ? `${ask.change.piece}:${JSON.stringify(ask.change.outfit.pieces)}:` : ""}${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
   try {
     const kept = sessionStorage.getItem(key);
@@ -247,11 +247,11 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
   return work;
 }
 
-const asking = new Map<string, Promise<{ outfit?: Outfit; notice?: string } | null>>();
+const asking = new Map<string, Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null>>();
 
-async function askOutfit(ask: Parameters<typeof outfitFor>[0], key: string): Promise<{ outfit?: Outfit; notice?: string } | null> {
+async function askOutfit(ask: Parameters<typeof outfitFor>[0], key: string): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
   const localTime = new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date());
-  const res = await post<{ outfit?: Outfit; notice?: string }>("/api/style/outfit", {
+  const res = await post<{ outfit?: Outfit; notice?: string; limited?: boolean }>("/api/style/outfit", {
     styles: ask.styles,
     wears: ask.wears,
     occasion: ask.plan ? null : ask.occasion,

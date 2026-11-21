@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
   const styles = (body.styles ?? []).filter((s) => styleById(s)).slice(0, 6);
   if (!styles.length) return Response.json({ error: "No styles" }, { status: 400 });
-  if (!FAKE && (await overBudget(db))) return Response.json({ notice: await limitNoticeHere("style") });
+  if (!FAKE && (await overBudget(db))) return Response.json({ notice: await limitNoticeHere("style"), limited: true });
   const short = (a: unknown, n: number, len = 60) => (Array.isArray(a) ? a : []).slice(0, n).map((x) => String(x).slice(0, len));
   const ask: OutfitAsk = {
     styles,
