@@ -202,9 +202,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // places. Places don't wait more than a few seconds for them: a slow
   // first search keeps going after the reply and fills the shared events
   // cache, so the next search (or pull down) has them straight away.
-  const eventKinds = allIntents(effective, { category: body.category, city, tweaks, note, rotation, extra }).filter((i) => i.explicit);
+  // A tweak an event can't be checked for (outdoors, quieter, with kids…)
+  // leaves events out, so the top pick follows the tweaks like the list
+  // (Round 6: Outdoors + Closer, and the top pick was an indoor café 8 km away).
+  const eventKinds = allIntents(effective, { category: body.category, city, tweaks, note, rotation, extra }).filter((i) => i.explicit && i.source !== "tweak");
+  const eventsTweakable = tweaks.every((t) => t === "cheaper" || t === "closer");
   const eventsFull =
-    body.category === "experiences" && need > 1 && !body.trip && !body.only
+    body.category === "experiences" && need > 1 && !body.trip && !body.only && eventsTweakable
       ? eventPicks({ db, taste: effective, body, city, origin, exclude, intents: eventKinds, need }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
@@ -483,7 +487,8 @@ async function eventPicks(ctx: {
   const fresh = turns.slice(0, Math.max(ctx.need, 2));
   // A hike or an adventure may be a trip out (founder, 21 Nov 2026): the card says so.
   const withVenues = (await Promise.all(fresh.map(async (x) => ({ ...x, venue: await findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined) })))).filter(
-    ({ venue, intent }) => venue && venue.km <= (intent?.def.far ? Math.max(limit, TRIP_OUT_KM) : Math.max(limit * 2, 8)),
+    // Their distance holds for events too (it was stretched to twice it).
+    ({ venue, intent }) => venue && venue.km <= (intent?.def.far ? Math.max(limit, TRIP_OUT_KM) : limit),
   );
   // Which of these suit this person, and why (no search, about 2 s). If
   // that fails, each was still found for something they're into.
