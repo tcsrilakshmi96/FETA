@@ -38,7 +38,9 @@ function openUntil(p: Pick, at: Date, minutes: number) {
     const end = start + minutes;
     return p.hours.some(([d, open, close]) => (d === day && open <= start && close >= end) || (d === (day + 6) % 7 && close - 24 * 60 >= end));
   }
-  if (!p.closesAt) return true;
+  // Unknown hours are fine by day, but not in the evening (testers: a small
+  // park at 9 pm).
+  if (!p.closesAt) return at.getHours() < 18;
   return new Date(p.closesAt).getTime() >= at.getTime() + minutes * 60000;
 }
 
@@ -93,6 +95,10 @@ export function planEvenings(food: Pick[], experiences: Pick[], when: When, now 
       if (km > MAX_KM) continue;
       const t = travel(km);
       const fixed = eventStart(b);
+      // An event with no time, or on another day (classes are found a week
+      // ahead), can't be fitted into this evening (Round 6: a class with no
+      // time was put after dinner).
+      if (b.event && (!fixed || fixed.toDateString() !== day.toDateString())) continue;
       if (fixed) {
         // An event fixes the time: dinner before it, or straight after.
         consider(a, b, quarter(new Date(fixed.getTime() - (dinnerMinutes + t.minutes + 10) * 60000)), fixed, km, t, 0);

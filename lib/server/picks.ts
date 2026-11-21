@@ -874,8 +874,10 @@ export function weeklyHours(p: Place): [number, number, number][] | undefined {
 // ---------- Event cards ----------
 
 function eventWhen(e: EventInfo, today: string) {
+  // Midnight means the listing gave only a date (events cached before this was read that way).
+  if (e.time === "00:00") e = { ...e, time: "" };
   // A morning class today is "Today", not "Tonight".
-  const day = e.date === today ? (e.time && Number(e.time.slice(0, 2)) < 17 ? "Today" : "Tonight") : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
+  const day = e.date === today ? (!e.time || Number(e.time.slice(0, 2)) < 17 ? "Today" : "Tonight") : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
   if (!e.time) return day;
   const [h, m] = e.time.split(":").map(Number);
   return `${day} · ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;

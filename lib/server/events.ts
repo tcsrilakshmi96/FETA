@@ -120,6 +120,9 @@ Reply with only a JSON array. Each item:
   } catch {
     events = [];
   }
+  // A listing with only a date comes back as midnight; that's "no time"
+  // (Round 6: "Today 12 AM" on a pottery class).
+  events = events.map((e) => (e.time === "00:00" ? { ...e, time: "" } : e));
   return { events, searchHtml };
 }
 
