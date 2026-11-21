@@ -1073,13 +1073,21 @@
   gap: 8px;
   margin-top: 6px;
 }
+/* A real button in the app's look (founder, 21 Nov 2026: it read as text). */
 .findMore {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1.5px dashed var(--tan);
-  color: var(--tan);
-  font-size: 14px;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 20px;
+  border-radius: 99px;
+  background: rgba(var(--surf), 0.85);
+  border: 1.5px solid rgba(var(--inkRGB), 0.18);
+  color: var(--ink);
+  font-size: 15px;
   font-weight: 600;
+  transition: transform 0.2s var(--ease-press);
+}
+.findMore:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .findMore:disabled {
   opacity: 0.6;

@@ -208,7 +208,7 @@ export default function StyleBrands() {
                 setMoreNote(note);
               }}
             >
-              {researching.includes(tab) ? `Looking for more ${lens.short.toLowerCase()} brands…` : `Find more ${lens.short.toLowerCase()} brands in ${origin.city.countryName}`}
+              {researching.includes(tab) ? `Looking for more ${lens.short.toLowerCase()} brands…` : `＋ Find more ${lens.short.toLowerCase()} brands in ${origin.city.countryName}`}
             </button>
           )}
           {moreNote && <p className={s.small}>{moreNote}</p>}
