@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { EMPTY_ANSWERS, withSpendRange, type Answers } from "@/lib/onboarding";
+import { scopeCounts } from "@/lib/profile-scope";
 import type { Taste } from "@/lib/server/picks";
 
 // A database client that acts as the signed-in user, so row-level
@@ -52,11 +53,14 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
   // from places you love" is never searched for again.
   const all = linesRes.data ?? [];
   const live = all.filter((l) => !l.removed_at);
-  const lines = live.filter((l) => !l.trip || (trip && l.trip === trip)).filter((l) => l.source !== "loved");
+  // Lines about the people they go out with ("parents are Jain") reach only
+  // Ask Feta's brief, which uses them when those people come along; they
+  // never shape everyday picks (Round 6: they reached Lisbon picks).
+  const lines = live.filter((l) => scopeCounts(l.trip, trip) && l.source !== "loved" && !String(l.line_key ?? "").startsWith("people:"));
   // Their own words: typed at setup ("Something else", "Anything else"),
   // added in You, or learned in chat. Lines about the people they go out
   // with only count when those people come along (chat says so).
-  const own = lines.filter((l) => !String(l.line_key ?? "").startsWith("people:") && (["food_other", "loves_other"].includes(l.line_key) || ["you", "chat"].includes(l.source)));
+  const own = lines.filter((l) => (["food_other", "loves_other"].includes(l.line_key) || ["you", "chat"].includes(l.source)));
   return {
     answers,
     lines: lines.map((l) => l.text),

@@ -1,5 +1,6 @@
 "use client";
 
+import { scopeCounts } from "@/lib/profile-scope";
 import { changingTaste, forgetPicks } from "@/lib/picks-store";
 import { currentUserId, supabase } from "@/lib/supabase";
 
@@ -47,7 +48,8 @@ export async function loadProfile(): Promise<Profile | null> {
   ]);
   const been = new Set((actions ?? []).filter((a) => a.action === "been").map((a) => a.place_id));
   lastProfile = {
-    lines: (lines ?? []).map(({ line_key, ...l }) => ({ ...l, key: line_key })) as Line[],
+    // A line for one day only is gone from You once that day has passed.
+    lines: (lines ?? []).filter((l) => !String(l.trip ?? "").startsWith("day:") || scopeCounts(l.trip)).map(({ line_key, ...l }) => ({ ...l, key: line_key })) as Line[],
     consent: { location: !!profile?.consent_location, publicReviews: !!profile?.consent_public_reviews },
     places: {
       want: (actions ?? []).filter((a) => a.action === "saved" && !been.has(a.place_id)).length,

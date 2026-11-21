@@ -16,12 +16,13 @@ import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
 import type { Pick } from "@/lib/picks-client";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { setLinesTrip, undoLines } from "@/lib/profile-client";
+import { todayScope } from "@/lib/profile-scope";
 import { removeWeekendWish } from "@/lib/weekend-client";
 import styles from "./Ask.module.css";
 
 type Message =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; weekendUndone?: boolean; tripId?: string | null };
+  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; tripId?: string | null };
 
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
@@ -184,6 +185,26 @@ export default function Ask() {
                       <span className={styles.tripSub}>Keeps your everyday picks unchanged. Used for {m.reply.trip}.</span>
                     </span>
                     <span className={`switch ${m.tripOnly ? "on" : ""}`} />
+                  </button>
+                )}
+                {/* Round 6: "out with my parents tonight" reached Lisbon a week later. */}
+                {!m.reply.trip && !m.undone && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={m.todayOnly ?? !!m.reply.today}
+                    className={styles.tripToggle}
+                    onClick={() => {
+                      const next = !(m.todayOnly ?? !!m.reply!.today);
+                      setLinesTrip(m.reply!.added.map((a) => a.id), next ? todayScope() : null);
+                      patch(m.id, { todayOnly: next });
+                    }}
+                  >
+                    <span>
+                      <span className={styles.tripTitle}>Just for today</span>
+                      <span className={styles.tripSub}>Tomorrow Feta goes back to your usual taste.</span>
+                    </span>
+                    <span className={`switch ${(m.todayOnly ?? m.reply.today) ? "on" : ""}`} />
                   </button>
                 )}
               </div>

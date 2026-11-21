@@ -1,6 +1,7 @@
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
 import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { todayScope } from "@/lib/profile-scope";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
@@ -25,7 +26,7 @@ type Origin = { lat: number; lng: number; label: string; source: "gps" | "area" 
 
 type VeniceReply = {
   reply?: string;
-  learned?: ({ text?: string; about?: string | null } | string)[];
+  learned?: ({ text?: string; about?: string | null; for?: string } | string)[];
   weekend?: string | null;
   itinerary?: { place?: string | null; days?: number; start?: string | null; who?: string; note?: string } | null;
   trip?: { place?: string; dates?: string } | null;
@@ -52,6 +53,7 @@ export type AskReply = {
   reply: string;
   picks: Pick[];
   added: { id: string; text: string }[];
+  today?: boolean; // what was added counts only today ("out with my parents tonight")
   trip: string | null; // "Goa · 14–18 Dec"
   notice?: string;
   options?: string[]; // tap-able answers to a question Feta just asked
@@ -144,7 +146,7 @@ Besides talking, you can do one of these per reply (leave the others null).
 Reply with only a JSON object:
 {"reply": what you say, 1 to 4 short sentences (a little longer when they ask for advice or an explanation that needs it),
  "options": 2 to 4 tap-able answers (under 5 words each) whenever your reply asks a question (always, so they can just tap), else [],
- "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids"}; [] if nothing new; never labels, personality types, health or allergy details,
+ "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids", "for": "always", or "today" for something true only tonight or for this one outing (who they're with tonight, tonight's mood, an occasion: "out with my parents tonight" is "today")}; [] if nothing new; never labels, personality types, health or allergy details,
  "weekend": null, or a short phrase when they mention something they want to do this weekend,
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
  "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above, "outfit": null or as above,
@@ -186,16 +188,19 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   }
 
   // Things learned go straight into the profile, shown with Undo.
+  // Something true only tonight ("out with my parents tonight") counts for
+  // today only (Round 6: it reached Lisbon picks a week later).
   const learned = (parsed.learned ?? [])
-    .map((l) => (typeof l === "string" ? { text: l, about: null } : { text: l.text ?? "", about: l.about ?? null }))
-    .map((l) => ({ text: l.text.trim().slice(0, 80), about: (ABOUT as readonly string[]).includes(l.about ?? "") ? l.about : null }))
+    .map((l) => (typeof l === "string" ? { text: l, about: null, for: "always" } : { text: l.text ?? "", about: l.about ?? null, for: l.for ?? "always" }))
+    .map((l) => ({ text: l.text.trim().slice(0, 80), about: (ABOUT as readonly string[]).includes(l.about ?? "") ? l.about : null, today: l.for === "today" }))
     .filter((l) => l.text)
     .slice(0, 3);
   let added: { id: string; text: string }[] = [];
+  const todayOnly = learned.length > 0 && learned.every((l) => l.today);
   if (learned.length > 0) {
     const { data, error } = await db
       .from("profile_lines")
-      .insert(learned.map((l) => ({ user_id: userId, line_key: `${l.about ? `people:${l.about}` : "chat"}:${crypto.randomUUID()}`, text: l.text, source: "chat" })))
+      .insert(learned.map((l) => ({ user_id: userId, line_key: `${l.about ? `people:${l.about}` : "chat"}:${crypto.randomUUID()}`, text: l.text, source: "chat", trip: l.today ? todayScope() : null })))
       .select("id, text");
     if (error) console.error("Saving chat lines failed", error.message);
     added = data ?? [];
@@ -424,7 +429,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     },
   ]);
 
-  return Response.json({ reply, picks, added, trip: tripLabel, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, ...(todayOnly ? { today: true } : {}), trip: tripLabel, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
 }
 
 // The day and time asked for, in the city's own time: a time with no day
