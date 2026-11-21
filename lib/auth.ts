@@ -1,7 +1,6 @@
 "use client";
 
-import { forgetPhone } from "@/lib/profile-client";
-import { currentUserId, supabase } from "@/lib/supabase";
+import { currentUserId, forgetPhone, supabase } from "@/lib/supabase";
 
 // After Google, people come back to the consent step of sign-in, unless
 // they signed in from somewhere else (like You).

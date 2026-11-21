@@ -220,6 +220,18 @@ async function main() {
       check(korean.test(after) && !korean.test(before), `Turning on ${turnOn} in You brings Korean places to the picks`, `before: ${korean.test(before)}, after: ${korean.test(after)}`);
     }
 
+    // Another account's things left on the phone (founder, 21 Nov 2026: "in
+    // one phone even after memory deletion the data gets overlapped") go, and
+    // this account's own come back.
+    await p.evaluate(() => {
+      localStorage.setItem("feta.owner", "someone-else");
+      localStorage.setItem("feta.name", "Oldname");
+    });
+    await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
+    await p.waitForFunction(() => location.pathname === "/home" && /Hi /.test(document.body.innerText), { timeout: 30000 }).catch(() => null);
+    const mine = await p.evaluate(() => ({ text: document.body.innerText, owner: localStorage.getItem("feta.owner") }));
+    check(/Hi Journey/.test(mine.text) && !/Oldname/.test(mine.text) && mine.owner !== "someone-else", "Another account's things on the phone are cleared and this account's come back", mine.text.slice(0, 200));
+
     check(errors.length === 0, "No errors on any screen", errors.join(" | "));
   } catch (error) {
     check(false, "The walk-through finished", String(error));

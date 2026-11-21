@@ -2,7 +2,7 @@
 
 import { scopeCounts } from "@/lib/profile-scope";
 import { changingTaste, forgetPicks } from "@/lib/picks-store";
-import { currentUserId, supabase } from "@/lib/supabase";
+import { currentUserId, forgetPhone, supabase } from "@/lib/supabase";
 
 // The You screen: plain profile lines, privacy choices and the account.
 
@@ -122,26 +122,6 @@ export async function deleteMyData(): Promise<boolean> {
   await supabase().auth.signOut({ scope: "local" });
   await forgetPhone();
   return true;
-}
-
-// Everything this phone kept: settings, picks and plans, and Style's photo
-// and drawings (founder, 20 Nov 2026: after "Delete my data" her old
-// drawings came back; they live in IndexedDB, which clear() doesn't touch).
-export async function forgetPhone() {
-  try {
-    localStorage.clear();
-    sessionStorage.clear();
-  } catch {
-    // Nothing more to clear.
-  }
-  try {
-    await new Promise<void>((done) => {
-      const req = indexedDB.deleteDatabase("feta-style");
-      req.onsuccess = req.onerror = req.onblocked = () => done();
-    });
-  } catch {
-    // No IndexedDB here.
-  }
 }
 
 // Appearance: Auto follows the phone; Light or Dark is remembered here.
