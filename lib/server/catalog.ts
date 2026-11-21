@@ -28,6 +28,7 @@ export type SearchDef = {
   foodDrink?: boolean;
   drinkPlace?: boolean;
   alcohol?: boolean;
+  ahead?: boolean; // booked ahead (a class, a tasting, a hike): its events are looked for across the coming week
 };
 
 const ASIAN = /asian/;
@@ -63,31 +64,31 @@ export const INTEREST_SEARCH: Record<string, SearchDef> = {
   nightlife: { searches: ["nightclub", "night club with dj"], types: /night_club/, alcohol: true },
   // Try something new (founder, 21 Nov 2026): a group alone searches any
   // kind; a specific one chosen inside it is searched instead (intents.ts).
-  workshops: { searches: ["pottery workshop", "cooking class", "art workshop", "craft workshop"], types: /workshop|art_studio|pottery|cooking_class|cooking_school|craft/ },
-  class_pottery: { searches: ["pottery class", "ceramics studio"], types: /pottery|ceramic|art_studio/ },
-  class_cooking: { searches: ["cooking class", "cooking school"], types: /cooking_class|cooking_school|culinary/ },
-  class_painting: { searches: ["painting class", "art workshop"], types: /art_studio|art_school|painting/ },
-  class_dance: { searches: ["dance class", "salsa class"], types: /dance/ },
-  class_candle: { searches: ["candle making workshop", "perfume making workshop"], types: /workshop|craft|candle|perfume/ },
-  tastings: { searches: ["wine tasting", "coffee tasting", "chocolate tasting"], types: /winery|wine|tasting|coffee_roast|chocolate/ },
-  taste_wine: { searches: ["wine tasting", "winery"], types: /winery|wine/, alcohol: true },
-  taste_coffee: { searches: ["coffee tasting", "coffee roastery"], types: /coffee_roast|coffee/ },
-  taste_chocolate: { searches: ["chocolate tasting", "chocolate factory tour"], types: /chocolate/ },
-  taste_tea: { searches: ["tea tasting", "tea house"], types: /tea/ },
-  outdoors: { searches: ["hiking trail", "nature walk", "park"], types: /park|hiking|garden|nature|lake|beach|trail|botanical/ },
-  hike_easy: { searches: ["nature walk", "easy walking trail"], types: /park|garden|nature|lake|trail|botanical/ },
-  hike_day: { searches: ["hiking trail", "day hike"], types: /hiking|trail|national_park|nature/ },
-  hike_sunrise: { searches: ["sunrise trek", "sunrise viewpoint hike"], types: /hiking|trail|viewpoint|nature/ },
-  adventures: { searches: ["outdoor adventure activity", "horse riding", "kayaking"], types: /horse|riding|equestrian|surf|kayak|canoe|climbing|adventure|cycling|bicycle/ },
-  adv_riding: { searches: ["horse riding", "riding school"], types: /horse|riding|equestrian|stable/ },
-  adv_surfing: { searches: ["surfing lessons", "surf school"], types: /surf/ },
-  adv_kayaking: { searches: ["kayaking", "canoeing"], types: /kayak|canoe|boat_rental/ },
-  adv_climbing: { searches: ["climbing gym", "rock climbing"], types: /climbing/ },
-  adv_cycling: { searches: ["cycling tour", "bike tour"], types: /cycling|bicycle|bike/ },
-  wellness: { searches: ["yoga studio", "sound bath", "spa"], types: /yoga|spa|wellness|meditation|massage/ },
-  well_yoga: { searches: ["yoga studio", "yoga class"], types: /yoga/ },
-  well_sound: { searches: ["sound bath", "sound healing session"], types: /sound|meditation|wellness/ },
-  well_spa: { searches: ["day spa", "spa"], types: /spa|massage|sauna|wellness/ },
+  workshops: { searches: ["pottery workshop", "cooking class", "art workshop", "craft workshop"], types: /workshop|art_studio|pottery|cooking_class|cooking_school|craft/, ahead: true },
+  class_pottery: { searches: ["pottery class", "ceramics studio"], types: /pottery|ceramic|art_studio/, ahead: true },
+  class_cooking: { searches: ["cooking class", "cooking school"], types: /cooking_class|cooking_school|culinary/, ahead: true },
+  class_painting: { searches: ["painting class", "art workshop"], types: /art_studio|art_school|painting/, ahead: true },
+  class_dance: { searches: ["dance class", "salsa class"], types: /dance/, ahead: true },
+  class_candle: { searches: ["candle making workshop", "perfume making workshop"], types: /workshop|craft|candle|perfume/, ahead: true },
+  tastings: { searches: ["wine tasting", "coffee tasting", "chocolate tasting"], types: /winery|wine|tasting|coffee_roast|chocolate/, ahead: true },
+  taste_wine: { searches: ["wine tasting", "winery"], types: /winery|wine/, alcohol: true, ahead: true },
+  taste_coffee: { searches: ["coffee tasting", "coffee roastery"], types: /coffee_roast|coffee/, ahead: true },
+  taste_chocolate: { searches: ["chocolate tasting", "chocolate factory tour"], types: /chocolate/, ahead: true },
+  taste_tea: { searches: ["tea tasting", "tea house"], types: /tea/, ahead: true },
+  outdoors: { searches: ["hiking trail", "nature walk", "park"], types: /park|hiking|garden|nature|lake|beach|trail|botanical/, ahead: true },
+  hike_easy: { searches: ["nature walk", "easy walking trail"], types: /park|garden|nature|lake|trail|botanical/, ahead: true },
+  hike_day: { searches: ["hiking trail", "day hike"], types: /hiking|trail|national_park|nature/, ahead: true },
+  hike_sunrise: { searches: ["sunrise trek", "sunrise viewpoint hike"], types: /hiking|trail|viewpoint|nature/, ahead: true },
+  adventures: { searches: ["outdoor adventure activity", "horse riding", "kayaking"], types: /horse|riding|equestrian|surf|kayak|canoe|climbing|adventure|cycling|bicycle/, ahead: true },
+  adv_riding: { searches: ["horse riding", "riding school"], types: /horse|riding|equestrian|stable/, ahead: true },
+  adv_surfing: { searches: ["surfing lessons", "surf school"], types: /surf/, ahead: true },
+  adv_kayaking: { searches: ["kayaking", "canoeing"], types: /kayak|canoe|boat_rental/, ahead: true },
+  adv_climbing: { searches: ["climbing gym", "rock climbing"], types: /climbing/, ahead: true },
+  adv_cycling: { searches: ["cycling tour", "bike tour"], types: /cycling|bicycle|bike/, ahead: true },
+  wellness: { searches: ["yoga studio", "sound bath", "spa"], types: /yoga|spa|wellness|meditation|massage/, ahead: true },
+  well_yoga: { searches: ["yoga studio", "yoga class"], types: /yoga/, ahead: true },
+  well_sound: { searches: ["sound bath", "sound healing session"], types: /sound|meditation|wellness/, ahead: true },
+  well_spa: { searches: ["day spa", "spa"], types: /spa|massage|sauna|wellness/, ahead: true },
 };
 
 // Taste-card sides: what kind of place, not what they love most, so these

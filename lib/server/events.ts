@@ -49,7 +49,8 @@ export function cityCalendar(timeZone: string) {
     return `${q.year}-${q.month}-${q.day}`;
   };
   const weekend = weekday === 6 ? [today, dayAt(1)] : weekday === 0 ? [today] : [dayAt(6 - weekday), dayAt(7 - weekday)];
-  return { today, time: `${p.hour === "24" ? "00" : p.hour}:${p.minute}`, weekend };
+  const week = Array.from({ length: 7 }, (_, i) => (i === 0 ? today : dayAt(i)));
+  return { today, time: `${p.hour === "24" ? "00" : p.hour}:${p.minute}`, weekend, week };
 }
 
 function readable(date: string) {
@@ -60,14 +61,23 @@ function readable(date: string) {
 // do are led by what's on, searched for what each person is into), shared
 // by everyone there into the same thing for a few hours; personalizeEvents
 // then chooses. With no kind, any kind (someone who hasn't shared any yet).
+// "week": the coming 7 days, for things booked ahead (a class, a tasting, a
+// hike; founder, 21 Nov 2026).
+export type EventSpan = "tonight" | "weekend" | "week";
+
 export async function findEvents(opts: {
   city: City;
-  when: "tonight" | "weekend";
+  when: EventSpan;
   kind?: string; // "Stand-up comedy (stand-up comedy club)", in plain words
 }): Promise<EventSearch> {
   if (FAKE) return { events: [], searchHtml: "" };
   const cal = cityCalendar(opts.city.timeZone);
-  const window = opts.when === "tonight" ? `tonight, ${readable(cal.today)}, starting after ${cal.time}` : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
+  const window =
+    opts.when === "tonight"
+      ? `tonight, ${readable(cal.today)}, starting after ${cal.time}`
+      : opts.when === "week"
+        ? `in the next 7 days, from ${readable(cal.today)} (after ${cal.time}) to ${readable(cal.week[6])}`
+        : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
 Use at most 2 searches. Only events that really are of that kind; none is a fine answer. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
@@ -117,7 +127,7 @@ Reply with only a JSON array. Each item:
 // distance (venue found on Google Maps), within budget.
 export function eventPasses(
   e: FoundEvent,
-  opts: { when: "tonight" | "weekend"; timeZone: string; maxSpend: number | null },
+  opts: { when: EventSpan; timeZone: string; maxSpend: number | null },
 ) {
   let url: URL;
   try {
@@ -127,11 +137,9 @@ export function eventPasses(
   }
   if (url.protocol !== "https:" || url.hostname.includes("vertexaisearch") || url.hostname.includes("google.")) return false;
   const cal = cityCalendar(opts.timeZone);
-  if (opts.when === "tonight") {
-    if (e.date !== cal.today) return false;
-    // Still to come, or started within the last hour.
-    if (e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
-  } else if (!cal.weekend.includes(e.date)) return false;
+  if (!(opts.when === "tonight" ? [cal.today] : opts.when === "week" ? cal.week : cal.weekend).includes(e.date)) return false;
+  // Today's: still to come, or started within the last hour.
+  if (e.date === cal.today && e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
   return e.minPrice === null || e.minPrice === undefined || opts.maxSpend === null || e.minPrice <= opts.maxSpend;
 }
 

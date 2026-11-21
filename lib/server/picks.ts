@@ -87,6 +87,7 @@ export type EventInfo = {
   searchHtml: string; // Google's Search Suggestions chip, shown unaltered
   venuePlaceId?: string;
   distanceKm?: number;
+  ahead?: boolean; // found across the coming week (booked ahead: a class, a tasting, a hike)
 };
 
 // Saved per set: place IDs and Feta's own words only (plus event listings).
@@ -868,7 +869,8 @@ export function weeklyHours(p: Place): [number, number, number][] | undefined {
 // ---------- Event cards ----------
 
 function eventWhen(e: EventInfo, today: string) {
-  const day = e.date === today ? "Tonight" : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
+  // A morning class today is "Today", not "Tonight".
+  const day = e.date === today ? (e.time && Number(e.time.slice(0, 2)) < 17 ? "Today" : "Tonight") : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
   if (!e.time) return day;
   const [h, m] = e.time.split(":").map(Number);
   return `${day} · ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;

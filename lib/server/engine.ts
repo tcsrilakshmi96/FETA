@@ -11,7 +11,7 @@ import { allIntents, type Intent } from "@/lib/server/intents";
 import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
-import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type FoundEvent } from "@/lib/server/events";
+import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   applyHardFilters,
@@ -393,7 +393,7 @@ async function showStored(
 }
 
 function eventStillOn(e: EventInfo, when: When, city: City) {
-  return eventPasses({ ...e, minPrice: null, because: "", verdict: "Good if you're nearby" }, { when, timeZone: city.timeZone, maxSpend: null });
+  return eventPasses({ ...e, minPrice: null, because: "", verdict: "Good if you're nearby" }, { when: e.ahead ? "week" : when, timeZone: city.timeZone, maxSpend: null });
 }
 
 type EventPick = { stored: StoredPick & { event: EventInfo }; venue: Place | null };
@@ -418,36 +418,43 @@ async function eventPicks(ctx: {
   const { db, taste, body, city, origin } = ctx;
   const limit = distanceLimitKm(taste.answers);
   const cal = cityCalendar(city.timeZone);
-  const day = body.when === "tonight" ? cal.today : cal.weekend.join("+");
   const kinds: (Intent | null)[] = ctx.intents.length ? ctx.intents : [null];
 
   const searches = await Promise.all(
     kinds.map(async (intent) => {
+      // Things booked ahead (a class, a tasting, a hike) are looked for
+      // across the coming week (founder, 21 Nov 2026).
+      const span: EventSpan = intent?.def.ahead ? "week" : body.when;
+      const day = span === "weekend" ? cal.weekend.join("+") : cal.today;
       const kind = intent ? `${intent.label} (${intent.query})` : undefined;
-      const key = [city.id, "events", body.when, day, intent?.query.toLowerCase() ?? "any"].join("|");
+      const key = [city.id, "events", span, day, intent?.query.toLowerCase() ?? "any"].join("|");
       const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
-      if (cached) return { intent, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
-      const found = await findEvents({ city, when: body.when, kind }).catch((error) => {
+      if (cached) return { intent, span, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
+      const found = await findEvents({ city, when: span, kind }).catch((error) => {
         console.error(error);
         return { events: [] as FoundEvent[], searchHtml: "" };
       });
       // Google's chip must be shown with what its search found, so a search
       // without one is kept for nothing.
       if (found.searchHtml) {
-        const hours = body.when === "tonight" ? 3 : 12;
+        const hours = span === "tonight" ? 3 : 12;
         await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
       }
-      return { intent, ...found };
+      return { intent, span, ...found };
     }),
   );
 
   // Taking turns across what they're into, so one kind doesn't fill the set.
-  const rules = { when: body.when, timeZone: city.timeZone, maxSpend: spendUpperBound(taste.answers, city) };
+  const maxSpend = spendUpperBound(taste.answers, city);
   const lists = searches
     .filter((s) => s.searchHtml)
-    .map((s) => s.events.filter((e) => eventPasses(e, rules) && !ctx.exclude.has(`event:${e.url}`)).map((e) => ({ e, intent: s.intent, searchHtml: s.searchHtml })));
+    .map((s) =>
+      s.events
+        .filter((e) => eventPasses(e, { when: s.span, timeZone: city.timeZone, maxSpend }) && !ctx.exclude.has(`event:${e.url}`))
+        .map((e) => ({ e, intent: s.intent, span: s.span, searchHtml: s.searchHtml })),
+    );
   const seen = new Set<string>();
-  const turns: { e: FoundEvent; intent: Intent | null; searchHtml: string }[] = [];
+  const turns: { e: FoundEvent; intent: Intent | null; span: EventSpan; searchHtml: string }[] = [];
   for (let round = 0; lists.some((l) => l.length > round); round++) {
     for (const l of lists) {
       const x = l[round];
@@ -470,7 +477,7 @@ async function eventPicks(ctx: {
   );
   return chosen
     .map((c) => ({ ...withVenues[c.index], c }))
-    .map(({ e, venue, intent, searchHtml, c }) => ({
+    .map(({ e, venue, intent, span, searchHtml, c }) => ({
       venue: venue!.place,
       stored: {
         placeId: `event:${e.url}`,
@@ -490,6 +497,7 @@ async function eventPicks(ctx: {
           searchHtml,
           venuePlaceId: venue!.place.id,
           distanceKm: Math.round(venue!.km * 10) / 10,
+          ...(span === "week" ? { ahead: true } : {}),
         },
       },
     }));
