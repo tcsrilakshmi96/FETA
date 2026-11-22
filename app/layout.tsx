@@ -33,6 +33,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Shrink the page when the keyboard opens, so the main button stays visible.
   interactiveWidget: "resizes-content",
+  // Feta has its own dark theme: this tells browsers not to darken it
+  // themselves (founder, 22 Nov 2026: Samsung Internet recoloured Style,
+  // turning its light stage dark and dark words light).
+  colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#FFF3EE" },
     { media: "(prefers-color-scheme: dark)", color: "#161213" },
