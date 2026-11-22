@@ -122,7 +122,6 @@ export type Pick = StoredPick & {
   googleLine: string; // empty for events, which show the Search chip instead
   rating?: number; // Google's stars and how many reviews, shown with the Google Maps credit
   ratingCount?: number;
-  checkedAt?: number; // set on the phone when the picks arrive
   mapsUri: string;
   directionsUri: string;
   book: { label: string; url: string } | null; // India: District / BookMyShow; events: the ticket page
@@ -721,16 +720,16 @@ function googleLine(place: Place, when: When, city: City) {
     const hours = eveningHours(place, city);
     const clock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     const until = hours && hours[1] < 7 * 24 * 60 ? ` until ${clock(hours[1])}` : "";
-    return `Open tonight${until} · checked just now · Google Maps`;
+    return `Open tonight${until} · checked on Google Maps`;
   }
   if (when === "tonight") {
     const close = place.currentOpeningHours?.nextCloseTime;
     const known = close && city.timeZone !== "UTC";
-    return `Open now${known ? ` · closes ${timeIn(close, city.timeZone)}` : ""} · checked just now · Google Maps`;
+    return `Open now${known ? ` · closes ${timeIn(close, city.timeZone)}` : ""} · checked on Google Maps`;
   }
   const days = new Set(place.regularOpeningHours?.periods?.map((p) => p.open.day) ?? []);
   const open = days.has(6) && days.has(0) ? "Open Sat and Sun" : days.has(6) ? "Open Saturday" : "Open Sunday";
-  return `${open} · checked just now · Google Maps`;
+  return `${open} · checked on Google Maps`;
 }
 
 // Matched chips are written by code from verified facts, never by the AI.

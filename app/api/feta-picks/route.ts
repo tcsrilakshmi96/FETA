@@ -77,7 +77,7 @@ export async function POST(request: Request) {
         ),
         ...(lovedBy.get(c.place.id) ? { lovedBy: lovedBy.get(c.place.id) } : {}),
         // Hours weren't a filter here, so the line says plainly if it's closed.
-        googleLine: `${c.place.currentOpeningHours?.openNow === true ? "Open now · " : c.place.currentOpeningHours?.openNow === false ? "Closed now · " : ""}checked just now · Google Maps`,
+        googleLine: `${c.place.currentOpeningHours?.openNow === true ? "Open now · " : c.place.currentOpeningHours?.openNow === false ? "Closed now · " : ""}checked on Google Maps`,
       };
     });
     return Response.json({ picks });

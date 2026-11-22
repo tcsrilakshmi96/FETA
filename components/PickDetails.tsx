@@ -263,19 +263,15 @@ export function SearchChip({ html, found = "events" }: { html: string; found?: "
   );
 }
 
-// "Open now · closes 23:30 · checked just now · Google Maps", with the
-// words "Google Maps" linked to the place and never translated.
+// "Open now · closes 23:30 · checked on Google Maps", with the words
+// "Google Maps" linked to the place and never translated (founder, 22 Nov
+// 2026: the hours are Google's, so it says so; "checked just now" read as
+// Feta's own check when Google's hours were wrong).
 export function GoogleLine({ pick }: { pick: Pick }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(t);
-  }, []);
-  const mins = pick.checkedAt ? Math.floor((now - pick.checkedAt) / 60000) : 0;
-  const text = pick.googleLine.replace(/ · Google Maps$/, "").replace("checked just now", mins >= 2 ? `checked ${mins} min ago` : "checked just now");
+  const text = pick.googleLine.replace(/ ?Google Maps$/, "");
   return (
     <>
-      {text} ·{" "}
+      {text}{" "}
       <a href={pick.mapsUri} target="_blank" rel="noopener noreferrer" translate="no">
         Google Maps
       </a>

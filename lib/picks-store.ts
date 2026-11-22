@@ -70,11 +70,10 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
   if (!tweak && inflight.has(key)) return inflight.get(key)!;
   const version = tasteVersion;
   const p = fetchPicks(category, when, origin, false, tweak).then((reply) => {
-    const at = Date.now();
     const slot: Slot = {
       loading: false,
-      picks: (reply.picks ?? []).map((x) => ({ ...x, checkedAt: at })),
-      spares: (reply.spares ?? []).map((x) => ({ ...x, checkedAt: at })),
+      picks: reply.picks ?? [],
+      spares: reply.spares ?? [],
       saved: [],
       banner: reply.banner,
       notice: reply.notice ?? reply.error,
@@ -105,10 +104,9 @@ export const SHOW = 8;
 export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
   if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
   const reply = await fetchPicks(category, when, origin, true);
-  const at = Date.now();
   return {
-    fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)).map((p) => ({ ...p, checkedAt: at })),
-    spares: (reply.spares ?? []).map((p) => ({ ...p, checkedAt: at })),
+    fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)),
+    spares: (reply.spares ?? []),
     notice: reply.notice,
   };
 }
