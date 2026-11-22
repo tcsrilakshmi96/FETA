@@ -60,7 +60,9 @@ function eventBadge(p: Pick, timeZone: string) {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
   // A pop-up running several days that has started is on now.
   const day = p.event.date === today || (p.event.endDate && p.event.date < today && p.event.endDate >= today) ? (p.event.date === today ? "TODAY" : "ON NOW") :new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${p.event.date}T12:00:00Z`)).toUpperCase();
-  const [h, m] = (p.event.time ?? "").split(":").map(Number);
+  // No time on the listing means no time on the badge ("".split gave 0, so
+  // "12 AM", testers 22 Nov 2026).
+  const [h, m] = p.event.time && p.event.time !== "00:00" ? p.event.time.split(":").map(Number) : [NaN, 0];
   // "8:30", not "8", for a show at 20:30 (testers, 13 Nov 2026).
   const hour = Number.isFinite(h) ? `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""}` : "";
   return { day, hour, half: Number.isFinite(h) ? (h < 12 ? "AM" : "PM") : "" };
