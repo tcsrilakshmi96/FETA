@@ -218,8 +218,11 @@ export default function Style() {
                   <span>{outfit.big1}</span>
                   <i>{outfit.big2}</i>
                 </div>
-                {look ? (
-                  <Figure key={`fig-${outfit.title}`} style={outfit.style} wears={profile.wears} drawn={look} height={330} spots={outfit.pieces} leaving={leaving} pos={{ zIndex: 2 }} label={`${outfit.title}: ${outfit.pieces.top}, ${outfit.pieces.bottom}, ${outfit.pieces.shoes}`} />
+                {look || !drawingLook ? (
+                  // Feta's drawing of this outfit, or when it couldn't be drawn
+                  // (today's limit, no answer) the style's own illustration
+                  // with the pieces, never just words (founder, 22 Nov 2026).
+                  <Figure key={`fig-${outfit.title}`} style={outfit.style} wears={profile.wears} {...(look ? { drawn: look } : {})} height={330} spots={outfit.pieces} leaving={leaving} pos={{ zIndex: 2 }} label={`${outfit.title}: ${outfit.pieces.top}, ${outfit.pieces.bottom}, ${outfit.pieces.shoes}`} />
                 ) : (
                   <div className={s.lookWait}>
                     {drawingLook && <span className={s.drawingWait} aria-hidden="true" />}
