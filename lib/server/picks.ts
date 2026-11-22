@@ -860,7 +860,9 @@ export function buildEventPick(
   const destination = e.venuePlaceId
     ? `destination=${encodeURIComponent(e.venueName)}&destination_place_id=${e.venuePlaceId}`
     : `destination=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`;
-  const best = opts.venue ? bestPhoto(opts.venue) : undefined;
+  // The venue's own cover photo: a visitor's photo is often their dinner,
+  // not the stage (tester, 22 Nov 2026: a food plate on a concert card).
+  const best = opts.venue?.photos?.[0];
   const credit = best?.authorAttributions?.[0];
   return {
     ...stored,
