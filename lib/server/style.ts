@@ -93,12 +93,25 @@ A photo with no clear outfit: {"saw": "No clear outfit", "styles": []}.`;
 
 // Their photo drawn in the style, in the same look as Feta's illustrations
 // (the style's picture goes along as the reference). Returns a data URL.
-export async function drawOnYou(photo: string, styleId: string, reference: string): Promise<string> {
+// Which figure in a style's illustration to follow (tester, 22 Nov 2026:
+// the drawing picked a man or a woman whatever they chose). "Both" takes
+// turns by outfit, so it isn't always the same one.
+export function figureFor(styleId: string, wears: Wears, seed = ""): { who: "man" | "woman"; side: string } {
+  const style = styleById(styleId);
+  const who = wears === "men" ? "man" : wears === "women" ? "woman" : [...seed].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? "man" : "woman";
+  if (!style || style.woman === "both") return { who, side: `the ${who} in it` };
+  const womanSide = style.woman;
+  const side = who === "woman" ? womanSide : womanSide === "left" ? "right" : "left";
+  return { who, side: `the ${who} on the ${side.toUpperCase()} of it (ignore the other figure)` };
+}
+
+export async function drawOnYou(photo: string, styleId: string, reference: string, wears: Wears = "women"): Promise<string> {
   const style = styleById(styleId);
   if (!style) throw new Error("Unknown style");
   if (FAKE) return reference;
+  const figure = figureFor(styleId, wears, photo.slice(-20));
   const prompt = `Make a fashion illustration of the person in the FIRST image, full body, standing, alone, on the same plain light grey background and in exactly the same illustration style as the SECOND image (soft hand-drawn fashion illustration, natural proportions).
-Dress them in a ${style.name.toLowerCase()} outfit like the matching figure in the second image, adapted to them.
+Dress them in a ${style.name.toLowerCase()} outfit like ${figure.side.replace(" of it", " of the second image").replace(" in it", " in the second image")}, adapted to them.
 Keep the person recognisably themselves: face, skin tone, hair and body exactly as in their photo. Never slim, lighten, beautify or change their body or features. No text, no logos, no other people.`;
   const data = await gemini("gemini_image", "gemini-3.1-flash-image", [{ text: prompt }, inline(photo), inline(reference)], { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
   const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
@@ -111,10 +124,11 @@ Keep the person recognisably themselves: face, skin tone, hair and body exactly 
 // sleeveless knit top while the picture showed a streetwear figure in
 // cargos): on them when they added their photo, else a figure in the same
 // illustration style. About ₹4 an idea.
-export async function drawOutfit(o: { pieces: { top: string; bottom: string; shoes: string }; title: string; wears: Wears }, reference: string, photo: string | null): Promise<string> {
+export async function drawOutfit(o: { pieces: { top: string; bottom: string; shoes: string }; title: string; wears: Wears; style: string }, reference: string, photo: string | null): Promise<string> {
   if (FAKE) return reference;
-  const who = photo ? "the person in the FIRST image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)" : `one ${o.wears === "men" ? "man" : o.wears === "both" ? "person" : "woman"}`;
-  const prompt = `Make a fashion illustration of ${who}, full body, standing, alone, on a plain light grey background, in exactly the same illustration style as the ${photo ? "SECOND" : ""} reference image (soft hand-drawn fashion illustration, natural proportions).
+  const figure = figureFor(o.style, o.wears, o.title);
+  const who = photo ? "the person in the FIRST image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)" : `one ${figure.who}`;
+  const prompt = `Make a fashion illustration of ${who}, full body, standing, alone, on a plain light grey background, in exactly the same illustration style as the ${photo ? "SECOND " : ""}reference image (soft hand-drawn fashion illustration, natural proportions). ${photo ? "" : `Follow ${figure.side} for the figure.`}
 They wear exactly this outfit ("${o.title}"): top: ${o.pieces.top}; bottom: ${o.pieces.bottom}; shoes: ${o.pieces.shoes}. Nothing from the reference's outfit unless it matches these pieces.
 No text, no logos, no other people.`;
   const parts = photo ? [{ text: prompt }, inline(photo), inline(reference)] : [{ text: prompt }, inline(reference)];

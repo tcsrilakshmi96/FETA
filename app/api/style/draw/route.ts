@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") && body.photo.length < 2_000_000 ? body.photo : null;
   if (!style || (!photo && !body.outfit)) return Response.json({ error: "Bad request" }, { status: 400 });
   if (!FAKE && (await overBudget(db))) return Response.json({ notice: await limitNoticeHere("style") });
+  const wears: Wears = body.wears === "men" || body.wears === "both" ? body.wears : "women";
   return withCosts(db, "style_draw", async () => {
     try {
       const ref = await fetch(new URL(lookImage(style.id), request.url));
@@ -32,9 +33,9 @@ export async function POST(request: Request) {
       if (body.outfit) {
         const t = (x: unknown) => String(x ?? "").slice(0, 60);
         const o = body.outfit;
-        return Response.json({ image: await drawOutfit({ title: t(o.title), pieces: { top: t(o.pieces?.top), bottom: t(o.pieces?.bottom), shoes: t(o.pieces?.shoes) }, wears: body.wears === "men" || body.wears === "both" ? body.wears : "women" }, reference, photo) });
+        return Response.json({ image: await drawOutfit({ title: t(o.title), pieces: { top: t(o.pieces?.top), bottom: t(o.pieces?.bottom), shoes: t(o.pieces?.shoes) }, wears, style: style.id }, reference, photo) });
       }
-      return Response.json({ image: await drawOnYou(photo!, style.id, reference) });
+      return Response.json({ image: await drawOnYou(photo!, style.id, reference, wears) });
     } catch (error) {
       console.error(error);
       return Response.json({ notice: "Couldn't draw this one." });

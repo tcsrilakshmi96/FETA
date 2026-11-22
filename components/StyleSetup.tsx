@@ -144,7 +144,7 @@ export default function StyleSetup() {
       if (drawn[id] || drawing[id] || tried.current.has(`${selfie.length}:${id}`)) continue;
       tried.current.add(`${selfie.length}:${id}`);
       setDrawing((d) => ({ ...d, [id]: true }));
-      drawStyle(selfie, id).then(async (r) => {
+      drawStyle(selfie, id, wears).then(async (r) => {
         setDrawing((d) => ({ ...d, [id]: false }));
         if (r?.image) {
           setDrawn((d) => ({ ...d, [id]: r.image! }));
@@ -152,7 +152,7 @@ export default function StyleSetup() {
         }
       });
     }
-  }, [step, selfie, styles, drawn, drawing, reading]);
+  }, [step, selfie, styles, drawn, drawing, reading, wears]);
 
   // Brands they love: the library as they type.
   useEffect(() => {
