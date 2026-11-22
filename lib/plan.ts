@@ -13,8 +13,13 @@ const MAX_KM = 3;
 // The second stop only needs to be open this long after you arrive.
 const AFTER_MINUTES = 45;
 
+// Rough, from the straight line: streets wind about a third further than
+// the crow flies (tester, 22 Nov 2026: Lisbon 10 min vs 17 on Maps; London
+// 3 min next door), at about 5 km/h on foot. One place for every screen.
+const DETOUR = 1.35;
 export function travel(km: number) {
-  return km <= 1.5 ? { mode: "walk" as const, minutes: Math.max(3, Math.round(km * 13)) } : { mode: "ride" as const, minutes: Math.round(8 + km * 3) };
+  const road = km * DETOUR;
+  return km <= 1.5 ? { mode: "walk" as const, minutes: Math.max(1, Math.round((road / 4.8) * 60)) } : { mode: "ride" as const, minutes: Math.round(8 + road * 2.5) };
 }
 
 // Rounds up to the next quarter hour.

@@ -1,4 +1,6 @@
 import "server-only";
+
+import { travel } from "@/lib/plan";
 import { distanceKm } from "@/lib/cities";
 import type { Pick } from "@/lib/server/picks";
 
@@ -23,8 +25,9 @@ const SLOTS = [
 
 const clock = (m: number) => `${((Math.floor(m / 60) + 11) % 12) + 1}:${String(m % 60).padStart(2, "0")} ${m < 12 * 60 ? "am" : "pm"}`;
 
-function travel(km: number) {
-  return km <= 1.5 ? `${Math.max(3, Math.round(km * 13))}-minute walk` : `${Math.round(8 + km * 3)}-minute ride`;
+function travelLine(km: number) {
+  const t = travel(km);
+  return `${t.minutes}-minute ${t.mode}`;
 }
 
 // Open on that weekday from "start" for "minutes", by weekly hours. Places
@@ -71,7 +74,7 @@ export function buildItinerary(picks: Pick[], opts: { start: string; days: numbe
       if (!best) continue;
       const km = kmBetween(last, best.p);
       used.add(best.p.placeId);
-      stops.push({ time: clock(best.at), slot: s.slot, pick: best.p, ...(km !== null ? { travel: travel(km) } : {}) });
+      stops.push({ time: clock(best.at), slot: s.slot, pick: best.p, ...(km !== null ? { travel: travelLine(km) } : {}) });
       last = best.p;
     }
     days.push({ label: new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).format(date), date: iso, stops });
