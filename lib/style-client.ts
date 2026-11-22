@@ -218,7 +218,7 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
   for (let i = 1; i < places.length; i++) walk += distanceKm(places[i - 1], places[i]);
   const h = Math.floor(plan.startMinute / 60);
   const m = plan.startMinute % 60;
-  const time = `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""}`;
+  const time = `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""} ${h < 12 ? "am" : "pm"}`;
   return {
     stops: places.map((p, i) => ({ name: p.name, kind: kindWord[p.kind], time: i === 0 ? time : undefined })),
     walkKm: walk && walk < 3 ? walk : null,
@@ -227,8 +227,22 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
 }
 
 // One idea at a time; kept for the day so opening Style again costs nothing.
+// The time where they're planning (the city's, not the phone's: tester, 22
+// Nov 2026: "Sunday afternoon" in the morning), and the part of the day,
+// so a morning look isn't kept for the evening.
+async function cityClock() {
+  const { loadOrigin } = await import("@/lib/origin");
+  const timeZone = loadOrigin()?.city.timeZone;
+  const now = new Date();
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...(timeZone ? { timeZone } : {}) }).format(now)) % 24;
+  return {
+    localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, ...(timeZone ? { timeZone } : {}) }).format(now),
+    part: hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening",
+  };
+}
+
 export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[]; change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } }): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
-  const key = `feta.outfit:${localDay(new Date())}:${ask.change ? `${ask.change.piece}:${JSON.stringify(ask.change.outfit.pieces)}:` : ""}${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
+  const key = `feta.outfit:${localDay(new Date())}:${(await cityClock()).part}:${ask.change ? `${ask.change.piece}:${JSON.stringify(ask.change.outfit.pieces)}:` : ""}${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
   try {
     const kept = sessionStorage.getItem(key);
     if (kept) return JSON.parse(kept);
@@ -247,7 +261,7 @@ export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion:
 const asking = new Map<string, Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null>>();
 
 async function askOutfit(ask: Parameters<typeof outfitFor>[0], key: string): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
-  const localTime = new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true }).format(new Date());
+  const { localTime } = await cityClock();
   const res = await post<{ outfit?: Outfit; notice?: string; limited?: boolean }>("/api/style/outfit", {
     styles: ask.styles,
     wears: ask.wears,

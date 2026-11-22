@@ -11,6 +11,9 @@ import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/
 import { acrossStyles, brandsFor, drawLook, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
+// The hour where they're planning, not on the phone's clock.
+const cityHour = (timeZone?: string) => Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...(timeZone ? { timeZone } : {}) }).format(new Date())) % 24;
+
 // Style home (founder, 20 Nov 2026), one job per part:
 // 1. What to wear tonight: for their saved plan for today, or the outing
 //    they tap when there's no plan. Dots on the clothes say what to wear;
@@ -198,13 +201,13 @@ export default function Style() {
         <div className={s.page}>
           <StyleTop />
           <h1 className={s.mast}>
-            {new Date().getHours() < 16 ? "Today" : "Tonight"}, <i>dressed for it.</i>
+            {cityHour(origin?.city.timeZone) < 16 ? "Today" : "Tonight"}, <i>dressed for it.</i>
           </h1>
 
           <section className={s.stage} style={{ height: outfit || thinking ? 430 : 360 }}>
             <div style={{ position: "absolute", left: 16, top: 14, right: 16, zIndex: 5, display: "flex", flexDirection: "column", gap: 2 }}>
               <span className={s.kick} style={{ color: "#7a4f27" }}>
-                WHAT TO WEAR {new Date().getHours() < 16 ? "TODAY" : "TONIGHT"}
+                WHAT TO WEAR {cityHour(origin?.city.timeZone) < 16 ? "TODAY" : "TONIGHT"}
               </span>
               {!limited && <span style={{ fontSize: 13, opacity: 0.75 }}>{plan === undefined ? "Checking your plans…" : heading}</span>}
             </div>
