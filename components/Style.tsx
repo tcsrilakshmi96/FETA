@@ -241,6 +241,9 @@ export default function Style() {
                 <WaitFun kind="look" compact onLight />
               </div>
             ) : (
+              <>
+              {/* Their style's illustration even when today's limit stops a new look (founder, 22 Nov 2026: an empty card). */}
+              {limited && profile.styles[0] && <Figure style={profile.styles[0]} wears={profile.wears} height={330} pos={{ zIndex: 2 }} label={styleById(profile.styles[0])?.name ?? ""} />}
               <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 12, zIndex: 3 }}>
                 <span className={s.small} style={{ color: "#1a1616", opacity: 0.75 }}>
                   {notice ?? (occ ? `What kind of ${occ.label.toLowerCase()}?` : "No plan saved for today. Where are you going?")}
@@ -272,6 +275,7 @@ export default function Style() {
                   </div>
                 )}
               </div>
+              </>
             )}
             {/* Their styles stand behind the question, so the stage isn't empty. */}
             {!outfit && !thinking && !occ && (
