@@ -17,12 +17,12 @@ import type { Pick } from "@/lib/picks-client";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { setLinesTrip, undoLines } from "@/lib/profile-client";
 import { todayScope } from "@/lib/profile-scope";
-import { removeWeekendWish } from "@/lib/weekend-client";
+import { addWeekendWish, removeWeekendWish } from "@/lib/weekend-client";
 import styles from "./Ask.module.css";
 
 type Message =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; tripId?: string | null };
+  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; weekendId?: string; tripId?: string | null };
 
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
@@ -212,22 +212,26 @@ export default function Ask() {
             {m.role === "assistant" && m.reply?.weekend && (
               <div className={styles.added}>
                 <div className={styles.addedHead}>
-                  <span className={styles.addedLabel}>ADDED TO YOUR WEEKEND</span>
+                  <span className={styles.addedLabel}>{m.weekendId && !m.weekendUndone ? "ADDED TO YOUR WEEKEND" : "FOR YOUR WEEKEND?"}</span>
                   <button
                     type="button"
                     className={styles.undo}
-                    disabled={m.weekendUndone}
-                    onClick={() => {
-                      removeWeekendWish(m.reply!.weekend!.id);
-                      patch(m.id, { weekendUndone: true });
+                    onClick={async () => {
+                      if (m.weekendId && !m.weekendUndone) {
+                        removeWeekendWish(m.weekendId);
+                        patch(m.id, { weekendUndone: true });
+                        return;
+                      }
+                      const wish = await addWeekendWish(m.reply!.weekend!.text);
+                      if (wish) patch(m.id, { weekendId: wish.id, weekendUndone: false });
                     }}
                   >
-                    {m.weekendUndone ? "Undone" : "Undo"}
+                    {m.weekendId && !m.weekendUndone ? "Undo" : "Add to my weekend"}
                   </button>
                 </div>
-                <div className={styles.addedLines} style={{ opacity: m.weekendUndone ? 0.4 : 1 }}>
+                <div className={styles.addedLines} style={{ opacity: m.weekendId && !m.weekendUndone ? 1 : 0.7 }}>
                   <span>＋ {m.reply.weekend.text}</span>
-                  <span className={styles.tripSub}>On your weekend list in Lists. Feta plans your weekend from it.</span>
+                  {m.weekendId && !m.weekendUndone && <span className={styles.tripSub}>On your weekend list in Lists. Feta plans your weekend from it.</span>}
                 </div>
               </div>
             )}

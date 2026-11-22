@@ -10,7 +10,6 @@ import { outfitIdea } from "@/lib/server/style";
 import { OCCASIONS, styleById, type Occasion, type Outfit } from "@/lib/style";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
-import { weekendSaturday } from "@/lib/weekend";
 import type { Itinerary } from "@/lib/server/itinerary";
 import { cleanRoute, type RouteIn, type Trip } from "@/lib/server/trip";
 
@@ -57,7 +56,7 @@ export type AskReply = {
   trip: string | null; // "Goa · 14–18 Dec"
   notice?: string;
   options?: string[]; // tap-able answers to a question Feta just asked
-  weekend?: { id: string; text: string } | null; // added to their weekend plan
+  weekend?: { text: string } | null; // offered for their weekend plan; their tap adds it
   itinerary?: Itinerary | null; // a full day (or up to 3), stop by stop
   tripId?: string | null; // a trip planner card (route, getting around, stays, days)
   // What to wear (founder, 20 Nov 2026: Ask Feta "should ideally" give style
@@ -147,7 +146,7 @@ Reply with only a JSON object:
 {"reply": what you say, 1 to 4 short sentences (a little longer when they ask for advice or an explanation that needs it),
  "options": 2 to 4 tap-able answers (under 5 words each) whenever your reply asks a question (always, so they can just tap), else [],
  "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids", "for": "always", or "today" for something true only tonight or for this one outing (who they're with tonight, tonight's mood, an occasion: "out with my parents tonight" is "today")}; [] if nothing new; never labels, personality types, health or allergy details,
- "weekend": null, or a short phrase when they mention something they want to do this weekend,
+ "weekend": null, or a short phrase when they say they want to do something this coming weekend where they are (not a trip); Feta offers to add it, it never adds it itself,
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
  "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above, "outfit": null or as above,
  "why": true if they ask why a pick was chosen}
@@ -206,18 +205,11 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     added = data ?? [];
   }
 
-  // Something for this weekend goes on their weekend plan (Lists shows it).
-  let weekend: AskReply["weekend"] = null;
+  // Something for this weekend is offered with "Add to my weekend"; only
+  // their tap adds it (tester, 22 Nov 2026: trips landed on the weekend list
+  // with no one tapping Save).
   const wish = typeof parsed.weekend === "string" ? parsed.weekend.trim().slice(0, 80) : "";
-  if (wish) {
-    const { data, error } = await db
-      .from("weekend_wishes")
-      .insert({ user_id: userId, text: wish, for_date: weekendSaturday(homeCity?.timeZone) })
-      .select("id, text")
-      .single();
-    if (error) console.error("Saving weekend wish failed", error.message);
-    weekend = data ?? null;
-  }
+  const weekend: AskReply["weekend"] = wish ? { text: wish } : null;
 
   // A search goes through the same picks engine and hard filters as Picks.
   let picks: Pick[] = [];
@@ -431,7 +423,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     },
   ]);
 
-  return Response.json({ reply, picks, added, ...(todayOnly ? { today: true } : {}), trip: tripLabel, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, ...(todayOnly ? { today: true } : {}), trip: header, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
 }
 
 // The day and time asked for, in the city's own time: a time with no day
