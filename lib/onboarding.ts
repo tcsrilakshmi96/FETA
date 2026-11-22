@@ -138,6 +138,7 @@ export const QUESTIONS: Question[] = [
       { id: "games_sports", label: "Sports to play" },
       { id: "hidden_bars", label: "Hidden bars" },
       { id: "markets", label: "Markets" },
+      { id: "popups", label: "Pop-ups" },
       { id: "nightlife", label: "Nightlife" },
       // Try something new (founder, 21 Nov 2026: "never pottery, horse riding
       // or cooking class"): broad groups true in every city, each with

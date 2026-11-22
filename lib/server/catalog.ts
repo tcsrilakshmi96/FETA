@@ -62,6 +62,10 @@ export const INTEREST_SEARCH: Record<string, SearchDef> = {
   games_sports: { searches: ["pickleball court", "badminton court", "bowling alley"], types: /sport|badminton|pickleball|bowling|tennis|golf|climbing|stadium|arena|athletic|skating|swimming/ },
   hidden_bars: { searches: ["speakeasy bar", "hidden cocktail bar"], drinkPlace: true, alcohol: true },
   markets: { searches: ["flea market", "night market", "farmers market"], types: /market/ },
+  // What's popping up (founder, 22 Nov 2026: "show people what is the next
+  // pop up happening"): led by events across the coming week, many posted
+  // on Instagram.
+  popups: { searches: ["pop-up event", "pop-up market"], types: /market/, ahead: true },
   nightlife: { searches: ["nightclub", "night club with dj"], types: /night_club/, alcohol: true },
   // Try something new (founder, 21 Nov 2026): a group alone searches any
   // kind; a specific one chosen inside it is searched instead (intents.ts).
