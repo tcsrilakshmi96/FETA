@@ -121,13 +121,20 @@ export default function PickDetails({
           </>
         )}
         {!pick.featured && curatedLabel(pick) && <p className={styles.loved}>{curatedLabel(pick)}</p>}
-        <p className={styles.label}>WHY IT&apos;S YOURS</p>
-        {pick.because && <p className={styles.because}>{pick.because}</p>}
-        <div className={styles.chips}>
-          {pick.chips.map((c) => (
-            <span key={c}>{c}</span>
-          ))}
-        </div>
+        {/* Only when there's something real to say (reasons can be empty by design). */}
+        {(pick.because || pick.chips.length > 0) && (
+          <>
+            <p className={styles.label}>WHY IT&apos;S YOURS</p>
+            {pick.because && <p className={styles.because}>{pick.because}</p>}
+            {pick.chips.length > 0 && (
+              <div className={styles.chips}>
+                {pick.chips.map((c) => (
+                  <span key={c}>{c}</span>
+                ))}
+              </div>
+            )}
+          </>
+        )}
         {/* What to wear here, from their styles (founder, 20 Nov 2026). */}
         <div style={{ marginTop: 12 }}>
           <WearCard here plan={planFromStops([{ name: pick.name, kind: pick.kind }], null)} />

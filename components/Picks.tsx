@@ -427,7 +427,7 @@ export default function Picks() {
                   <span className={styles.where}>{where(hero)}</span>
                   <span className={styles.verdict}>{verdictLabel(hero)}</span>
                 </span>
-                <span className={styles.because}>{hero.because}</span>
+                {hero.because && <span className={styles.because}>{hero.because}</span>}
                 {hero.fetaNote && <span className={styles.fetaNote}>“{hero.fetaNote}”</span>}
                 {curatedLabel(hero) && <span className={styles.loved}>{curatedLabel(hero)}</span>}
                 <span className={styles.chips}>
@@ -474,7 +474,7 @@ export default function Picks() {
                   </span>
                   <span className={styles.rowText}>
                     <span className={styles.rowName}>{p.name}</span>
-                    <span className={styles.rowWhy}>{p.because}</span>
+                    {p.because && <span className={styles.rowWhy}>{p.because}</span>}
                     {curatedLabel(p) && <span className={styles.rowLoved}>{curatedLabel(p)}</span>}
                     <span className={styles.rowMeta}>
                       {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
