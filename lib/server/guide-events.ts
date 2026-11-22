@@ -42,36 +42,77 @@ export async function guideEventsFor(db: SupabaseClient, city: City): Promise<Gu
   return null;
 }
 
-async function readGuides(city: City): Promise<GuideSet> {
+type Step = { type: string; result?: { search_suggestions?: string }[]; content?: { type: string; text?: string }[] };
+
+// Two steps: a Google search finds the posts (and gives the Search chip
+// Google requires next to what it found), then Gemini reads those posts.
+export async function readGuides(city: City): Promise<GuideSet> {
   const sites = eventSources(city).split(", ").filter((s) => !NEVER_READ.test(s));
   if (!sites.length) return { events: [], searchHtml: "" };
   const cal = cityCalendar(city.timeZone);
+  const found = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY!, "Api-Revision": "2026-05-20" },
+    body: JSON.stringify({
+      model: "gemini-3.5-flash",
+      input: `Today is ${cal.today}. Find the current "what's on" posts for ${city.name}, ${city.countryName} on these local guides: ${sites.join(", ")}: roundups for this week, this weekend or this month, pop-up calendars and event listings, published in the last 3 weeks. Use at most 3 searches.
+Reply with only a JSON array of up to 4 of them: {"url": the post's own full address (an article or listing page, never a home page or a section page), "guide": the publication}.`,
+      tools: [{ type: "google_search" }],
+      generation_config: { thinking_level: "low" },
+    }),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!found.ok) throw new Error(`Guide search failed: ${found.status} ${await found.text()}`);
+  const search = (await found.json()) as { steps?: Step[] };
+  trackGemini("gemini_search", search);
+  const steps = search.steps ?? [];
+  const searchHtml = steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
+  const posts = jsonArray<{ url?: string; guide?: string }>(steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join(""))
+    .filter((p) => isPost(p.url) && !NEVER_READ.test(p.url!))
+    .slice(0, 4);
+  if (!searchHtml || !posts.length) return { events: [], searchHtml: "" };
+
   const prompt = `Today is ${cal.today} in ${city.name}, ${city.countryName}. All dates are local to ${city.name}.
-Find the current "what's on" posts for ${city.name} on these local guides: ${sites.join(", ")}. That means roundups for this week, this weekend or this month, pop-up calendars and event listings, published in the last 3 weeks. Use Google Search to find up to 4 such posts, then open and read each one in full.
-List every event, pop-up, market, show, class or exhibition those posts mention that is on at some point in the next 14 days (from ${cal.today}). Only what the posts say; never invent one. Up to 40.
+Read these posts from local guides in full:
+${posts.map((p) => `- ${p.url} (${p.guide ?? ""})`).join("\n")}
+List every event, pop-up, market, show, class or exhibition they mention that is on at some point in the next 14 days (from ${cal.today}). Only what the posts say; never invent one. Up to 40.
 
 Reply with only a JSON array. Each item:
-{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${city.currency} or null, "url": the link the post gives for it (tickets, booking, the organiser's site or Instagram); if none, the post's own URL, "kind": 2 to 5 plain words for what it is (e.g. "stand-up comedy", "food pop-up", "live jazz", "pottery class"), "guide": the publication (e.g. "Time Out")}`;
+{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${city.currency} or null, "url": the link the post gives for it (tickets, booking, the organiser's site or Instagram); if none, the address of the post it is in (from the list above), never a home page, "kind": 2 to 5 plain words for what it is (e.g. "stand-up comedy", "food pop-up", "live jazz", "pottery class"), "guide": the publication (e.g. "Time Out")}`;
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }, { url_context: {} }], generationConfig: { thinkingConfig: { thinkingLevel: "low" } } }),
-    signal: AbortSignal.timeout(150000),
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ url_context: {} }], generationConfig: { thinkingConfig: { thinkingLevel: "low" } } }),
+    signal: AbortSignal.timeout(120000),
   });
   if (!res.ok) throw new Error(`Guide reading failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
   trackGemini("gemini_search", data);
-  const cand = data.candidates?.[0];
-  const text = (cand?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
-  let items: GuideEvent[] = [];
-  try {
-    items = JSON.parse(/\[[\s\S]*\]/.exec(text)?.[0] ?? "[]");
-  } catch {
-    items = [];
-  }
-  const events = items
-    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && e.url)
+  const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
+  const events = jsonArray<GuideEvent>(text)
+    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPost(e.url))
     .map((e) => ({ ...e, time: e.time === "00:00" ? "" : (e.time ?? ""), endDate: e.endDate ?? undefined, kind: String(e.kind ?? "").slice(0, 60), guide: String(e.guide ?? "").slice(0, 60), fromList: true }))
     .slice(0, 40);
-  return { events, searchHtml: cand?.groundingMetadata?.searchEntryPoint?.renderedContent ?? "" };
+  return { events, searchHtml };
+}
+
+// A real page, not a site's home or a section ("timeout.com/miami").
+function isPost(url?: string) {
+  try {
+    const u = new URL(url ?? "");
+    const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
+    // An organiser's Instagram (a post or their page) is fine: many pop-ups are only there.
+    if (u.protocol === "https:" && /(^|\.)instagram\.com$/.test(u.hostname)) return last.length > 0;
+    return u.protocol === "https:" && !/vertexaisearch|google\./.test(u.hostname) && (last.length >= 10 || last.includes("-") || /^\d+$/.test(last) || u.search.length > 1);
+  } catch {
+    return false;
+  }
+}
+
+function jsonArray<T>(text: string): T[] {
+  try {
+    return JSON.parse(/\[[\s\S]*\]/.exec(text)?.[0] ?? "[]") as T[];
+  } catch {
+    return [];
+  }
 }

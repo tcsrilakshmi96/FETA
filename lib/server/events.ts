@@ -145,7 +145,7 @@ export function eventPasses(
   // Any of its days in the window: one day, or a pop-up running Fri to Sun
   // (founder, 22 Nov 2026), shown while it's still on.
   const days = opts.when === "tonight" ? [cal.today] : opts.when === "week" ? cal.week : cal.weekend;
-  const last = e.endDate && e.endDate > e.date && daysBetween(e.date, e.endDate) <= 60 ? e.endDate : e.date;
+  const last = e.endDate && e.endDate > e.date && daysBetween(e.date, e.endDate) <= 180 ? e.endDate : e.date;
   if (!days.some((d) => d >= e.date && d <= last)) return false;
   // Today's, on its only or last day: still to come, or started within the last hour.
   if (last === cal.today && e.date === cal.today && e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
