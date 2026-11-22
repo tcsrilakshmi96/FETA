@@ -1,7 +1,7 @@
 import { cityById } from "@/lib/server/cities";
 import { withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
-import { cleanRoute, estimateTransport, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
+import { cleanRoute, estimateTransport, tripTitle, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 export const maxDuration = 60;
@@ -41,9 +41,8 @@ export async function POST(request: Request) {
     // Edited on the phone: the cities they kept, in their order, with their
     // nights. Getting around and hotels are worked out again after a change.
     const kept = cleanRoute({ cities: (body.cities ?? []).map((c) => ({ name: c.name, country: c.country, nights: c.nights, story: c.story, focus: c.focus })) }).cities;
-    // "30 days in Japan" follows the nights they kept ("22 days in Japan").
-    const nights = kept.reduce((n, c) => n + c.nights, 0);
-    const title = trip.title.replace(/^\d+ (days|nights)/i, `${nights} days`);
+    // "7 nights in Japan" follows the nights they kept.
+    const title = tripTitle(trip.title, kept);
     await save({ title, cities: kept, transport: null, stays: {}, days: {} });
     return Response.json({ trip: { ...trip, title, cities: kept, transport: null, stays: {}, days: {} } });
   }

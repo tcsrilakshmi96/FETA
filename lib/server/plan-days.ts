@@ -15,7 +15,7 @@ export type PlanOrigin = { lat: number; lng: number; label: string; source: "gps
 export async function planDays(
   token: string,
   opts: { origin: PlanOrigin; start: string; days: number; who?: string | null; focus?: string | null; trip?: string; place: string },
-): Promise<Itinerary | null> {
+): Promise<{ itinerary: Itinerary | null; limited?: string }> {
   const who = opts.who ?? "";
   // Friends and kids change what fits (tweaks); a partner makes dinner
   // romantic; what they'd love to do steers the things to do.
@@ -26,10 +26,13 @@ export async function planDays(
   };
   const ask = (category: "food_drinks" | "experiences") =>
     runPicks(token, { category, when: "weekend", dayPlan: true, origin: opts.origin, tweaks, note: notes[category], ...(opts.trip ? { trip: opts.trip } : {}) }).then(
-      (r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[] }>,
+      (r) => r.json().catch(() => ({})) as Promise<{ picks?: Pick[]; spares?: Pick[]; limited?: boolean; notice?: string }>,
     );
   const [food, doing] = await Promise.all([ask("food_drinks"), ask("experiences")]);
+  // Today's limit reached: say so, not "couldn't find enough open places"
+  // (tester, 22 Nov 2026: trips in three cities never planned a day).
+  const limited = [food, doing].find((r) => r.limited)?.notice;
   const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
   const itinerary = buildItinerary(all, { start: opts.start, days: Math.min(3, Math.max(1, Math.round(opts.days))), place: opts.place });
-  return itinerary.days.some((d) => d.stops.length > 0) ? itinerary : null;
+  return { itinerary: itinerary.days.some((d) => d.stops.length > 0) ? itinerary : null, ...(limited ? { limited } : {}) };
 }

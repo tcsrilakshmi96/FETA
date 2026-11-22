@@ -11,7 +11,7 @@ import { OCCASIONS, styleById, type Occasion, type Outfit } from "@/lib/style";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 import type { Itinerary } from "@/lib/server/itinerary";
-import { cleanRoute, type RouteIn, type Trip } from "@/lib/server/trip";
+import { cleanRoute, tripHeader, type RouteIn, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 export const maxDuration = 60;
@@ -93,9 +93,10 @@ export async function POST(request: Request) {
   const [taste, { data: history }, { data: lastTripMessage }, { data: peopleLines }] = await Promise.all([
     loadTaste(db),
     db.from("chat_messages").select("role, content, extras").order("id", { ascending: false }).limit(16),
-    // The trip being planned in this chat, however long ago it started, so
-    // changes ("less Tokyo, more Kyoto") edit it.
-    db.from("chat_messages").select("extras").not("extras->>trip_id", "is", null).order("id", { ascending: false }).limit(1).maybeSingle(),
+    // The trip being planned in this chat, so changes ("less Tokyo, more
+    // Kyoto") edit it; from the last 2 weeks only (tester, 22 Nov 2026: an
+    // old Lisbon trip came back for a London guest).
+    db.from("chat_messages").select("extras").not("extras->>trip_id", "is", null).gte("created_at", new Date(Date.now() - 14 * 86400000).toISOString()).order("id", { ascending: false }).limit(1).maybeSingle(),
     // What they've told Feta about the people they go out with, kept apart
     // from their own taste (founder, 19 Nov 2026: a date night assumed her
     // boyfriend likes what she likes).
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
 
 Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countryName}${here?.source === "area" ? ` (${here.label})` : ""}.` : "They haven't said where they are."}
 
-What Feta knows about them (this person only):
+What Feta knows about them (this person only; taps in setup and on cards are leanings, not things they told you: never state them back as facts, and never assume who they're with or when they travel):
 ${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
 
 Their style:
@@ -138,9 +139,9 @@ Be a real assistant, not a menu (founder, 19 Nov 2026: "you can chat with it abo
 Real places come only from Feta's own search, which checks them against their diet, budget, distance and opening hours. Never present a place as checked yourself; you may name a well-known place or landmark in a search "note" so Feta looks it up. Your reply is written before the search comes back: never promise to pick one or say more once results arrive; the places show under your reply. Don't tell them what their taste is from one loved place or a tap in setup ("You like hole-in-the-wall places"); say why a search suits what they asked for instead.
 Besides talking, you can do one of these per reply (leave the others null).
 - "search": up to 2 searches at once (an array), e.g. something to do and somewhere to eat for an evening out. Each: places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match for each.
-- "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD, "who": "solo", "partner", "friends", "family" or "kids", "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
+- "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD only if they said when, else null, "who": "solo", "partner", "friends", "family" or "kids" only if they said who's coming in this chat, else null, "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
 - "outfit": what to wear, whenever they ask what to wear or how to dress for something: {"occasion": "dinner", "drinks", "do" (something to do) or "day" (an everyday look), "vibe": the kind of outing in a few words, e.g. "date night", "rooftop bar", "office party", "note": anything else that matters, e.g. "it'll be cold", "my boyfriend's parents"}. Feta shows a drawn outfit from their own styles with brands for it; your reply adds a line of advice, never a list of items. Ask the kind of outing first (one question with options) if you don't know it.
-- "route": any trip: travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "30 days in Japan", "start": YYYY-MM-DD (a month alone means the 1st of the coming one), "who": as above, "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to their taste, company and the season, "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
+- "route": any trip, once you know where (never choose the destination for them: if they want a trip and haven't said where, ask, with a few options that suit them): travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "Japan", "start": YYYY-MM-DD only if they said when (a month alone means the 1st of the coming one), else null, "who": as above (null unless they said), "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to what they asked for and the season (never invent who they're with or a taste they didn't tell you), "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
 {"reply": what you say, 1 to 4 short sentences (a little longer when they ask for advice or an explanation that needs it),
@@ -235,7 +236,8 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   const wantsRoute =
     !parsed.why &&
     !parsed.route?.cities?.length &&
-    ((it && ((it.days ?? 1) > 3 || isCountryName(it.place ?? "") || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
+    // Only once a place is named: a trip with no destination asks where first.
+    ((it && !!it.place && ((it.days ?? 1) > 3 || isCountryName(it.place) || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
       (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? "")));
   if (wantsRoute) {
     const route = await withCosts(db, "ask", () => routeFor(past, message, system)).catch((error) => {
@@ -287,6 +289,9 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     tripId = currentTrip.id;
     reply = `Tap “plan days” under ${tripCity.name} on your trip card and I'll plan them stop by stop, near your hotel if you've chosen one.`;
   }
+  // The header shows the saved trip when there is one, so it matches the card.
+  const shownTrip = tripId ? (route ?? currentTrip) : null;
+  const header = shownTrip ? tripHeader(shownTrip) : tripLabel;
   const plan = parsed.why || tripId ? null : (parsed.itinerary ?? null);
   let searches = parsed.why || plan || tripId ? [] : asked;
   // A search of a whole country finds one point on the map: ask for a city.
@@ -303,10 +308,11 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     } else {
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.city.timeZone }).format(new Date());
       const start = /^\d{4}-\d{2}-\d{2}$/.test(plan.start ?? "") && plan.start! >= today ? plan.start! : today;
-      itinerary = await withCosts(db, "ask", () =>
+      const planned = await withCosts(db, "ask", () =>
         planDays(token, { origin, start, days: plan.days ?? 1, who: plan.who, focus: plan.note, trip: tripLabel ?? undefined, place: origin.source === "area" ? origin.label : origin.city.name }),
       );
-      if (!itinerary) notice = "I couldn't find enough open places to plan a full day there. Try another area or day?";
+      itinerary = planned.itinerary;
+      if (!itinerary) notice = planned.limited ?? "I couldn't find enough open places to plan a full day there. Try another area or day?";
     }
   }
   // Both at once, so an evening out takes no longer than one search.
@@ -411,7 +417,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       extras: {
         picks: picks.map((p) => ({ placeId: p.placeId, kind: p.kind, verdict: p.verdict, because: p.because })),
         added,
-        trip: tripLabel,
+        trip: header,
         weekend,
         ...(explained ? { why: true } : {}),
         ...(options.length && !searches.length && !tripId ? { options } : {}),

@@ -66,7 +66,28 @@ export function cleanRoute(route: RouteIn) {
       };
     });
   const start = /^\d{4}-\d{2}-\d{2}$/.test(route.start ?? "") ? route.start! : null;
-  return { title: (route.title ?? "Your trip").slice(0, 80), start_date: start, who: route.who ?? null, cities };
+  const who = ["solo", "partner", "friends", "family", "kids"].includes(route.who ?? "") ? route.who! : null;
+  return { title: tripTitle(route.title ?? "", cities), start_date: start, who, cities };
+}
+
+// "7 nights in Japan", always from the cities' nights, so the title and the
+// card never disagree (tester, 22 Nov 2026: "8 days" next to 6 nights).
+export function tripTitle(title: string, cities: { name: string; country: string; nights: number }[]) {
+  const nights = cities.reduce((n, c) => n + c.nights, 0);
+  const place = title.replace(/^\s*\d+\s*(days?|nights?|weeks?)\s*(in|across|around|through)?\s*/i, "").trim() || (cities.length === 1 ? cities[0].name : cities[0]?.country) || "your trip";
+  return `${nights} ${nights === 1 ? "night" : "nights"} in ${place}`.slice(0, 80);
+}
+
+// The chat header for a saved trip ("Japan · 4–11 Feb"), from the trip
+// itself, so it matches the card (tester: header 4–8 Feb, card from 5 Feb).
+export function tripHeader(trip: { title: string; start_date: string | null; cities: { nights: number }[] }) {
+  const place = trip.title.replace(/^\d+ nights? in /, "");
+  if (!trip.start_date) return place.slice(0, 60);
+  const nights = trip.cities.reduce((n, c) => n + c.nights, 0);
+  const d = (iso: string, opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+  const end = new Date(new Date(`${trip.start_date}T00:00:00Z`).getTime() + nights * 86400000).toISOString().slice(0, 10);
+  const sameMonth = trip.start_date.slice(0, 7) === end.slice(0, 7);
+  return `${place} · ${sameMonth ? d(trip.start_date, { day: "numeric" }) : d(trip.start_date, { day: "numeric", month: "short" })}–${d(end, { day: "numeric", month: "short" })}`.slice(0, 60);
 }
 
 // Getting around: getting there from home, the legs between the cities in
@@ -184,7 +205,7 @@ export async function planCityDays(opts: {
   const startDate = new Date(`${opts.trip.start_date && opts.trip.start_date >= today ? opts.trip.start_date : today}T12:00:00Z`);
   startDate.setUTCDate(startDate.getUTCDate() + before);
   const days = Math.min(3, c.nights - opts.fromDay);
-  const itinerary = await planDays(opts.token, {
+  const { itinerary, limited } = await planDays(opts.token, {
     origin,
     start: startDate.toISOString().slice(0, 10),
     days,
@@ -193,6 +214,6 @@ export async function planCityDays(opts: {
     trip: `${c.name} · ${opts.trip.title}`.slice(0, 60),
     place: c.name,
   });
-  if (!itinerary) return { itinerary: null, notice: `I couldn't find enough open places to plan those days in ${c.name}.` };
+  if (!itinerary) return { itinerary: null, notice: limited ?? `I couldn't find enough open places to plan those days in ${c.name}.` };
   return { itinerary };
 }
