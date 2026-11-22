@@ -1,40 +1,57 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
+import { useRouter } from "next/navigation";
+import { StyleFigure, StyleHead } from "@/components/StyleKit";
+import { Line, Logo, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
+import { useToast } from "@/components/Toast";
 import { loadOrigin } from "@/lib/origin";
 import { STYLES, styleById } from "@/lib/style";
 import { formatMoney } from "@/lib/currency";
-import { brandTags, brandsFor, findMoreBrands, setTagVote, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
+import { brandTags, brandsFor, findMoreBrands, loadLovedBrands, loadStyleProfile, loveBrand, rankForMe, recommendSetting, researchCountry, saveStyleProfile, savedBrandIds, setRecommendBrands, setTagVote, toggleSavedBrand, type BrandCard, type LovedBrand, type StyleProfile } from "@/lib/style-client";
+import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
-// Brand discovery (founder, 20 Nov 2026): "if you like X style here, these
-// brands exist", homegrown and international that sell in their country.
-// "Homegrown only" lives here (founder: not in setup); international ones
-// fall off the list. A heart saves a brand to Saved → Brands.
+// Brand discovery (founder, 20–23 Nov 2026, docs/style-spec.md). "For you"
+// mixes all their styles: ★ Feta Picks, then brands people with their taste
+// shop from, then brands that fit more of their styles; a chip per style
+// shows only its brands. Their country's stores only, within their budget,
+// with honest price labels (brandsFor). ♥ means "I shop here": it joins
+// "Your usuals" at the top, and the first ♥ asks once whether to recommend
+// them to people with a similar taste. Saving one to try later is separate.
+// From a piece of a look (?piece=…&style=…): brands for that look's style,
+// with ‹ Back to your look.
+const FOR_YOU = "for-you";
 export default function StyleBrands() {
+  const router = useRouter();
+  const toastMsg = useToast();
   const [profile, setProfile] = useState<StyleProfile | null>(null);
   const [tab, setTab] = useState<string | null>(null);
   const [all, setAll] = useState<BrandCard[] | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState(0);
   const [researching, setResearching] = useState<string[]>([]); // styles Feta is researching now
   const [moreNote, setMoreNote] = useState<string | null>(null);
   const reload = useRef<() => Promise<unknown>>(async () => null);
   const [tagsFor, setTagsFor] = useState<{ id: string; tags: string[]; mine: Record<string, 1 | -1> } | null>(null);
-  const [drawn, setDrawn] = useState<Record<string, string>>({});
+  const [usuals, setUsuals] = useState<LovedBrand[]>([]);
+  const [recommend, setRecommend] = useState<boolean | null>(null);
+  const [ask, setAsk] = useState<BrandCard | null>(null); // "Recommend them?" asked once
+  const [piece, setPiece] = useState<string | null>(null);
   const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
 
   useEffect(() => {
     loadStyleProfile().then((p) => {
       if (!p || !origin) return;
       setProfile(p);
-      const asked = new URLSearchParams(window.location.search).get("style");
-      setTab(asked && p.styles.includes(asked) ? asked : p.styles[0]);
+      const q = new URLSearchParams(window.location.search);
+      const asked = q.get("style");
+      setPiece(q.get("piece"));
+      setTab(asked && p.styles.includes(asked) ? asked : FOR_YOU);
       // Ordered for them by Feta, with a line on why.
       const load = async () => {
         const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city, p.wears, p.budget), loadLovedBrands()]);
+        setUsuals(loved);
         // Shown straight away, then reordered for them when Feta's ranking arrives.
         setAll(all);
         setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
@@ -42,17 +59,30 @@ export default function StyleBrands() {
       };
       reload.current = load;
       load().then((all) => researchCountry(origin.city.id, origin.city.country, p.styles.map((style) => ({ style, brands: all.filter((b) => b.style === style).length })), () => load(), setResearching));
-      if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((x) => setDrawn(Object.fromEntries(x.filter(([, v]) => v)) as Record<string, string>));
     });
     savedBrandIds().then(setSaved);
+    recommendSetting().then(setRecommend);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
   }, []);
 
   if (!profile || !origin || !tab) return null;
   const home = profile.homegrownOnly;
-  const lens = styleById(tab)!;
-  const list = (all ?? []).filter((b) => b.style === tab);
-  const shown = list.filter((b) => !home || b.homegrown).length;
+  const lens = tab === FOR_YOU ? null : styleById(tab);
+  // How many of their styles each brand fits; For you shows each brand once.
+  const fitCount = new Map<string, number>();
+  for (const b of all ?? []) fitCount.set(b.id, (fitCount.get(b.id) ?? 0) + 1);
+  const forYou = (() => {
+    const seen = new Set<string>();
+    const one = (all ?? []).filter((b) => !seen.has(b.id) && seen.add(b.id));
+    // Stable: keeps Feta Picks and loved-by first (brandsFor), then fits more styles.
+    return one
+      .map((b, i) => ({ b, i }))
+      .sort((x, y) => Number(!!y.b.fetaPick) - Number(!!x.b.fetaPick) || Number(!!y.b.youLove) - Number(!!x.b.youLove) || (y.b.lovers ?? 0) - (x.b.lovers ?? 0) || (fitCount.get(y.b.id) ?? 1) - (fitCount.get(x.b.id) ?? 1) || x.i - y.i)
+      .map((x) => x.b);
+  })();
+  const list = tab === FOR_YOU ? forYou : (all ?? []).filter((b) => b.style === tab);
+  const shown = list.filter((b) => !home || b.homegrown);
+  const country = origin.city.countryName;
 
   function toggleHome() {
     const p = { ...profile!, homegrownOnly: !home };
@@ -83,46 +113,110 @@ export default function StyleBrands() {
     await setTagVote(id, style, vote);
   }
 
-  function heart(b: BrandCard) {
+  // Save to try later (Saved → Brands), separate from "I shop here".
+  function save(b: BrandCard) {
     const on = !saved.has(b.id);
     const next = new Set(saved);
     if (on) next.add(b.id);
     else next.delete(b.id);
     setSaved(next);
-    if (on) setToast((t) => t + 1);
+    if (on) toastMsg("Saved to Saved → Brands");
     toggleSavedBrand(b, on, origin!.city.country);
+  }
+
+  // ♥ I shop here: one of their usuals.
+  async function shopHere(b: BrandCard, rec: boolean | null = recommend) {
+    if (b.youLove) {
+      setAll((x) => x && x.map((c) => (c.id === b.id ? { ...c, youLove: false } : c)));
+      setUsuals((u) => u.filter((x) => x.id !== b.id));
+      await loveBrand(b.id, false);
+      return;
+    }
+    if (rec === null) {
+      setAsk(b);
+      return;
+    }
+    setAll((x) => x && x.map((c) => (c.id === b.id ? { ...c, youLove: true } : c)));
+    setUsuals((u) => [...u, { id: b.id, name: b.name, logo: b.logo, styles: [b.style] }]);
+    await loveBrand(b.id, true, { recommend: rec, country: origin!.city.country });
+    toastMsg(`${b.name} added to your usuals`);
+  }
+
+  async function answer(rec: boolean) {
+    const b = ask;
+    setAsk(null);
+    setRecommend(rec);
+    if (b) await shopHere(b, rec);
+    await setRecommendBrands(rec);
   }
 
   return (
     <>
-      <main className={s.screen}>
+      <main className={`${s.screen} ${s.vars}`}>
         <div className={s.page}>
-          <StyleTop back="/style" backLabel="Style" />
-          <section className={s.stage} style={{ height: 210 }}>
-            <div key={`m-${tab}`} className={s.marquee} style={{ top: 30 }} aria-hidden="true">
-              {`${lens.big} · `.repeat(6)}
-            </div>
-            <Figure key={`f-${tab}`} style={tab} wears={profile.wears} drawn={drawn[tab]} height={200} pos={{ left: "auto", right: 18, marginLeft: 0 }} />
-            <div style={{ position: "absolute", left: 16, bottom: 14, display: "flex", flexDirection: "column", gap: 2, zIndex: 3 }}>
-              <span className={s.styleName}>{lens.name}</span>
-              <span style={{ fontSize: 12.5, opacity: 0.75 }}>
-                {all === null ? "Finding brands…" : `${shown} brand${shown === 1 ? "" : "s"} that sell in ${origin.city.countryName}`}
+          <StyleHead tab="brands" back={piece ? () => router.back() : undefined} backLabel={piece ? "Back to your look" : "Home"} />
+          {piece ? (
+            <div className={k.pieceHead}>
+              <span className={k.thumbImg}>
+                <StyleFigure style={tab === FOR_YOU ? profile.styles[0] : tab} wears={profile.wears} />
+              </span>
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span className={k.cap} style={{ color: "#7a4f27" }}>Where to buy</span>
+                <span className={k.lookTitle} style={{ fontSize: 22 }}>{piece}</span>
+                <span style={{ fontSize: 13, opacity: 0.75 }}>
+                  {lens ? `${lens.short} brands` : "Brands for your styles"} in {country}, within your budget. Your look is kept.
+                </span>
               </span>
             </div>
-          </section>
+          ) : (
+            <h1 className={s.mast} style={{ marginBottom: 0 }}>
+              Brands for <i>your styles</i>
+            </h1>
+          )}
+
+          <div className={k.usuals}>
+            <span className={k.label} style={{ flex: "none" }}>Your usuals</span>
+            {usuals.length ? usuals.map((u) => <span key={u.id} className={k.uchip}>{u.name}</span>) : <span style={{ fontSize: 12, opacity: 0.7 }}>Tap ♥ on a brand you shop from</span>}
+            <button type="button" className={k.mini} style={{ marginLeft: "auto", flex: "none" }} onClick={() => router.push("/style/me#brands")}>
+              + Add
+            </button>
+          </div>
 
           <div className={s.chips}>
-            {profile.styles.map((id) => (
+            {[FOR_YOU, ...profile.styles].map((id) => (
               <button key={id} type="button" className={`${s.chip} ${tab === id ? s.chipOn : ""}`} style={{ padding: "8px 14px", fontSize: 13 }} aria-pressed={tab === id} onClick={() => setTab(id)}>
-                {styleById(id)?.short}
+                {id === FOR_YOU ? "For you" : styleById(id)?.short}
               </button>
             ))}
           </div>
+          <span className={s.small}>
+            {all === null ? "Finding brands…" : tab === FOR_YOU ? `All your styles mixed: brands that fit more of them come first. ${shown.length} in ${country}.` : `Only ${lens?.short.toLowerCase()} brands, in ${country}, within your budget. ${shown.length} found.`}
+          </span>
+
+          {/* The first few, hanging on a line. */}
+          {shown.length > 0 && (
+            <Line height={128}>
+              {shown.slice(0, 5).map((b, i) => {
+                const f = 0.1 + i * 0.2;
+                return (
+                  <div key={b.id} className={s.hang} style={vars({ left: `calc(${f * 100}% - 35px)`, top: 10 + 48 * f * (1 - f) - 2, "--sway": `${3 + (i % 3) * 0.5}s`, "--delay": `${i * 0.2}s` })}>
+                    <span className={`${s.hanger} ${s.dropIn}`}>
+                      <span className={s.string} />
+                      <span className={s.brandTag}>
+                        <Logo name={b.name} src={b.logo} />
+                        <span className={s.brandTagName}>{b.name}</span>
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </Line>
+          )}
 
           <button type="button" className={`${s.switch} ${home ? s.switchOn : ""}`} aria-pressed={home} onClick={toggleHome}>
             <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ fontSize: 14, fontWeight: 600 }}>Homegrown only</span>
-              <span style={{ fontSize: 12, opacity: 0.75 }}>{home ? `Only labels started in ${origin.city.countryName}` : `Off: ${origin.city.countryName} labels and international ones that sell here`}</span>
+              <span style={{ fontSize: 12, opacity: 0.75 }}>{home ? `Only labels started in ${country}` : `Off: ${country} labels and international ones that sell here`}</span>
             </span>
             <span className={s.track}>
               <span className={s.knob} />
@@ -130,13 +224,14 @@ export default function StyleBrands() {
           </button>
 
           <div key={`list-${tab}`} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {researching.includes(tab) && (
+            {lens && researching.includes(tab) && (
               <p className={s.researching}>
-                <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {origin.city.countryName} now. New ones appear here in a couple of minutes, even if you leave.
+                <span aria-hidden="true" /> Feta is looking for more {lens.short.toLowerCase()} brands in {country} now. New ones appear here in a couple of minutes, even if you leave.
               </p>
             )}
-            {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands within your budget in {origin.city.countryName} in Feta&apos;s library yet.</p>}
+            {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No brands within your budget in {country} in Feta&apos;s library yet{lens ? ` for ${lens.short.toLowerCase()}` : ""}.</p>}
             {list.map((b, i) => {
+              const fits = fitCount.get(b.id) ?? 1;
               // Brands above their budget aren't shown (brandsFor), except one they love.
               const fit = b.price.fit;
               const checked = b.price.checked ? new Date(b.price.checked).toLocaleDateString("en", { month: "short", year: "numeric" }) : null;
@@ -153,13 +248,14 @@ export default function StyleBrands() {
                       {b.fetaPick && b.note && <span className={s.pickNote}>&ldquo;{b.note}&rdquo;</span>}
                       {(b.youLove || !!b.lovers) && (
                         <span className={s.small} style={{ color: "var(--roseText)" }}>
-                          {b.youLove ? "♥ You love this" : `♥ Loved by ${b.lovers} Feta user${b.lovers === 1 ? "" : "s"}`}
+                          {b.youLove ? "♥ One of your usuals" : `♥ Loved by ${b.lovers} ${b.lovers === 1 ? "person" : "people"} with your taste`}
                         </span>
                       )}
+                      {tab === FOR_YOU && fits > 1 && <span className={s.small} style={{ color: "var(--tan)" }}>Fits {fits} of your styles</span>}
                       {b.forYou && <span className={s.forYou}>{b.forYou}</span>}
                       {/* Feta's line on why it suits them; the research's line only when there isn't one. */}
                       {!b.forYou && b.why && <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>}
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 14, rowGap: 4 }}>
                         {fit === "fits" && b.price.price !== null && (
                           <span className={s.fits}>
                             ✓ In your budget · from {formatMoney(b.price.price, origin.city.currency)}
@@ -168,10 +264,13 @@ export default function StyleBrands() {
                         )}
                         {fit === "explore" && <span className={s.small}>{b.price.price !== null ? `From ${formatMoney(b.price.price, origin.city.currency)}` : "Brand to explore · prices not checked"}</span>}
                         {fit === "above" && b.youLove && <span className={s.small}>Above your budget</span>}
-                        <a className={s.link} href={b.link.href} target="_blank" rel="noopener noreferrer">
+                        <a className={s.link} style={{ whiteSpace: "nowrap" }} href={b.link.href} target="_blank" rel="noopener noreferrer">
                           {b.link.label}
                         </a>
-                        <button type="button" className={s.link} onClick={() => openTags(b.id)} aria-expanded={tagsFor?.id === b.id}>
+                        <button type="button" className={s.link} style={{ whiteSpace: "nowrap" }} onClick={() => save(b)} aria-pressed={saved.has(b.id)}>
+                          {saved.has(b.id) ? "Saved" : "Save"}
+                        </button>
+                        <button type="button" className={s.link} style={{ whiteSpace: "nowrap" }} onClick={() => openTags(b.id)} aria-expanded={tagsFor?.id === b.id}>
                           {tagsFor?.id === b.id ? "Done" : "Edit styles"}
                         </button>
                       </div>
@@ -191,7 +290,7 @@ export default function StyleBrands() {
                         </div>
                       )}
                     </div>
-                    <button type="button" className={`${s.heart} ${saved.has(b.id) ? s.hearted : ""}`} aria-label={`Save ${b.name}`} aria-pressed={saved.has(b.id)} onClick={() => heart(b)}>
+                    <button type="button" className={`${k.shopHeart} ${b.youLove ? k.shopHeartOn : ""}`} aria-label={`I shop at ${b.name}`} aria-pressed={!!b.youLove} onClick={() => shopHere(b)}>
                       ♥
                     </button>
                   </div>
@@ -200,7 +299,7 @@ export default function StyleBrands() {
             })}
           </div>
           {/* Ask Feta to dig for more (founder: "there is no button for me to ask for more"). */}
-          {all !== null && (
+          {all !== null && lens && (
             <button
               type="button"
               className={s.findMore}
@@ -211,16 +310,27 @@ export default function StyleBrands() {
                 setMoreNote(note);
               }}
             >
-              {researching.includes(tab) ? `Looking for more ${lens.short.toLowerCase()} brands…` : `＋ Find more ${lens.short.toLowerCase()} brands in ${origin.city.countryName}`}
+              {researching.includes(tab) ? `Looking for more ${lens.short.toLowerCase()} brands…` : `＋ Find more ${lens.short.toLowerCase()} brands in ${country}`}
             </button>
           )}
           {moreNote && <p className={s.small}>{moreNote}</p>}
         </div>
       </main>
-      {toast > 0 && (
-        <a key={toast} href="/lists?show=brands" className={s.toast}>
-          ♥ Saved to Saved → Brands
-        </a>
+      {ask && (
+        <>
+          <button type="button" className={k.shade} aria-label="Close" onClick={() => setAsk(null)} />
+          <div className={k.sheet} role="dialog" aria-label="Recommend your brands?">
+            <div className={k.grab} />
+            <span className={k.lookTitle} style={{ fontSize: 22 }}>{ask.name} is one of your usuals</span>
+            <span style={{ fontSize: 14, opacity: 0.75 }}>Recommend the brands you shop from to people with a similar taste? They&apos;d see &ldquo;♥ Loved by people with your taste&rdquo;, never your name.</span>
+            <button type="button" className={k.primary} onClick={() => answer(true)}>
+              Yes, recommend them
+            </button>
+            <button type="button" className={k.ghost} onClick={() => answer(false)}>
+              Keep them to me
+            </button>
+          </div>
+        </>
       )}
       <TabBar active="style" />
     </>
