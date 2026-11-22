@@ -101,7 +101,9 @@
   top: 134px;
   bottom: 140px;
   overflow-y: auto;
-  overflow-x: hidden;
+  /* clip, not hidden: a hidden overflow can still be scrolled sideways and
+     get stuck shifted (tester, 22 Nov 2026: chat cut off on the left). */
+  overflow-x: clip;
   padding: 4px 16px 12px;
   display: flex;
   flex-direction: column;
@@ -109,6 +111,9 @@
 }
 
 .msg {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 8px;
