@@ -3,9 +3,10 @@
 Everything Style must do, from the founder's feedback, her testers, the UX review and the two-persona review (22 Nov 2026). The mock-up is https://claude.ai/artifact/UUy8nfAqGToqU8iYfKxKFB (page "Style: every flow, every case"); the mock wins for look and flow, this page for logic. "She wants the style section to be a perfect piece": nothing here is optional.
 
 ## Look and motion
-- The app's own Style look: dark haze, Fraunces with italics, grey stage cards, pink buttons. Never a plain UI.
-- Motion from her inspiration videos, all kept: figure between a giant word; pulsing dots on the clothes whose name tags pop up for ~3 s then fade; the depth lineup fanning in; photos and looks dropping onto a swaying clothesline; brand and price tags hanging on a line; looks walking in and out; sheets rising; toasts. Reduced-motion turns it all off.
-- The look card stays uncluttered: the big style word sized to fit, the figure, dots, three thin progress bars, "Made by AI". Under it only the look's name, its style, and the pieces as one tappable line.
+- The app's own Style look: dark haze, Fraunces with italics, grey stage cards, pink buttons. Never a plain UI, and no giant word behind or around the figure (founder, 23 Nov 2026: "i dont like that design where there is image and big text").
+- The look card is the lookbook (option C, founder 23 Nov 2026): the figure on the left of a grey card, numbered pulsing dots on the clothes, dotted lines to a list of the pieces beside it (slot and name; a piece they own is dark, "YOURS ✓"). Above it the look's name in italic, "1 of 3", and "<style> · made by AI". The same card for "You're wearing this" and for the limit view; Wear this drops a polaroid that swings.
+- The intro is the clothesline (option 2): three polaroids drop onto the rope and swing ("your plans · your brands · every day"), then "Stylish, wherever you're going." and three lines: Looks made for your plans · Brands for your styles · Put together, every day.
+- Motion kept from her inspiration videos: photos and looks dropping onto a swaying clothesline, pulsing dots on the clothes, the depth lineup fanning in, brand and price tags hanging on a line, looks walking in and out, sheets rising, toasts. Reduced-motion turns it all off.
 
 ## Ways in and moving around
 - In: Home's Style tile, a plan's "What to wear", a place's details, Ask Feta's "Open in Style".
@@ -13,7 +14,7 @@ Everything Style must do, from the founder's feedback, her testers, the UX revie
 - Back never walks through setup steps and never leaves Feta (no browser Back).
 
 ## First time (setup, once)
-1. Intro: what Style does in three lines (show your style → say where you're going → wear it or find the piece), "Let's start", "Takes about a minute".
+1. Intro (the clothesline, above): "Let's start", "Takes about a minute".
 2. What do you shop for: Womenswear / Menswear / Both. Asked first; every figure follows it; never guessed from photos.
 3. Hang up looks you love (one screen with 2): the clothesline, up to 8 photos, none required; or tap Feta's looks (already showing their figure). Photos: Gemini reads only the clothes, never faces, bodies, age, religion, ethnicity or gender. Looks only: no AI call, free and instant.
 4. Your styles: the lineup, remove any (at least one stays), each with why Feta read it (kept for My style); budget per piece in the city's currency.
