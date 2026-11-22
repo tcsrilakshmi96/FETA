@@ -11,7 +11,8 @@
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
-import { curate, pickFrom } from "@/lib/server/curate";
+import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
+import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
@@ -519,6 +520,20 @@ async function main() {
     failed++;
     console.log(`✗ ${OUT} is out of date with the migrations: run npm run schema`);
   } else console.log("✓ The database check knows every migration");
+  // "Because you…" names only what the place serves (tester, 22 Nov 2026:
+  // "hole-in-the-wall spots" from a vibe-card tap, "a dance class" on a choreographer).
+  const thai = { id: "cuisine_thai", label: "Thai & SE Asian", reason: "Because you love Thai & SE Asian food.", query: "thai restaurant", def: { searches: [] }, explicit: true, source: "cuisine", food: true } satisfies Intent;
+  const side = { id: "side_dressed_up", label: "A dressed-up dinner for an occasion", reason: "Because you picked a dressed-up dinner for an occasion.", query: "fine dining", def: { searches: [] }, explicit: false, source: "side", food: true } satisfies Intent;
+  const reasonFails = [
+    becauseFor([side], "Because you picked a dressed-up dinner for an occasion.") !== "" && "a vibe card used as a reason",
+    becauseFor([thai], "Because you love hole-in-the-wall spots.") !== thai.reason && "an invented reason kept",
+    becauseFor([thai], "Because you love Thai: their green curry is the best nearby.") !== "Because you love Thai: their green curry is the best nearby." && "a real reason dropped",
+    becauseFor([], "Because you love live music.") !== "" && "a reason for a place that serves nothing they chose",
+  ].filter(Boolean);
+  if (reasonFails.length) {
+    failed++;
+    console.log(`✗ Reasons: ${reasonFails.join(", ")}`);
+  } else console.log("✓ Reasons name only what a place serves");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

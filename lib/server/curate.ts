@@ -15,19 +15,16 @@ import {
   FOOD_DRINK_TYPES,
   mainlyOf,
   POPULAR_REVIEWS,
-  reasonFits,
   tonightMeansNow,
   type Candidate,
   type Category,
   type DropCounts,
-  type Kind,
   type Ranked,
   type Taste,
   type Tweak,
   type At,
   type When,
 } from "@/lib/server/picks";
-import { sideById } from "@/lib/swipes";
 
 // How Feta curates, in five steps that every caller shares (Picks, Ask
 // Feta, plans and trips):
@@ -291,20 +288,20 @@ export function selectPicks(
   return [...chosen.map((i) => ({ candidate: pool[i], ranked: byIndex.get(i) ?? null, spare: false })), ...spares.map((i) => ({ candidate: pool[i], ranked: byIndex.get(i) ?? null, spare: true }))];
 }
 
-// "Because you…" when Gemini's line is missing or doesn't fit: the first
-// thing they asked for that this place is, else a taste-card side that fits
-// the kind of place, else nothing: no reason beats a filler one (Round 5
-// review: "Because it fits what you told me" on 4 of 8 picks).
-const KIND_SIDES: Record<string, string[]> = { DRINK: ["buzzing", "buzzing_sober", "quiet_cafe"], EAT: ["hole_in_wall", "dressed_up", "quiet_cafe"] };
+// "Because you…": Gemini's line only when it names something this place
+// really serves (what they chose, said, asked for or love; founder's tester,
+// 22 Nov 2026: "Because you chose a dance class" on a quinceañera
+// choreographer, "hole-in-the-wall spots" from one vibe-card tap), else the
+// first of those things in Feta's own words, else nothing: no reason beats
+// an invented one. A vibe card sets the tone, it is never a reason.
+const PLAIN = new Set(["restaurant", "restaurants", "place", "places", "food", "with", "near", "best", "class", "classes", "night", "something", "local", "good"]);
 
-export function becauseFor(c: Candidate | null, intents: Intent[], taste: Taste, kind: Kind, aiLine?: string) {
-  if (aiLine && aiLine.startsWith("Because you") && reasonFits(aiLine, taste, c?.place)) return aiLine;
-  const first = intents.find((i) => c?.intents?.includes(i.id) && i.reason && i.source !== "side");
-  if (first) return first.reason;
-  const side = taste.yes.find((y) => KIND_SIDES[kind]?.includes(y) && (!c || reasonFits(sideById(y, taste.answers)?.label ?? "", { ...taste, no: [] }, c.place)));
-  const label = side ? sideById(side, taste.answers)?.label : null;
-  if (label) return `Because you picked ${label.replace(/^[A-Za-z ]+: /, "").replace(/^A /, "a ")}.`;
-  return "";
+export function becauseFor(served: Intent[], aiLine?: string) {
+  const real = served.filter((i) => i.source !== "side" && i.reason);
+  const words = real.flatMap((i) => `${i.label} ${i.query}`.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !PLAIN.has(w));
+  const line = aiLine?.toLowerCase() ?? "";
+  if (aiLine?.startsWith("Because you") && words.some((w) => line.includes(w))) return aiLine;
+  return real[0]?.reason ?? "";
 }
 
 // A global fast-food chain stays only when it's the only place found for

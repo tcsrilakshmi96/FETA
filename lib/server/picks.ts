@@ -555,57 +555,6 @@ function likes(taste: Taste, which: "yes" | "no") {
     .join("; ");
 }
 
-// Words that belong to each this-or-that side. A reason that leans on a side
-// the person turned down ("cosy" for someone who chose buzzing) is replaced.
-const SIDE_WORDS: Record<string, RegExp> = {
-  quiet_cafe: /\b(quiet|cosy|cozy|calm|peaceful|intimate|tranquil)\b/i,
-  buzzing: /\b(buzzing|lively|loud|energetic|vibrant|party)\b/i,
-  buzzing_sober: /\b(buzzing|lively|loud|energetic|vibrant)\b/i,
-  dressed_up: /\b(fancy|fine[- ]dining|upscale|elegant|dressed[- ]up|special occasion)\b/i,
-  hole_in_wall: /\b(no-frills|hole[- ]in[- ]the[- ]wall|humble|unpretentious)\b/i,
-  dance: /\b(dance|dancing|salsa)\b/i,
-  make: /\b(pottery|workshop|craft|hands-on)\b/i,
-  play: /\b(sport|sports|badminton|pickleball|game of)\b/i,
-  unwind: /\b(book club|reading|books)\b/i,
-  crowd: /\b(gig|concert|crowd|big match|stadium)\b/i,
-  circle: /\b(run club|trivia|meetup|community)\b/i,
-  get_moving: /\b(dance|dancing|salsa|sport|sports|badminton|pickleball|hike|hiking|active)\b/i,
-  slow_down: /\b(pottery|book club|books|reading|gallery|galleries|slow)\b/i,
-  familiar: /\b(your usual|favourites? done|classic|comfort food|old favourite)\b/i,
-  new_to_me: /\b(something new|never tried|new to you|adventurous|unusual)\b/i,
-};
-
-// A card's phrase only fits some kinds of place: "hole-in-the-wall" isn't a
-// patisserie, a "buzzing bar" isn't a biryani house (testers saw both).
-const SIDE_PLACES: Record<string, RegExp> = {
-  hole_in_wall: /restaurant|food|meal|diner|street/,
-  dressed_up: /restaurant|fine_dining|wine_bar|cocktail_bar/,
-  buzzing: /bar|pub|night_club|brewery|lounge/,
-  quiet_cafe: /cafe|coffee|tea_house|bakery|book_store/,
-  buzzing_sober: /cafe|coffee|tea_house|live_music|performing_arts/,
-};
-
-// The price says more than the type: "dressed-up" only for fine dining or a
-// pricier place (a cheap Mughlai restaurant got it, testers 13 Nov 2026),
-// "hole-in-the-wall" never for an expensive one.
-const SIDE_PRICE: Record<string, (level: number | undefined, type: string) => boolean> = {
-  dressed_up: (level, type) => type === "fine_dining_restaurant" || (level ?? 0) >= 3,
-  hole_in_wall: (level) => (level ?? 1) <= 2,
-};
-
-export function reasonFits(because: string, taste: Taste, place?: Place) {
-  const rejected = taste.no.some((id) => SIDE_WORDS[id]?.test(because) && !taste.yes.some((y) => SIDE_WORDS[y]?.test(because)));
-  if (rejected) return false;
-  const type = place?.primaryType ?? "";
-  const level = PRICE_LEVELS[place?.priceLevel ?? ""];
-  // A side they chose, mentioned for a place it doesn't describe.
-  return (
-    !place ||
-    !type ||
-    !taste.yes.some((id) => SIDE_WORDS[id]?.test(because) && ((SIDE_PLACES[id] && !SIDE_PLACES[id].test(type)) || (SIDE_PRICE[id] && !SIDE_PRICE[id](level, type))))
-  );
-}
-
 export function tasteSummary(taste: Taste, city: City) {
   const a = taste.answers;
   const multi = (id: string, values: string[]) => values.map((v) => label(id, v, city)).filter(Boolean).join(", ");
@@ -693,7 +642,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
 ${wanted.length ? `- Cover what they want most: the best place for each id above near the top, and most of the top ${SHOW} for those things, mixed rather than one kind.\n- "serves": the ids above that this place genuinely is (a Thai restaurant is [cuisine_thai]; a karaoke bar is [interest_karaoke]). [] if none.` : "- Mix kinds of place rather than several of one kind."}
-- "because": one line, at most 110 characters, starting "Because you", tied to something they chose or liked above (never something under "Said no to") that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
+- "because": one line, at most 110 characters, starting "Because you", naming the one thing they chose, said or love that THIS place serves (one of those in "serves"; never a this-or-that card pick, never something under "Said no to"; if it serves none, leave "because" empty) that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
   - "Worth a detour" is rare: only for an exceptional match to what they told you. At most one place in a set.

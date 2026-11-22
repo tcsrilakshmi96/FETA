@@ -298,7 +298,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       kind: kindOf(candidate.place, body.category),
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-      because: becauseFor(candidate, result.intents, taste, kindOf(candidate.place, body.category), r?.because),
+      because: becauseFor(result.intents.filter((i) => candidate.intents?.includes(i.id)), r?.because),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
       ...(candidate.local && candidate.fetaNote === undefined ? { local: true } : {}),
       ...(candidate.featured && candidate.fetaNote === undefined ? { featured: candidate.featured } : {}),
@@ -505,7 +505,7 @@ async function eventPicks(ctx: {
         kind: "EVENT" as const,
         verdict: c.verdict && ["Worth a detour", "Good if you're nearby", "Skip unless"].includes(c.verdict) ? c.verdict : "Good if you're nearby",
         ...(c.verdict === "Skip unless" && c.skipUnless ? { skipUnless: c.skipUnless } : {}),
-        because: (intent && !c.because ? intent.reason : null) ?? becauseFor(null, [], taste, "EVENT", c.because),
+        because: becauseFor(intent ? [intent] : [], c.because),
         ...(intent ? { serves: [intent.id] } : {}),
         event: {
           title: e.title,

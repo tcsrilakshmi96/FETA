@@ -253,7 +253,7 @@ ${tasteSummary || "Not much yet."}
 Events:
 ${list}
 
-Choose up to ${max} that genuinely suit them (none if nothing fits), best first. For each: "because" (one line, at most 110 characters, starting "Because you", tied to what they like), "verdict" ("Good if you're nearby" normally, "Worth a detour" only for an exceptional match, "Skip unless" for a compromise with "skipUnless" finishing the sentence). No hype words.` }] }],
+Choose up to ${max} that genuinely suit them (none if nothing fits), best first. For each: "because" (one line, at most 110 characters, starting "Because you", naming the thing they're into that it was found for; never a this-or-that card pick), "verdict" ("Good if you're nearby" normally, "Worth a detour" only for an exceptional match, "Skip unless" for a compromise with "skipUnless" finishing the sentence). No hype words.` }] }],
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
