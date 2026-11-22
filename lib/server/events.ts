@@ -182,8 +182,16 @@ function minutes(hhmm: string) {
 
 // Finds the venue on Google Maps (place ID, location, photo) for distance
 // and directions. Uses the cheaper "Pro" fields.
+// The venue must be the place the listing names (tester, 22 Nov 2026: NYC's
+// Maps link opened another place): of Google's top 3, the first whose name
+// shares a word with it; none means the venue isn't known, and the event
+// can't be checked for distance, so it isn't shown.
+const VENUE_PLAIN = new Set(["the", "and", "bar", "club", "hall", "room", "house", "center", "centre", "theatre", "theater", "studio", "park", "cafe", "hotel", "live", "venue"]);
+const venueWords = (s: string) => (s.normalize("NFKD").toLowerCase().match(/[a-z0-9]{3,}/g) ?? []).filter((w) => !VENUE_PLAIN.has(w));
+
 export async function findVenue(e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm = 30): Promise<{ place: Place; km: number } | null> {
-  const [place] = await searchPlaces({
+  const wanted = venueWords(e.venueName.split(",")[0] ?? e.venueName);
+  const found = await searchPlaces({
     query: `${e.venueName}, ${city.name}`,
     lat: origin.lat,
     lng: origin.lng,
@@ -192,7 +200,12 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
     needsDiet: false,
     regionCode: city.country,
     lite: true,
+    count: 3,
   }).catch(() => [] as Place[]);
+  const place = found.find((p) => {
+    const got = venueWords(p.displayName?.text ?? "");
+    return p.location && (wanted.length === 0 || wanted.some((w) => got.includes(w)));
+  });
   if (!place?.location) return null;
   return { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) };
 }
