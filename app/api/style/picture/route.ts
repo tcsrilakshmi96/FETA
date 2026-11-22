@@ -1,5 +1,5 @@
 import { FAKE } from "@/lib/server/fake-places";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { lookPicture } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, styleById, type Look, type Slot, type Wears } from "@/lib/style";
@@ -29,6 +29,7 @@ export async function POST(request: Request) {
   if (FAKE) return Response.json({ notice: "No pictures in test mode." });
   if (await overBudget(db)) return Response.json({ notice: await limitNoticeHere("style") });
   return withCosts(db, "style_picture", async () => {
+    askIs({ key: [look.id, wears, !!photo], label: `picture · ${look.style}` });
     try {
       return Response.json({ image: await lookPicture(look, wears, photo) });
     } catch (error) {

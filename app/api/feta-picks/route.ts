@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { applyHardFilters, buildPick, needsDietCheck, type Candidate, type Kind, type Pick, type When } from "@/lib/server/picks";
 import { founderPlacesNear, syncFounderLoved } from "@/lib/server/feta-places";
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   const when: When = body.when === "weekend" ? "weekend" : "tonight";
 
   return withCosts(db, "feta_picks", async () => {
+    askIs({ key: [body.cityId, when, body.lat?.toFixed(3), body.lng?.toFixed(3)], label: `★ sheet · ${when} · ${city.name}` });
     const origin = { lat: body.lat!, lng: body.lng! };
     const [taste] = await Promise.all([loadTaste(db), syncFounderLoved(db)]);
     const [founder, community, skips] = await Promise.all([

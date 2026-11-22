@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { LIBRARY_BUDGET_INR, librarySpentToday, withCosts } from "@/lib/server/costs";
+import { askIs, LIBRARY_BUDGET_INR, librarySpentToday, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { lookupBrand } from "@/lib/server/style-research";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -25,6 +25,7 @@ export async function POST(request: Request) {
   if (FAKE) return Response.json({ notice: "Looking up new brands is off in test mode." });
   if ((await librarySpentToday(db)) >= LIBRARY_BUDGET_INR) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
   return withCosts(db, "style_brand", async () => {
+    askIs({ key: [name.toLowerCase(), city.country], label: `look up a brand · ${city.country}` });
     try {
       const brand = await lookupBrand(db, name, { code: city.country, name: city.countryName }, STYLES.map((s) => s.id));
       return brand ? Response.json({ brand }) : Response.json({ notice: `Couldn't find a clothing brand called "${name}".` });

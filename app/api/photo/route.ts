@@ -1,4 +1,4 @@
-import { withCosts } from "@/lib/server/costs";
+import { askIs, withCosts } from "@/lib/server/costs";
 import { photoName } from "@/lib/server/photo-ref";
 import { photoUri } from "@/lib/server/places";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -12,6 +12,9 @@ export async function POST(request: Request) {
   if (!name) return Response.json({ error: "Bad photo" }, { status: 400 });
   const db = userDb(token);
   if (!(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
-  const uri = await withCosts(db, "photo", () => photoUri(name));
+  const uri = await withCosts(db, "photo", () => {
+    askIs({ key: name, label: "place photo" });
+    return photoUri(name);
+  });
   return Response.json({ uri });
 }

@@ -1,5 +1,5 @@
 import { FAKE } from "@/lib/server/fake-places";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { readPhotos } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import type { Wears } from "@/lib/style";
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
   if (!photos.length) return Response.json({ error: "No photos" }, { status: 400 });
   if (!FAKE && (await overBudget(db))) return Response.json({ notice: `${await limitNoticeHere("style")} Or pick your styles yourself.` });
   return withCosts(db, "style_read", async () => {
+    askIs({ key: photos.map((x) => x.length + x.slice(-40)), label: `${photos.length} photos` });
     try {
       return Response.json(await readPhotos(db, photos, wears));
     } catch (error) {

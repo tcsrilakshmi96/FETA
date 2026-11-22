@@ -1,4 +1,4 @@
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, overBudget, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { rankBrands, type RankAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   if (!ask.brands.length) return Response.json({ order: [] });
   if (!FAKE && (await overBudget(db))) return Response.json({ order: [] });
   return withCosts(db, "style_rank", async () => {
+    askIs({ key: [ask.styles, ask.budget, ask.loved, ask.cues.length], label: `rank ${ask.styles.length} styles` });
     try {
       return Response.json({ order: await rankBrands(ask) });
     } catch (error) {

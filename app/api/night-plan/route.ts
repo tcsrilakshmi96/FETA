@@ -1,4 +1,4 @@
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { weeklyHours } from "@/lib/server/picks";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
   if ((await overBudget(db))) return Response.json({ notice: await limitNoticeHere("picks") });
 
   return withCosts(db, "night_plan", async () => {
+    askIs({ key: [...ids].sort(), label: `${ids.length} places` });
     // Saved from Things to do: a thing to do, even if Google also calls it
     // a restaurant (a live-music venue that serves food is not dinner).
     const [places, { data: saved }] = await Promise.all([Promise.all(ids.map((id) => placeDetails(id, false).catch(() => null))), db.from("pick_actions").select("place_id, category").in("place_id", ids)]);

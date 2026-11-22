@@ -1,4 +1,4 @@
-import { withCosts } from "@/lib/server/costs";
+import { askIs, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails } from "@/lib/server/places";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
@@ -12,7 +12,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!/^[A-Za-z0-9_.-]{10,300}$/.test(id)) return Response.json({ error: "Not found" }, { status: 404 });
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
-  return withCosts(db && (await userIdFor(db, token!)) ? db : null, "place", () => live(request, id));
+  const lite = new URL(request.url).searchParams.get("lite") === "1";
+  return withCosts(db && (await userIdFor(db, token!)) ? db : null, "place", () => {
+    askIs({ key: [id, lite], label: lite ? "live check (lite)" : "live check" });
+    return live(request, id);
+  });
 }
 
 async function live(request: Request, id: string) {

@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "transport") {
-    const transport = await withCosts(db, "trip", () => estimateTransport(trip, cityById(body.home ?? null))).catch((error) => {
+    const transport = await withCosts(db, "trip_transport", () => estimateTransport(trip, cityById(body.home ?? null))).catch((error) => {
       console.error(error);
       return null;
     });
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   if (body.action === "stays") {
     const budget = ["1", "2", "3", "4"].includes(body.budget ?? "") ? body.budget! : "2";
-    const found = await withCosts(db, "trip", () => Promise.all(trip.cities.map((c) => findStays(c, budget, trip.who).catch(() => [] as Stay[]))));
+    const found = await withCosts(db, "trip_stays", () => Promise.all(trip.cities.map((c) => findStays(c, budget, trip.who).catch(() => [] as Stay[]))));
     const stays = Object.fromEntries(found.map((list, i) => [String(i), { shown: list.map((s) => s.placeId), chosen: null }]));
     await save({ hotel_budget: budget, stays });
     return Response.json({ stays: found });
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
   if (body.action === "days" && city) {
     const fromDay = Math.max(0, Math.min(city.nights - 1, Math.round(Number(body.fromDay) || 0)));
     const hotel = Number.isFinite(body.hotel?.lat) && Number.isFinite(body.hotel?.lng) ? { lat: body.hotel!.lat!, lng: body.hotel!.lng! } : null;
-    const result = await withCosts(db, "trip", () => planCityDays({ token, trip, index, fromDay, hotel }));
+    const result = await withCosts(db, "trip_days", () => planCityDays({ token, trip, index, fromDay, hotel }));
     // Kept on the trip, so it shows when they open the trip again.
     if (result.itinerary) {
       const kept: SavedDay[] = result.itinerary.days.map((d) => ({

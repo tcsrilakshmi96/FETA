@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { cityById } from "@/lib/server/cities";
-import { LIBRARY_BUDGET_INR, librarySpentToday, withCosts } from "@/lib/server/costs";
+import { LIBRARY_BUDGET_INR, askIs, librarySpentToday, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { loadBrief, researchStyle, saveResearch } from "@/lib/server/style-research";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 
   after(() =>
     withCosts(db, "style_research", async () => {
+      askIs({ key: [style.id, city.country, !!body.more], label: `research ${style.short} · ${city.country}` });
       try {
         const brief = await loadBrief(db, style.id);
         if (!brief) return;

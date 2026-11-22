@@ -1,6 +1,6 @@
 import { FAKE } from "@/lib/server/fake-places";
 import { cityById } from "@/lib/server/cities";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { makeLooks, swapPiece, type LookAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, WHERES, styleById, type Look, type LookFor, type Slot, type Where } from "@/lib/style";
@@ -84,6 +84,7 @@ export async function POST(request: Request) {
     const index = Number(body.swap.index);
     if (!look || !Number.isInteger(index) || !look.pieces[index]) return Response.json({ error: "Bad request" }, { status: 400 });
     return withCosts(db, "style_swap", async () => {
+    askIs({ key: [look.id, index, (body.swap?.tried ?? []).length], label: `swap a ${look.pieces[index].slot}` });
       try {
         return Response.json({ look: await swapPiece(ask, look, index, (body.swap?.tried ?? []).slice(0, 6).map((x) => t(x, 60))) });
       } catch (error) {
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
     });
   }
   return withCosts(db, "style_looks", async () => {
+    askIs({ key: [lookFor.key, ask.avoid.length], label: `looks · ${lookFor.where}${lookFor.tomorrow ? " · tomorrow" : ""}` });
     try {
       return Response.json({ looks: await makeLooks(ask) });
     } catch (error) {

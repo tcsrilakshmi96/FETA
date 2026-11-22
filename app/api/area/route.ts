@@ -1,5 +1,5 @@
 import { placeLocation, suggestAreas } from "@/lib/server/places";
-import { withCosts } from "@/lib/server/costs";
+import { askIs, withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
 // "Type a neighbourhood or landmark": {input, lat, lng, country, session}
@@ -17,6 +17,7 @@ export async function POST(request: Request) {
   }
   const session = (body.session ?? "").slice(0, 64);
   return withCosts(db, "area", async () => {
+    askIs({ key: [body.placeId ?? "", (body.input ?? "").trim().toLowerCase(), session], label: body.placeId ? "area picked" : "area typed" });
     if (body.placeId) {
       const at = await placeLocation(body.placeId.slice(0, 300), session);
       return Response.json(at ? { location: at } : { error: "Not found" }, { status: at ? 200 : 404 });

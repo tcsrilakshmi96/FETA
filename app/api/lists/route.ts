@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { distanceKm } from "@/lib/cities";
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, overBudget, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails, type Place } from "@/lib/server/places";
 import type { StoredPick } from "@/lib/server/picks";
 
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
   // Saved always shows what they saved (Round 6: a tester over the limit
   // hearted a place and Saved stayed empty); over today's budget, without photos.
   const over = await overBudget(db);
-  const items = await withCosts(db, "lists", () => Promise.all(
+  const items = await withCosts(db, "lists", () => (askIs({ key: [rows.map((r) => r.place_id).sort(), lat.toFixed(2), lng.toFixed(2)], label: `saved list · ${rows.length} places` }), Promise.all(
     rows.map(async (r, i): Promise<ListItem | null> => {
       const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;
       const event = events.get(r.place_id);
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
         photo: !over && i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
       };
     }),
-  ));
+  )));
   return Response.json({ items: items.filter(Boolean) });
 }
 

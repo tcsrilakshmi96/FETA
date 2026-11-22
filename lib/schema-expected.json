@@ -473,5 +473,15 @@
   "kind": "column",
   "name": "style_profiles.off_notes",
   "file": "20261123100000_style_looks.sql"
+ },
+ {
+  "kind": "function",
+  "name": "cost_monitor",
+  "file": "20261123110000_cost_monitor.sql"
+ },
+ {
+  "kind": "table",
+  "name": "api_hits",
+  "file": "20261123110000_cost_monitor.sql"
  }
 ]

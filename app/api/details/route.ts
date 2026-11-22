@@ -1,6 +1,6 @@
 import { placeNotes } from "@/lib/server/details";
 import { placeDetails, type Place } from "@/lib/server/places";
-import { overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, overBudget, withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
 // Up to 15 s for Gemini to read the reviews.
@@ -13,7 +13,11 @@ export async function POST(request: Request) {
   if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
   // "What to order" counts toward today's budgets (audit, 20 Nov 2026); over them, the notes just don't show.
   if (await overBudget(db)) return Response.json({ items: [], sources: [] });
-  return withCosts(db, "details", () => notesFor(request, db));
+  const ask = await request.clone().json().catch(() => ({})) as { placeId?: string; kind?: string };
+  return withCosts(db, "details", () => {
+    askIs({ key: [ask.placeId, ask.kind], label: `${ask.kind ?? "place"} details` });
+    return notesFor(request, db);
+  });
 }
 
 async function notesFor(request: Request, db: NonNullable<ReturnType<typeof userDb>>) {

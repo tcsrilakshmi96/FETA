@@ -1,5 +1,6 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -47,7 +48,7 @@ const GEMINI_USD_PER_M: Record<string, { input: number; output: number }> = {
 const SEARCH_USD = 0.014;
 
 type Tally = { units: number; usd: number };
-type Store = { tally: Map<Sku, Tally>; later: Promise<unknown>[] };
+type Store = { tally: Map<Sku, Tally>; later: Promise<unknown>[]; ask?: Ask };
 const calls = new AsyncLocalStorage<Store>();
 
 function add(sku: Sku, units: number, usd: number) {
@@ -109,18 +110,47 @@ export function later(work: Promise<unknown> | (() => Promise<unknown>)) {
   after(() => p);
 }
 
-// Runs a route's work and logs what it spent, as the signed-in person.
+// What a request asked for, so the cost monitor can see the same ask
+// repeated (founder, 23 Nov 2026: "where the search is being duplicated").
+// `key` is anything that identifies the ask (hashed, never stored as is);
+// `label` is a short description with no personal words, e.g.
+// "tonight · food · Bengaluru" (never what someone typed).
+export type Ask = { key: unknown; label?: string };
+
+// Said from inside a route's work, once it knows what was asked.
+export function askIs(ask: Ask) {
+  const store = calls.getStore();
+  if (store) store.ask = ask;
+}
+
+// Runs a route's work and logs what it spent, as the signed-in person: one
+// api_costs row per kind of paid call, and one api_hits row for the request
+// (Admin → Costs).
 export async function withCosts<T>(db: SupabaseClient | null, route: string, work: () => Promise<T>): Promise<T> {
   const store: Store = { tally: new Map(), later: [] };
+  const started = Date.now();
   try {
     return await calls.run(store, work);
   } finally {
+    const ms = Date.now() - started;
     const write = async () => {
       await Promise.allSettled(store.later);
-      if (!db || !store.tally.size) return;
+      if (!db) return;
       const rows = [...store.tally].map(([sku, t]) => ({ route, sku, units: t.units, est_inr: Math.round(t.usd * INR_PER_USD * 100) / 100 }));
-      const { error } = await db.from("api_costs").insert(rows);
-      if (error) console.error("cost log", error.message);
+      const total = Math.round([...store.tally.values()].reduce((n, t) => n + t.usd, 0) * INR_PER_USD * 100) / 100;
+      const ask = store.ask;
+      const hit = {
+        route,
+        fingerprint: ask ? createHash("sha1").update(`${route}|${JSON.stringify(ask.key)}`).digest("hex").slice(0, 20) : null,
+        label: ask?.label?.slice(0, 80) ?? null,
+        cost_inr: Math.min(total, 99999),
+        services: Object.fromEntries([...store.tally].map(([sku, t]) => [sku, t.units])),
+        ms,
+      };
+      const [costs, hits] = await Promise.all([rows.length ? db.from("api_costs").insert(rows) : Promise.resolve({ error: null }), db.from("api_hits").insert(hit)]);
+      if (costs.error) console.error("cost log", costs.error.message);
+      // Before migration 20261123110000 runs there's no api_hits: costs still log.
+      if (hits.error && !/api_hits/.test(hits.error.message)) console.error("hit log", hits.error.message);
     };
     // Written after the reply, so no one waits for it (every photo and
     // search did); outside a request, straight away.

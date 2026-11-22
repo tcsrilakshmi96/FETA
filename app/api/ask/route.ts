@@ -1,6 +1,6 @@
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { todayScope } from "@/lib/profile-scope";
 import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
@@ -156,7 +156,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   let parsed: VeniceReply;
   try {
     // Counted as chat spend (Venice).
-    parsed = await withCosts(db, "ask", () => veniceJson<VeniceReply>(
+    parsed = await withCosts(db, "ask", () => (askIs({ key: [message, past.length], label: "chat reply" }), veniceJson<VeniceReply>(
       [
         { role: "system", content: system },
         // Its own past replies in the same JSON it must answer in, with the
@@ -166,7 +166,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         { role: "user", content: message },
       ],
       3000,
-    ));
+    )));
   } catch (error) {
     console.error(error);
     return Response.json({ reply: "I couldn't think just now. Try again in a moment.", picks: [], added: [], trip: null } satisfies AskReply);
@@ -240,7 +240,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     ((it && !!it.place && ((it.days ?? 1) > 3 || isCountryName(it.place) || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
       (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? "")));
   if (wantsRoute) {
-    const route = await withCosts(db, "ask", () => routeFor(past, message, system)).catch((error) => {
+    const route = await withCosts(db, "ask_trip_route", () => (askIs({ key: message, label: "trip route" }), routeFor(past, message, system))).catch((error) => {
       console.error(error);
       return null;
     });
@@ -302,13 +302,13 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   }
   let itinerary: Itinerary | null = null;
   if (plan) {
-    const origin = await withCosts(db, "ask", () => resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity));
+    const origin = await withCosts(db, "ask_place", () => (askIs({ key: plan.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity)));
     if (!origin || isMainlandChina(origin.city)) {
       notice = origin ? `Feta can't check places in mainland China yet, so I can't plan a day there.` : `I couldn't find ${plan.place} on the map. Try a nearby city?`;
     } else {
       const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.city.timeZone }).format(new Date());
       const start = /^\d{4}-\d{2}-\d{2}$/.test(plan.start ?? "") && plan.start! >= today ? plan.start! : today;
-      const planned = await withCosts(db, "ask", () =>
+      const planned = await withCosts(db, "ask_day_plan", () =>
         planDays(token, { origin, start, days: plan.days ?? 1, who: plan.who, focus: plan.note, trip: tripLabel ?? undefined, place: origin.source === "area" ? origin.label : origin.city.name }),
       );
       itinerary = planned.itinerary;
@@ -317,13 +317,13 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   }
   // Both at once, so an evening out takes no longer than one search.
   const results = await Promise.all(searches.map(async (s): Promise<{ found: Pick[]; notice?: string }> => {
-    const origin = await withCosts(db, "ask", () => resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity));
+    const origin = await withCosts(db, "ask_place", () => (askIs({ key: s.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity)));
     if (origin && isMainlandChina(origin.city)) {
       return { found: [], notice: `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.` };
     }
     if (!origin) return { found: [], notice: `I couldn't find ${s.place ?? parsed.trip?.place} on the map. Try a nearby city?` };
     const at = askedTime(s, origin.city);
-    const res = await withCosts(db, "ask", () => runPicks(token, {
+    const res = await withCosts(db, "ask_search", () => (askIs({ key: [s.category, s.when, s.place ?? "", s.note ?? message, s.tweaks ?? [], s.further ?? false], label: `chat search · ${s.category === "experiences" ? "things to do" : "food"} · ${origin.city.name}` }), runPicks(token, {
         category: s.category === "experiences" ? "experiences" : "food_drinks",
         when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
         ...(at ? { at } : {}),
@@ -339,7 +339,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         // the last list again), e.g. "something Pokémon-related".
         note: ((s.note ?? "").trim() || message).slice(0, 120),
         ...(tripLabel ? { trip: tripLabel } : {}),
-    }));
+    })));
     const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
     // Chat shows a short answer: the best 3. Nothing that matches is said plainly.
     const found = (data.picks ?? []).slice(0, 3);

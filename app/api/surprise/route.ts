@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { curate, pickFrom } from "@/lib/server/curate";
 import { buildPick, kindOf, needsDietCheck, type Category, type When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   if ((await overBudget(db))) return Response.json({ notice: await limitNoticeHere("picks") });
 
   return withCosts(db, "surprise", async () => {
+    askIs({ key: [city.id, body.category, body.when, body.origin.lat.toFixed(3), body.origin.lng.toFixed(3), (body.shown ?? []).length], label: `${body.when} · ${body.category === "food_drinks" ? "food" : "things to do"} · ${city.name}` });
     const [loaded, actions] = await Promise.all([loadTaste(db), db.from("pick_actions").select("place_id")]);
     const taste = body.origin.source === "city" ? { ...loaded, answers: { ...loaded.answers, distance: "city" } } : loaded;
     const exclude = new Set([...(actions.data ?? []).map((r) => r.place_id as string), ...(body.shown ?? []).slice(0, 200)]);
