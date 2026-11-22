@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Mascot from "@/components/Mascot";
-import { markRepliesSeen, shareLink, type MyShare, type Reply } from "@/lib/share-client";
+import { markRepliesSeen, shareLink, stopSharing, type MyShare, type Reply } from "@/lib/share-client";
 import sheet from "./Sheet.module.css";
 import styles from "./WhosComing.module.css";
 
@@ -25,7 +25,7 @@ export function replySummary(replies: Reply[]) {
   return [yes && `${yes} in`, no && `${no} out`].filter(Boolean).join(" · ");
 }
 
-export default function WhosComing({ title, shares, onOpen, onClose, onSeen }: { title: string; shares: MyShare[]; onOpen: () => void; onClose: () => void; onSeen: (slugs: string[]) => void }) {
+export default function WhosComing({ title, shares, onOpen, onClose, onSeen, onStopped }: { title: string; shares: MyShare[]; onOpen: () => void; onClose: () => void; onSeen: (slugs: string[]) => void; onStopped: (slugs: string[]) => void }) {
   const replies = shares.flatMap((s) => s.replies);
   const choice = replies.some((r) => r.vote !== "yes" && r.vote !== "no");
   const latest = shares[0];
@@ -80,6 +80,16 @@ export default function WhosComing({ title, shares, onOpen, onClose, onSeen }: {
         <a className={styles.again} href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
           Send the link again
         </a>
+        <button
+          type="button"
+          className={styles.stop}
+          onClick={async () => {
+            const slugs = shares.map((s) => s.slug);
+            if (await stopSharing(slugs)) onStopped(slugs);
+          }}
+        >
+          Stop sharing
+        </button>
         <p className={styles.note}>Only you see this. Friends see the places and times, never anything about your diet or taste.</p>
         <button type="button" className={sheet.ghost} onClick={onClose}>
           Close

@@ -94,3 +94,14 @@
 }
 
 :root[data-theme="dark"] .in { color: #8fd9d6; }
+
+/* Stop sharing: quiet, under the main actions. */
+.stop {
+  display: block;
+  margin: 10px auto 0;
+  background: none;
+  border: 0;
+  color: rgba(var(--inkRGB), 0.6);
+  font-size: 13px;
+  text-decoration: underline;
+}

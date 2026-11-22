@@ -39,6 +39,14 @@ export async function createShare(kind: ShareKind, payload: SharePayload | Choic
   return `${window.location.origin}/s/${data.slug}`;
 }
 
+// Stop sharing (tester, 22 Nov 2026: a link made by accident couldn't be
+// taken back): the link stops working and its replies go with it.
+export async function stopSharing(slugs: string[]) {
+  const { error } = await supabase().from("shares").delete().in("slug", slugs);
+  if (error) console.error("Stopping a share failed", error.message);
+  return !error;
+}
+
 export async function loadShare(slug: string) {
   const { data } = await supabase().rpc("get_share", { share_slug: slug });
   const row = (data ?? [])[0] as { kind: ShareKind; payload: SharePayload & ChoicePayload } | undefined;

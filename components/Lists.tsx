@@ -528,6 +528,11 @@ export default function Lists() {
           title={whos.title}
           shares={whos.shares}
           onClose={() => setWhos(null)}
+          onStopped={(slugs) => {
+            setShares((all) => all.filter((x) => !slugs.includes(x.slug)));
+            setWhos(null);
+            toast("Link turned off");
+          }}
           onSeen={(slugs) => setShares((all) => all.map((x) => (slugs.includes(x.slug) ? { ...x, seenAt: new Date().toISOString() } : x)))}
           onOpen={() => {
             const card = whos;

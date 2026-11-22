@@ -4,7 +4,7 @@ import { useState } from "react";
 import Mascot from "@/components/Mascot";
 import { useToast } from "@/components/Toast";
 import { logEvent } from "@/lib/db";
-import { createShare, type ChoicePayload, type ShareKind, type SharePayload } from "@/lib/share-client";
+import { createShare, stopSharing, type ChoicePayload, type ShareKind, type SharePayload } from "@/lib/share-client";
 import styles from "./SendToGroup.module.css";
 
 // "Send to the group": makes a Feta link friends can vote on, then offers
@@ -66,6 +66,18 @@ export default function SendToGroup({
         }}
       >
         Copy link
+      </button>
+      <button
+        type="button"
+        className={styles.stop}
+        onClick={async () => {
+          if (await stopSharing([link.split("/s/")[1]])) {
+            setLink(null);
+            toast("Link turned off");
+          } else toast("Couldn't turn it off just now. Try again.");
+        }}
+      >
+        Stop sharing
       </button>
     </div>
   );
