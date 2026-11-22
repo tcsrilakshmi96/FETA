@@ -59,10 +59,20 @@ export type CurateInput = {
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
   at?: At; // a day and time asked for in chat, checked instead of tonight or the weekend
-  // The founder's places and other Feta users' favourites, checked against
-  // the same hard filters (engine.ts); what they want picks which to check.
-  favourites?: (pool: Candidate[], intents: Intent[]) => Promise<Candidate[]>;
+  // Feta's lists (the founder's places, local favourites, Featured in, Feta
+  // users' favourites), checked live against the same hard filters before
+  // Google is searched (engine.ts); what they want picks which to check.
+  favourites?: (intents: Intent[]) => Promise<Curated>;
 };
+
+// looked: the list places checked live that passed; mark: labels a place
+// Google's search found that is on a list too (free), else null.
+export type Curated = { looked: Candidate[]; mark: (c: Candidate) => Candidate | null };
+
+// Lists first (founder, 22 Nov 2026: "your curated edge isn't in the
+// product yet"): a choice that this many list places already serve isn't
+// searched on Google this set.
+const LIST_ENOUGH = 2;
 
 // Found, filtered and ranked; pickFrom keeps the promise once the number
 // of places to show is known (events may take some spots).
@@ -70,6 +80,7 @@ export type CurateResult = {
   pool: Candidate[];
   ranked: Ranked[];
   intents: Intent[]; // searched this time
+  fromLists?: string[]; // served by Feta's lists, so not searched on Google
   drops: DropCounts;
 };
 
@@ -97,9 +108,16 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 2026), searched further and allowed that far only for what it matches.
   const tripOut = when === "weekend" && !input.at;
   const reach = (i: Intent) => (tripOut && i.def.far ? Math.max(limit, TRIP_OUT_KM) : limit);
-  const searches = [...plan.searched.map((i) => text(i.query, reach(i)).then((r) => add(r, i.id))), ...(plan.broad ? [nearby(limit).then((r) => add(r, "popular"))] : [])];
+  // Feta's lists first; Google searches only what they don't cover yet.
+  const lists = input.favourites ? await input.favourites(intents).catch(() => null) : null;
+  const listed = lists?.looked ?? [];
+  const fromLists = plan.searched.filter((i) => i.def.types && listed.filter((c) => matches(c.place, i, false)).length >= LIST_ENOUGH);
+  const searches = [
+    ...plan.searched.filter((i) => !fromLists.includes(i)).map((i) => text(i.query, reach(i)).then((r) => add(r, i.id))),
+    ...(plan.broad ? [nearby(limit).then((r) => add(r, "popular"))] : []),
+  ];
   const settled = await Promise.allSettled(searches);
-  if (settled.length && settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
+  if (!listed.length && settled.length && settled.every((r) => r.status === "rejected")) throw (settled[0] as PromiseRejectedResult).reason;
 
   // 3. Hard filters, then what each place matches.
   const matched = (p: Place) => {
@@ -123,11 +141,9 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
   const passed = chainsOnlyIfNeeded(filter());
-  let pool = roundRobin(passed, plan.searched);
-
-  const favourites = input.favourites ? await input.favourites(pool, intents).catch(() => [] as Candidate[]) : [];
-  const favIds = new Set(favourites.map((f) => f.place.id));
-  pool = [...favourites.map((f) => ({ ...f, intents: matched(f.place) })), ...pool.filter((c) => !favIds.has(c.place.id))].slice(0, POOL_MAX);
+  const onList = [...listed, ...passed.flatMap((c) => lists?.mark(c) ?? [])].filter((c, i, all) => all.findIndex((o) => o.place.id === c.place.id) === i);
+  const listIds = new Set(onList.map((c) => c.place.id));
+  let pool = [...onList.map((c) => ({ ...c, intents: matched(c.place) })), ...roundRobin(passed, plan.searched).filter((c) => !listIds.has(c.place.id))].slice(0, POOL_MAX);
 
   // 4. Rank. Places Gemini says are mainly meat or fish leave the pool for
   // vegetarians; what Gemini says a place "serves" confirms (never adds to)
@@ -151,7 +167,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     }
   }
 
-  return { pool, ranked, intents: plan.searched, drops };
+  return { pool, ranked, intents: plan.searched, fromLists: fromLists.map((i) => i.id), drops };
 }
 
 // 5. Keep the promise: the picks to show (room of them), then the rest as

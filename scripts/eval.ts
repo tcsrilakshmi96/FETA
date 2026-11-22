@@ -12,7 +12,8 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { curate, pickFrom } from "@/lib/server/curate";
-import { distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
@@ -45,6 +46,7 @@ type Persona = {
   founderMin?: number; // at least this many of them show (the ones that fit come before Google's)
   local?: RegExp; // test places that are local favourites
   localMin?: number; // at least this many of them show
+  fromLists?: string[]; // choices Feta's lists already serve, so not searched on Google
   featured?: RegExp; // test places a city guide features
   featuredMin?: number;
 };
@@ -87,6 +89,17 @@ const PERSONAS: Persona[] = [
     covers: ["cuisine_thai", "cuisine_korean"],
     founderMin: 5, // 6 of hers fit; the variety rules (a few of one kind) may hold one back
     never: /Gangnam BBQ/, // hers, but mainly meat: the diet still wins
+  },
+  {
+    name: "Lists first: Thai her lists already serve isn't searched on Google",
+    answers: { spend: ["depends"] },
+    city: "Bengaluru",
+    category: "food_drinks",
+    yes: ["cuisine_thai", "cuisine_korean"],
+    local: /Lemongrass Thai Kitchen|Baan Siam/,
+    localMin: 2,
+    fromLists: ["cuisine_thai"],
+    covers: ["cuisine_thai", "cuisine_korean"],
   },
   {
     name: "Local favourites that fit come before Google's",
@@ -406,19 +419,27 @@ async function run(p: Persona) {
     searchedBefore: p.searchedBefore,
     extra,
     dayPlan: p.dayPlan,
+    // Feta's lists in test mode: the made-up places the persona names are
+    // "on a list", checked against the same hard filters before any search.
     favourites:
       p.founder || p.local || p.featured
-        ? async (pool) =>
-            pool.flatMap((c): Candidate[] => {
+        ? async () => {
+            const label = (c: Candidate): Candidate | null => {
               const name = c.place.displayName?.text ?? "";
               return p.founder?.test(name)
-                ? [{ ...c, fetaNote: "test" }]
+                ? { ...c, fetaNote: "test" }
                 : p.local?.test(name)
-                  ? [{ ...c, local: true }]
+                  ? { ...c, local: true }
                   : p.featured?.test(name)
-                    ? [{ ...c, featured: { guide: "Time Out", url: "https://www.timeout.com/test", searchHtml: "" } }]
-                    : [];
-            })
+                    ? { ...c, featured: { guide: "Time Out", url: "https://www.timeout.com/test", searchHtml: "" } }
+                    : null;
+            };
+            const onList = CATALOGUE.map((row, i) => [row[0], i] as const)
+              .filter(([name]) => p.founder?.test(name) || p.local?.test(name) || p.featured?.test(name))
+              .map(([, i]) => fakeDetails(`fake_${city.lat.toFixed(4)}_${city.lng.toFixed(4)}_${i}_c`)!);
+            const passed = applyHardFilters(onList, { taste, category: p.category, when: p.when ?? "tonight", origin: { lat: city.lat, lng: city.lng }, exclude: new Set(), city });
+            return { looked: passed.map((c) => label(c)!), mark: label };
+          }
         : undefined,
   });
   const picked = pickFrom(found, { room: 8, small: false, popularCap: popularCap(taste) });
@@ -464,6 +485,7 @@ async function run(p: Persona) {
   if (p.founderMin && feta < p.founderMin) fails.push(`only ${feta} of the founder's places`);
   const locals = shown.filter((c) => c.candidate.local).length;
   if (p.localMin && locals < p.localMin) fails.push(`only ${locals} local favourites`);
+  for (const id of p.fromLists ?? []) if (!found.fromLists?.includes(id)) fails.push(`${id} searched on Google though her lists serve it`);
   const guides = shown.filter((c) => c.candidate.featured).length;
   if (p.featuredMin && guides < p.featuredMin) fails.push(`only ${guides} places featured in a guide`);
   // Very popular places beyond the cap only when nothing less known was left.
@@ -472,7 +494,7 @@ async function run(p: Persona) {
   const lessKnownLeft = found.pool.filter((c) => !isPopular(c) && !shown.some((s) => s.candidate === c)).length;
   if (popular > popularCap(taste) && lessKnownLeft > 0) fails.push(`${popular} very popular places while ${lessKnownLeft} less-known ones were left`);
   const reasons = shown.map((c) => `${c.candidate.place.displayName?.text} [${c.candidate.place.primaryType}${c.candidate.place.servesVegetarianFood === undefined ? ", veg unknown" : ""}] ${(c.candidate.intents ?? []).join(" ")} — ${c.ranked?.because ?? ""}`);
-  return { fails, names, forChoices, reasons, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => i.query) };
+  return { fails, names, forChoices, reasons, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => (found.fromLists?.includes(i.id) ? `${i.query} (from her lists)` : i.query)) };
 }
 
 // Every choice on screen has search words (lib/server/catalog.ts).
