@@ -152,10 +152,10 @@ Reply with only a JSON array, one item per brand, in the same order:
 
 // A link that answers (free: no Google call). Some brand sites refuse
 // bots, so a refusal (401/403/429) still counts as alive.
-export async function linkAlive(url: string | null | undefined) {
+export async function linkAlive(url: string | null | undefined, timeoutMs = 12000) {
   if (!url || !/^https:\/\//.test(url)) return false;
   try {
-    const res = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(12000), headers: { "User-Agent": "Mozilla/5.0 (compatible; FetaLinkCheck/1.0)" } });
+    const res = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(timeoutMs), headers: { "User-Agent": "Mozilla/5.0 (compatible; FetaLinkCheck/1.0)" } });
     return res.status < 400 || [401, 403, 429].includes(res.status);
   } catch {
     return false;

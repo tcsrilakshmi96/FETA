@@ -85,7 +85,7 @@ Search the web for up to 8 real public events ${opts.kind ? `for someone into ${
 Use at most 2 searches. Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search them with site: and their web addresses). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found.
 
 Reply with only a JSON array. Each item:
-{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
+{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), as the event's own page says, or "" if it gives none, "priceText": string as the listing says ("Free" if it's free), "minPrice": number in ${opts.city.currency} (0 if free) or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
 
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
@@ -122,10 +122,35 @@ Reply with only a JSON array. Each item:
   } catch {
     events = [];
   }
-  // A listing with only a date comes back as midnight; that's "no time"
-  // (Round 6: "Today 12 AM" on a pottery class).
-  events = events.map((e) => (e.time === "00:00" ? { ...e, time: "" } : e));
+  events = events.map((e) => ({ ...e, time: cleanTime(e.time) }));
   return { events, searchHtml };
+}
+
+// "HH:MM" 24h, or "" when the listing gives none. Midnight usually means
+// only a date was given (Round 6 and 22 Nov 2026: "Today 12 AM").
+export function cleanTime(t: string | undefined) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((t ?? "").trim());
+  if (!m || Number(m[1]) > 23 || (Number(m[1]) === 0 && m[2] === "00")) return "";
+  return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+// A real page, not a site's home or a section ("timeout.com/miami"; tester,
+// 22 Nov 2026: "See it on" opened a venue's home page). An organiser's
+// Instagram (a post or their page) is fine: many pop-ups are only there.
+export function isPage(url?: string) {
+  try {
+    const u = new URL(url ?? "");
+    const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
+    if (u.protocol !== "https:" || /vertexaisearch|google\./.test(u.hostname)) return false;
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (!parts.length) return u.search.length > 1;
+    // Short event links (lu.ma/x7k2p) and Instagram are always a page.
+    if (/(^|\.)(instagram\.com|lu\.ma|luma\.com|dice\.fm|shotgun\.live)$/.test(u.hostname)) return true;
+    // One plain word is a section ("/miami", "/events"), not a page.
+    return !(parts.length === 1 && /^[a-z]{1,15}$/i.test(last)) && !/^(events?|whats-on|things-to-do|calendar|tickets?)$/i.test(last);
+  } catch {
+    return false;
+  }
 }
 
 // Hard filters for events, in code: real link, right date and time, within
@@ -134,13 +159,7 @@ export function eventPasses(
   e: FoundEvent,
   opts: { when: EventSpan; timeZone: string; maxSpend: number | null },
 ) {
-  let url: URL;
-  try {
-    url = new URL(e.url);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "https:" || url.hostname.includes("vertexaisearch") || url.hostname.includes("google.")) return false;
+  if (!isPage(e.url)) return false;
   const cal = cityCalendar(opts.timeZone);
   // Any of its days in the window: one day, or a pop-up running Fri to Sun
   // (founder, 22 Nov 2026), shown while it's still on.

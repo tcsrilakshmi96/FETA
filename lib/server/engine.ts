@@ -12,6 +12,7 @@ import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
 import { guideEventsFor } from "@/lib/server/guide-events";
+import { linkAlive } from "@/lib/server/style-research";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -504,9 +505,18 @@ async function eventPicks(ctx: {
   // as could be shown.
   const fresh = turns.slice(0, Math.max(ctx.need, 2));
   // A hike or an adventure may be a trip out (founder, 21 Nov 2026): the card says so.
-  const withVenues = (await Promise.all(fresh.map(async (x) => ({ ...x, venue: await findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined) })))).filter(
+  // Its link must open (tester, 22 Nov 2026: a Melbourne ticket link didn't
+  // resolve); only the answer is read, never the page. The sites never to
+  // be scraped aren't touched at all.
+  const opens = (url: string) => (/district\.in|bookmyshow|meetup\.com|zomato|swiggy|insider\.in/.test(url) ? Promise.resolve(true) : linkAlive(url, 4000));
+  const withVenues = (
+    await Promise.all(fresh.map(async (x) => {
+        const [venue, ok] = await Promise.all([findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined), opens(x.e.url)]);
+        return { ...x, venue, opens: ok };
+      }))
+  ).filter(
     // Their distance holds for events too (it was stretched to twice it).
-    ({ venue, intent }) => venue && venue.km <= (intent?.def.far ? Math.max(limit, TRIP_OUT_KM) : limit),
+    ({ venue, intent, opens }) => opens && venue && venue.km <= (intent?.def.far ? Math.max(limit, TRIP_OUT_KM) : limit),
   );
   // Which of these suit this person, and why (no search, about 2 s). If
   // that fails, each was still found for something they're into.

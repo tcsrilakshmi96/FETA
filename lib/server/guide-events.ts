@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, trackGemini } from "@/lib/server/costs";
-import { cityCalendar, eventSources, type FoundEvent } from "@/lib/server/events";
+import { cityCalendar, cleanTime, eventSources, isPage, type FoundEvent } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 
 // What's on, read from her city's guides (founder, 22 Nov 2026: "if you go
@@ -68,7 +68,7 @@ Reply with only a JSON array of up to 4 of them: {"url": the post's own full add
   const steps = search.steps ?? [];
   const searchHtml = steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
   const posts = jsonArray<{ url?: string; guide?: string }>(steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join(""))
-    .filter((p) => isPost(p.url) && !NEVER_READ.test(p.url!))
+    .filter((p) => isPage(p.url) && !NEVER_READ.test(p.url!))
     .slice(0, 4);
   if (!searchHtml || !posts.length) return { events: [], searchHtml: "" };
 
@@ -78,7 +78,7 @@ ${posts.map((p) => `- ${p.url} (${p.guide ?? ""})`).join("\n")}
 List every event, pop-up, market, show, class or exhibition they mention that is on at some point in the next 14 days (from ${cal.today}). Only what the posts say; never invent one. Up to 40.
 
 Reply with only a JSON array. Each item:
-{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${city.currency} or null, "url": the link the post gives for it (tickets, booking, the organiser's site or Instagram); if none, the address of the post it is in (from the list above), never a home page, "kind": 2 to 5 plain words for what it is (e.g. "stand-up comedy", "food pop-up", "live jazz", "pottery class"), "guide": the publication (e.g. "Time Out")}`;
+{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), or "" if the post gives none, "priceText": string as the post says ("Free" if it's free), "minPrice": number in ${city.currency} (0 if free) or null, "url": the link the post gives for it (tickets, booking, the organiser's site or Instagram); if none, the address of the post it is in (from the list above), never a home page, "kind": 2 to 5 plain words for what it is (e.g. "stand-up comedy", "food pop-up", "live jazz", "pottery class"), "guide": the publication (e.g. "Time Out")}`;
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -90,23 +90,10 @@ Reply with only a JSON array. Each item:
   trackGemini("gemini_search", data);
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
   const events = jsonArray<GuideEvent>(text)
-    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPost(e.url))
-    .map((e) => ({ ...e, time: e.time === "00:00" ? "" : (e.time ?? ""), endDate: e.endDate ?? undefined, kind: String(e.kind ?? "").slice(0, 60), guide: String(e.guide ?? "").slice(0, 60), fromList: true }))
+    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPage(e.url))
+    .map((e) => ({ ...e, time: cleanTime(e.time), endDate: e.endDate ?? undefined, kind: String(e.kind ?? "").slice(0, 60), guide: String(e.guide ?? "").slice(0, 60), fromList: true }))
     .slice(0, 40);
   return { events, searchHtml };
-}
-
-// A real page, not a site's home or a section ("timeout.com/miami").
-function isPost(url?: string) {
-  try {
-    const u = new URL(url ?? "");
-    const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
-    // An organiser's Instagram (a post or their page) is fine: many pop-ups are only there.
-    if (u.protocol === "https:" && /(^|\.)instagram\.com$/.test(u.hostname)) return last.length > 0;
-    return u.protocol === "https:" && !/vertexaisearch|google\./.test(u.hostname) && (last.length >= 10 || last.includes("-") || /^\d+$/.test(last) || u.search.length > 1);
-  } catch {
-    return false;
-  }
 }
 
 function jsonArray<T>(text: string): T[] {
