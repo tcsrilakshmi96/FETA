@@ -139,7 +139,7 @@ export default function YourStyle() {
           </button>
         ))}
       </span>
-      <button type="button" className={styles.link} onClick={() => router.push("/style/setup?step=3")}>
+      <button type="button" className={styles.link} onClick={() => router.push("/style/me")}>
         Add or change styles ›
       </button>
 
@@ -162,10 +162,10 @@ export default function YourStyle() {
           ))}
         </span>
       )}
-      <button type="button" className={styles.link} onClick={() => router.push("/style/setup?step=4")}>
+      <button type="button" className={styles.link} onClick={() => router.push("/style/me")}>
         {loved.length ? "Add a brand ›" : "Add brands you love ›"}
       </button>
-      <button type="button" className={styles.link} onClick={() => router.push("/style/setup?step=1")}>
+      <button type="button" className={styles.link} onClick={() => router.push("/style/setup?step=1&from=me")}>
         Show Feta new outfit photos ›
       </button>
       {saved && <p className={styles.label}>Saved</p>}

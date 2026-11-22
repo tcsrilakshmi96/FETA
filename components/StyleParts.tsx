@@ -1,56 +1,10 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
-import FetaPicksSheet from "@/components/FetaPicksSheet";
-import FetaStar from "@/components/FetaStar";
-import { loadOrigin, type Origin } from "@/lib/origin";
-import { loadName } from "@/lib/profile";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
 import s from "./StyleScreens.module.css";
 
 export const vars = (v: Record<string, string | number>) => v as CSSProperties;
-
-// The top of Style home and brands, like Home's: the date and STYLE (with a
-// small BETA tag), or a way back, and the same ★ Feta Picks and You buttons.
-export function StyleTop({ back, backLabel = "Home", right }: { back?: string | (() => void); backLabel?: string; right?: ReactNode }) {
-  const router = useRouter();
-  const [origin, setOrigin] = useState<Origin | null>(null);
-  const [name, setName] = useState("");
-  const [fetaOpen, setFetaOpen] = useState(false);
-  useEffect(() => {
-    /* eslint-disable react-hooks/set-state-in-effect -- read from the phone */
-    setOrigin(loadOrigin());
-    setName(loadName());
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
-  return (
-    <>
-      <div className={s.top}>
-        {back ? (
-          <button type="button" className={s.back} onClick={() => (typeof back === "string" ? router.push(back) : back())}>
-            ‹ {backLabel}
-          </button>
-        ) : (
-          <span>
-            {new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" }).format(new Date()).toUpperCase().replace(",", "")} · STYLE
-            <span className={s.betaTag}>BETA</span>
-          </span>
-        )}
-        {right ?? (
-          <span className={s.buttons}>
-            {origin && <FetaStar cityId={origin.city.id} cityName={origin.city.name} onOpen={() => setFetaOpen(true)} />}
-            <button type="button" className="labelled" onClick={() => router.push("/you")} aria-label="You: your preferences and account">
-              <span className={s.acct}>{name ? name[0].toUpperCase() : "◯"}</span>
-              <small aria-hidden="true">You</small>
-            </button>
-          </span>
-        )}
-      </div>
-      {fetaOpen && origin && <FetaPicksSheet origin={origin} when="tonight" onClose={() => setFetaOpen(false)} />}
-    </>
-  );
-}
 
 // One figure in a style: their drawing when they added a photo, else the
 // woman, the man or both from Feta's illustration, by what they shop for.
