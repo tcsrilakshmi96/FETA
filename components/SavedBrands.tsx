@@ -51,7 +51,7 @@ function SavedBrands() {
           const f = i % 2 ? 0.72 : 0.28;
           const remove = () => {
             setBrands(brands.filter((x) => x.id !== b.id));
-            toggleSavedBrand({ id: b.id, name: b.name, website: b.website, logo: b.logo, homegrown: false, why: "", style: b.style ?? "", priceFeel: null, approved: false }, false, b.country ?? "");
+            toggleSavedBrand({ id: b.id, style: b.style ?? "" }, false, b.country ?? "");
           };
           return (
             <div key={b.id} className={`${s.hang} ${s.hangSoft}`} style={vars({ left: `calc(${f * 100}% - 80px)`, top: Math.floor(i / 2) * 230 + sag(f) - 2, "--sway": `${3.4 + i * 0.3}s`, "--delay": `${i * 0.2}s` })}>
@@ -62,9 +62,9 @@ function SavedBrands() {
                   <span className={s.brandName}>{b.name}</span>
                   <span className={s.small}>{[b.style && styleById(b.style)?.short, b.country && new Intl.DisplayNames(["en"], { type: "region" }).of(b.country)].filter(Boolean).join(" · ")}</span>
                   <span style={{ display: "flex", justifyContent: "space-between" }}>
-                    {b.website ? (
-                      <a className={s.link} href={b.website} target="_blank" rel="noopener noreferrer">
-                        Visit site ↗
+                    {b.link ? (
+                      <a className={s.link} href={b.link.href} target="_blank" rel="noopener noreferrer">
+                        {b.link.label}
                       </a>
                     ) : (
                       <span />

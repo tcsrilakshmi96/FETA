@@ -62,7 +62,7 @@ export default function Style() {
       if (origin) {
         // Brands for their styles, ordered for them by Feta.
         const load = async () => {
-          const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears, p.budget), loadLovedBrands()]);
+          const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city, p.wears, p.budget), loadLovedBrands()]);
           setLovedCount(loved.length);
           const mine = p.homegrownOnly ? all.filter((x) => x.homegrown) : all;
           // Shown straight away, then reordered for them when Feta's ranking arrives.

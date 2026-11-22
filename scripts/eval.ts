@@ -19,6 +19,7 @@ import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
+import { brandPrice, shopLink } from "@/lib/style";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -549,6 +550,21 @@ async function main() {
     failed++;
     console.log(`✗ Pop-ups: ${popFails.join(", ")}`);
   } else console.log("✓ A pop-up running several days shows while it's on, with an Instagram link");
+  // Style brands (review, 22 Nov 2026): Mumbai H&M opened Australia, London
+  // Uniqlo opened India, and "In your budget" showed with no price behind it.
+  const link = (website: string, proof: string | null, c: string, cn: string) => shopLink({ name: "B", website }, { presence_url: proof }, c, cn).href;
+  const brandFails = [
+    link("https://www2.hm.com/en_au/index.html", "https://www2.hm.com/en_in/index.html", "IN", "India") !== "https://www2.hm.com/en_in/index.html" && "Mumbai H&M doesn't open India",
+    /uniqlo\.com\/in/.test(link("https://www.uniqlo.com/in/en/", null, "GB", "United Kingdom")) && "London Uniqlo opens India",
+    /zara\.com\/(in|my)\//.test(link("https://www.zara.com/in/", "https://www.zara.com/sg/", "MY", "Malaysia")) && "Malaysia Zara opens another country",
+    brandPrice({ price_feel: "budget", sample_price: 2499, sample_currency: "INR", checked_date: null }, ["c1"], "INR").fit !== "above" && "a ₹2,499 piece passes an under-₹1,500 budget",
+    brandPrice({ price_feel: "budget", sample_price: null, sample_currency: null, checked_date: null }, ["c1"], "INR").fit !== "explore" && "an unpriced brand claims a budget fit",
+    brandPrice({ price_feel: null, sample_price: 40, sample_currency: "USD", checked_date: null }, ["c2"], "GBP").fit !== "above" && "a brand with no price level or local price is shown",
+  ].filter(Boolean);
+  if (brandFails.length) {
+    failed++;
+    console.log(`✗ Style brands: ${brandFails.join(", ")}`);
+  } else console.log("✓ Style brands link to their country's store and claim a budget fit only with a real price");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

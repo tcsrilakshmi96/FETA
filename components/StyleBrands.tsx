@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Figure, Logo, StyleTop, vars } from "@/components/StyleParts";
 import TabBar from "@/components/TabBar";
 import { loadOrigin } from "@/lib/origin";
-import { STYLES, fitsBudget, styleById } from "@/lib/style";
+import { STYLES, styleById } from "@/lib/style";
+import { formatMoney } from "@/lib/currency";
 import { brandTags, brandsFor, findMoreBrands, setTagVote, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, saveStyleProfile, savedBrandIds, toggleSavedBrand, type BrandCard, type StyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
@@ -33,7 +34,7 @@ export default function StyleBrands() {
       setTab(asked && p.styles.includes(asked) ? asked : p.styles[0]);
       // Ordered for them by Feta, with a line on why.
       const load = async () => {
-        const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city.country, p.wears, p.budget), loadLovedBrands()]);
+        const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city, p.wears, p.budget), loadLovedBrands()]);
         // Shown straight away, then reordered for them when Feta's ranking arrives.
         setAll(all);
         setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
@@ -137,7 +138,8 @@ export default function StyleBrands() {
             {all !== null && list.length === 0 && !researching.includes(tab) && <p className={s.small}>No {lens.short.toLowerCase()} brands within your budget in {origin.city.countryName} in Feta&apos;s library yet.</p>}
             {list.map((b, i) => {
               // Brands above their budget aren't shown (brandsFor), except one they love.
-              const fit = fitsBudget(b.priceFeel, profile.budget);
+              const fit = b.price.fit;
+              const checked = b.price.checked ? new Date(b.price.checked).toLocaleDateString("en", { month: "short", year: "numeric" }) : null;
               return (
                 <div key={b.id} className={`${s.leaving} ${home && !b.homegrown ? s.gone : ""}`}>
                   <div className={s.brandCard} style={vars({ "--delay": `${i * 0.06}s` })}>
@@ -158,13 +160,17 @@ export default function StyleBrands() {
                       {/* Feta's line on why it suits them; the research's line only when there isn't one. */}
                       {!b.forYou && b.why && <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>}
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        {fit === true && <span className={s.fits}>✓ In your budget</span>}
-                        {fit === false && <span className={s.small}>Above your budget</span>}
-                        {b.website && (
-                          <a className={s.link} href={b.website} target="_blank" rel="noopener noreferrer">
-                            Visit site ↗
-                          </a>
+                        {fit === "fits" && b.price.price !== null && (
+                          <span className={s.fits}>
+                            ✓ In your budget · from {formatMoney(b.price.price, origin.city.currency)}
+                            {checked ? `, checked ${checked}` : ""}
+                          </span>
                         )}
+                        {fit === "explore" && <span className={s.small}>{b.price.price !== null ? `From ${formatMoney(b.price.price, origin.city.currency)}` : "Brand to explore · prices not checked"}</span>}
+                        {fit === "above" && b.youLove && <span className={s.small}>Above your budget</span>}
+                        <a className={s.link} href={b.link.href} target="_blank" rel="noopener noreferrer">
+                          {b.link.label}
+                        </a>
                         <button type="button" className={s.link} onClick={() => openTags(b.id)} aria-expanded={tagsFor?.id === b.id}>
                           {tagsFor?.id === b.id ? "Done" : "Edit styles"}
                         </button>

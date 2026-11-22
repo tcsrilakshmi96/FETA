@@ -4,7 +4,8 @@ import type { City } from "@/lib/cities";
 import { distanceKm } from "@/lib/cities";
 import { fetchNightPlaces, loadPlans, localDay } from "@/lib/night-client";
 import { currentUserId, supabase } from "@/lib/supabase";
-import { fitsBudget, type Occasion, type Outfit, type Wears } from "@/lib/style";
+import { brandPrice, shopLink, type BrandPrice, type Occasion, type Outfit, type Wears } from "@/lib/style";
+import type { Currency } from "@/lib/currency";
 
 // Style on the phone (founder, 20 Nov 2026): the person's style profile,
 // photos made small before they're read, their drawings (kept only on this
@@ -300,6 +301,8 @@ export type BrandCard = {
   why: string;
   style: string;
   priceFeel: string | null;
+  price: BrandPrice; // from a checked price in their currency, else "explore"
+  link: { href: string; label: string }; // their country's store, never another's
   approved: boolean;
   fetaPick?: boolean; // the founder loves it (★ Feta Pick)
   note?: string | null; // her note
@@ -313,8 +316,10 @@ type Row = {
   association: string;
   visible_cues: string;
   review_status: string;
-  brands: { id: string; name: string; website: string | null; logo_url: string | null; origin_country: string | null; wears: string | null; brand_markets: { country: string; presence_type: string; price_feel: string | null }[] };
+  brands: { id: string; name: string; website: string | null; logo_url: string | null; origin_country: string | null; wears: string | null; brand_markets: Market[] };
 };
+type Market = { country: string; presence_type: string; presence_url: string | null; presence_ok: boolean | null; price_feel: string | null; sample_price: number | null; sample_currency: string | null; checked_date: string | null };
+const MARKET = "country, presence_type, presence_url, presence_ok, price_feel, sample_price, sample_currency, checked_date";
 
 // Research notes meant for the founder, not for people ("(MX URL live,
 // bot-blocked to scripts)", "Viewed catalog:"), taken out of what's shown.
@@ -334,14 +339,18 @@ function cleanCues(t: string) {
     .trim();
 }
 
-// Brands clearly above their clothes budget are left out, as places above
-// their spend are (founder, 21 Nov 2026: a tester saw brands over her
-// budget); one they love themselves stays. No price known: it stays.
-export async function brandsFor(styles: string[], country: string, wears: Wears, budget: string[]): Promise<BrandCard[]> {
+// Brands above their clothes budget are left out, as places above their
+// spend are (founder, 21 Nov 2026: a tester saw brands over her budget), and
+// so is one with no price and no price level (founder, 22 Nov 2026: shown
+// only when research puts it in their range); one they love themselves
+// stays. Priced ones come before "prices not checked" ones (`brandPrice`).
+export type BrandCity = { country: string; countryName: string; currency: Currency };
+export async function brandsFor(styles: string[], city: BrandCity, wears: Wears, budget: string[]): Promise<BrandCard[]> {
+  const { country, countryName, currency } = city;
   if (!styles.length || !(await currentUserId())) return [];
   const { data, error } = await supabase()
     .from("brand_styles")
-    .select("style_id, association, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets!inner (country, presence_type, price_feel))")
+    .select(`style_id, association, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets!inner (${MARKET}))`)
     .in("style_id", styles)
     .neq("review_status", "rejected")
     .eq("brands.brand_markets.country", country);
@@ -363,6 +372,8 @@ export async function brandsFor(styles: string[], country: string, wears: Wears,
       why: cleanCues(r.visible_cues),
       style: r.style_id,
       priceFeel: market!.price_feel,
+      price: brandPrice(market!, budget, currency),
+      link: shopLink(r.brands, market!, country, countryName),
       approved: r.review_status === "approved",
     }));
   // Feta Picks (the founder's brands) first, then the ones people love most;
@@ -373,19 +384,19 @@ export async function brandsFor(styles: string[], country: string, wears: Wears,
   const removed = new Set(votes.filter((v) => v.vote === -1).map((v) => `${v.brand_id}|${v.style_id}`));
   const added = votes.filter((v) => v.vote === 1 && styles.includes(v.style_id) && !cards.some((c) => c.id === v.brand_id && c.style === v.style_id));
   if (added.length) {
-    const { data: extra } = await supabase().from("brands").select("id, name, website, logo_url, origin_country, wears, brand_markets!inner (country, presence_type, price_feel)").in("id", [...new Set(added.map((v) => v.brand_id))]).eq("brand_markets.country", country);
+    const { data: extra } = await supabase().from("brands").select(`id, name, website, logo_url, origin_country, wears, brand_markets!inner (${MARKET})`).in("id", [...new Set(added.map((v) => v.brand_id))]).eq("brand_markets.country", country);
     for (const v of added) {
       const b = (extra ?? []).find((x) => x.id === v.brand_id) as unknown as Row["brands"] | undefined;
       const market = b?.brand_markets?.[0];
       if (b && market && market.presence_type !== "ships from abroad")
-        cards.push({ id: b.id, name: b.name, website: b.website, logo: b.logo_url, homegrown: b.origin_country === country, why: "You tagged it", style: v.style_id, priceFeel: market.price_feel, approved: true });
+        cards.push({ id: b.id, name: b.name, website: b.website, logo: b.logo_url, homegrown: b.origin_country === country, why: "You tagged it", style: v.style_id, priceFeel: market.price_feel, price: brandPrice(market, budget, currency), link: shopLink(b, market, country, countryName), approved: true });
     }
   }
   for (let i = cards.length - 1; i >= 0; i--) if (removed.has(`${cards[i].id}|${cards[i].style}`)) cards.splice(i, 1);
   const [love, mine] = await Promise.all([brandLove(cards.map((c) => c.id)), lovedBrandIds()]);
-  const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) })).filter((c) => c.youLove || fitsBudget(c.priceFeel, budget) !== false);
+  const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) })).filter((c) => c.youLove || c.price.fit !== "above");
   // A stable sort keeps the order above within each group.
-  return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0));
+  return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0) || Number(b.price.fit === "fits") - Number(a.price.fit === "fits"));
 }
 
 export async function savedBrandIds(): Promise<Set<string>> {
@@ -394,7 +405,7 @@ export async function savedBrandIds(): Promise<Set<string>> {
   return new Set((data ?? []).map((r) => r.brand_id as string));
 }
 
-export async function toggleSavedBrand(b: BrandCard, on: boolean, country: string) {
+export async function toggleSavedBrand(b: Pick<BrandCard, "id" | "style">, on: boolean, country: string) {
   const userId = await currentUserId();
   if (!userId) return;
   const db = supabase().from("saved_brands");
@@ -402,19 +413,25 @@ export async function toggleSavedBrand(b: BrandCard, on: boolean, country: strin
   if (error) console.error("Saving brand failed", error.message);
 }
 
-export type SavedBrand = { id: string; name: string; website: string | null; logo: string | null; style: string | null; country: string | null };
+export type SavedBrand = { id: string; name: string; website: string | null; logo: string | null; style: string | null; country: string | null; link: { href: string; label: string } | null };
 
 export async function loadSavedBrands(): Promise<SavedBrand[]> {
   if (!(await currentUserId())) return [];
-  const { data } = await supabase().from("saved_brands").select("style_id, country, brands (id, name, website, logo_url)").order("created_at", { ascending: false });
-  return ((data ?? []) as unknown as { style_id: string | null; country: string | null; brands: { id: string; name: string; website: string | null; logo_url: string | null } }[]).map((r) => ({
-    id: r.brands.id,
-    name: r.brands.name,
-    website: r.brands.website,
-    logo: r.brands.logo_url,
-    style: r.style_id,
-    country: r.country,
-  }));
+  const { data } = await supabase().from("saved_brands").select(`style_id, country, brands (id, name, website, logo_url, brand_markets (${MARKET}))`).order("created_at", { ascending: false });
+  const names = new Intl.DisplayNames(["en"], { type: "region" });
+  // The link for the country it was saved in, never the brand's other sites.
+  return ((data ?? []) as unknown as { style_id: string | null; country: string | null; brands: { id: string; name: string; website: string | null; logo_url: string | null; brand_markets: Market[] } }[]).map((r) => {
+    const market = r.brands.brand_markets?.find((m) => m.country === r.country);
+    return {
+      id: r.brands.id,
+      name: r.brands.name,
+      website: r.brands.website,
+      logo: r.brands.logo_url,
+      style: r.style_id,
+      country: r.country,
+      link: r.country ? shopLink(r.brands, market ?? { presence_url: null }, r.country, names.of(r.country) ?? r.country) : null,
+    };
+  });
 }
 
 // Feta's own research for every style in their country (founder, 20 Nov
