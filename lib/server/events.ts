@@ -14,7 +14,8 @@ import { searchPlaces, type Place } from "@/lib/server/places";
 export type FoundEvent = {
   title: string;
   venueName: string;
-  date: string; // YYYY-MM-DD in the city's time zone
+  date: string; // YYYY-MM-DD in the city's time zone (the first day)
+  endDate?: string; // the last day, for something running several days (a pop-up, a market, an exhibition)
   time: string; // HH:MM or ""
   priceText: string;
   minPrice: number | null;
@@ -81,10 +82,10 @@ export async function findEvents(opts: {
         : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
-Use at most 2 searches. Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search them with site: and their web addresses). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Only events that really are of that kind; none is a fine answer. Only include events whose listing page you actually found.
+Use at most 2 searches. Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search them with site: and their web addresses). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found.
 
 Reply with only a JSON array. Each item:
-{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect), "fromList": true if you found it on one of those sites, else false}.`;
+{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
 
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
@@ -141,10 +142,18 @@ export function eventPasses(
   }
   if (url.protocol !== "https:" || url.hostname.includes("vertexaisearch") || url.hostname.includes("google.")) return false;
   const cal = cityCalendar(opts.timeZone);
-  if (!(opts.when === "tonight" ? [cal.today] : opts.when === "week" ? cal.week : cal.weekend).includes(e.date)) return false;
-  // Today's: still to come, or started within the last hour.
-  if (e.date === cal.today && e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
+  // Any of its days in the window: one day, or a pop-up running Fri to Sun
+  // (founder, 22 Nov 2026), shown while it's still on.
+  const days = opts.when === "tonight" ? [cal.today] : opts.when === "week" ? cal.week : cal.weekend;
+  const last = e.endDate && e.endDate > e.date && daysBetween(e.date, e.endDate) <= 60 ? e.endDate : e.date;
+  if (!days.some((d) => d >= e.date && d <= last)) return false;
+  // Today's, on its only or last day: still to come, or started within the last hour.
+  if (last === cal.today && e.date === cal.today && e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
   return e.minPrice === null || e.minPrice === undefined || opts.maxSpend === null || e.minPrice <= opts.maxSpend;
+}
+
+function daysBetween(a: string, b: string) {
+  return (new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000;
 }
 
 function minutes(hhmm: string) {
@@ -227,6 +236,7 @@ export function siteName(url: string) {
     "luma.com": "Luma",
     "meetup.com": "Meetup",
     "allevents.in": "AllEvents",
+    "instagram.com": "Instagram",
     "lbb.in": "LBB",
     "whatshot.in": "WhatsHot",
   };

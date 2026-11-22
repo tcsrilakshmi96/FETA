@@ -511,6 +511,7 @@ async function eventPicks(ctx: {
           title: e.title,
           venueName: e.venueName,
           date: e.date,
+          ...(e.endDate && e.endDate > e.date ? { endDate: e.endDate } : {}),
           time: e.time ?? "",
           priceText: e.priceText ?? "",
           url: e.url,

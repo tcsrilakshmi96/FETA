@@ -12,6 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
+import { cityCalendar, eventPasses } from "@/lib/server/events";
 import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -534,6 +535,20 @@ async function main() {
     failed++;
     console.log(`✗ Reasons: ${reasonFails.join(", ")}`);
   } else console.log("✓ Reasons name only what a place serves");
+  // A pop-up running several days shows while it's on (founder, 22 Nov 2026).
+  const tz = "Europe/London";
+  const cal = cityCalendar(tz);
+  const shift = (n: number) => new Date(new Date(`${cal.today}T12:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
+  const ev = (date: string, endDate?: string) => ({ title: "Pop-up", venueName: "Shoreditch", date, ...(endDate ? { endDate } : {}), time: "", priceText: "", minPrice: null, url: "https://www.instagram.com/p/test" });
+  const popFails = [
+    !eventPasses(ev(shift(-2), shift(2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up on now is missing",
+    eventPasses(ev(shift(-2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a past one-day event shows",
+    eventPasses(ev(shift(-5), shift(-1)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up that ended shows",
+  ].filter(Boolean);
+  if (popFails.length) {
+    failed++;
+    console.log(`✗ Pop-ups: ${popFails.join(", ")}`);
+  } else console.log("✓ A pop-up running several days shows while it's on, with an Instagram link");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

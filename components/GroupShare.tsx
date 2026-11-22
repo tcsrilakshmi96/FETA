@@ -8,6 +8,7 @@ import { livePlace } from "@/lib/my-places";
 import { clock } from "@/lib/plan";
 import { castVote, loadShare, loadVotes, type ChoicePayload, type ShareKind, type SharePayload, type ShareStop, type Vote } from "@/lib/share-client";
 import styles from "./GroupShare.module.css";
+import { eventLinkLabel } from "@/lib/event-links";
 
 type Live = { name: string; area: string; mapsUri: string; photo: string | null };
 
@@ -172,7 +173,7 @@ export default function GroupShare() {
                   {st.fetaNote !== undefined && <span className={styles.note}>★ Feta pick{st.fetaNote ? `: “${st.fetaNote}”` : ""}</span>}
                   {st.event ? (
                     <a href={st.event.url} target="_blank" rel="noopener noreferrer">
-                      Tickets on {st.event.site}
+                      {eventLinkLabel(st.event.site)}
                     </a>
                   ) : (
                     l && (

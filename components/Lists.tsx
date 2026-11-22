@@ -21,6 +21,7 @@ import { placeName, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from
 import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
 import styles from "./Lists.module.css";
+import { eventLinkLabel } from "@/lib/event-links";
 
 // "brands" is Want to try → Brands (founder, 20 Nov 2026: Style's saved brands sit beside saved places).
 type Tab = "want" | "been" | "plans" | "brands";
@@ -666,7 +667,7 @@ export default function Lists() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Tickets on {open.event.site}
+                  {eventLinkLabel(open.event.site)}
                 </a>
               ) : (
                 <a

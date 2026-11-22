@@ -58,7 +58,8 @@ function cityDay(timeZone: string) {
 function eventBadge(p: Pick, timeZone: string) {
   if (!p.event?.date) return null;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date());
-  const day = p.event.date === today ? "TODAY" : new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${p.event.date}T12:00:00Z`)).toUpperCase();
+  // A pop-up running several days that has started is on now.
+  const day = p.event.date === today || (p.event.endDate && p.event.date < today && p.event.endDate >= today) ? (p.event.date === today ? "TODAY" : "ON NOW") :new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(`${p.event.date}T12:00:00Z`)).toUpperCase();
   const [h, m] = (p.event.time ?? "").split(":").map(Number);
   // "8:30", not "8", for a show at 20:30 (testers, 13 Nov 2026).
   const hour = Number.isFinite(h) ? `${((h + 11) % 12) + 1}${m ? `:${String(m).padStart(2, "0")}` : ""}` : "";

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { eventLinkLabel } from "@/lib/event-links";
+
 import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
 import { isVegDiet, optionsFor, QUESTIONS, spendRange, spendText, type Answers } from "@/lib/onboarding";
@@ -80,6 +82,7 @@ export type EventInfo = {
   title: string;
   venueName: string;
   date: string;
+  endDate?: string; // runs several days (a pop-up, a market)
   time: string;
   priceText: string;
   url: string;
@@ -836,7 +839,10 @@ function eventWhen(e: EventInfo, today: string) {
   // Midnight means the listing gave only a date (events cached before this was read that way).
   if (e.time === "00:00") e = { ...e, time: "" };
   // A morning class today is "Today", not "Tonight".
-  const day = e.date === today ? (!e.time || Number(e.time.slice(0, 2)) < 17 ? "Today" : "Tonight") : new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${e.date}T00:00:00Z`));
+  const dayName = (d: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${d}T00:00:00Z`));
+  // Several days: "Until Sun 30" once it's on, else "Fri 28 – Sun 30".
+  if (e.endDate && e.endDate > e.date) return e.date <= today ? `Until ${dayName(e.endDate)}` : `${dayName(e.date)} – ${dayName(e.endDate)}`;
+  const day = e.date === today ? (!e.time || Number(e.time.slice(0, 2)) < 17 ? "Today" : "Tonight") : dayName(e.date);
   if (!e.time) return day;
   const [h, m] = e.time.split(":").map(Number);
   return `${day} · ${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "am" : "pm"}`;
@@ -865,7 +871,7 @@ export function buildEventPick(
     googleLine: "",
     mapsUri: opts.venue?.googleMapsUri ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${e.venueName}, ${opts.city.name}`)}`,
     directionsUri: `https://www.google.com/maps/dir/?api=1&${destination}`,
-    book: { label: `Tickets on ${e.site}`, url: e.url },
+    book: { label: eventLinkLabel(e.site), url: e.url },
     naverUri: naverSearch(e.venueName, opts.city),
     country: opts.city.country,
     photo: lazyPhoto(opts.photo, best?.name, credit),
