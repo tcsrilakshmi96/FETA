@@ -19,6 +19,7 @@ export type FoundEvent = {
   priceText: string;
   minPrice: number | null;
   url: string;
+  fromList?: boolean; // found on one of the city's sites from her list (eventSources)
   because?: string;
   verdict?: "Worth a detour" | "Good if you're nearby" | "Skip unless";
   skipUnless?: string;
@@ -80,10 +81,10 @@ export async function findEvents(opts: {
         : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
-Use at most 2 searches. Only events that really are of that kind; none is a fine answer. Look first on ${eventSources(opts.city)}, then the organiser's own site. Only include events whose listing page you actually found.
+Use at most 2 searches. Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search them with site: and their web addresses). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Only events that really are of that kind; none is a fine answer. Only include events whose listing page you actually found.
 
 Reply with only a JSON array. Each item:
-{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect)}.`;
+{"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD", "time": "HH:MM" 24h or "", "priceText": string, "minPrice": number in ${opts.city.currency} or null, "url": the real event page (not a redirect), "fromList": true if you found it on one of those sites, else false}.`;
 
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
@@ -168,9 +169,10 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
   return { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) };
 }
 
-// Where to look first for events, by city, then by country (founder, 18 Nov
+// Where to look for events, by city, then by country (founder, 18 Nov
 // 2026: Feta shows what's on and links out to book; found through Google
-// Search, never scraped). Her list (Notion → 🌍 Event sites by city, 19 Nov
+// Search, never scraped). The first search looks only on these; a wider one
+// only when they have nothing of that kind (founder, 22 Nov 2026). Her list (Notion → 🌍 Event sites by city, 19 Nov
 // 2026) is in data/event-sites.json: by city, by region ("California",
 // "Kerala") and by country; the closest come first.
 const LOCAL_TICKETS: Record<string, string> = {
