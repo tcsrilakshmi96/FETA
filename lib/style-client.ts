@@ -424,7 +424,9 @@ export async function loadSavedBrands(): Promise<SavedBrand[]> {
 // (founder, 21 Nov 2026: three more per visit for styles nobody chose cost
 // most of a day's Gemini credit). While the screen is open it checks back
 // every 30 seconds and shows new brands.
-let started = false;
+// Once per country per visit (it was once per visit: opening London then
+// Berlin never started Berlin, tester 22 Nov 2026).
+const started = new Set<string>();
 
 async function startResearch(style: string, cityId: string, more = false) {
   const r = await post<{ started?: boolean; skipped?: string }>("/api/style/research", { style, cityId, more });
@@ -457,8 +459,8 @@ function watch(country: string, styles: string[], onDone: (style: string) => voi
 }
 
 export async function researchCountry(cityId: string, country: string, mine: { style: string; brands: number }[], onDone: (style: string) => void, onResearching?: (styles: string[]) => void) {
-  if (started || !(await currentUserId())) return;
-  started = true;
+  if (started.has(country) || !(await currentUserId())) return;
+  started.add(country);
   const { data } = await supabase().from("style_research").select("style_id, researched_at, done").eq("country", country);
   const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
   const myOrder = [...mine].sort((a, b) => a.brands - b.brands).map((m) => m.style).filter((id) => !fresh.has(id));

@@ -49,6 +49,11 @@ export async function POST(request: Request) {
         const brief = await loadBrief(db, style.id);
         if (!brief) return;
         const found = await researchStyle(brief, { code: city.country, name: city.countryName }, 14, known);
+        // A round that found nothing isn't kept as done: it would block this
+        // style here for 120 days (Berlin and Lisbon had no brands at all);
+        // the claim lapses after 15 minutes and the next visitor tries again,
+        // within the library's daily budget.
+        if (!found.brands.length) return console.error(`Style research found nothing: ${style.id} in ${city.country}`, found.dropped.slice(0, 5));
         await saveResearch(db, city.country, style.id, found);
       } catch (e) {
         // The claim lapses after 15 minutes, so the next visitor tries again.
