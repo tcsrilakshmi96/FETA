@@ -331,12 +331,21 @@ export default function Home() {
 
           <div className={styles.grid} key={when}>
             {styleLeads ? (
-              <button type="button" className={`${styles.tile} ${styles.style} ${styles.styleLead}`} onClick={() => router.push("/style")}>
-                <span className={styles.kick}>STYLE · BETA</span>
-                <span className={styles.tileTitle}>What to wear today</span>
-                <Mascot prop="shades" size={84} className={styles.tileCheese} />
-                <span className={styles.tileSub}>And brands for your style ›</span>
-              </button>
+              // Today's chosen look once there is one (founder, 22 Nov 2026).
+              <WearCard
+                tile
+                big
+                className={`${styles.tile} ${styles.style} ${styles.styleLead}`}
+                plan={chosenPlan}
+                fallback={
+                  <button type="button" className={`${styles.tile} ${styles.style} ${styles.styleLead}`} onClick={() => router.push("/style")}>
+                    <span className={styles.kick}>STYLE · BETA</span>
+                    <span className={styles.tileTitle}>What to wear today</span>
+                    <Mascot prop="shades" size={84} className={styles.tileCheese} />
+                    <span className={styles.tileSub}>And brands for your style ›</span>
+                  </button>
+                }
+              />
             ) : (
               cover(lead, leadSlot, true)
             )}
@@ -375,9 +384,8 @@ export default function Home() {
                     <span className={styles.tileSub}>Have a look ›</span>
                   </button>
                 );
-                if (!chosenPlan) return plain;
-                // Tonight's look for the plan they chose; the plain tile until
-                // there's an idea, or for someone without Style.
+                // Today's chosen look, or What to wear for the plan they chose;
+                // the plain tile otherwise, or for someone without Style.
                 return <WearCard tile className={`${styles.tile} ${styles.style}`} plan={chosenPlan} fallback={plain} />;
               })()}
           </div>

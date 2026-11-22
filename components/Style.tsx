@@ -1,393 +1,549 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
-import { Figure, Line, Logo, StyleTop, vars } from "@/components/StyleParts";
+import { LookCard, PieceSheet, StyleFigure, StyleHead, useLookPicture } from "@/components/StyleKit";
 import TabBar from "@/components/TabBar";
+import { FROM_KEY } from "@/components/WearCard";
+import { useToast } from "@/components/Toast";
 import WaitFun from "@/components/WaitFun";
 import { loadOrigin } from "@/lib/origin";
-import { OCCASIONS, STYLES, styleById, type Occasion, type Outfit } from "@/lib/style";
-import { acrossStyles, brandsFor, drawLook, fromPhone, loadLovedBrands, rankForMe, researchCountry, loadStyleProfile, outfitFor, saveStyleProfile, tonightPlan, type BrandCard, type StyleProfile, type TonightPlan } from "@/lib/style-client";
+import { WHERES, styleById, type LookFor, type Where } from "@/lib/style";
+import { chooseLook, chosenLookFor, cityDay, cityNow, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, swapInSet, tonightPlan, wornOn, type LookSet, type StyleProfile } from "@/lib/style-client";
+import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
-// The hour where they're planning, not on the phone's clock.
-const cityHour = (timeZone?: string) => Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...(timeZone ? { timeZone } : {}) }).format(new Date())) % 24;
+// Style · Today (founder, 22–23 Nov 2026, docs/style-spec.md). What the look
+// is for, checked in this order: a plan or place they chose; the look they
+// already chose today; a saved plan for today; else "Where are you going?"
+// (never guessed, never Home's suggested plan). Then 3 complete looks from
+// their styles, best fit first: swipe left or ✕ for the next, swipe right or
+// Wear this to wear it, ‹ for the last one. After all 3, "What's off?".
+// The day's looks are kept on their account, so coming back shows the same
+// ones at no cost and the chosen look stays put.
 
-// Style home (founder, 20 Nov 2026), one job per part:
-// 1. What to wear tonight: for their saved plan for today, or the outing
-//    they tap when there's no plan. Dots on the clothes say what to wear;
-//    Love it / Not my style teach Feta; Another gives a new idea.
-// 2. Brands for their styles that sell in their country, hanging on a line.
-// 3. Their styles, with Edit.
-// No style yet: setup first.
-
-const sag = (f: number) => 10 + 48 * f * (1 - f);
+type Mode = "loading" | "where" | "looks" | "wearing" | "worn" | "limit";
+const OFF = ["Colours", "Fit or shape", "Too dressy", "Too casual", "Costs too much", "Just not me"];
+const SETTINGS = ["Outdoors", "Indoors", "Walking there", "Standing a lot"];
 
 export default function Style() {
   const router = useRouter();
-  const [profile, setProfile] = useState<StyleProfile | null | undefined>(undefined);
-  const [plan, setPlan] = useState<TonightPlan | null | undefined>(undefined);
-  const [occasion, setOccasion] = useState<Occasion | null>(null);
-  const [vibe, setVibe] = useState<string | null>(null); // what kind of dinner, drinks… (founder: "it never asked me what kind of dinner")
-  const [own, setOwn] = useState("");
-  const [look, setLook] = useState<string | null>(null); // the idea drawn
-  const [drawingLook, setDrawingLook] = useState(false);
-  const [changing, setChanging] = useState<"top" | "bottom" | "shoes" | null>(null); // one piece being swapped
-  const [tried, setTried] = useState<Record<string, string[]>>({});
-  const [outfit, setOutfit] = useState<Outfit | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  // Today's limit is reached: only that is said, not a plan or outing choices it can't dress.
-  const [limited, setLimited] = useState(false);
-  const [thinking, setThinking] = useState(false);
-  const [shown, setShown] = useState<string[]>([]);
-  const [shownStyles, setShownStyles] = useState<string[]>([]); // so Another moves through their styles
-  const [leaving, setLeaving] = useState(false);
-  const [brands, setBrands] = useState<BrandCard[] | null>(null);
-  const [lovedCount, setLovedCount] = useState(-1);
-  const [drawn, setDrawn] = useState<Record<string, string>>({});
-  // Read once: a new object each render made "think" change every render, and
-  // the plan effect then asked for a look in a loop (20 Nov 2026: "Picking a
-  // look" forever and the screen froze).
+  const toast = useToast();
   const [origin] = useState(() => (typeof window === "undefined" ? null : loadOrigin()));
+  const [profile, setProfile] = useState<StyleProfile | null>(null);
+  const [mode, setMode] = useState<Mode>("loading");
+  const [f, setF] = useState<LookFor | null>(null);
+  const [set, setSet] = useState<LookSet | null>(null);
+  const [li, setLi] = useState(0);
+  const [anim, setAnim] = useState<"in" | "back" | "out" | "wear">("in");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [sheet, setSheet] = useState<number | null>(null);
+  const [swapping, setSwapping] = useState(false);
+  const tried = useRef<Record<string, string[]>>({});
+  const [from, setFrom] = useState<"plan" | "place" | null>(null); // a plan or place card opened Style
+  const [remake, setRemake] = useState(false);
+  // Where are you going?
+  const [late, setLate] = useState(false);
+  const [when, setWhen] = useState<"tonight" | "tomorrow" | null>(null);
+  const [where, setWhere] = useState<Where | null>(null);
+  const [place, setPlace] = useState("");
+  const [setting, setSetting] = useState<string[]>([]);
+  const [avoid, setAvoid] = useState("");
+  const [own, setOwn] = useState("");
+  const swipeX = useRef<number | null>(null);
+
+  const wears = profile?.wears ?? "women";
+  const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
+  const onScreen = mode === "looks" && li < (set?.looks.length ?? 0);
+  const { pic, making } = useLookPicture(look, wears, onScreen || remake || mode === "worn");
+
+  async function openFor(next: LookFor) {
+    setF(next);
+    setLookFor(next);
+    setMode("looks");
+    setNotice(null);
+    setLi(0);
+    setAnim("in");
+    const day = next.tomorrow ? cityDay(1) : cityDay();
+    const kept = await loadSet(day, next.key);
+    if (kept?.looks.length) {
+      setSet(kept);
+      setLi(keptIndex(kept));
+      return;
+    }
+    setSet(null);
+    await make(next, day, 0, []);
+  }
+
+  async function make(next: LookFor, day: string, setNo: number, avoidLooks: string[]) {
+    if (!origin) return;
+    setBusy(true);
+    const r = await newSet(next, day, origin.city.id, setNo, avoidLooks, origin.city);
+    setBusy(false);
+    if (r.set) {
+      setSet(r.set);
+      setLi(0);
+      setAnim("in");
+      return;
+    }
+    setNotice(r.notice ?? "Feta couldn't put looks together just now.");
+    if (r.limited) setMode("limit");
+  }
+
+  // Where they were in today's looks (after Brands or My style and back).
+  const keptIndex = (x: LookSet) => {
+    try {
+      return Math.min(x.looks.length, Number(sessionStorage.getItem(`feta.style.li:${x.id}`) ?? 0) || 0);
+    } catch {
+      return 0;
+    }
+  };
+  useEffect(() => {
+    if (!set?.id) return;
+    try {
+      sessionStorage.setItem(`feta.style.li:${set.id}`, String(li));
+    } catch {
+      // Starts from the first look.
+    }
+  }, [set?.id, li]);
 
   useEffect(() => {
-    loadStyleProfile().then((p) => {
-      if (!p || !p.styles.length) {
+    (async () => {
+      const p = await loadStyleProfile();
+      if (!p?.styles.length) {
         router.replace("/style/setup");
         return;
       }
       setProfile(p);
-      if (p.onYou) Promise.all(p.styles.map(async (id) => [id, await fromPhone(`draw:${id}`)] as const)).then((all) => setDrawn(Object.fromEntries(all.filter(([, v]) => v)) as Record<string, string>));
-      if (origin) {
-        // Brands for their styles, ordered for them by Feta.
-        const load = async () => {
-          const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city, p.wears, p.budget), loadLovedBrands()]);
-          setLovedCount(loved.length);
-          const mine = p.homegrownOnly ? all.filter((x) => x.homegrown) : all;
-          // Shown straight away, then reordered for them when Feta's ranking arrives.
-          setBrands(mine);
-          setBrands(await rankForMe(mine, p, origin.city.countryName, loved.map((l) => l.name)));
-          return all;
-        };
-        load().then((all) => researchCountry(origin.city.id, origin.city.country, p.styles.map((style) => ({ style, brands: all.filter((b) => b.style === style).length })), () => load()));
+      setLate(cityNow().hour >= 22);
+      try {
+        const came = sessionStorage.getItem(FROM_KEY);
+        setFrom(came === "plan" || came === "place" ? came : null);
+      } catch {
+        // From Home.
       }
-    });
-    tonightPlan().then(setPlan);
+      const askWhere = new URLSearchParams(window.location.search).get("where") === "1";
+      if (askWhere) return setMode("where");
+      const chosen = chosenLookFor();
+      const worn = await wornOn(cityDay());
+      if (worn && worn.chosen !== null && (!chosen || chosen.key === worn.forKey)) {
+        setSet(worn);
+        setF(worn.forDetail ?? { key: worn.forKey, text: worn.forText, where: worn.forKey.startsWith("plan:") ? "plan" : ((worn.forKey.split(":")[0] as Where) ?? "day"), stops: [], walkKm: null });
+        setLi(worn.chosen);
+        setMode("wearing");
+        return;
+      }
+      if (chosen) return openFor(chosen);
+      const plan = await tonightPlan();
+      if (plan) return openFor(lookForPlan(plan));
+      setMode("where");
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
-  }, [router]);
+  }, []);
 
-  const think = useCallback(
-    async (p: StyleProfile, o: Occasion | null, tonight: TonightPlan | null, avoid: string[], usedStyles: string[] = [], kind: string | null = null) => {
-      if (!origin) return;
-      setThinking(true);
-      setNotice(null);
-      const r = await outfitFor({
-        styles: p.styles,
-        wears: p.wears,
-        occasion: o,
-        vibe: kind,
-        plan: tonight,
-        cityId: origin.city.id,
-        avoid,
-        usedStyles,
-        cues: p.cues,
-        loved: p.votes.filter((v) => v.verdict === "love").map((v) => v.look).slice(-6),
-        notMe: p.votes.filter((v) => v.verdict === "not_me").map((v) => v.look).slice(-6),
-      });
-      setThinking(false);
-      setLeaving(false);
-      if (r?.outfit) {
-        setOutfit(r.outfit);
-        // Draw this exact outfit (the style's own picture shows a different one).
-        setLook(null);
-        setDrawingLook(true);
-        const drawnLook = await drawLook(r.outfit, p.wears);
-        setDrawingLook(false);
-        setLook(drawnLook);
-        setShown((x) => [...x, r.outfit!.title]);
-        setShownStyles((x) => [...x, r.outfit!.style]);
-      } else {
-        setNotice(r?.notice ?? "Feta couldn't think of a look just now.");
-        setLimited(!!r?.limited);
-      }
-    },
-    [origin],
-  );
+  if (!origin || !profile || mode === "loading")
+    return (
+      <>
+        <main className={s.screen}>
+          <div className={s.page}>
+            <StyleHead tab="today" />
+          </div>
+        </main>
+        <TabBar active="style" />
+      </>
+    );
 
-  // A plan for today decides the look straight away.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the first idea once the plan is known
-    if (profile && plan) think(profile, null, plan, []);
-    // No plan: a look for the day straight away (founder, 21 Nov 2026: a
-    // tester's first visit showed nothing to wear), never a plan assumed;
-    // "Going somewhere else? Change" asks where they're going.
-    else if (profile && plan === null) {
-      setOccasion("day");
-      think(profile, "day", null, []);
+  const p = profile;
+  const owned = (name: string) => p.wardrobe.some((w) => w.toLowerCase() === name.toLowerCase()) || (!!f?.own && f.own.toLowerCase() === name.toLowerCase());
+  const back = from && f?.where === "plan" ? () => router.back() : () => router.push("/home");
+  const backLabel = from && f?.where === "plan" ? (from === "place" ? "Back" : "Back to your plan") : "Home";
+  const country = origin.city.countryName;
+
+  function next() {
+    if (!set || li >= set.looks.length || anim === "out") return;
+    setAnim("out");
+    setTimeout(() => {
+      setLi((i) => i + 1);
+      setAnim("in");
+    }, 280);
+  }
+  function prev() {
+    if (li <= 0) return;
+    setLi((i) => i - 1);
+    setAnim("back");
+  }
+  function wear() {
+    if (!set || li >= set.looks.length) return;
+    setAnim("wear");
+    setTimeout(async () => {
+      await chooseLook(set, li);
+      setSet({ ...set, chosen: li });
+      setMode("worn");
+      setAnim("in");
+      toast("Saved to your Looks");
+    }, 300);
+  }
+  async function more(note: string | null) {
+    if (!set || !f) return;
+    let nextP = p;
+    if (note) {
+      nextP = { ...p, offNotes: [...p.offNotes.filter((x) => x !== note), note] };
+      setProfile(nextP);
+      saveStyleProfile(nextP, origin!.city);
     }
-  }, [profile, plan, think]);
-
-  if (!profile || !origin) return null;
-
-  function pick(o: Occasion) {
-    setOccasion(o);
-    setVibe(null);
+    const shown = set.looks.map((l) => `${l.title}: ${l.pieces.map((x) => x.name).join(", ")}`);
+    await make(f, set.day, set.setNo + 1, shown);
+    if (note) toast(`${note}: noted. 3 new looks`);
+  }
+  function have(i: number) {
+    if (!look) return;
+    const name = look.pieces[i].name;
+    setSheet(null);
+    if (owned(name)) return;
+    const nextP = { ...p, wardrobe: [...p.wardrobe, name] };
+    setProfile(nextP);
+    saveStyleProfile(nextP, origin!.city);
+    toast("Added to your wardrobe");
+  }
+  async function swap(i: number) {
+    if (!set || !look || !f || !origin) return;
+    const key = `${set.id}:${li}:${i}`;
+    const before = [...(tried.current[key] ?? []), look.pieces[i].name];
+    tried.current[key] = before;
+    setSwapping(true);
+    const r = await swapInSet(set, f, origin.city.id, li, i, before);
+    setSwapping(false);
+    setSheet(null);
+    if (r.set) {
+      setSet(r.set);
+      toast(`New ${r.set.looks[li].pieces[i].name.toLowerCase()}, the rest stays`);
+    } else toast(r.notice ?? "Couldn't find another one just now.");
+  }
+  function buy(name: string) {
+    if (!look) return;
+    setSheet(null);
+    router.push(`/style/brands?piece=${encodeURIComponent(name)}&style=${look.style}`);
+  }
+  function done() {
+    if (from && f?.where === "plan") router.back();
+    else router.push("/home");
+  }
+  async function pickDifferent() {
+    if (!set) return;
+    await chooseLook(set, null);
+    setSet({ ...set, chosen: null });
+    setLi(0);
+    setAnim("in");
+    setMode("looks");
+  }
+  function changeWhere() {
+    setWhere(null);
+    setWhen(null);
+    setMode("where");
+  }
+  function showLooks() {
+    if (!where || (late && !when)) return;
+    const tomorrow = when === "tomorrow";
+    const label = WHERES.find((w) => w.id === where)!.label.replace("…", "");
+    const evening = !tomorrow && cityNow().hour >= 15 && (where === "dinner" || where === "drinks");
+    const text = where === "else" ? place.trim() || "Somewhere else" : `${label}${evening ? " tonight" : ""}`;
+    const extra = where === "else" ? [place.trim(), setting.join("+"), avoid.trim()].join("|") : "";
+    const next: LookFor = {
+      key: `${where}${extra ? `:${extra}` : ""}${own.trim() ? `:own:${own.trim()}` : ""}${tomorrow ? ":tomorrow" : ""}`.slice(0, 200),
+      text: `${tomorrow ? "Tomorrow · " : ""}${text}`,
+      where,
+      stops: [],
+      walkKm: null,
+      place: where === "else" ? place.trim() || undefined : undefined,
+      setting: where === "else" ? setting : undefined,
+      avoid: where === "else" ? avoid.trim() || undefined : undefined,
+      own: own.trim() || undefined,
+      tomorrow,
+    };
+    try {
+      sessionStorage.removeItem(FROM_KEY);
+    } catch {
+      // Fine.
+    }
+    setFrom(null);
+    openFor(next);
   }
 
-  function pickKind(kind: string) {
-    setVibe(kind);
-    setTried({});
-    setShown([]);
-    setShownStyles([]);
-    setOutfit(null);
-    think(profile!, occasion, null, [], [], kind);
-  }
-
-  function another() {
-    if (!outfit) return;
-    setLeaving(true);
-    setTried({});
-    setTimeout(() => think(profile!, occasion, plan ?? null, shown, shownStyles, vibe), 300);
-  }
-
-  // Change one piece and keep the rest (founder, 20 Nov 2026: "some might
-  // like the pant idea but not the top").
-  async function changePiece(piece: "top" | "bottom" | "shoes") {
-    if (!outfit || !origin) return;
-    setChanging(piece);
-    const before = [...(tried[piece] ?? []), outfit.pieces[piece]];
-    setTried({ ...tried, [piece]: before });
-    const r = await outfitFor({
-      styles: profile!.styles,
-      wears: profile!.wears,
-      occasion,
-      vibe,
-      plan: plan ?? null,
-      cityId: origin.city.id,
-      avoid: before,
-      usedStyles: [],
-      cues: profile!.cues,
-      loved: [],
-      notMe: [],
-      change: { piece, outfit },
-    });
-    setChanging(null);
-    if (!r?.outfit) return;
-    setOutfit(r.outfit);
-    setLook(null);
-    setDrawingLook(true);
-    const img = await drawLook(r.outfit, profile!.wears);
-    setDrawingLook(false);
-    setLook(img);
-  }
-
-  async function vote(verdict: "love" | "not_me") {
-    if (!outfit) return;
-    const p = { ...profile!, votes: [...profile!.votes, { look: outfit.title, verdict, at: new Date().toISOString() }] };
-    setProfile(p);
-    saveStyleProfile(p, origin!.city);
-    if (verdict === "not_me") another();
-  }
-
-  const loved = outfit && profile.votes.some((v) => v.look === outfit.title && v.verdict === "love");
-  const occ = OCCASIONS.find((o) => o.id === occasion);
-  const heading = plan ? `For your plan: ${plan.title}` : occasion === "day" && !vibe ? "A look for today" : occ ? `${occ.label}${vibe ? ` · ${vibe.toLowerCase()}` : ""}` : "Heading out tonight?";
-  const lineBrands = acrossStyles(brands ?? [], profile.styles, 5);
+  const total = set?.looks.length ?? 0;
+  const whereBlocked = !where || (late && !when);
 
   return (
     <>
-      <main className={s.screen}>
+      <main className={`${s.screen} ${s.vars}`}>
         <div className={s.page}>
-          <StyleTop />
-          <h1 className={s.mast}>
-            {cityHour(origin?.city.timeZone) < 16 ? "Today" : "Tonight"}, <i>dressed for it.</i>
-          </h1>
+          <StyleHead tab="today" back={back} backLabel={backLabel} />
 
-          <section className={s.stage} style={{ height: outfit || thinking ? 430 : 360 }}>
-            <div style={{ position: "absolute", left: 16, top: 14, right: 16, zIndex: 5, display: "flex", flexDirection: "column", gap: 2 }}>
-              <span className={s.kick} style={{ color: "#7a4f27" }}>
-                WHAT TO WEAR {cityHour(origin?.city.timeZone) < 16 ? "TODAY" : "TONIGHT"}
-              </span>
-              {!limited && <span style={{ fontSize: 13, opacity: 0.75 }}>{plan === undefined ? "Checking your plans…" : heading}</span>}
-            </div>
-
-            {outfit && !thinking ? (
-              <>
-                <div key={`big-${outfit.title}`} className={`${s.big} ${s.rise}`} style={{ top: 70, fontSize: outfit.big1.length > 6 ? 72 : 92, zIndex: 1 }}>
-                  <span>{outfit.big1}</span>
-                  <i>{outfit.big2}</i>
-                </div>
-                {look || !drawingLook ? (
-                  // Feta's drawing of this outfit, or when it couldn't be drawn
-                  // (today's limit, no answer) the style's own illustration
-                  // with the pieces, never just words (founder, 22 Nov 2026).
-                  <Figure key={`fig-${outfit.title}`} style={outfit.style} wears={profile.wears} {...(look ? { drawn: look } : {})} height={330} spots={outfit.pieces} leaving={leaving} pos={{ zIndex: 2 }} label={`${outfit.title}: ${outfit.pieces.top}, ${outfit.pieces.bottom}, ${outfit.pieces.shoes}`} />
-                ) : (
-                  <div className={s.lookWait}>
-                    {drawingLook && <span className={s.drawingWait} aria-hidden="true" />}
-                    <span className={s.lookPieces}>
-                      <span>{outfit.pieces.top}</span>
-                      <span>{outfit.pieces.bottom}</span>
-                      <span>{outfit.pieces.shoes}</span>
-                    </span>
-                    {drawingLook && <WaitFun kind="draw" compact onLight />}
-                  </div>
-                )}
-              </>
-            ) : thinking ? (
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                <Mascot pose="think" size={80} prop="shades" />
-                <WaitFun kind="look" compact onLight />
-              </div>
-            ) : (
-              <>
-              {/* Their style's illustration even when today's limit stops a new look (founder, 22 Nov 2026: an empty card). */}
-              {limited && profile.styles[0] && <Figure style={profile.styles[0]} wears={profile.wears} height={330} pos={{ zIndex: 2 }} label={styleById(profile.styles[0])?.name ?? ""} />}
-              <div style={{ position: "absolute", left: 16, right: 16, bottom: 16, display: "flex", flexDirection: "column", gap: 12, zIndex: 3 }}>
-                <span className={s.small} style={{ color: "#1a1616", opacity: 0.75 }}>
-                  {notice ?? (occ ? `What kind of ${occ.label.toLowerCase()}?` : "No plan saved for today. Where are you going?")}
-                </span>
-                {limited ? null : occ ? (
-                  <>
-                    <div className={s.chips}>
-                      {occ.kinds.map((k) => (
-                        <button key={k} type="button" className={s.chip} style={{ borderColor: "#1a1616", background: "#fff", color: "#1a1616" }} onClick={() => pickKind(k)}>
-                          {k}
-                        </button>
-                      ))}
-                    </div>
-                    <form className={s.ownKind} onSubmit={(e) => { e.preventDefault(); if (own.trim()) pickKind(own.trim()); }}>
-                      <input value={own} onChange={(e) => setOwn(e.target.value)} placeholder="Or say it, e.g. rooftop with work friends" aria-label="What kind of outing" maxLength={60} />
-                      <button type="submit" disabled={!own.trim()}>Go</button>
-                    </form>
-                    <button type="button" className={s.small} style={{ alignSelf: "flex-start", color: "#1a1616" }} onClick={() => setOccasion(null)}>
-                      ‹ Somewhere else
-                    </button>
-                  </>
-                ) : (
-                  <div className={s.chips}>
-                    {OCCASIONS.map((o) => (
-                      <button key={o.id} type="button" className={s.chip} style={{ borderColor: "#1a1616", background: "#fff", color: "#1a1616" }} onClick={() => pick(o.id)}>
-                        {o.label}
+          {mode === "where" && (
+            <>
+              <h1 className={s.mast}>
+                Where are you <i>going?</i>
+              </h1>
+              {late && (
+                <div className={k.fold}>
+                  <span className={k.why}>It&apos;s {cityNow().clock}. Is this for tonight, or tomorrow?</span>
+                  <div className={k.chips}>
+                    {(["tonight", "tomorrow"] as const).map((w) => (
+                      <button key={w} type="button" className={`${k.chip} ${when === w ? k.chipOn : ""}`} aria-pressed={when === w} onClick={() => setWhen(w)}>
+                        {w === "tonight" ? "Tonight" : "Tomorrow"}
                       </button>
                     ))}
                   </div>
-                )}
-              </div>
-              </>
-            )}
-            {/* Their styles stand behind the question, so the stage isn't empty. */}
-            {!outfit && !thinking && !occ && (
-              <div aria-hidden="true" style={{ position: "absolute", right: 0, top: 56, height: 150, width: "62%", opacity: 0.9 }}>
-                {profile.styles.slice(0, 3).map((id, i) => (
-                  <Figure key={id} style={id} wears={profile.wears} drawn={drawn[id]} height={150 - i * 22} pos={{ left: `${30 + i * 26}%`, zIndex: 3 - i, opacity: 1 - i * 0.2, animationDelay: `${i * 0.1}s` }} />
+                </div>
+              )}
+              <div className={k.chips}>
+                {WHERES.map((w) => (
+                  <button key={w.id} type="button" className={`${k.chip} ${where === w.id ? k.chipOn : ""}`} aria-pressed={where === w.id} onClick={() => setWhere(w.id)}>
+                    {w.label}
+                  </button>
                 ))}
               </div>
-            )}
-          </section>
-
-          {outfit && !thinking && (
-            <>
-              <p className={s.sub} style={{ color: "var(--ink)" }}>{outfit.line}</p>
-              <div className={s.pieces}>
-                {(["top", "bottom", "shoes"] as const).map((k) => (
-                  <div key={k} className={s.pieceRow}>
-                    <span className={s.pieceKind}>{k === "top" ? "Top" : k === "bottom" ? "Bottom" : "Shoes"}</span>
-                    <span className={s.pieceName}>{changing === k ? "Finding another…" : outfit.pieces[k]}</span>
-                    <button type="button" className={s.link} disabled={!!changing || drawingLook} onClick={() => changePiece(k)}>
-                      Change
-                    </button>
+              {where === "else" && (
+                <div className={k.fold}>
+                  <label className={k.label} htmlFor="st-where">
+                    Where?
+                  </label>
+                  <input id="st-where" className={k.field} value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. a rooftop gig, a wedding lunch" maxLength={160} />
+                  <div className={k.chips}>
+                    {SETTINGS.map((x) => {
+                      const on = setting.includes(x);
+                      return (
+                        <button key={x} type="button" className={`${k.chip} ${on ? k.chipOn : ""}`} aria-pressed={on} onClick={() => setSetting(on ? setting.filter((y) => y !== x) : [...setting, x])}>
+                          {x}
+                        </button>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
-              <div className={s.chips}>
-                {outfit.chips.map((c) => (
-                  <span key={c} className={s.fact}>
-                    {c}
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className={`${s.chip} ${loved ? s.chipOn : ""}`} style={{ flex: 1, fontSize: 13 }} onClick={() => vote("love")} aria-pressed={!!loved}>
-                  {loved ? "♥ Loved" : "Love it"}
-                </button>
-                <button type="button" className={s.chip} style={{ flex: 1, fontSize: 13 }} onClick={() => vote("not_me")}>
-                  Not my style
-                </button>
-                <button type="button" className={s.chip} style={{ flex: 1, fontSize: 13 }} onClick={another}>
-                  Another ›
-                </button>
-              </div>
-              {!plan && (
-                <button type="button" className={s.quiet} style={{ padding: 0, textAlign: "left" }} onClick={() => { setOutfit(null); setOccasion(null); setVibe(null); setLook(null); }}>
-                  Going somewhere else? Change
+                  <label className={k.label} htmlFor="st-avoid">
+                    Anything to avoid?
+                  </label>
+                  <input id="st-avoid" className={k.field} value={avoid} onChange={(e) => setAvoid(e.target.value)} placeholder="e.g. no heels, covered shoulders" maxLength={160} />
+                </div>
+              )}
+              <label className={k.label} htmlFor="st-own" style={{ marginTop: 6 }}>
+                Wearing something of your own? (optional)
+              </label>
+              <input id="st-own" className={k.field} value={own} onChange={(e) => setOwn(e.target.value)} placeholder="e.g. my black boots" maxLength={80} />
+              <button type="button" className={k.primary} disabled={whereBlocked} onClick={showLooks} style={{ marginTop: 8 }}>
+                {whereBlocked ? (late && !when ? "Tonight or tomorrow?" : "Where are you going?") : "Show my looks ›"}
+              </button>
+              {set && f && (
+                <button type="button" className={k.ghost} onClick={() => setMode(set.chosen !== null ? "wearing" : "looks")}>
+                  Back to {f.text.toLowerCase().startsWith("tomorrow") ? f.text : `“${f.text}”`}
                 </button>
               )}
-              <button type="button" className={s.card} style={{ background: "var(--ink)", color: "var(--bg)", justifyContent: "space-between" }} onClick={() => router.push(`/style/brands?style=${outfit.style}`)}>
-                <span style={{ fontSize: 13 }}>Find this look: {styleById(outfit.style)?.short} brands</span>
-                <span>›</span>
+            </>
+          )}
+
+          {mode !== "where" && f && (
+            <button type="button" className={k.forRow} onClick={changeWhere}>
+              <span>
+                For <b>{f.text}</b>
+              </span>
+              <span className={k.change}>{f.where === "plan" ? "Not this plan?" : "Change"}</span>
+            </button>
+          )}
+
+          {mode === "looks" && !set && (
+            <div className={k.card} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 20 }}>
+              {busy ? (
+                <>
+                  <Mascot pose="think" size={80} prop="shades" />
+                  <WaitFun kind="look" compact onLight />
+                </>
+              ) : (
+                <>
+                  <span style={{ textAlign: "center", fontSize: 15 }}>{notice ?? "Feta couldn't put looks together just now."}</span>
+                  <button type="button" className={k.chipD} onClick={() => f && openFor(f)}>
+                    Try again
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {mode === "looks" && set && look && li < total && (
+            <>
+              <div className={k.lookHead}>
+                <span className={k.lookTitle}>{look.title}</span>
+                <span className={k.count}>
+                  {li + 1} of {total}
+                </span>
+              </div>
+              <span className={k.styleLine}>{styleById(look.style)?.name ?? ""}</span>
+              <div
+                key={`${set.id}-${li}`}
+                className={`${k.deck} ${anim === "out" ? k.walkOut : anim === "wear" ? k.wearOut : anim === "back" ? k.walkBack : k.walkIn}`}
+                onPointerDown={(e) => (swipeX.current = e.clientX)}
+                onPointerUp={(e) => {
+                  const x = swipeX.current;
+                  swipeX.current = null;
+                  if (x === null) return;
+                  const dx = e.clientX - x;
+                  if (dx < -60) next();
+                  else if (dx > 60) wear();
+                }}
+                onPointerCancel={() => (swipeX.current = null)}
+              >
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} />
+              </div>
+              <div className={k.actions}>
+                <button type="button" className={k.round} aria-label="The last look" onClick={prev} disabled={li === 0}>
+                  ‹
+                </button>
+                <button type="button" className={k.round} aria-label="Next look" onClick={next}>
+                  ✕
+                </button>
+                <button type="button" className={k.wear} onClick={wear}>
+                  Wear this
+                </button>
+              </div>
+              <div className={k.hint}>
+                <span>← Swipe to skip</span>
+                <span>Swipe to wear →</span>
+              </div>
+              <p className={k.why}>{look.why}</p>
+            </>
+          )}
+
+          {mode === "looks" && set && li >= total && (
+            <>
+              <div className={k.endCard}>
+                <h2>Seen all {total}.</h2>
+                <span style={{ fontSize: 15, opacity: 0.75 }}>What&apos;s off? Feta changes it for the next 3, and remembers it.</span>
+                {busy ? (
+                  <WaitFun kind="look" compact onLight />
+                ) : (
+                  <>
+                    <div className={k.chipsD}>
+                      {OFF.map((o) => (
+                        <button key={o} type="button" className={k.chipD} onClick={() => more(o)}>
+                          {o}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className={`${k.chipD} ${k.chipDark}`} style={{ alignSelf: "flex-start", marginTop: 8 }} onClick={() => more(null)}>
+                      Just show 3 more
+                    </button>
+                    {notice && <span style={{ fontSize: 13 }}>{notice}</span>}
+                  </>
+                )}
+              </div>
+              <div className={k.actions}>
+                <button type="button" className={k.round} aria-label="The last look" onClick={prev}>
+                  ‹
+                </button>
+                <span />
+                <span />
+              </div>
+            </>
+          )}
+
+          {mode === "wearing" && set && look && (
+            <>
+              <div className={k.lookHead}>
+                <span className={k.lookTitle}>{look.title}</span>
+                <span className={k.count}>Today</span>
+              </div>
+              <span className={k.styleLine}>{styleById(look.style)?.name ?? ""}</span>
+              <div className={k.deck}>
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
+              </div>
+              {!pic && !making && !remake && (
+                <button type="button" className={k.ghost} onClick={() => setRemake(true)}>
+                  Make the picture again
+                </button>
+              )}
+              <button type="button" className={k.ghost} onClick={pickDifferent}>
+                Pick a different look
               </button>
             </>
           )}
 
-          <div className={s.row} style={{ marginTop: 6 }}>
-            <span style={{ display: "flex", flexDirection: "column" }}>
-              <span className={s.kick}>BRANDS FOR YOUR STYLES</span>
-              <span className={s.small}>That sell in {origin.city.countryName}{profile.homegrownOnly ? " · homegrown only" : ""}</span>
-            </span>
-            <button type="button" className={s.link} style={{ fontSize: 13 }} onClick={() => router.push("/style/brands")}>
-              See all ›
-            </button>
-          </div>
-          {brands === null ? (
-            <span className={s.small}>Finding brands…</span>
-          ) : lineBrands.length ? (
-            <Line height={128}>
-              {lineBrands.map((b, i) => {
-                const f = 0.1 + i * 0.2;
-                return (
-                  <button key={b.id} type="button" className={s.hang} style={vars({ left: `calc(${f * 100}% - 35px)`, top: sag(f) - 2, "--sway": `${3 + (i % 3) * 0.5}s`, "--delay": `${i * 0.25}s` })} onClick={() => router.push(`/style/brands?style=${b.style}`)}>
-                    <span className={s.hanger}>
-                      <span className={s.string} />
-                      <span className={s.brandTag}>
-                        <Logo name={b.name} src={b.logo} />
-                        <span className={s.brandTagName}>{b.name}</span>
+          {mode === "worn" && set && look && (
+            <>
+              <div className={k.wornPol}>
+                <div className={k.pic}>
+                  {pic ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- kept on this phone
+                    <img src={pic} alt="" style={{ inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
+                  ) : (
+                    <StyleFigure style={look.style} wears={wears} imgStyle={{ top: 0, height: "100%" }} />
+                  )}
+                </div>
+                <i>{look.title}</i>
+              </div>
+              <h1 className={s.mast} style={{ marginBottom: 0 }}>
+                You&apos;re wearing <i>this.</i>
+              </h1>
+              <p className={k.why}>
+                Saved to your Looks{f?.where === "plan" ? ", and on your plan" : ""}. Home shows it until the day ends. Which of these do you have?
+              </p>
+              <div className={k.rows}>
+                {look.pieces.map((x, i) => (
+                  <div key={i} className={k.rowItem}>
+                    <span>{owned(x.name) ? `Your ${x.name.toLowerCase()}` : x.name}</span>
+                    {owned(x.name) ? (
+                      <span className={k.yours}>✓ Yours</span>
+                    ) : (
+                      <span style={{ display: "flex", gap: 6, flex: "none" }}>
+                        <button type="button" className={k.mini} onClick={() => have(i)}>
+                          I have it
+                        </button>
+                        <button type="button" className={k.mini} style={{ color: "var(--tan)" }} onClick={() => buy(x.name)}>
+                          Buy ›
+                        </button>
                       </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </Line>
-          ) : (
-            <span className={s.small}>No brands for your styles in {origin.city.countryName} yet. Feta is still building its library here.</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button type="button" className={k.primary} onClick={done}>
+                Done
+              </button>
+            </>
           )}
 
-          {/* Optional, out of setup so it stays short (founder, 20 Nov 2026). */}
-          {(!profile.onYou || lovedCount === 0) && (
-            <div className={s.extras}>
-              {!profile.onYou && (
-                <button type="button" className={s.extra} onClick={() => router.push("/style/setup?step=2")}>
-                  <b>See these looks on you</b>
-                  <span>Add one photo and Feta draws your outfits as you.</span>
-                </button>
-              )}
-              {lovedCount === 0 && (
-                <button type="button" className={s.extra} onClick={() => router.push("/style/setup?step=4")}>
-                  <b>Add brands you love</b>
-                  <span>Feta finds more like them, and others like you see them.</span>
-                </button>
-              )}
-            </div>
+          {mode === "limit" && (
+            <>
+              <div className={k.card}>
+                <div className={k.fig}>
+                  <StyleFigure style={p.styles[0]} wears={wears} imgStyle={{ top: 0, height: "100%", filter: "grayscale(0.2)" }} />
+                </div>
+                <div style={{ position: "absolute", left: "60%", right: 14, top: "50%", transform: "translateY(-50%)", fontSize: 14, fontWeight: 500 }}>
+                  Your go-to: <b>{styleById(p.styles[0])?.name}</b>
+                </div>
+              </div>
+              <div className={k.note}>{notice ?? "That's all the new looks for today."}</div>
+              <button type="button" className={k.ghost} onClick={() => router.push("/style/me")}>
+                Looks you wore
+              </button>
+            </>
           )}
-          <button type="button" className={s.card} onClick={() => router.push("/style/setup?step=3")}>
-            <span className={s.kick} style={{ color: "rgba(var(--inkRGB),0.55)" }}>YOUR STYLES</span>
-            <span style={{ fontSize: 13.5, flex: 1, textAlign: "left" }}>{profile.styles.map((id) => STYLES.find((x) => x.id === id)?.short).join(" · ")}</span>
-            <span className={s.link}>Edit</span>
-          </button>
         </div>
       </main>
-      <TabBar active="style" />
+      {sheet !== null && look && (
+        <PieceSheet
+          name={look.pieces[sheet].name}
+          look={look}
+          wears={wears}
+          pic={pic}
+          mine={owned(look.pieces[sheet].name)}
+          budgetText={`Brands in ${country}, within your budget`}
+          swapping={swapping}
+          onClose={() => setSheet(null)}
+          onHave={() => have(sheet)}
+          onSwap={() => swap(sheet)}
+          onBuy={() => buy(look.pieces[sheet].name)}
+        />
+      )}
+      {mode === "where" || mode === "limit" ? <TabBar active="style" /> : null}
     </>
   );
 }
