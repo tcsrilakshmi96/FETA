@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { City } from "@/lib/cities";
-import { allIntents, kindKey, matches, planSearches, type Intent } from "@/lib/server/intents";
+import { allIntents, intentWords, kindKey, matches, planSearches, plainText, type Intent } from "@/lib/server/intents";
 import { searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import {
   applyHardFilters,
@@ -294,12 +294,10 @@ export function selectPicks(
 // choreographer, "hole-in-the-wall spots" from one vibe-card tap), else the
 // first of those things in Feta's own words, else nothing: no reason beats
 // an invented one. A vibe card sets the tone, it is never a reason.
-const PLAIN = new Set(["restaurant", "restaurants", "place", "places", "food", "with", "near", "best", "class", "classes", "night", "something", "local", "good"]);
-
 export function becauseFor(served: Intent[], aiLine?: string) {
   const real = served.filter((i) => i.source !== "side" && i.reason);
-  const words = real.flatMap((i) => `${i.label} ${i.query}`.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !PLAIN.has(w));
-  const line = aiLine?.toLowerCase() ?? "";
+  const words = intentWords(real);
+  const line = plainText(aiLine ?? "");
   if (aiLine?.startsWith("Because you") && words.some((w) => line.includes(w))) return aiLine;
   return real[0]?.reason ?? "";
 }

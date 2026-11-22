@@ -7,10 +7,11 @@ import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { KIND_MAX, becauseFor, curate, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
-import { allIntents, type Intent } from "@/lib/server/intents";
+import { allIntents, intentWords, plainText, type Intent } from "@/lib/server/intents";
 import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
+import { guideEventsFor } from "@/lib/server/guide-events";
 import { cityCalendar, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -439,8 +440,9 @@ async function eventPicks(ctx: {
   const cal = cityCalendar(city.timeZone);
   const kinds: (Intent | null)[] = ctx.intents.length ? ctx.intents : [null];
 
-  const searches = await Promise.all(
-    kinds.map(async (intent) => {
+  const [searches, guides] = await Promise.all([
+    Promise.all(
+      kinds.map(async (intent) => {
       // Things booked ahead (a class, a tasting, a hike) are looked for
       // across the coming week (founder, 21 Nov 2026).
       const span: EventSpan = intent?.def.ahead ? "week" : body.when;
@@ -460,12 +462,27 @@ async function eventPicks(ctx: {
         await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
       }
       return { intent, span, ...found };
-    }),
-  );
+      }),
+    ),
+    guideEventsFor(db, city).catch(() => null),
+  ]);
+  // What's on in her city's guides (guide-events.ts) comes first, each for
+  // the thing they're into that it's about (or anything, if nothing chosen).
+  const fromGuides = guides?.searchHtml
+    ? kinds.map((intent) => {
+        const words = intent ? intentWords([intent]) : [];
+        return {
+          intent,
+          span: (intent?.def.ahead ? "week" : body.when) as EventSpan,
+          events: guides.events.filter((e) => !intent || words.some((w) => plainText(`${e.kind} ${e.title}`).includes(w))) as FoundEvent[],
+          searchHtml: guides.searchHtml,
+        };
+      })
+    : [];
 
   // Taking turns across what they're into, so one kind doesn't fill the set.
   const maxSpend = spendUpperBound(taste.answers, city);
-  const lists = searches
+  const lists = [...fromGuides, ...searches]
     .filter((s) => s.searchHtml)
     .map((s) =>
       s.events

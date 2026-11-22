@@ -151,6 +151,14 @@ export function planSearches(intents: Intent[], opts: { category: Category; when
   return { searched: [...searched, ...sides, ...fallback], broad };
 }
 
+// The telling words of what they want ("thai", "comedy", "popup"), for
+// checking that a reason or a guide's event is about it.
+const PLAIN = new Set(["restaurant", "restaurants", "place", "places", "food", "with", "near", "best", "class", "classes", "night", "something", "local", "good", "event", "events"]);
+export const plainText = (t: string) => t.toLowerCase().replace(/pop[- ]?ups?\b/g, "popup");
+export function intentWords(intents: Intent[]) {
+  return intents.flatMap((i) => plainText(`${i.label} ${i.query}`).match(/[a-z]{4,}/g) ?? []).filter((w) => !PLAIN.has(w));
+}
+
 // ---------- Does a place match an intent? ----------
 
 // Restaurant types that say nothing about the cuisine.
