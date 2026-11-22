@@ -29,8 +29,10 @@ export function lovedLabel(n?: number) {
 
 // Why a curated place is here, under its reason: loved by Feta users, a
 // local favourite (founder, 19 Nov 2026; never says where the list came
-// from), or featured in a city guide (the link is in its details).
-export function curatedLabel(p: { lovedBy?: number; local?: boolean; featured?: { guide: string } }) {
+// from), featured in a city guide (the link is in its details), or an event
+// found on one of the city's sites from her list (founder, 22 Nov 2026).
+export function curatedLabel(p: { lovedBy?: number; local?: boolean; featured?: { guide: string }; event?: { site: string; fromList?: boolean } }) {
+  if (p.event?.fromList) return `📍 Found on ${p.event.site} · Feta's guide list`;
   return lovedLabel(p.lovedBy) ?? (p.local ? "📍 Local favourite" : p.featured ? `📰 Featured in ${p.featured.guide}` : null);
 }
 

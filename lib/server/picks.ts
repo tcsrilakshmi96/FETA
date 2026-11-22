@@ -88,6 +88,7 @@ export type EventInfo = {
   venuePlaceId?: string;
   distanceKm?: number;
   ahead?: boolean; // found across the coming week (booked ahead: a class, a tasting, a hike)
+  fromList?: boolean; // found on one of the city's sites from her list
 };
 
 // Saved per set: place IDs and Feta's own words only (plus event listings).

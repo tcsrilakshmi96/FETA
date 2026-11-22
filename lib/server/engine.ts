@@ -519,6 +519,7 @@ async function eventPicks(ctx: {
           venuePlaceId: venue!.place.id,
           distanceKm: Math.round(venue!.km * 10) / 10,
           ...(span === "week" ? { ahead: true } : {}),
+          ...(e.fromList ? { fromList: true } : {}),
         },
       },
     }));

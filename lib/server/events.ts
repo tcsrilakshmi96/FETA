@@ -227,6 +227,8 @@ export function siteName(url: string) {
     "luma.com": "Luma",
     "meetup.com": "Meetup",
     "allevents.in": "AllEvents",
+    "lbb.in": "LBB",
+    "whatshot.in": "WhatsHot",
   };
   return known[host] ?? host;
 }
