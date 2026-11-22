@@ -103,25 +103,87 @@ export function fitsBudget(priceFeel: string | null, budget: string[]): boolean 
   return FEEL_LEVEL[priceFeel] <= top;
 }
 
-// What to wear: an idea for one outing, pieces named by where they sit on
-// the figure so the dots land on the clothes.
-export type Outfit = {
-  style: string; // a style id from STYLES
-  title: string; // "Smart casual"
-  big1: string; // "SMART"
-  big2: string; // "casual"
-  line: string; // one or two plain sentences
-  pieces: { top: string; bottom: string; shoes: string };
-  chips: string[]; // "Relaxed brewpub", "900 m walk"
+// What to wear (founder, 22–23 Nov 2026, docs/style-spec.md): for one
+// outing, 3 complete looks, each from one of their styles (the best fit for
+// the outing first). Every piece is named whole and sits in a slot, so the
+// lookbook card can number it on the figure and list it beside.
+export type Slot = "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra";
+export const SLOTS: Slot[] = ["layer", "top", "one-piece", "bottom", "shoes", "extra"];
+export const SLOT_NAME: Record<Slot, string> = { top: "TOP", layer: "LAYER", bottom: "BOTTOM", "one-piece": "ONE-PIECE", shoes: "SHOES", extra: "EXTRA" };
+export type Piece = { slot: Slot; name: string };
+export type Look = {
+  id: string; // stable for the day: the picture is kept under it
+  style: string; // a style id from STYLES, one of theirs
+  title: string; // "Easy linen evening"
+  why: string; // one sentence on why it suits this outing
+  pieces: Piece[];
 };
 
-export type Occasion = "dinner" | "drinks" | "do" | "day";
-export const OCCASIONS: { id: Occasion; label: string; kinds: string[] }[] = [
-  { id: "dinner", label: "Dinner", kinds: ["Casual", "Date night", "Fancy", "Fun and loud"] },
-  { id: "drinks", label: "Drinks", kinds: ["Chill bar", "Rooftop", "Club or dancing", "House party"] },
-  { id: "do", label: "Something to do", kinds: ["Gig or show", "Active", "Day out", "Hanging out"] },
-  { id: "day", label: "Just a day look", kinds: ["Work", "Errands", "Brunch", "Travel"] },
+// Where the outing is: a plan they chose, or what they said.
+export type Where = "day" | "work" | "dinner" | "drinks" | "do" | "else";
+export const WHERES: { id: Where; label: string }[] = [
+  { id: "day", label: "Just the day" },
+  { id: "work", label: "Work" },
+  { id: "dinner", label: "Dinner" },
+  { id: "drinks", label: "Drinks" },
+  { id: "do", label: "Something to do" },
+  { id: "else", label: "Somewhere else…" },
 ];
+export type LookFor = {
+  key: string; // what the day's set is kept under: "plan:<stops>", "dinner", "else:<words>"
+  text: string; // "Dinner at Toit, then drinks · 8 pm", "Dinner tonight"
+  where: Where | "plan";
+  stops: { name: string; kind: string; time?: string }[];
+  walkKm: number | null;
+  place?: string; // somewhere else: where
+  setting?: string[]; // "Outdoors", "Walking there"
+  avoid?: string; // "No heels, no skirts"
+  own?: string; // something of their own they're wearing
+  tomorrow?: boolean; // after 10 pm, for tomorrow
+};
+
+// A piece name that was cut off or trails off (review, 22 Nov 2026: "a
+// couple of outfits end mid-phrase", a top ending in "over").
+const TRAILING = /\b(over|under|with|and|or|in|of|a|an|the|plus|on|for|to|at|by|from|&)$/i;
+export function pieceProblem(name: string): string | null {
+  const n = name.trim();
+  if (n.length < 3) return "empty";
+  if (n.length > 48) return "too long";
+  if (TRAILING.test(n) || /[,;:(/-]$/.test(n)) return "ends mid-phrase";
+  const words = n.split(/\s+/).length;
+  if (words > 8) return "too long";
+  return null;
+}
+// A complete outfit: shoes, and a top with a bottom or a one-piece; every
+// name whole. Returns what's wrong, or null.
+export function lookProblem(l: Look, styles: string[]): string | null {
+  if (!styles.includes(l.style)) return "not one of their styles";
+  if (!l.title || TRAILING.test(l.title.trim()) || l.title.length > 40) return "title cut off";
+  if (!l.pieces.some((p) => p.slot === "shoes")) return "no shoes";
+  const onePiece = l.pieces.some((p) => p.slot === "one-piece");
+  if (!onePiece && !(l.pieces.some((p) => p.slot === "top") && l.pieces.some((p) => p.slot === "bottom"))) return "no top and bottom";
+  if (l.pieces.length > 5) return "too many pieces";
+  for (const p of l.pieces) {
+    const bad = pieceProblem(p.name);
+    if (bad) return `"${p.name}" ${bad}`;
+  }
+  return null;
+}
+// Two looks too alike: the same pieces reworded is not a new look (review:
+// "Constraints held, but the silhouette barely changed").
+export function tooAlike(a: Look, b: Look): boolean {
+  const words = (l: Look) => new Set(l.pieces.filter((p) => p.slot !== "shoes").flatMap((p) => p.name.toLowerCase().split(/\s+/)).filter((w) => w.length > 3));
+  const x = words(a);
+  const y = words(b);
+  const shared = [...x].filter((w) => y.has(w)).length;
+  return shared >= Math.max(3, Math.ceil(Math.min(x.size, y.size) * 0.7));
+}
+// Pieces in the order they're listed, and where each one's dot sits on a
+// standing figure (share of the picture's width and height).
+export function orderedPieces(pieces: Piece[]): Piece[] {
+  return [...pieces].sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot));
+}
+export const SLOT_AT: Record<Slot, [number, number]> = { layer: [0.36, 0.36], top: [0.56, 0.27], "one-piece": [0.52, 0.42], bottom: [0.52, 0.62], shoes: [0.52, 0.94], extra: [0.72, 0.5] };
 
 // Where a brand card links (founder, 22 Nov 2026: "dont show brand and link
 // to another country"; a tester's Mumbai H&M opened Australia, London Uniqlo

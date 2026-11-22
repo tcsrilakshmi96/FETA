@@ -3,15 +3,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trackGemini, type Sku } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
-import { STYLES, styleById, type Occasion, type Outfit, type Wears } from "@/lib/style";
+import { SLOTS, STYLES, lookProblem, orderedPieces, pieceProblem, styleById, tooAlike, type Look, type LookFor, type Piece, type Slot, type Where, type Wears } from "@/lib/style";
 
 // Style's three AI steps (founder, 20 Nov 2026), all through Gemini with
 // Feta's own data only. Photos are read or drawn and never stored:
 // - readPhotos: up to 8 inspiration photos → their styles, from the clothes
 //   alone (never age, religion, ethnicity, body, income or gender).
-// - drawOnYou: one photo of them, drawn as the same kind of illustration as
-//   the style's picture, wearing that style. About ₹4 a drawing.
-// - outfitIdea: what to wear for one outing: a direction, not exact items.
+// - makeLooks: 3 complete looks for one outing (swapPiece changes one piece).
+// - lookPicture: a realistic picture of one look, about ₹4, when it's shown.
 
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -91,131 +90,155 @@ A photo with no clear outfit: {"saw": "No clear outfit", "styles": []}.`;
   };
 }
 
-// Their photo drawn in the style, in the same look as Feta's illustrations
-// (the style's picture goes along as the reference). Returns a data URL.
-// Which figure in a style's illustration to follow (tester, 22 Nov 2026:
-// the drawing picked a man or a woman whatever they chose). "Both" takes
-// turns by outfit, so it isn't always the same one.
-export function figureFor(styleId: string, wears: Wears, seed = ""): { who: "man" | "woman"; side: string } {
-  const style = styleById(styleId);
-  const who = wears === "men" ? "man" : wears === "women" ? "woman" : [...seed].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? "man" : "woman";
-  if (!style || style.woman === "both") return { who, side: `the ${who} in it` };
-  const womanSide = style.woman;
-  const side = who === "woman" ? womanSide : womanSide === "left" ? "right" : "left";
-  return { who, side: `the ${who} on the ${side.toUpperCase()} of it (ignore the other figure)` };
+// Which figure a look shows (tester, 22 Nov 2026: the drawing picked a man
+// or a woman whatever they chose). "Both" takes turns by look.
+export function figureFor(wears: Wears, seed = ""): "man" | "woman" {
+  return wears === "men" ? "man" : wears === "women" ? "woman" : [...seed].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? "man" : "woman";
 }
 
-export async function drawOnYou(photo: string, styleId: string, reference: string, wears: Wears = "women"): Promise<string> {
-  const style = styleById(styleId);
-  if (!style) throw new Error("Unknown style");
-  if (FAKE) return reference;
-  const figure = figureFor(styleId, wears, photo.slice(-20));
-  const prompt = `Make a fashion illustration of the person in the FIRST image, full body, standing, alone, on the same plain light grey background and in exactly the same illustration style as the SECOND image (soft hand-drawn fashion illustration, natural proportions).
-Dress them in a ${style.name.toLowerCase()} outfit like ${figure.side.replace(" of it", " of the second image").replace(" in it", " in the second image")}, adapted to them.
-Keep the person recognisably themselves: face, skin tone, hair and body exactly as in their photo. Never slim, lighten, beautify or change their body or features. No text, no logos, no other people.`;
-  const data = await gemini("gemini_image", "gemini-3.1-flash-image", [{ text: prompt }, inline(photo), inline(reference)], { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
-  const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
-  const img = part?.inline_data ?? part?.inlineData;
-  if (!img?.data) throw new Error("No drawing came back");
-  return `data:${img.mime_type ?? img.mimeType ?? "image/png"};base64,${img.data}`;
-}
-
-// The outfit Feta suggested, drawn (founder, 20 Nov 2026: the idea said a
-// sleeveless knit top while the picture showed a streetwear figure in
-// cargos): on them when they added their photo, else a figure in the same
-// illustration style. About ₹4 an idea.
-export async function drawOutfit(o: { pieces: { top: string; bottom: string; shoes: string }; title: string; wears: Wears; style: string }, reference: string, photo: string | null): Promise<string> {
-  if (FAKE) return reference;
-  const figure = figureFor(o.style, o.wears, o.title);
-  const who = photo ? "the person in the FIRST image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)" : `one ${figure.who}`;
-  const prompt = `Make a fashion illustration of ${who}, full body, standing, alone, on a plain light grey background, in exactly the same illustration style as the ${photo ? "SECOND " : ""}reference image (soft hand-drawn fashion illustration, natural proportions). ${photo ? "" : `Follow ${figure.side} for the figure.`}
-They wear exactly this outfit ("${o.title}"): top: ${o.pieces.top}; bottom: ${o.pieces.bottom}; shoes: ${o.pieces.shoes}. Nothing from the reference's outfit unless it matches these pieces.
-No text, no logos, no other people.`;
-  const parts = photo ? [{ text: prompt }, inline(photo), inline(reference)] : [{ text: prompt }, inline(reference)];
+// A look's picture (founder, 22 Nov 2026: "it can just look real", not a
+// drawing or product placement): a realistic full-length photo of one
+// person of the kind they shop for wearing exactly these pieces, on the
+// lookbook's plain grey. On them when they added their photo in My style.
+// Made only when the look comes on screen, about ₹4 (founder, 22 Nov 2026).
+export async function lookPicture(look: Look, wears: Wears, photo: string | null): Promise<string> {
+  if (FAKE) throw new Error("No pictures in test mode");
+  const who = photo
+    ? "the person in the image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)"
+    : `one ${figureFor(wears, look.id)}, an ordinary adult, natural and relaxed`;
+  const prompt = `A realistic fashion lookbook photograph of ${who}, full length from head to toe, standing, facing the camera, centred, alone, on a plain light grey studio background (#dcdbd7), soft even light.
+They wear exactly this outfit, "${look.title}": ${orderedPieces(look.pieces).map((p) => `${p.slot}: ${p.name}`).join("; ")}. Nothing else that stands out.
+Real fabric and fit, like a brand's lookbook. No text, no logos, no other people, no props.`;
+  const parts = photo ? [{ text: prompt }, inline(photo)] : [{ text: prompt }];
   const data = await gemini("gemini_image", "gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
   const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
   const img = part?.inline_data ?? part?.inlineData;
-  if (!img?.data) throw new Error("No drawing came back");
+  if (!img?.data) throw new Error("No picture came back");
   return `data:${img.mime_type ?? img.mimeType ?? "image/png"};base64,${img.data}`;
 }
 
-export type OutfitAsk = {
-  styles: string[];
+export type LookAsk = {
+  styles: string[]; // theirs, strongest first
   wears: Wears;
-  occasion: Occasion | null;
-  vibe: string | null; // what kind: "Date night", "Club / dancing", or their own words
-  stops: { name: string; kind: string; time?: string }[]; // tonight's plan, if any
-  walkKm: number | null;
+  for: LookFor;
   city: string;
-  localTime: string; // "Thursday 7:40 pm"
-  avoid: string[]; // ideas already shown this time
-  usedStyles: string[]; // their styles those ideas were based on
+  localTime: string; // "Sunday 7:40 pm", the city's
+  count: number; // 3, or 1 for Ask Feta
+  wardrobe: string[]; // pieces they have ("I have one")
+  usuals: string[]; // brands they shop from
   cues: string[]; // what Feta saw in outfits they love
-  loved: string[]; // titles they loved before
-  notMe: string[]; // titles they said weren't them
-  note?: string | null; // anything else they said (from Ask Feta)
-  // Change one piece and keep the rest (founder, 20 Nov 2026: "some might
-  // like the pant idea but not the top").
-  change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } | null;
+  worn: string[]; // looks they chose before
+  off: string[]; // what was off before ("Too dressy")
+  avoid: string[]; // looks already shown for this outing
+  note?: string | null; // anything else they said (Ask Feta)
 };
 
-const OCCASION_WORDS: Record<Occasion, string> = { dinner: "going out for dinner", drinks: "going out for drinks", do: "going out to do something fun", day: "an everyday day look" };
+const WHERE_WORDS: Record<Where, string> = { day: "an everyday day: errands, coffee, whatever comes up", work: "a day at work", dinner: "going out for dinner", drinks: "going out for drinks", do: "going out to do something", else: "somewhere they describe" };
 
-export async function outfitIdea(ask: OutfitAsk): Promise<Outfit> {
+function forText(f: LookFor) {
+  if (f.where === "plan") return `Their plan${f.tomorrow ? " for tomorrow" : ""}: ${f.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${f.walkKm ? ` About ${f.walkKm.toFixed(1)} km on foot between stops.` : ""}`;
+  return [
+    `They are ${WHERE_WORDS[f.where]}${f.tomorrow ? ", tomorrow" : ""}.`,
+    f.place ? `Where: ${f.place}.` : "",
+    f.setting?.length ? `It's: ${f.setting.join(", ").toLowerCase()}.` : "",
+    f.avoid ? `They want to avoid: ${f.avoid}.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+const slotOf = (x: unknown): Slot | null => (SLOTS.includes(String(x) as Slot) ? (String(x) as Slot) : null);
+
+function parseLooks(text: string, ask: LookAsk): Look[] {
+  const parsed = JSON.parse(text) as { looks?: { style?: string; title?: string; why?: string; pieces?: { slot?: string; name?: string }[] }[] };
+  return (parsed.looks ?? []).map((l, i) => ({
+    id: `${Date.now().toString(36)}${i}${Math.random().toString(36).slice(2, 6)}`,
+    style: String(l.style ?? ""),
+    title: String(l.title ?? "").trim(),
+    why: String(l.why ?? "").trim().slice(0, 220),
+    pieces: (l.pieces ?? []).map((p) => ({ slot: slotOf(p.slot), name: String(p.name ?? "").trim() })).filter((p): p is Piece => !!p.slot),
+  })).filter((l) => l.style || ask.styles.length);
+}
+
+// 3 looks for one outing in one call (about ₹0.3): the style of theirs
+// that fits it best first, then the next best, so every style gets a turn
+// (founder, 22 Nov 2026). Every look is checked in code (complete, nothing
+// cut off, really different from the others); what fails is redone once
+// with the reason, then left out. Never cut to fit.
+export async function makeLooks(ask: LookAsk): Promise<Look[]> {
   const mine = ask.styles.map(styleById).filter((s) => s !== null);
-  if (FAKE) return fakeOutfit(mine[ask.usedStyles.length % Math.max(1, mine.length)]?.id ?? "smart-casual", ask);
-  // Another moves on to a style of theirs not used yet (founder, 20 Nov 2026: "I have only gotten streetstyle").
-  const fresh = mine.filter((m) => !ask.usedStyles.includes(m.id));
-  const what = ask.stops.length ? `Their plan: ${ask.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${ask.walkKm ? ` About ${ask.walkKm.toFixed(1)} km on foot between stops.` : ""}` : ask.occasion ? `They are ${OCCASION_WORDS[ask.occasion]}.` : "They haven't said where they're going.";
-  const kind = [ask.vibe ? `What kind of outing: ${ask.vibe}. Dress for exactly that (a fun, loud place is not a formal dinner).` : "", ask.note ? `They also said: ${ask.note}` : ""].filter(Boolean).join("\n");
-  const change = ask.change
-    ? `They like this idea, "${ask.change.outfit.title}" (top: ${ask.change.outfit.pieces.top}; bottom: ${ask.change.outfit.pieces.bottom}; shoes: ${ask.change.outfit.pieces.shoes}), except the ${ask.change.piece}. Keep everything else exactly the same (same title idea and the other two pieces word for word) and suggest a different ${ask.change.piece} that works with them for this outing.${ask.avoid.length ? ` ${ask.change.piece === "bottom" ? "Bottoms" : ask.change.piece === "top" ? "Tops" : "Shoes"} already tried: ${ask.avoid.join("; ")}.` : ""}\n`
-    : "";
-  const prompt = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
-Their styles: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}.
-${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.usedStyles.length && fresh.length ? `Base this idea on one of these styles of theirs, not used yet: ${fresh.map((m) => m.id).join(", ")}.\n` : ""} They wear ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
-${what}
-${kind}
-${change}${ask.loved.length ? `Ideas they loved before: ${ask.loved.join("; ")}.\n` : ""}${ask.notMe.length ? `Ideas that weren't them: ${ask.notMe.join("; ")}.\n` : ""}${ask.avoid.length && !ask.change ? `Already suggested now, give something different: ${ask.avoid.join("; ")}.\n` : ""}
-Suggest what to wear: a direction from THEIR styles that suits the place and the evening, not brands or colours. "style" must be the one of their styles the pieces really belong to. Plain, warm, short. Never comment on body, size or looks.
-Reply with only JSON: {"style": the style id it is based on (one of theirs), "title": 2 to 4 words, e.g. "Smart casual" or "Streetwear, dressed up", "big1": one word in capitals for a poster, e.g. "SMART", "big2": one or two lowercase words, e.g. "casual", "line": one or two sentences on why it suits tonight, "pieces": {"top": 2 to 5 words, "bottom": 2 to 5 words, "shoes": 2 to 6 words}, "chips": 2 to 4 short facts it is based on, e.g. "Relaxed brewpub", "900 m walk", "Late dinner"}`;
-  const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
-  const o = JSON.parse(textOf(data)) as Outfit;
-  const style = styleById(o.style) && ask.styles.includes(o.style) ? o.style : (mine[0]?.id ?? "smart-casual");
-  const cut = (s: unknown, n: number) => String(s ?? "").slice(0, n);
-  if (ask.change) {
-    const keep = ask.change.outfit;
-    const piece = ask.change.piece;
-    return { ...keep, pieces: { ...keep.pieces, [piece]: cut(o.pieces?.[piece], piece === "shoes" ? 48 : 40) || keep.pieces[piece] }, line: cut(o.line, 260) || keep.line };
+  if (FAKE) return fakeLooks(ask);
+  const n = Math.max(1, Math.min(3, ask.count));
+  const rule = mine.length >= n
+    ? `First decide which of their styles suit this outing best, best first. Look 1 uses the best, look ${n > 1 ? "2 the next" : ""}${n > 2 ? ", look 3 the one after" : ""}.`
+    : mine.length === 1
+      ? `They have one style, so give ${n} different takes on it${n > 1 ? " (one simpler, one dressed up or bolder)" : ""}.`
+      : `Use their styles best fit first, then a second take on the best one.`;
+  const base = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
+Their styles, strongest first: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}. They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
+${forText(ask.for)}
+${ask.for.own ? `They're wearing something of their own: ${ask.for.own}. Use it in every look, word for word.\n` : ""}${ask.wardrobe.length ? `Pieces they own (use them where they fit, named the same): ${ask.wardrobe.slice(0, 20).join("; ")}.\n` : ""}${ask.usuals.length ? `Brands they shop from (the kind of clothes, never name them): ${ask.usuals.slice(0, 8).join(", ")}.\n` : ""}${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.worn.length ? `Looks they chose before: ${ask.worn.slice(-6).join("; ")}.\n` : ""}${ask.off.length ? `What was off in earlier looks (fix it): ${ask.off.slice(-4).join("; ")}.\n` : ""}${ask.avoid.length ? `Already shown for this outing, give clearly different ones: ${ask.avoid.join("; ")}.\n` : ""}${ask.note ? `They also said: ${ask.note}\n` : ""}
+${rule}
+Give ${n} complete outfit${n > 1 ? "s" : ""}. Each has shoes, and a top with a bottom (or a one-piece like a dress or jumpsuit); add a layer or one extra (bag, belt, jewellery) only when it matters. Name every piece fully in 2 to 6 plain words, e.g. "High-neck linen blouse", never ending mid-phrase. ${n > 1 ? "The looks must differ in silhouette and pieces, not the same outfit reworded. " : ""}Hard asks (covered shoulders, no heels, keep my boots) always hold. Dress for exactly this outing and time. Plain, warm, short. Never brands or prices; never comment on body, size or looks.
+Reply with only JSON: {"looks": [{"style": the style id it is from (one of theirs), "title": 2 to 4 words, "why": one short sentence on why it suits this outing, "pieces": [{"slot": "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra", "name": the piece}]}]}`;
+  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+  let looks = parseLooks(textOf(ask1), ask);
+  const problems = (ls: Look[]) =>
+    ls.map((l, i) => lookProblem(l, ask.styles) ?? (ls.slice(0, i).some((m) => tooAlike(l, m)) ? "too like an earlier look" : null));
+  let bad = problems(looks);
+  if (looks.length < n || bad.some(Boolean)) {
+    // Once more, saying what was wrong (never cut to fit).
+    const why = bad.map((b, i) => (b ? `look ${i + 1}: ${b}` : "")).filter(Boolean).join("; ") || `only ${looks.length} came back`;
+    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+    const again = parseLooks(textOf(ask2), ask);
+    const againBad = problems(again);
+    const good = (ls: Look[], b: (string | null)[]) => ls.filter((_, i) => !b[i]);
+    looks = good(again, againBad).length >= good(looks, bad).length ? again : looks;
+    bad = problems(looks);
   }
-  return {
-    style,
-    title: cut(o.title, 40),
-    big1: cut(o.big1, 10).toUpperCase(),
-    big2: cut(o.big2, 16).toLowerCase(),
-    line: cut(o.line, 260),
-    pieces: { top: cut(o.pieces?.top, 40), bottom: cut(o.pieces?.bottom, 40), shoes: cut(o.pieces?.shoes, 48) },
-    chips: (o.chips ?? []).slice(0, 4).map((c) => cut(c, 24)),
-  };
+  const ok = looks.filter((_, i) => !bad[i]).slice(0, n);
+  if (!ok.length) throw new Error(`No complete look: ${bad.join("; ")}`);
+  return ok.map((l) => ({ ...l, pieces: orderedPieces(l.pieces) }));
 }
 
-function fakeOutfit(id: string, ask: OutfitAsk): Outfit {
-  const s = styleById(id) ?? STYLES[0];
-  return {
-    style: s.id,
-    title: s.short,
-    big1: s.big,
-    big2: "tonight",
-    line: `Made-up idea for testing: ${s.name.toLowerCase()} for ${ask.stops[0]?.name ?? ask.occasion ?? "tonight"}.`,
-    pieces: { top: "An easy top layer", bottom: "Relaxed trousers", shoes: "Comfortable shoes" },
-    chips: ask.stops.length ? ["Your plan", "Test mode"] : ["Test mode"],
-  };
+// Change one piece and keep the rest (founder, 20 Nov 2026: "some might
+// like the pant idea but not the top").
+export async function swapPiece(ask: LookAsk, look: Look, index: number, tried: string[]): Promise<Look> {
+  const piece = look.pieces[index];
+  if (!piece) throw new Error("No such piece");
+  if (FAKE) return { ...look, pieces: look.pieces.map((p, i) => (i === index ? { ...p, name: `Another ${p.slot === "one-piece" ? "dress" : p.slot}` } : p)) };
+  const prompt = `You are Feta's stylist in ${ask.city}. ${forText(ask.for)}
+They like this look, "${look.title}": ${look.pieces.map((p) => `${p.slot}: ${p.name}`).join("; ")}, except the ${piece.slot} ("${piece.name}"). Suggest a different ${piece.slot} that works with the rest for this outing.${tried.length ? ` Already tried: ${tried.join("; ")}.` : ""} Name it fully in 2 to 6 plain words, never ending mid-phrase; no brands.
+Reply with only JSON: {"name": the new piece, "why": the look's one-sentence why, updated if needed}`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt + (attempt ? "\nYour last answer was cut off or empty. Answer again." : "") }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
+    const o = JSON.parse(textOf(data)) as { name?: string; why?: string };
+    const name = String(o.name ?? "").trim();
+    if (!pieceProblem(name) && name.toLowerCase() !== piece.name.toLowerCase())
+      return { ...look, why: String(o.why ?? "").trim().slice(0, 220) || look.why, pieces: look.pieces.map((p, i) => (i === index ? { ...p, name } : p)) };
+  }
+  throw new Error("No complete piece came back");
 }
 
-// Brands ranked for this person (founder, 20 Nov 2026: "it feels like a
-// hardcoded thing"): what Feta saw in their photos, their styles, budget,
-// what they shop for and the brands they love decide the order, with one
-// line on why each suits them. Library facts only (no Google content).
+// Test mode: made-up but complete looks, one per style in turn.
+function fakeLooks(ask: LookAsk): Look[] {
+  const n = Math.max(1, Math.min(3, ask.count));
+  const seen = ask.avoid.length;
+  return Array.from({ length: n }, (_, k) => {
+    const id = ask.styles[(k + seen) % Math.max(1, ask.styles.length)] ?? "smart-casual";
+    const st = styleById(id) ?? STYLES[0];
+    return {
+      id: `fake${seen}${k}${Date.now().toString(36)}`,
+      style: st.id,
+      title: `${st.short} take ${seen + k + 1}`,
+      why: `Made-up look for testing, for ${ask.for.text.toLowerCase()}.`,
+      pieces: orderedPieces([
+        { slot: "top", name: ask.wears === "men" ? "Relaxed linen shirt" : "Fitted cotton top" },
+        { slot: "bottom", name: "Straight-leg trousers" },
+        { slot: "shoes", name: ask.for.own ? ask.for.own : "White leather sneakers" },
+      ]),
+    };
+  });
+}
+
 export type RankAsk = {
   cues: string[];
   styles: string[];

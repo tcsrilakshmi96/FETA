@@ -458,5 +458,20 @@
   "kind": "function",
   "name": "budget_today",
   "file": "20261121100000_test_budget.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_sets",
+  "file": "20261123100000_style_looks.sql"
+ },
+ {
+  "kind": "column",
+  "name": "style_profiles.wardrobe",
+  "file": "20261123100000_style_looks.sql"
+ },
+ {
+  "kind": "column",
+  "name": "style_profiles.off_notes",
+  "file": "20261123100000_style_looks.sql"
  }
 ]

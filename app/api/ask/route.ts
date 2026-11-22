@@ -6,8 +6,8 @@ import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
 import { planDays } from "@/lib/server/plan-days";
-import { outfitIdea } from "@/lib/server/style";
-import { OCCASIONS, styleById, type Occasion, type Outfit } from "@/lib/style";
+import { makeLooks } from "@/lib/server/style";
+import { WHERES, styleById, type Look, type Where } from "@/lib/style";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
 import type { Itinerary } from "@/lib/server/itinerary";
@@ -62,7 +62,7 @@ export type AskReply = {
   // What to wear (founder, 20 Nov 2026: Ask Feta "should ideally" give style
   // suggestions): an outfit from their styles, drawn on the phone, with a few
   // brands for the look in their country.
-  outfit?: Outfit | null;
+  outfit?: Look | null;
   brands?: { id: string; name: string; logo: string | null; homegrown: boolean }[];
 };
 
@@ -140,7 +140,7 @@ Real places come only from Feta's own search, which checks them against their di
 Besides talking, you can do one of these per reply (leave the others null).
 - "search": up to 2 searches at once (an array), e.g. something to do and somewhere to eat for an evening out. Each: places to eat or drink, or things to do, at any day and time: {"category": "food_drinks" or "experiences", "when": "tonight" or "weekend", "day": YYYY-MM-DD when they mean a particular day (tomorrow, Friday), else null, "time": "HH:MM" when they mean a time of day (06:00 for a sunrise hike, 13:00 for lunch), else null, "hours": how long they'll be there (1 to 6), "further": true when it's worth going beyond their usual distance (a hike, a lake, a beach, a day trip) or they ask to, "place": a city or neighbourhood they named, or null for where they are, "tweaks": any of ${JSON.stringify(TWEAKS)}, "note": what they want in a few words, e.g. "romantic, quiet, live jazz" or "sunrise trek, Nandi Hills"}. Feta shows the best 3 that match for each.
 - "itinerary": a stop-by-stop plan for a day or two where they are, or a day trip nearby: {"place": the city or area, or null for where they are, "days": 1 to 3, "start": YYYY-MM-DD only if they said when, else null, "who": "solo", "partner", "friends", "family" or "kids" only if they said who's coming in this chat, else null, "note": the mood and must-dos, e.g. "slow mornings, food and art"}.
-- "outfit": what to wear, whenever they ask what to wear or how to dress for something: {"occasion": "dinner", "drinks", "do" (something to do) or "day" (an everyday look), "vibe": the kind of outing in a few words, e.g. "date night", "rooftop bar", "office party", "note": anything else that matters, e.g. "it'll be cold", "my boyfriend's parents"}. Feta shows a drawn outfit from their own styles with brands for it; your reply adds a line of advice, never a list of items. Ask the kind of outing first (one question with options) if you don't know it.
+- "outfit": what to wear, whenever they ask what to wear or how to dress for something: {"occasion": "dinner", "drinks", "work", "do" (something to do), "day" (an everyday look) or "else" (anything else, say it in vibe), "vibe": the kind of outing in a few words, e.g. "date night", "rooftop bar", "office party", "note": anything else that matters, e.g. "it'll be cold", "my boyfriend's parents"}. Feta shows a complete look from their own styles with brands for it; your reply adds a line of advice, never a list of items. Ask the kind of outing first (one question with options) if you don't know it.
 - "route": any trip, once you know where (never choose the destination for them: if they want a trip and haven't said where, ask, with a few options that suit them): travelling somewhere for 2 days or more (even one city, like "3 days in Calicut"), a country or region, or several cities. It becomes a trip card with getting there and around, where to stay, and day plans: {"title": e.g. "Japan", "start": YYYY-MM-DD only if they said when (a month alone means the 1st of the coming one), else null, "who": as above (null unless they said), "edit": true when changing the trip above, "cities": [{"name", "country", "nights": a number, "story": two short sentences on why it's worth it for them, tied to what they asked for and the season (never invent who they're with or a taste they didn't tell you), "focus": 3 to 6 words}]} in a sensible order, nights adding up to the trip. To change the trip above, send the whole route again with "edit": true. Once they're happy with it, don't send it again.
 
 Reply with only a JSON object:
@@ -355,37 +355,38 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
 
   // What to wear: an outfit from their styles (Gemini, Feta's own data
   // only), with brands for the look that sell in their country.
-  let outfit: Outfit | null = null;
+  let outfit: Look | null = null;
   let brands: AskReply["brands"] = [];
   // "What should I wear…" always gets the outfit card: the model sometimes
   // answered in words only (audit, 20 Nov 2026).
   const wearAsk = /\b(what (should|do|can) i wear|what to wear|outfit|how (should|do) i dress|dress (up )?for)\b/i.test(message);
   // …unless it's asking what kind of outing first (then the card comes with the answer).
   if (!parsed.outfit && wearAsk && !(parsed.options ?? []).length && !searches.length && !itinerary && !tripId) {
-    const occ = /\b(drinks?|bar|pub|club|party)\b/i.test(message) ? "drinks" : /\b(dinner|lunch|brunch|restaurant|date)\b/i.test(message) ? "dinner" : /\b(work|office|errands|day)\b/i.test(message) ? "day" : "do";
+    const occ = /\b(drinks?|bar|pub|club|party)\b/i.test(message) ? "drinks" : /\b(dinner|lunch|brunch|restaurant|date)\b/i.test(message) ? "dinner" : /\b(work|office)\b/i.test(message) ? "work" : /\b(errands|day)\b/i.test(message) ? "day" : "do";
     parsed.outfit = { occasion: occ, vibe: message.slice(0, 60) };
   }
   if (parsed.outfit && typeof parsed.outfit === "object" && !(parsed.options ?? []).length && !searches.length && !itinerary && !tripId) {
     const o = parsed.outfit;
-    const occasion = OCCASIONS.some((x) => x.id === o.occasion) ? (o.occasion as Occasion) : null;
-    const cut = (v: unknown, n: number) => (v ? String(v).slice(0, n) : null);
+    // The old "day" (an everyday look) and the new outings both map to Style's.
+    const where: Where = WHERES.some((x) => x.id === o.occasion) ? (o.occasion as Where) : "else";
+    const cut = (v: unknown, n: number) => (v ? String(v).slice(0, n) : undefined);
+    const { data: lovedNames } = await db.from("loved_brands").select("brands (name)");
     outfit = await withCosts(db, "ask_outfit", () =>
-      outfitIdea({
+      makeLooks({
         styles: myStyles.length ? myStyles : ["smart-casual", "basics"],
         wears: styleProfile?.wears ?? "women",
-        occasion,
-        vibe: cut(o.vibe, 60),
-        note: cut(o.note, 160),
-        stops: [],
-        walkKm: null,
+        for: { key: "ask", text: cut(o.vibe, 60) ?? "Ask Feta", where, stops: [], walkKm: null, place: where === "else" ? cut(o.vibe, 60) : undefined },
+        note: cut([o.vibe, o.note].filter(Boolean).join(". "), 200) ?? null,
         city: homeCity?.name ?? "their city",
         localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, timeZone: homeCity?.timeZone ?? "UTC" }).format(new Date()),
-        avoid: [],
-        usedStyles: [],
+        count: 1,
+        wardrobe: styleProfile?.wardrobe ?? [],
+        usuals: ((lovedNames ?? []) as unknown as { brands: { name: string } | null }[]).map((r) => r.brands?.name).filter((n): n is string => !!n),
         cues: styleProfile?.cues ?? [],
-        loved: [],
-        notMe: [],
-      }),
+        worn: [],
+        off: styleProfile?.off_notes ?? [],
+        avoid: [],
+      }).then((ls) => ls[0] ?? null),
     ).catch((error) => {
       console.error(error);
       return null;

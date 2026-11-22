@@ -3,8 +3,9 @@
 import type { City } from "@/lib/cities";
 import { distanceKm } from "@/lib/cities";
 import { fetchNightPlaces, loadPlans, localDay } from "@/lib/night-client";
+import { loadOrigin } from "@/lib/origin";
 import { currentUserId, supabase } from "@/lib/supabase";
-import { brandPrice, shopLink, type BrandPrice, type Occasion, type Outfit, type Wears } from "@/lib/style";
+import { brandPrice, shopLink, type BrandPrice, type Look, type LookFor, type Wears } from "@/lib/style";
 import type { Currency } from "@/lib/currency";
 
 // Style on the phone (founder, 20 Nov 2026): the person's style profile,
@@ -21,6 +22,8 @@ export type StyleProfile = {
   onYou: boolean;
   votes: { look: string; verdict: "love" | "not_me"; at: string }[];
   cues: string[]; // what Feta saw in their photos, in style words (never the photos)
+  wardrobe: string[]; // pieces they have ("I have one"), used in every look
+  offNotes: string[]; // what was off ("Too dressy"), so the next looks fix it
 };
 
 async function token() {
@@ -48,11 +51,10 @@ export async function loadStyleProfile(): Promise<StyleProfile | null> {
   if (!(await currentUserId())) return null;
   const { data } = await supabase().from("style_profiles").select("*").maybeSingle();
   if (!data) return null;
-  return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [], cues: data.cues ?? [] };
+  return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [], cues: data.cues ?? [], wardrobe: data.wardrobe ?? [], offNotes: data.off_notes ?? [] };
 }
 
 export async function saveStyleProfile(p: StyleProfile, city: City | null) {
-  profileOnce = null;
   const userId = await currentUserId();
   if (!userId) return;
   const row = {
@@ -65,6 +67,8 @@ export async function saveStyleProfile(p: StyleProfile, city: City | null) {
       on_you: p.onYou,
       outfit_votes: p.votes.slice(-40),
       cues: p.cues.slice(0, 8),
+      wardrobe: p.wardrobe.slice(-40),
+      off_notes: p.offNotes.slice(-12),
       city_id: city?.id ?? null,
       country: city?.country ?? null,
       time_zone: city?.timeZone ?? null,
@@ -72,9 +76,9 @@ export async function saveStyleProfile(p: StyleProfile, city: City | null) {
       updated_at: new Date().toISOString(),
     };
   let { error } = await supabase().from("style_profiles").upsert(row);
-  // Before the cues column exists (migration 20261120160000), save the rest.
-  if (error?.message.includes("cues")) {
-    ({ error } = await supabase().from("style_profiles").upsert({ ...row, cues: undefined }));
+  // Before the wardrobe columns exist (migration 20261123100000), save the rest.
+  if (error && /wardrobe|off_notes/.test(error.message)) {
+    ({ error } = await supabase().from("style_profiles").upsert({ ...row, wardrobe: undefined, off_notes: undefined }));
   }
   if (error) console.error("Saving style failed", error.message);
 }
@@ -108,10 +112,6 @@ export function styleLimit() {
 
 export function readStylePhotos(photos: string[], wears: Wears) {
   return post<{ photos?: { saw: string; styles: string[] }[]; styles?: { id: string; why: string; photos: number[] }[]; notice?: string }>("/api/style/read", { photos, wears });
-}
-
-export function drawStyle(photo: string, style: string, wears: Wears) {
-  return post<{ image?: string; notice?: string }>("/api/style/draw", { photo, style, wears });
 }
 
 // Their photo and drawings live in this phone's storage only.
@@ -162,25 +162,32 @@ export async function forgetOnYou() {
 export type TonightPlan = { stops: { name: string; kind: string; time?: string }[]; walkKm: number | null; title: string };
 
 // What Feta is dressing them for: a plan or place they chose (Plan my
-// evening, "See the look", a place's details), so Style home uses it. Never
-// Home's suggested plan (founder, 21 Nov 2026: "it has automatically chosen
-// my plan for me").
-// (A new key on 21 Nov 2026, so a plan Home chose earlier that day is dropped.)
-const WEAR_FOR = "feta.wearFor.chosen";
+// evening, "What to wear" on a plan or place), so Style uses it. Never Home's
+// suggested plan (founder, 21 Nov 2026: "it has automatically chosen my plan
+// for me"). Kept for the day on this phone, so reopening the app keeps it
+// (review, 22 Nov 2026: a plan from "See the look" was gone after reopening).
+const CHOSEN_FOR = "feta.style.for";
 export function setWearFor(plan: TonightPlan) {
+  setLookFor(lookForPlan(plan));
+}
+export function setLookFor(f: LookFor | null) {
   try {
-    sessionStorage.setItem(WEAR_FOR, JSON.stringify({ ...plan, day: localDay(new Date()) }));
+    if (f) localStorage.setItem(CHOSEN_FOR, JSON.stringify({ f, day: cityDay() }));
+    else localStorage.removeItem(CHOSEN_FOR);
   } catch {
-    // Style home asks instead.
+    // Style asks instead.
   }
 }
-function wearForToday(): TonightPlan | null {
+export function chosenLookFor(): LookFor | null {
   try {
-    const kept = JSON.parse(sessionStorage.getItem(WEAR_FOR) ?? "null") as (TonightPlan & { day: string }) | null;
-    return kept && kept.day === localDay(new Date()) ? kept : null;
+    const kept = JSON.parse(localStorage.getItem(CHOSEN_FOR) ?? "null") as { f: LookFor; day: string } | null;
+    return kept && kept.day === cityDay() ? kept.f : null;
   } catch {
     return null;
   }
+}
+export function lookForPlan(plan: TonightPlan, tomorrow = false): LookFor {
+  return { key: `plan:${plan.stops.map((s) => s.name).join("|")}`.slice(0, 200), text: plan.title, where: "plan", stops: plan.stops, walkKm: plan.walkKm, tomorrow };
 }
 
 // From a plan on the phone (Plan my evening) or one place (its details).
@@ -194,26 +201,13 @@ export function planFromStops(stops: { name: string; kind: string; time?: Date }
   };
 }
 
-// An outfit idea for a plan from their own styles (kept for the day).
-let profileOnce: Promise<StyleProfile | null> | null = null;
-export async function wearFor(plan: TonightPlan): Promise<{ outfit: Outfit; wears: Wears } | null> {
-  profileOnce ??= loadStyleProfile();
-  const p = await profileOnce;
-  if (!p?.styles.length) return null;
-  const { loadOrigin } = await import("@/lib/origin");
-  const origin = loadOrigin();
-  if (!origin) return null;
-  const r = await outfitFor({ styles: p.styles, wears: p.wears, occasion: null, vibe: null, plan, cityId: origin.city.id, avoid: [], usedStyles: [], cues: p.cues, loved: [], notMe: [] });
-  return r?.outfit ? { outfit: r.outfit, wears: p.wears } : null;
-}
-
 export async function tonightPlan(): Promise<TonightPlan | null> {
   const today = localDay(new Date());
   const plan = (await loadPlans()).find((p) => p.day === today);
-  if (!plan) return wearForToday();
+  if (!plan) return null;
   const read = await fetchNightPlaces(plan.placeIds);
   const places = read?.places ?? [];
-  if (!places.length) return wearForToday();
+  if (!places.length) return null;
   const kindWord = { EAT: "dinner", DRINK: "drinks", DO: "something to do" } as const;
   let walk = 0;
   for (let i = 1; i < places.length; i++) walk += distanceKm(places[i - 1], places[i]);
@@ -227,66 +221,123 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
   };
 }
 
-// One idea at a time; kept for the day so opening Style again costs nothing.
-// The time where they're planning (the city's, not the phone's: tester, 22
-// Nov 2026: "Sunday afternoon" in the morning), and the part of the day,
-// so a morning look isn't kept for the evening.
-async function cityClock() {
-  const { loadOrigin } = await import("@/lib/origin");
-  const timeZone = loadOrigin()?.city.timeZone;
+// The city's clock (never the phone's: tester, 22 Nov 2026: "Sunday
+// afternoon" in the morning): today's date there, the hour, and the time.
+function cityZone() {
+  return loadOrigin()?.city.timeZone;
+}
+export function cityDay(offsetDays = 0): string {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  const timeZone = cityZone();
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", ...(timeZone ? { timeZone } : {}) }).format(d);
+}
+export function cityNow() {
+  const timeZone = cityZone();
   const now = new Date();
-  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...(timeZone ? { timeZone } : {}) }).format(now)) % 24;
+  const z = timeZone ? { timeZone } : {};
   return {
-    localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, ...(timeZone ? { timeZone } : {}) }).format(now),
-    part: hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening",
+    hour: Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...z }).format(now)) % 24,
+    localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, ...z }).format(now),
+    clock: new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, ...z }).format(now).replace(" ", " "),
+    date: new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", ...z }).format(now).replace(",", ""),
   };
 }
 
-export async function outfitFor(ask: { styles: string[]; wears: Wears; occasion: Occasion | null; vibe: string | null; plan: TonightPlan | null; cityId: string; avoid: string[]; usedStyles: string[]; cues: string[]; loved: string[]; notMe: string[]; change?: { piece: "top" | "bottom" | "shoes"; outfit: Outfit } }): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
-  const key = `feta.outfit:${localDay(new Date())}:${(await cityClock()).part}:${ask.change ? `${ask.change.piece}:${JSON.stringify(ask.change.outfit.pieces)}:` : ""}${ask.occasion ?? "plan"}:${ask.vibe ?? ""}:${ask.plan?.title ?? ""}:${ask.styles.join(",")}:${ask.wears}:${ask.avoid.length}`;
-  try {
-    const kept = sessionStorage.getItem(key);
-    if (kept) return JSON.parse(kept);
-  } catch {
-    // Not kept.
-  }
-  // The same ask already on its way shares its answer (one look, not three).
-  const waiting = asking.get(key);
-  if (waiting) return waiting;
-  const work = askOutfit(ask, key);
-  asking.set(key, work);
-  work.finally(() => asking.delete(key));
-  return work;
+// The day's looks for one outing, kept on their account (migration
+// 20261123100000) so the look stays put and comes back on any phone, and
+// coming back costs nothing.
+export type LookSet = { id: string; day: string; forKey: string; forText: string; forDetail: LookFor | null; setNo: number; looks: Look[]; chosen: number | null };
+type SetRow = { id: string; day: string; for_key: string; for_text: string; for_detail: LookFor | null; set_no: number; looks: Look[]; chosen: number | null };
+const setOf = (r: SetRow): LookSet => ({ id: r.id, day: r.day, forKey: r.for_key, forText: r.for_text, forDetail: r.for_detail ?? null, setNo: r.set_no, looks: r.looks ?? [], chosen: r.chosen });
+const SET_COLS = "id, day, for_key, for_text, for_detail, set_no, looks, chosen";
+
+export async function loadSet(day: string, forKey: string): Promise<LookSet | null> {
+  if (!(await currentUserId())) return null;
+  const { data } = await supabase().from("style_sets").select(SET_COLS).eq("day", day).eq("for_key", forKey).order("set_no", { ascending: false }).limit(1).maybeSingle();
+  return data ? setOf(data as SetRow) : null;
 }
 
-const asking = new Map<string, Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null>>();
+// The look they chose for a day, whatever it was for.
+export async function wornOn(day: string): Promise<LookSet | null> {
+  if (!(await currentUserId())) return null;
+  const { data } = await supabase().from("style_sets").select(SET_COLS).eq("day", day).not("chosen", "is", null).order("chosen_at", { ascending: false }).limit(1).maybeSingle();
+  return data ? setOf(data as SetRow) : null;
+}
 
-async function askOutfit(ask: Parameters<typeof outfitFor>[0], key: string): Promise<{ outfit?: Outfit; notice?: string; limited?: boolean } | null> {
-  const { localTime } = await cityClock();
-  const res = await post<{ outfit?: Outfit; notice?: string; limited?: boolean }>("/api/style/outfit", {
-    styles: ask.styles,
-    wears: ask.wears,
-    occasion: ask.plan ? null : ask.occasion,
-    vibe: ask.plan ? null : ask.vibe,
-    stops: ask.plan?.stops ?? [],
-    walkKm: ask.plan?.walkKm ?? null,
-    cityId: ask.cityId,
-    localTime,
-    avoid: ask.avoid,
-    usedStyles: ask.usedStyles,
-    cues: ask.cues,
-    loved: ask.loved,
-    notMe: ask.notMe,
-    change: ask.change,
-  });
-  if (res?.outfit) {
+// Looks you wore, newest first.
+export async function wornLooks(limit = 12): Promise<LookSet[]> {
+  if (!(await currentUserId())) return [];
+  const { data } = await supabase().from("style_sets").select(SET_COLS).not("chosen", "is", null).order("chosen_at", { ascending: false }).limit(limit);
+  return ((data ?? []) as SetRow[]).map(setOf);
+}
+
+export type LooksReply = { set?: LookSet; notice?: string; limited?: boolean };
+
+// A new set of 3 looks for an outing (after "What's off?" or "3 more", the
+// next set number, avoiding what was shown).
+export async function newSet(f: LookFor, day: string, cityId: string, setNo: number, avoid: string[], city: City | null): Promise<LooksReply> {
+  const res = await post<{ looks?: Look[]; notice?: string; limited?: boolean }>("/api/style/looks", { for: f, cityId, localTime: cityNow().localTime, avoid });
+  if (!res) return { notice: "Feta couldn't reach the server. Check your connection and try again." };
+  if (!res.looks?.length) return { notice: res.notice, limited: res.limited };
+  const userId = await currentUserId();
+  const row = { user_id: userId, day, for_key: f.key, for_text: f.text, for_detail: f, set_no: setNo, looks: res.looks, city_id: city?.id ?? null, country: city?.country ?? null, time_zone: city?.timeZone ?? null, currency: city?.currency ?? null };
+  const { data, error } = await supabase().from("style_sets").upsert(row, { onConflict: "user_id,day,for_key,set_no" }).select(SET_COLS).single();
+  if (error) console.error("Saving looks failed", error.message);
+  return { set: data ? setOf(data as SetRow) : { id: "", day, forKey: f.key, forText: f.text, forDetail: f, setNo, looks: res.looks, chosen: null } };
+}
+
+// One piece changed, the rest kept; saved into the set.
+export async function swapInSet(set: LookSet, f: LookFor, cityId: string, lookIndex: number, pieceIndex: number, tried: string[]): Promise<{ set?: LookSet; notice?: string }> {
+  const res = await post<{ look?: Look; notice?: string }>("/api/style/looks", { for: f, cityId, localTime: cityNow().localTime, swap: { look: set.looks[lookIndex], index: pieceIndex, tried } });
+  if (!res?.look) return { notice: res?.notice ?? "Couldn't find another one just now." };
+  // A new id: the picture shows the new piece.
+  const look = { ...res.look, id: `${set.looks[lookIndex].id}s${tried.length}` };
+  const looks = set.looks.map((l, i) => (i === lookIndex ? look : l));
+  if (set.id) await supabase().from("style_sets").update({ looks }).eq("id", set.id);
+  return { set: { ...set, looks } };
+}
+
+// Wear this: one look a day (any earlier choice that day is let go).
+export async function chooseLook(set: LookSet, index: number | null) {
+  if (!set.id) return;
+  if (index !== null) await supabase().from("style_sets").update({ chosen: null, chosen_at: null }).eq("day", set.day).not("chosen", "is", null);
+  const { error } = await supabase().from("style_sets").update({ chosen: index, chosen_at: index === null ? null : new Date().toISOString() }).eq("id", set.id);
+  if (error) console.error("Saving the look failed", error.message);
+}
+
+// A look's realistic picture, made once when it's shown (about ₹4) and kept
+// on this phone under the look's id. On them when they added their photo.
+const picturesAsked = new Map<string, Promise<string | null>>();
+export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
+  const key = `pic:${look.id}`;
+  const waiting = picturesAsked.get(key);
+  if (waiting) return waiting;
+  const work = (async () => {
+    const kept = await fromPhone(key);
+    if (kept) return kept;
+    // One that failed today isn't tried again on every visit (₹4 a go).
+    const failedKey = `feta.picFailed:${key}`;
     try {
-      sessionStorage.setItem(key, JSON.stringify(res));
+      if (sessionStorage.getItem(failedKey)) return null;
     } catch {
-      // Not kept.
+      // Tried again.
     }
-  }
-  return res;
+    const photo = await fromPhone("selfie");
+    const r = await post<{ image?: string }>("/api/style/picture", { look, wears, photo });
+    if (r?.image) await keepOnPhone(key, r.image);
+    else
+      try {
+        sessionStorage.setItem(failedKey, "1");
+      } catch {
+        // Tried again next time.
+      }
+    return r?.image ?? null;
+  })();
+  picturesAsked.set(key, work);
+  return work;
+}
+export async function keptPicture(look: Look): Promise<string | null> {
+  return fromPhone(`pic:${look.id}`);
 }
 
 // Brands for their styles that sell in their country, from the library:
@@ -611,31 +662,6 @@ export function acrossStyles(cards: BrandCard[], styles: string[], n: number): B
   return out;
 }
 
-// The suggested outfit drawn (on them when they added their photo), kept on
-// this phone so the same idea is never drawn twice.
-export async function drawLook(o: Outfit, wears: Wears): Promise<string | null> {
-  const key = `look:${wears}:${o.title}:${o.pieces.top}:${o.pieces.bottom}:${o.pieces.shoes}`;
-  const kept = await fromPhone(key);
-  if (kept) return kept;
-  // A drawing that failed today isn't tried again on every visit (₹4 a go).
-  const failedKey = `feta.drawFailed:${localDay(new Date())}:${key}`;
-  try {
-    if (sessionStorage.getItem(failedKey)) return null;
-  } catch {
-    // Tried again.
-  }
-  const photo = await fromPhone("selfie");
-  const r = await post<{ image?: string }>("/api/style/draw", { style: o.style, outfit: { title: o.title, pieces: o.pieces }, wears, photo });
-  if (r?.image) await keepOnPhone(key, r.image);
-  else
-    try {
-      sessionStorage.setItem(failedKey, "1");
-    } catch {
-      // Tried again next time.
-    }
-  return r?.image ?? null;
-}
-
 // People's own style tags on a brand (founder, 20 Nov 2026: "users can add
 // or edit the tags associated with the brands"). Their change shows to them
 // at once; when 2 people agree, the database changes it for everyone.
@@ -662,4 +688,27 @@ export async function setTagVote(brandId: string, styleId: string, vote: 1 | -1 
 async function myTagVotes(): Promise<{ brand_id: string; style_id: string; vote: number }[]> {
   const { data, error } = await supabase().from("brand_tag_votes").select("brand_id, style_id, vote");
   return error ? [] : ((data ?? []) as { brand_id: string; style_id: string; vote: number }[]);
+}
+
+// Whether they recommend the brands they shop from (asked once, on the first
+// ♥; switchable in My style). null: not asked yet.
+export async function recommendSetting(): Promise<boolean | null> {
+  if (!(await currentUserId())) return null;
+  const { data } = await supabase().from("loved_brands").select("recommend").limit(1).maybeSingle();
+  return data ? !!data.recommend : null;
+}
+
+// Wear it again (from Looks you wore): today's look, no new looks and no new
+// picture to make (the picture is kept under the same look id).
+export async function wearAgain(look: Look, city: City | null): Promise<LookSet | null> {
+  const userId = await currentUserId();
+  if (!userId) return null;
+  const day = cityDay();
+  const f: LookFor = { key: `again:${look.id}`, text: `Again: ${look.title}`, where: "day", stops: [], walkKm: null };
+  await supabase().from("style_sets").update({ chosen: null, chosen_at: null }).eq("day", day).not("chosen", "is", null);
+  const row = { user_id: userId, day, for_key: f.key, for_text: f.text, for_detail: f, set_no: 0, looks: [look], chosen: 0, chosen_at: new Date().toISOString(), city_id: city?.id ?? null, country: city?.country ?? null, time_zone: city?.timeZone ?? null, currency: city?.currency ?? null };
+  const { data, error } = await supabase().from("style_sets").upsert(row, { onConflict: "user_id,day,for_key,set_no" }).select(SET_COLS).single();
+  if (error) console.error("Saving the look failed", error.message);
+  setLookFor(f);
+  return data ? setOf(data as SetRow) : null;
 }
