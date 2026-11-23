@@ -225,9 +225,11 @@ function rightCountry(href: string, country: string) {
   const named = linkCountries(href);
   return named.length === 0 || named.includes(country.toLowerCase());
 }
-export function shopLink(brand: { name: string; website: string | null; origin_country?: string | null }, market: { presence_url: string | null; presence_ok?: boolean | null }, country: string, countryName: string): { href: string; label: string } {
+export function shopLink(brand: { name: string; website: string | null; origin_country?: string | null }, market: { presence_url: string | null; presence_ok?: boolean | null }, country: string, countryName: string, wears?: Wears): { href: string; label: string } {
   const own = brand.website ? (() => { try { return siteName(new URL(brand.website).hostname); } catch { return null; } })() : null;
-  const p = market.presence_url;
+  // Never the other side's page (persona re-test, 23 Nov 2026: a womenswear
+  // shopper's Allen Solly link opened men's shirts).
+  const p = market.presence_url && !otherSide(market.presence_url, wears) ? market.presence_url : null;
   if (p && market.presence_ok !== false && own) {
     try {
       if (siteName(new URL(p).hostname) === own && rightCountry(p, country)) return { href: p, label: `Shop in ${countryName} ↗` };
@@ -239,6 +241,14 @@ export function shopLink(brand: { name: string; website: string | null; origin_c
   // 23 Nov 2026: uniqlo.com opened India for someone in Lisbon).
   if (brand.website && brand.origin_country === country && rightCountry(brand.website, country)) return { href: brand.website, label: `Shop in ${countryName} ↗` };
   return { href: `https://www.google.com/search?q=${encodeURIComponent(`${brand.name} ${countryName} official store`)}`, label: `Find it in ${countryName} ↗` };
+}
+
+function otherSide(url: string, wears?: Wears) {
+  if (!wears || wears === "both") return false;
+  const path = (() => { try { return new URL(url).pathname.toLowerCase(); } catch { return ""; } })();
+  const men = /(^|[\/_-])(men|mens|man|male|homme|herren|hombre)([\/_.-]|$)/.test(path);
+  const women = /(^|[\/_-])(women|womens|woman|female|femme|damen|mujer|ladies)([\/_.-]|$)/.test(path);
+  return wears === "women" ? men && !women : women && !men;
 }
 
 // A brand's price against their budget (founder, 22 Nov 2026: "brands within

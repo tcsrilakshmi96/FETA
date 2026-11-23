@@ -448,7 +448,7 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
       style: r.style_id,
       priceFeel: market!.price_feel,
       price: brandPrice(market!, budget, currency),
-      link: shopLink(r.brands, market!, country, countryName),
+      link: shopLink(r.brands, market!, country, countryName, wears),
       approved: r.review_status === "approved",
     }));
   // Feta Picks (the founder's brands) first, then the ones people love most;
@@ -464,7 +464,7 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
       const b = (extra ?? []).find((x) => x.id === v.brand_id) as unknown as Row["brands"] | undefined;
       const market = b?.brand_markets?.[0];
       if (b && market && market.presence_type !== "ships from abroad")
-        cards.push({ id: b.id, name: b.name, website: b.website, logo: b.logo_url, homegrown: b.origin_country === country, why: "You tagged it", style: v.style_id, priceFeel: market.price_feel, price: brandPrice(market, budget, currency), link: shopLink(b, market, country, countryName), approved: true });
+        cards.push({ id: b.id, name: b.name, website: b.website, logo: b.logo_url, homegrown: b.origin_country === country, why: "You tagged it", style: v.style_id, priceFeel: market.price_feel, price: brandPrice(market, budget, currency), link: shopLink(b, market, country, countryName, wears), approved: true });
     }
   }
   for (let i = cards.length - 1; i >= 0; i--) if (removed.has(`${cards[i].id}|${cards[i].style}`)) cards.splice(i, 1);
