@@ -62,6 +62,7 @@ export default function Questions() {
   // loads: the server's time zone isn't theirs, and reading it while drawing
   // gave the server ₹ and the phone £ (React error #418, tester 23 Nov 2026).
   const [phoneCurrency, setPhoneCurrency] = useState<Currency | null>(null);
+  const [tooMany, setTooMany] = useState(false); // a 5th cuisine was tapped
   const session = useRef("");
   const savingLoved = useRef(new Map<string, Promise<unknown>>());
 
@@ -147,14 +148,14 @@ export default function Questions() {
     await removeFromList(placeId, "been");
   }
 
+  // Up to 4, said when a 5th is tapped (tester, 23 Nov 2026: it was silently ignored).
   function toggleCuisine(id: string) {
     const key = `cuisine_${id}`;
-    setSwipes((all) => {
-      const chosen = all.filter((s) => s.cardId.startsWith("cuisine_") && s.verdict === "yes").length;
-      const on = all.some((s) => s.cardId === key && s.verdict === "yes");
-      if (!on && chosen >= MAX_CUISINES) return all;
-      return [...all.filter((s) => s.cardId !== key), { cardId: key, verdict: on ? "no" : "yes" }];
-    });
+    const chosen = swipes.filter((s) => s.cardId.startsWith("cuisine_") && s.verdict === "yes").length;
+    const on = swipes.some((s) => s.cardId === key && s.verdict === "yes");
+    setTooMany(!on && chosen >= MAX_CUISINES);
+    if (!on && chosen >= MAX_CUISINES) return;
+    setSwipes([...swipes.filter((s) => s.cardId !== key), { cardId: key, verdict: on ? "no" : "yes" }]);
   }
 
   function chooseSide(card: PairCard, choice: "a" | "b" | "both") {
@@ -370,6 +371,11 @@ export default function Questions() {
           {food && (
             <>
               <p className={styles.label}>To eat · up to {MAX_CUISINES}</p>
+              {tooMany && (
+                <p className={styles.count} role="status">
+                  That&apos;s {MAX_CUISINES} already. Untick one to choose another, or add more under Something else.
+                </p>
+              )}
               <div className={styles.cuisines}>
                 {cuisines.map((c) => {
                   const on = swipes.some((s) => s.cardId === `cuisine_${c.id}` && s.verdict === "yes");
