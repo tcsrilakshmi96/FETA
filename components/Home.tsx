@@ -304,30 +304,32 @@ export default function Home() {
             <ThemeToggle />
           </div>
           <IphoneInstall />
-          <div className={styles.seg} role="tablist" aria-label="When">
-            {(["tonight", "weekend"] as const).map((w) => (
-              <button
-                key={w}
-                type="button"
-                role="tab"
-                aria-selected={when === w}
-                className={when === w ? styles.segOn : ""}
-                onClick={() => setWhen(w)}
-              >
-                {w === "tonight" ? "Tonight" : "This weekend"}
-              </button>
-            ))}
-          </div>
+          {/* Choose for me sits beside Tonight · This weekend, small, so the
+              tiles below (Things to do, Style) are on screen without
+              scrolling (founder, 23 Nov 2026: "can't see style and todos"). */}
+          <div className={styles.whenRow}>
+            <div className={styles.seg} role="tablist" aria-label="When">
+              {(["tonight", "weekend"] as const).map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  role="tab"
+                  aria-selected={when === w}
+                  className={when === w ? styles.segOn : ""}
+                  onClick={() => setWhen(w)}
+                >
+                  {w === "tonight" ? "Tonight" : "This weekend"}
+                </button>
+              ))}
+            </div>
 
-          {!noPlaces && (
-            <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet}>
-              <span>
+            {!noPlaces && (
+              <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet} aria-label={nothingYet ? "Choose for me: finding places first" : `Choose for me: one answer for ${when === "tonight" ? "tonight" : "this weekend"}`}>
+                <Mascot pose={late ? "sleep" : "think"} size={30} className={styles.cheese} />
                 <strong>Choose for me</strong>
-                <small>{nothingYet ? "Finding places first…" : `One answer for ${when === "tonight" ? "tonight" : "this weekend"}. No scrolling.`}</small>
-              </span>
-              <Mascot pose={late ? "sleep" : "think"} size={64} className={styles.cheese} />
-            </button>
-          )}
+              </button>
+            )}
+          </div>
 
           <div className={styles.grid} key={when}>
             {styleLeads ? (

@@ -101,43 +101,44 @@
 }
 
 /* Choose for me: one answer, no scrolling (testers asked for it). */
-.choose {
+/* Tonight · This weekend with Choose for me beside it, one row. */
+.whenRow {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 100%;
-  margin-top: 14px;
-  padding: 16px 18px;
-  border-radius: 28px;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.whenRow .seg {
+  margin-top: 0;
+}
+
+.choose {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 3px 14px 3px 6px;
+  border-radius: 99px;
   background: var(--ink);
   color: var(--bg);
-  text-align: left;
   transition: transform 0.25s var(--ease-press), opacity 0.3s;
   animation: tileIn 0.65s var(--ease-spring) both;
 }
 
 .choose:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.95);
 }
 
 .choose:disabled {
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 .choose strong {
-  display: block;
   font-family: var(--font-fraunces), serif;
-  font-size: 23px;
+  font-size: 15px;
   font-weight: 500;
-}
-
-.choose small {
-  font-size: 12.5px;
-  opacity: 0.7;
-}
-
-.choose .cheese {
-  font-size: 32px;
+  white-space: nowrap;
 }
 
 .area {
@@ -398,8 +399,9 @@
 }
 
 /* Choose for me's cheese: thinking, or asleep late at night. */
-.cheese {
-  margin: -8px -6px -8px 0;
+.choose .cheese {
+  flex: none;
+  margin: -4px 2px -4px 0;
 }
 
 /* Small cheeses on the Style and trip tiles. */
