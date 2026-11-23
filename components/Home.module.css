@@ -54,7 +54,14 @@
   min-width: 0;
 }
 
-/* The Feta Picks star and the round You button. */
+/* The date stays on one line; a long area name is the part that shortens
+   (three round buttons since Search, 23 Nov 2026). */
+.left > span {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* Search, the Feta Picks star and the round You button. */
 .buttons {
   flex: none;
   display: flex;
