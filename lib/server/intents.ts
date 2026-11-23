@@ -57,11 +57,15 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   const veg = isVegDiet(taste.answers.diet);
   // Abroad, vegetarians only see places Google confirms serve vegetarian
   // food, so the search asks for them; in India most places do.
-  const vegWord = (q: string) => (veg && food ? `vegetarian ${q}` : q);
+  // What they ask for right now (a chat note, a tweak) always carries their
+  // diet (tester, 23 Nov 2026: a vegetarian's "dinner near Alfama" was
+  // searched as "local food" and found meat-led taverns).
+  const saysDiet = (q: string) => /\b(veg|vegan|vegetarian|veggie|plant[- ]based|jain)\b/i.test(q);
+  const vegWord = (q: string) => (veg && food && !saysDiet(q) ? `vegetarian ${q}` : q);
   const cuisineVeg = (q: string) => (veg && city.country !== "IN" ? `vegetarian ${q}` : q);
   const out: Intent[] = [];
   const note = (opts.note ?? "").trim();
-  if (note) out.push({ id: "asked", label: note, reason: `Because you asked for ${note}.`, query: note, def: { searches: [note] }, explicit: true, source: "asked", food });
+  if (note) out.push({ id: "asked", label: note, reason: `Because you asked for ${note}.`, query: vegWord(note), def: { searches: [vegWord(note)] }, explicit: true, source: "asked", food });
   if (opts.dayPlan) {
     if (food) for (const p of DAY_PLAN.food) out.push({ id: p.id, label: p.label, reason: `Because a good day there starts with ${p.label}.`, query: vegWord(p.query), def: { searches: [p.query] }, explicit: true, source: "plan", food });
     else for (const p of DAY_PLAN.doing) out.push({ id: p.id, label: p.label, reason: `Because it's one of the best things to see there.`, query: p.query, def: p.def, explicit: true, source: "plan", food });
@@ -70,7 +74,7 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
     const words = TWEAK_SEARCH[t];
     if (!words) continue;
     const q = food ? words.food : words.doing;
-    out.push({ id: `tweak_${t}`, label: q, reason: `Because you asked for somewhere ${t === "groups" ? "good for groups" : t === "kids" ? "good with kids" : t}.`, query: q, def: { searches: [q] }, explicit: true, source: "tweak", food });
+    out.push({ id: `tweak_${t}`, label: q, reason: `Because you asked for somewhere ${t === "groups" ? "good for groups" : t === "kids" ? "good with kids" : t}.`, query: vegWord(q), def: { searches: [q] }, explicit: true, source: "tweak", food });
   }
   // Hidden bars and rooftops are places to drink: Food & drinks searches
   // them, Things to do doesn't.
@@ -153,7 +157,9 @@ export function planSearches(intents: Intent[], opts: { category: Category; when
 
 // The telling words of what they want ("thai", "comedy", "popup"), for
 // checking that a reason or a guide's event is about it.
-const PLAIN = new Set(["restaurant", "restaurants", "place", "places", "food", "with", "near", "best", "class", "classes", "night", "something", "local", "good", "event", "events"]);
+// Their diet, added to what they ask for, is never on its own a reason a
+// place fits (it may not be confirmed).
+const PLAIN = new Set(["restaurant", "restaurants", "place", "places", "food", "with", "near", "best", "class", "classes", "night", "something", "local", "good", "event", "events", "vegetarian", "vegan"]);
 export const plainText = (t: string) => t.toLowerCase().replace(/pop[- ]?ups?\b/g, "popup");
 export function intentWords(intents: Intent[]) {
   return intents.flatMap((i) => plainText(`${i.label} ${i.query}`).match(/[a-z]{4,}/g) ?? []).filter((w) => !PLAIN.has(w));

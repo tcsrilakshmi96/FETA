@@ -31,6 +31,7 @@ export default function ItineraryView({ itinerary, onStop }: { itinerary: Itiner
               </li>
             ))}
           </ol>
+          {d.back && <span className={styles.itTravel}>{d.back}</span>}
         </div>
       ))}
       <p className={styles.attribution}>

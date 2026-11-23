@@ -171,7 +171,9 @@ function make(lat: number, lng: number, n: number): Place {
   };
 }
 
-const STOP = new Set(["the", "a", "or", "and", "with", "near", "place", "food", "restaurant", "bar", "cafe", "venue", "one", "small", "local", "favourite", "famous", "dish", "good", "for", "things", "to", "do", "night", "show", "class", "court", "in", "of", "somewhere", "my"]);
+// A diet word only narrows what Google finds, as it does live; the hard
+// filters decide what passes.
+const STOP = new Set(["the", "a", "or", "and", "with", "near", "place", "food", "restaurant", "bar", "cafe", "venue", "one", "small", "local", "favourite", "famous", "dish", "good", "for", "things", "to", "do", "night", "show", "class", "court", "in", "of", "somewhere", "my", "vegetarian", "vegan"]);
 
 function tokens(q: string) {
   return q.toLowerCase().split(/[^a-z]+/).filter((w) => w && !STOP.has(w));

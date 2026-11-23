@@ -120,7 +120,7 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
     const it = r.itinerary;
     setDays((d) => ({ ...d, [index]: [...(d[index] ?? []), it] }));
     // Kept on the trip (the server saved the same days).
-    const kept: SavedDay[] = it.days.map((d) => ({ date: d.date, label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, travel: st.travel })) }));
+    const kept: SavedDay[] = it.days.map((d) => ({ date: d.date, label: d.label, stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, travel: st.travel })), ...(d.back ? { back: d.back } : {}) }));
     setTrip((t) => t && { ...t, days: { ...(t.days ?? {}), [String(index)]: [...((t.days ?? {})[String(index)] ?? []), ...kept] } });
   }
 
@@ -405,6 +405,11 @@ function SavedDayRow({ city, day }: { city: string; day: SavedDay }) {
               </li>
             );
           })}
+          {day.back && (
+            <li>
+              <small className={styles.savedTravel}>{day.back}</small>
+            </li>
+          )}
         </ol>
       )}
       {open && (

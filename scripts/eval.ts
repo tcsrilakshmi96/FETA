@@ -8,12 +8,15 @@
 // for a final check before release (about ₹50; ask the founder first). In
 // live mode the expectations that name test places are skipped.
 
+import { asksQuestion, withDinner } from "@/lib/ask-rules";
+import { buildItinerary } from "@/lib/server/itinerary";
+import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
 import { cityCalendar, eventPasses } from "@/lib/server/events";
-import type { Intent } from "@/lib/server/intents";
+import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -659,11 +662,85 @@ async function main() {
     failed++;
     console.log(`✗ Style brands: ${brandFails.join(", ")}`);
   } else console.log("✓ Style brands link to their country's store and claim a budget fit only with a real price");
-  const plan = await planCheck();
-  if (plan.fails.length) failed++;
-  console.log(`${plan.fails.length ? "✗" : "✓"} Plan my evening: dinner is a meal, something to do is a place to go`);
-  for (const l of plan.lines) console.log(`    ${l}`);
-  for (const f of plan.fails) console.log(`    ✗ ${f}`);
+  const evening = await planCheck();
+  if (evening.fails.length) failed++;
+  console.log(`${evening.fails.length ? "✗" : "✓"} Plan my evening: dinner is a meal, something to do is a place to go`);
+  for (const l of evening.lines) console.log(`    ${l}`);
+  for (const f of evening.fails) console.log(`    ✗ ${f}`);
+  // Ask Feta (two persona testers, 23 Nov 2026): what code checks in a chat answer.
+  // What they ask for carries their diet: [diet, what they asked, where, how it's searched].
+  const diet: [string, string, string, RegExp][] = [
+    ["vegetarian", "local food", "PT", /^vegetarian local food$/],
+    ["vegan", "dinner near Indiranagar", "IN", /^vegetarian dinner near Indiranagar$/],
+    ["vegetarian", "vegan brunch", "PT", /^vegan brunch$/],
+    ["everything", "local food", "PT", /^local food$/],
+  ];
+  const askFails = [
+    !asksQuestion("Happy to plan it. Are you after somewhere to eat and drink, something to do, or both?") && "a question isn't seen as one, so it gets no options",
+    asksQuestion("Why not? Here are three places for tonight.") && "a reply that doesn't end on a question asks for options",
+    withDinner([{ category: "food_drinks", note: "craft beer, veg and meat" }, { category: "experiences", note: "comedy" }], ["Plan my date night", "Both. Saturday. He eats meat and loves craft beer, I'm veg"])[0].meal !== "dinner" && "a date night's food search isn't a dinner",
+    withDinner([{ category: "experiences", note: "live music" }], ["date night tonight"]).filter((s) => s.meal === "dinner").length !== 1 && "a date night with only something to do gets no dinner",
+    withDinner([{ category: "food_drinks", note: "cocktails" }], ["date night, we already ate, just drinks"])[0].meal && "a date that's only drinks is made a dinner",
+    withDinner([{ category: "food_drinks", note: "cheap eats" }], ["something cheaper tonight"])[0].meal && "an everyday search is made a dinner",
+    ...diet.map(([d, note, country, want]) => {
+      const [c] = searchCities(country === "IN" ? "Bengaluru" : "Lisbon", 1);
+      const q = allIntents({ answers: { ...base, diet: d }, lines: [], own: [], yes: [], no: [] }, { category: "food_drinks", city: c, tweaks: [], note, rotation: 0 }).find((i) => i.id === "asked")?.query ?? "";
+      return !want.test(q) && `a ${d} asking for "${note}" in ${c.name} is searched as "${q}"`;
+    }),
+  ].filter(Boolean);
+  if (askFails.length) {
+    failed++;
+    console.log(`✗ Ask Feta: ${askFails.join(", ")}`);
+  } else console.log("✓ Ask Feta: a question comes with answers to tap, an ask carries their diet, a date night includes dinner");
+  // Trip day plans (traveller in Lisbon, 23 Nov 2026): began at a time
+  // already past, missed the castle, stopped at tour-company offices, a pub
+  // by day and a park at 9:30 pm, two branches of one bakery, no way home.
+  const allWeek: [number, number, number][] = [0, 1, 2, 3, 4, 5, 6].map((d) => [d, 0, 24 * 60]);
+  const stop = (name: string, kind: "EAT" | "DRINK" | "DO", type: string, serves: string[] = []) =>
+    ({ placeId: name, name, kind, type, serves, hours: allWeek, lat: 38.71, lng: -9.14, verdict: "Good if you're nearby", because: "", area: "", distanceKm: 1, chips: [], googleLine: "", mapsUri: "", directionsUri: "", book: null, photo: null }) as unknown as Parameters<typeof buildItinerary>[0][number];
+  const dayPicks = [
+    stop("Lisbon Walking Tours", "DO", "tour_agency", ["plan_sights"]),
+    stop("Yellow Tuk Tuk Tours", "DO", "tourist_attraction", ["plan_sights"]),
+    stop("The Irish Pub", "DO", "pub"),
+    stop("Parque Eduardo VII", "DO", "park", ["plan_outdoors"]),
+    stop("Manteigaria Chiado", "EAT", "bakery"),
+    stop("Manteigaria Baixa", "EAT", "bakery"),
+    stop("Tasca do Bairro", "EAT", "restaurant"),
+    stop("Cervejaria Nova", "EAT", "restaurant"),
+    stop("Casa do Fado", "DO", "performing_arts_theater"),
+    stop("Museu do Azulejo", "DO", "museum"),
+    stop("Castelo de São Jorge", "DO", "castle", ["plan_sights"]),
+    stop("Pastelaria Doce", "EAT", "cafe"),
+    stop("Taberna Velha", "EAT", "restaurant"),
+  ];
+  const startsAt = (t: string) => {
+    const [, h, m, ap] = /^(\d+):(\d+) (am|pm)$/.exec(t) ?? [];
+    return ((Number(h) % 12) + (ap === "pm" ? 12 : 0)) * 60 + Number(m);
+  };
+  const plan = buildItinerary(dayPicks, { start: "2026-11-28", days: 2, place: "Lisbon", from: 14 * 60, hotel: { lat: 38.72, lng: -9.15 } });
+  const planStops = plan.days.flatMap((d) => d.stops.map((s) => ({ ...s, day: d.date })));
+  const chainNames = planStops.filter((s) => /Manteigaria/.test(s.pick.name)).length;
+  const dayFails = [
+    planStops.some((s) => s.day === "2026-11-28" && startsAt(s.time) < 14 * 60) && "today's plan starts before now",
+    planStops.some((s) => /Tours/.test(s.pick.name)) && "a tour-company office is a stop",
+    planStops.some((s) => s.pick.type === "pub" && startsAt(s.time) < 18 * 60) && "a pub by day",
+    planStops.some((s) => s.pick.type === "park" && startsAt(s.time) >= 17 * 60) && "a park after dark",
+    chainNames > 1 && "two branches of one chain",
+    !plan.days[0].stops.some((s) => /Castelo/.test(s.pick.name)) && "the castle (a top sight) left out of the first day",
+    plan.days.some((d) => d.stops.length && !d.back) && "a day doesn't end back at the hotel",
+    ...["EUR", "INR", "USD", "GBP", "JPY"].flatMap((cur) =>
+      hotelBudgets(cur)
+        .flatMap((b) => b.label.match(/[\d,.]+/g) ?? [])
+        .map((n) => Number(n.replace(/,/g, "")))
+        // Round: its first two digits are a multiple of 5 (75, 150, 6,500).
+        .filter((n) => (n / 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1)) % 5 !== 0)
+        .map((n) => `an odd hotel budget (${cur} ${n})`),
+    ),
+  ].filter(Boolean);
+  if (dayFails.length) {
+    failed++;
+    console.log(`✗ Day plans: ${dayFails.join(", ")}`);
+  } else console.log("✓ Day plans start from now, lead with the sights, end at the hotel, and skip offices, pubs by day, parks after dark and repeat chains");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

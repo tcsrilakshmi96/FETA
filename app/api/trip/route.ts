@@ -82,6 +82,7 @@ export async function POST(request: Request) {
         date: d.date,
         label: d.label,
         stops: d.stops.map((st) => ({ time: st.time, slot: st.slot, placeId: st.pick.placeId, kind: st.pick.kind, ...(st.travel ? { travel: st.travel } : {}) })),
+        ...(d.back ? { back: d.back } : {}),
       }));
       const before = (trip.days ?? {})[String(index)] ?? [];
       await save({ days: { ...(trip.days ?? {}), [String(index)]: [...before.filter((d) => !kept.some((k) => k.date === d.date)), ...kept] } });
