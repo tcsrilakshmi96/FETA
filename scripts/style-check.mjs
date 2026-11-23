@@ -84,20 +84,22 @@ await click(/^Dinner$/);
 await click(/^Show my looks/);
 ok("C: 3 looks, the first one on screen", await until(/1 of 3/, 20000));
 await shot("c-look1");
-const pieces = await p.evaluate(() => document.querySelectorAll("[class*=item]").length);
+const pieces = await p.evaluate(() => document.querySelectorAll("[class*=pieceRow] button").length);
 ok(`C: the lookbook lists every piece (${pieces})`, pieces >= 3);
+// Never a sketch (founder, 23 Nov 2026): every picture is a real one.
+ok("C: no sketch anywhere on the look", await p.evaluate(() => ![...document.images].some((i) => /\/style\/looks\//.test(i.src)) && !/Feta's sketch/.test(document.body.innerText)));
 ok("C: Wear this and the swipe hint show", await buttonVisible(/^Wear this$/) && /Swipe to wear/.test(await text()));
 await swipe(-120);
 ok("C: swipe left shows the next look", await until(/2 of 3/, 3000));
 await click(/^‹$/);
 ok("C: ‹ goes back to the last one", await until(/1 of 3/, 3000));
 // A piece: I have one, Show me another.
-await p.evaluate(() => document.querySelector("[class*=item]")?.click());
+await p.evaluate(() => document.querySelector("[class*=pieceRow] button")?.click());
 await wait(500);
 ok("C: tapping a piece opens its sheet", /I have one like this/.test(await text()));
 await click(/^I have one like this/);
 ok("C: I have one marks it as theirs", await until(/YOURS/, 4000));
-await p.evaluate(() => document.querySelectorAll("[class*=item]")[1]?.click());
+await p.evaluate(() => document.querySelectorAll("[class*=pieceRow] button")[1]?.click());
 await wait(400);
 await click(/^Show me another/);
 ok("C: Show me another changes only that piece", await until(/the rest stays/, 15000));
@@ -129,7 +131,7 @@ ok("D: Pick a different look goes back to the 3", await until(/of 3/, 5000) && l
 // Where to buy keeps the look.
 await swipe(-120);
 await until(/2 of 3/, 3000);
-await p.evaluate(() => document.querySelector("[class*=item]")?.click());
+await p.evaluate(() => document.querySelector("[class*=pieceRow] button")?.click());
 await wait(400);
 await click(/^Where to buy/);
 ok("E: Where to buy opens brands for the piece", await until(/Where to buy/, 8000) && /Back to your look/.test(await text()));

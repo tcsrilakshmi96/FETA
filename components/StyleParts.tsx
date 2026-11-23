@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
+import { stylePicture, styleById, type Wears } from "@/lib/style";
 import s from "./StyleScreens.module.css";
 
 export const vars = (v: Record<string, string | number>) => v as CSSProperties;
@@ -15,8 +15,10 @@ export function Figure({ style, wears, drawn, height, spots, leaving, className,
   const lens = styleById(style);
   const [open, setOpen] = useState<keyof Spots | null>("top");
   if (!lens) return null;
-  const half = drawn ? "drawn" : figureHalf(lens, wears);
-  const width = drawn ? Math.round((height * 9) / 16) : half === "both" ? height : Math.round(height / 2);
+  // A style is shown as a picture from Feta's library of outfit boards (the
+  // clothes on an invisible mannequin), cropped to the mannequin (founder,
+  // 23 Nov 2026: never a sketch).
+  const width = drawn ? Math.round((height * 9) / 16) : Math.round(height / 2);
   const alt = label ?? `${lens.name}: illustrated outfit`;
   // Where each piece sits on a standing figure.
   const at: Record<keyof Spots, [number, number, number]> = { top: [0.5, 0.32, -0.55], bottom: [0.47, 0.6, -0.6], shoes: [0.52, 0.93, -0.7] };
@@ -29,8 +31,8 @@ export function Figure({ style, wears, drawn, height, spots, leaving, className,
         </div>
       ) : (
         <div className={s.bob}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
-          <img src={lookImage(lens.id)} alt={alt} style={{ height, width: height, left: half === "right" ? -width : 0 }} />
+          {/* eslint-disable-next-line @next/next/no-img-element -- a fixed picture from Feta's library */}
+          <img src={stylePicture(lens.id, wears, lens.id)} alt={alt} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "10% top" }} />
         </div>
       )}
       {spots &&

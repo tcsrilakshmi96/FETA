@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLookPicture } from "@/components/StyleKit";
 import { Logo } from "@/components/StyleParts";
-import { SLOT_NAME, lookImage, type Look, type Wears } from "@/lib/style";
+import { SLOT_NAME, stylePicture, type Look, type Wears } from "@/lib/style";
 import { loadStyleProfile } from "@/lib/style-client";
 import s from "./StyleScreens.module.css";
 
@@ -27,7 +27,7 @@ export default function OutfitCard({ outfit, brands }: { outfit: Look; brands: {
     <div className={`${s.vars} ${s.chatOutfit}`}>
       <div className={s.chatLook}>
         {/* eslint-disable-next-line @next/next/no-img-element -- drawn for them, kept on this phone */}
-        <img src={look ?? lookImage(outfit.style)} alt={`${outfit.title}: ${outfit.pieces.map((p) => p.name).join(", ")}`} style={{ opacity: look ? 1 : 0.35 }} />
+        <img src={look ?? stylePicture(outfit.style, wears ?? "women", outfit.id)} alt={`${outfit.title}: ${outfit.pieces.map((p) => p.name).join(", ")}`} style={{ opacity: look ? 1 : 0.35 }} />
         {!look && <span className={s.drawingWait} aria-hidden="true" />}
       </div>
       <div className={s.chatPieces}>

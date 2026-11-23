@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { FAKE } from "@/lib/server/fake-places";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { findSpots, lookPicture } from "@/lib/server/style";
@@ -11,10 +12,13 @@ export const maxDuration = 90;
 // 22 Nov 2026: about ₹4 each, only when seen). With their photo from My
 // style, the look on them; the photo goes to Google's image AI only for
 // this picture, and Feta keeps neither (the picture stays on their phone).
+// Without one, an outfit board (no person), kept on their account too, the
+// latest 60 (founder, 23 Nov 2026: never a sketch, never made twice).
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
-  if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
+  const userId = token && db ? await userIdFor(db, token) : null;
+  if (!token || !db || !userId) return Response.json({ error: "Not signed in" }, { status: 401 });
   let body: { look?: Partial<Look>; wears?: Wears; photo?: string | null };
   try {
     body = await request.json();
@@ -34,6 +38,13 @@ export async function POST(request: Request) {
     try {
       const image = await lookPicture(look, wears, photo);
       const spots = await findSpots(image, look.pieces).catch(() => null);
+      if (!photo)
+        after(async () => {
+          const { error } = await db.from("look_pictures").upsert({ user_id: userId, look_id: look.id, style_id: look.style, image, spots });
+          if (error) return console.error("look picture", error.message);
+          const { data: old } = await db.from("look_pictures").select("look_id").order("created_at", { ascending: false }).range(60, 200);
+          if (old?.length) await db.from("look_pictures").delete().in("look_id", old.map((r) => r.look_id));
+        });
       return Response.json({ image, spots });
     } catch (error) {
       console.error(error);

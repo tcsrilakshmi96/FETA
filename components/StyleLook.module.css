@@ -154,8 +154,8 @@
 
 .card {
   position: relative;
-  /* Sized so Wear this is on screen without scrolling. */
-  height: clamp(320px, calc(100dvh - 395px), 470px);
+  /* Sized so the row of pieces and Wear this are on screen without scrolling. */
+  height: clamp(300px, calc(100dvh - 445px), 440px);
   border-radius: 28px;
   background: var(--stage, #dcdbd7);
   overflow: hidden;
@@ -166,20 +166,19 @@
   left: 0;
   top: 0;
   bottom: 0;
-  width: 64%;
+  width: 100%;
   overflow: hidden;
 }
 .fig img {
   position: absolute;
-  /* Feta's sketch has a white ground: blend it into the card's grey. */
-  mix-blend-mode: multiply;
+  /* The pictures have the card's own grey ground. */
 }
 .photo {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center;
   animation: var(--kf-in, none) 0.4s ease-out;
 }
 .making {
@@ -1001,4 +1000,49 @@
 .onMe span {
   font-size: 12px;
   opacity: 0.7;
+}
+
+/* The pieces, in one row under the card (founder, 23 Nov 2026). */
+.pieceRow {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-top: 8px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.pieceRow::-webkit-scrollbar {
+  display: none;
+}
+.piece {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px 6px 6px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.08);
+  color: var(--ink);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.piece b {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 10.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pieceMine {
+  background: var(--ink);
+  color: var(--bg);
+}
+.pieceMine b {
+  background: var(--bg);
+  color: var(--ink);
 }

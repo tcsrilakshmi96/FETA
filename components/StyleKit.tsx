@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { SLOT_AT, SLOT_NAME, figureHalf, lookImage, styleById, type Look, type Wears } from "@/lib/style";
+import { stylePicture, styleById, type Look, type Wears } from "@/lib/style";
 import { cityNow, keptPicture, keptSpots, lookPicture } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 
@@ -40,17 +40,16 @@ export function StyleHead({ tab, back, backLabel = "Home" }: { tab: StyleTab | n
   );
 }
 
-// One figure from a style's illustration (Feta's own picture, a woman and a
-// man side by side), cropped to the one they shop for.
-export function StyleFigure({ style, wears, className, imgStyle }: { style: string; wears: Wears; className?: string; imgStyle?: CSSProperties }) {
+// A picture of a look in a style (founder, 23 Nov 2026: never a sketch):
+// an outfit board from Feta's library, made once per style for womenswear
+// and menswear (`public/style/boards/`, `stylePicture`), filling its box.
+// Stands for a style wherever one is shown, and stands in for a look whose
+// own picture is being made or can't be made today.
+export function StyleFigure({ style, wears, seed = "", className, imgStyle }: { style: string; wears: Wears; seed?: string; className?: string; imgStyle?: CSSProperties }) {
   const lens = styleById(style);
   if (!lens) return null;
-  const half = figureHalf(lens, wears);
-  // The illustration is square, a figure in each half: the chosen one is
-  // centred in whatever box it's in.
-  const pos: CSSProperties = half === "both" ? { width: "100%", height: "auto", top: "auto", bottom: 0, left: 0 } : { left: "50%", width: "auto", aspectRatio: "1", transform: `translateX(${half === "right" ? -75 : -25}%)` };
-  // eslint-disable-next-line @next/next/no-img-element -- cropped to one figure
-  return <img className={className} src={lookImage(lens.id)} alt="" style={{ ...pos, ...imgStyle }} />;
+  // eslint-disable-next-line @next/next/no-img-element -- a fixed picture from Feta's library
+  return <img className={className} src={stylePicture(lens.id, wears, seed)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", mixBlendMode: "normal", ...imgStyle }} />;
 }
 
 // The look's picture: kept on this phone, else made now (about ₹4, only
@@ -85,14 +84,17 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean, r
   return { pic: pics[id] ?? null, making: making === id };
 }
 
-// The lookbook card (founder, 23 Nov 2026, option C): the figure on the left
-// of a grey card, numbered pulsing dots on the clothes, dotted lines to the
-// pieces listed beside it. A piece they own is dark, "YOURS ✓".
+// The lookbook card (founder, 23 Nov 2026): the look's picture fills the
+// card (on them, or an outfit board with the bag, shoes and jewellery laid
+// out beside the clothes), a numbered pulsing dot on every piece the picture
+// shows, and the pieces in one row underneath, so Wear this stays on screen.
+// A piece they own is dark, "YOURS ✓". While the picture is made, or when it
+// can't be (today's limit), a picture of a look in that style stands in,
+// said so, with no dots (founder: never a sketch).
 export function LookCard({ look, wears, pic, making, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
-  const n = look.pieces.length;
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
-  const [img, setImg] = useState<{ w: number; h: number }>({ w: 9, h: 16 });
+  const [img, setImg] = useState<{ w: number; h: number }>({ w: 4, h: 5 });
   const [found, setFound] = useState<{ id: string; spots: ([number, number] | null)[] | null } | null>(null);
   const spots = found?.id === look.id ? found.spots : null;
   useEffect(() => {
@@ -110,68 +112,56 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
       live = false;
     };
   }, [look, pic]);
-  // Each dot in % of the card. With the picture: where the piece really is
-  // (the picture fills the left 64%, cropped from the centre, top kept).
-  // Without: about where that kind of piece sits on a figure.
-  // A piece the picture doesn't clearly show (a necklace, a bag) has no dot:
-  // it's listed, with no line (persona re-tests, 23 Nov 2026: dots for
-  // jewellery and bags guessed onto the coat).
-  const dots = look.pieces.map((p, i): [number, number] | null => {
-    if (pic && spots && box) {
-      const spot = spots[i];
-      if (!spot) return null;
-      const figW = box.w * 0.64;
-      const scale = Math.max(figW / img.w, box.h / img.h);
-      const dw = img.w * scale;
-      const x = ((figW - dw) / 2 + spot[0] * dw) / box.w;
-      const y = (spot[1] * img.h * scale) / box.h;
-      return [Math.min(60, Math.max(4, x * 100)), Math.min(96, Math.max(4, y * 100))];
-    }
-    const [x, y] = SLOT_AT[p.slot];
-    // Two pieces in one slot (a layer and an extra) shouldn't sit on one spot.
-    const same = look.pieces.slice(0, i).filter((q) => q.slot === p.slot).length;
-    return [x * 64 + same * 8, y * 100 + same * 6];
+  // Each dot in % of the card: the picture is shown whole (contain), centred.
+  const dots = look.pieces.map((_, i): [number, number] | null => {
+    const spot = pic && spots && box ? spots[i] : null;
+    if (!spot || !box) return null;
+    const scale = Math.min(box.w / img.w, box.h / img.h);
+    const dw = img.w * scale;
+    const dh = img.h * scale;
+    const x = ((box.w - dw) / 2 + spot[0] * dw) / box.w;
+    const y = ((box.h - dh) / 2 + spot[1] * dh) / box.h;
+    return [Math.min(96, Math.max(4, x * 100)), Math.min(96, Math.max(4, y * 100))];
   });
-  const at = (i: number) => dots[i]?.[1] ?? 200 + i;
-  // Numbered top to bottom by where the dots are, and listed in that order,
-  // so no two dotted lines cross.
-  const order = look.pieces.map((_, i) => i).sort((a, b) => at(a) - at(b) || a - b);
-  const row = new Map(order.map((piece, r) => [piece, r]));
-  const ys = order.map((_, r) => ((r + 1) / (n + 1)) * 100);
+  // Numbered top to bottom, then left to right, by where the dots are.
+  const order = look.pieces.map((_, i) => i).sort((a, b) => (dots[a]?.[1] ?? 200 + a) - (dots[b]?.[1] ?? 200 + b) || (dots[a]?.[0] ?? 0) - (dots[b]?.[0] ?? 0));
+  const num = new Map(order.map((piece, r) => [piece, r + 1]));
   return (
-    <div className={k.card} ref={card}>
-      <div className={k.fig}>
-        {pic ? (
-          // eslint-disable-next-line @next/next/no-img-element -- made for them, kept on this phone
-          <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth || 9, h: e.currentTarget.naturalHeight || 16 })} />
-        ) : (
-          <StyleFigure style={look.style} wears={wears} imgStyle={{ top: 0, height: "100%", opacity: making ? 0.55 : 1 }} />
-        )}
-      </div>
-      <svg className={k.lines} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        {dots.map((d, i) => d && <path key={i} d={`M${d[0] + 2} ${d[1]} L58 ${ys[row.get(i)!]}`} stroke="#1a1616" strokeWidth="1" strokeDasharray="3 3" fill="none" vectorEffect="non-scaling-stroke" />)}
-      </svg>
-      {dots.map((d, i) => d && (
-        <button key={`d${i}`} type="button" className={`${k.num} ${owned(look.pieces[i].name) ? k.numMine : ""}`} style={{ left: `${d[0]}%`, top: `${d[1]}%` }} aria-label={look.pieces[i].name} onClick={() => onPiece?.(i)}>
-          <span style={{ animationDelay: `${0.1 * row.get(i)!}s` }}>{row.get(i)! + 1}</span>
-        </button>
-      ))}
-      {look.pieces.map((p, i) => {
-        const mine = owned(p.name);
-        const r = row.get(i)!;
-        return (
-          <button key={`i${i}`} type="button" className={`${k.item} ${mine ? k.itemMine : ""}`} style={{ top: `${ys[r]}%`, animationDelay: `${0.12 * r}s` }} onClick={() => onPiece?.(i)}>
-            <b>
-              {String(r + 1).padStart(2, "0")} · {mine ? "YOURS ✓" : SLOT_NAME[p.slot]}
-            </b>
-            <span>{p.name}</span>
+    <>
+      <div className={k.card} ref={card}>
+        <div className={k.fig}>
+          {pic ? (
+            // eslint-disable-next-line @next/next/no-img-element -- made for them
+            <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth || 4, h: e.currentTarget.naturalHeight || 5 })} />
+          ) : (
+            <StyleFigure style={look.style} wears={wears} seed={look.id} imgStyle={{ objectFit: "contain", opacity: making ? 0.45 : 1, filter: making ? "blur(2px)" : undefined }} />
+          )}
+        </div>
+        {dots.map((d, i) => d && (
+          <button key={`d${i}`} type="button" className={`${k.num} ${owned(look.pieces[i].name) ? k.numMine : ""}`} style={{ left: `${d[0]}%`, top: `${d[1]}%` }} aria-label={look.pieces[i].name} onClick={() => onPiece?.(i)}>
+            <span style={{ animationDelay: `${0.1 * num.get(i)!}s` }}>{num.get(i)}</span>
           </button>
-        );
-      })}
-      {pill && <span className={k.pill}>{pill}</span>}
-      {making ? <span className={k.making}>Making the picture…</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "Feta's sketch"}</span>}
-      {children}
-    </div>
+        ))}
+        {pill && <span className={k.pill}>{pill}</span>}
+        {making ? <span className={k.making}>Making the picture…</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
+        {children}
+      </div>
+      <div className={k.pieceRow}>
+        {order.map((i) => {
+          const p = look.pieces[i];
+          const mine = owned(p.name);
+          return (
+            <button key={`i${i}`} type="button" className={`${k.piece} ${mine ? k.pieceMine : ""}`} onClick={() => onPiece?.(i)}>
+              {dots[i] && <b>{num.get(i)}</b>}
+              <span>
+                {mine ? "Yours ✓ · " : ""}
+                {p.name}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

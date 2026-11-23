@@ -109,21 +109,25 @@ export function figureFor(wears: Wears, seed = ""): "man" | "woman" {
   return wears === "men" ? "man" : wears === "women" ? "woman" : [...seed].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? "man" : "woman";
 }
 
-// A look's picture (founder, 22 Nov 2026: "it can just look real", not a
-// drawing or product placement): a realistic full-length photo of one
-// person of the kind they shop for wearing exactly these pieces, on the
-// lookbook's plain grey. On them when they added their photo in My style.
-// Made only when the look comes on screen, about ₹4 (founder, 22 Nov 2026).
+// A look's picture (founder, 22–23 Nov 2026: "it can just look real"; never a
+// sketch, never a stranger). With their photo from My style: the look on
+// them. Without: an outfit board like a fashion app's, the clothes on an
+// invisible mannequin with the bag, shoes and jewellery laid out beside them,
+// and nothing that isn't in the look. Made in the look card's shape (4:5),
+// only when that look comes on screen, about ₹4.
+export const PICTURE_RATIO = "4:5";
 export async function lookPicture(look: Look, wears: Wears, photo: string | null): Promise<string> {
   if (FAKE) throw new Error("No pictures in test mode");
-  const who = photo
-    ? "the person in the image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features)"
-    : `one ${figureFor(wears, look.id)}, an ordinary adult, natural and relaxed`;
-  const prompt = `A realistic fashion lookbook photograph of ${who}, full length from head to toe, standing, facing the camera, centred, alone, on a plain light grey studio background (#dcdbd7), soft even light.
-They wear exactly this outfit, "${look.title}": ${orderedPieces(look.pieces).map((p) => `${p.slot}: ${p.name}`).join("; ")}. Nothing else that stands out.
-Real fabric and fit, like a brand's lookbook. No text, no logos, no other people, no props.`;
+  const pieces = orderedPieces(look.pieces).map((p) => `${p.slot}: ${p.name}`).join("; ");
+  const prompt = photo
+    ? `A realistic fashion lookbook photograph of the person in the image (keep them recognisably themselves: face, skin tone, hair and body exactly as in their photo; never slim, lighten, beautify or change their body or features), full length from head to toe, standing, facing the camera, centred, alone, on a plain light grey studio background (#dcdbd7), soft even light.
+They wear exactly this outfit, "${look.title}": ${pieces}. Nothing else that stands out.
+Real fabric and fit, like a brand's lookbook. No text, no logos, no other people, no props.`
+    : `A fashion outfit board for a ${figureFor(wears, look.id) === "man" ? "menswear" : "womenswear"} style app, realistic product photography. The clothes are worn by an invisible ghost mannequin: no person and no mannequin visible at all (no head, neck form, face, hands or skin), full length from collar to shoes, on the left of the picture. The accessories (bag, jewellery, watch, belt, eyewear, hat) are laid out neatly in a column on the right, each item separate and whole.
+Exactly these pieces and nothing else: ${pieces}. Do not add any item that isn't listed (no extra watch, jewellery, bag, belt or cufflinks).
+Plain soft light grey studio background (#dcdbd7), soft even light, gentle shadows; real fabric and fit, like a premium brand's product shots. No text, no logos, no brand marks, no people.`;
   const parts = photo ? [{ text: prompt }, inline(photo)] : [{ text: prompt }];
-  const data = await gemini("gemini_image", "gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "9:16" } }, 60000);
+  const data = await gemini("gemini_image", "gemini-3.1-flash-image", parts, { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: PICTURE_RATIO } }, 60000);
   const part = data.candidates?.[0]?.content?.parts?.find((p: { inline_data?: unknown; inlineData?: unknown }) => p.inline_data || p.inlineData);
   const img = part?.inline_data ?? part?.inlineData;
   if (!img?.data) throw new Error("No picture came back");
@@ -134,7 +138,7 @@ Real fabric and fit, like a brand's lookbook. No text, no logos, no other people
 // clothes (testers, 23 Nov 2026: dots on the wrong pieces, lines crossing).
 // One small look at the picture, about ₹0.1; none if it fails.
 export async function findSpots(image: string, pieces: Piece[]): Promise<([number, number] | null)[] | null> {
-  const prompt = `This is a full-length photo of one person. For each numbered piece of clothing, give the point at the centre of where it shows in the photo, as fractions of the image's width and height (x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom).
+  const prompt = `This is a look's picture: either a full-length photo of one person, or an outfit board (the clothes on an invisible mannequin, with accessories and shoes laid out beside it). For each numbered piece, give the point at the centre of where it shows in the picture, as fractions of the image's width and height (x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom). Where a piece shows twice (shoes worn and shoes laid out), give the one laid out separately.
 ${pieces.map((p, i) => `${i + 1}. ${p.slot}: ${p.name}`).join("\n")}
 A piece you can't clearly see in the photo (a small necklace, a bag that isn't there) is null: never guess a spot.
 Reply with only JSON: {"spots": [[x, y] or null, ...]} in the same order, one per piece.`;

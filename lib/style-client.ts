@@ -307,7 +307,10 @@ export async function chooseLook(set: LookSet, index: number | null) {
 }
 
 // A look's realistic picture, made once when it's shown (about ₹4) and kept
-// on this phone under the look's id. On them when they added their photo.
+// on this phone under the look's id: on them when they added their photo,
+// else an outfit board (founder, 23 Nov 2026: never a sketch), which is
+// also kept on their account (look_pictures) so another phone doesn't make
+// it again. A picture of them never leaves this phone.
 const picturesAsked = new Map<string, Promise<string | null>>();
 export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
   const key = `pic:${look.id}`;
@@ -316,6 +319,15 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
   const work = (async () => {
     const kept = await fromPhone(key);
     if (kept) return kept;
+    const photo = await fromPhone("selfie");
+    if (!photo && (await currentUserId())) {
+      const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
+      if (data?.image) {
+        await keepOnPhone(key, data.image);
+        if (data.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(data.spots));
+        return data.image as string;
+      }
+    }
     // One that failed today isn't tried again on every visit (₹4 a go).
     const failedKey = `feta.picFailed:${key}`;
     try {
@@ -323,15 +335,10 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
     } catch {
       // Tried again.
     }
-    // Pictures only on them (founder, 23 Nov 2026: "why was a random lady
-    // shown?"): with no photo of theirs, Feta's sketch stays, and "See it on
-    // you" offers to add one. No picture is made, so nothing is spent.
-    const photo = await fromPhone("selfie");
-    if (!photo) return null;
     const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null }>("/api/style/picture", { look, wears, photo });
     if (r?.image) await keepOnPhone(key, r.image);
     if (r?.image && r.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(r.spots));
-    else
+    if (!r?.image)
       try {
         sessionStorage.setItem(failedKey, "1");
       } catch {

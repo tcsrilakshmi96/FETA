@@ -523,5 +523,10 @@
   "kind": "table",
   "name": "qa_codes",
   "file": "20261123140000_close_audit_gaps.sql"
+ },
+ {
+  "kind": "table",
+  "name": "look_pictures",
+  "file": "20261123150000_look_pictures.sql"
  }
 ]

@@ -9,7 +9,7 @@ import { useToast } from "@/components/Toast";
 import WaitFun from "@/components/WaitFun";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
-import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, figureHalf, lookImage, styleById, type Wears } from "@/lib/style";
+import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, stylePicture, styleById, type Wears } from "@/lib/style";
 import { loadStyleProfile, readStylePhotos, saveStyleProfile, shrink, styleLimit, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
@@ -425,13 +425,12 @@ export default function StyleSetup() {
                           {behind.slice(0, 3).map((id, j) => {
                             const h = Math.round(270 * Math.pow(0.8, j));
                             const lens = styleById(id)!;
-                            const half = figureHalf(lens, wears ?? "women");
-                            const w = half === "both" ? h : Math.round(h / 2);
+                            const w = Math.round(h / 2);
                             return (
                               <button key={id} type="button" className={s.behind} aria-label={`Bring ${lens.name} to the front`} onClick={() => setFront(id)} style={vars({ left: `calc(50% + ${j * 54}px)`, bottom: 30, width: w, height: h, zIndex: 9 - j, opacity: 1 - j * 0.15, "--fx": fan[j % 4][0], "--fy": fan[j % 4][1], "--fr": fan[j % 4][2], "--delay": `${0.1 + j * 0.08}s` })}>
                                 <span className={s.bob} style={{ display: "block" }}>
-                                  {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
-                                  <img src={lookImage(id)} alt="" style={{ height: h, width: h, left: half === "right" ? -w : 0 }} />
+                                  {/* eslint-disable-next-line @next/next/no-img-element -- a fixed picture from Feta's library */}
+                                  <img src={stylePicture(id, wears ?? "women", id)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "10% top" }} />
                                 </span>
                               </button>
                             );
@@ -530,12 +529,11 @@ export default function StyleSetup() {
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{styles.length ? "Also feels like you? Tap to add" : "Which feel like you? Tap to add"}</span>
                     <div className={browse ? s.allStyles : s.thumbs}>
                       {STYLES.filter((l) => !styles.includes(l.id)).map((l) => {
-                        const half = figureHalf(l, wears ?? "women");
                         return (
                           <button key={l.id} type="button" className={s.thumb} style={browse ? { width: "auto" } : undefined} onClick={() => { setStyles([...styles, l.id]); setNotMe(notMe.filter((x) => x !== l.id)); setFront(l.id); }}>
                             <span className={s.thumbImg}>
-                              {/* eslint-disable-next-line @next/next/no-img-element -- cropped to one figure */}
-                              <img src={lookImage(l.id)} alt="" style={{ left: half === "right" ? -64 : half === "both" ? -32 : 0 }} />
+                              {/* eslint-disable-next-line @next/next/no-img-element -- a fixed picture from Feta's library */}
+                              <img src={stylePicture(l.id, wears ?? "women", l.id)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "10% top" }} />
                             </span>
                             {l.short}
                           </button>

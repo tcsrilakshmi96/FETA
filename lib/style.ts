@@ -54,14 +54,7 @@ export const STYLES: StyleLens[] = [
 
 const BY_ID = new Map(STYLES.map((s) => [s.id, s]));
 export const styleById = (id: string) => BY_ID.get(id) ?? null;
-export const lookImage = (id: string) => `/style/looks/${id}.jpg`;
 
-// Which half of the illustration to show: the woman, the man, or both.
-export function figureHalf(style: StyleLens, wears: Wears): "left" | "right" | "both" {
-  if (wears === "both" || style.woman === "both") return "both";
-  const man = style.woman === "left" ? "right" : "left";
-  return wears === "women" ? style.woman : man;
-}
 
 // Clothes budget per piece, separate from eating out: four levels whose
 // bounds follow the city's currency, like the food budget does.
@@ -181,12 +174,10 @@ export function tooAlike(a: Look, b: Look): boolean {
   const shared = [...x].filter((w) => y.has(w)).length;
   return shared >= Math.max(3, Math.ceil(Math.min(x.size, y.size) * 0.7));
 }
-// Pieces in the order they're listed, and where each one's dot sits on a
-// standing figure (share of the picture's width and height).
+// Pieces in the order they're worn, top layer first.
 export function orderedPieces(pieces: Piece[]): Piece[] {
   return [...pieces].sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot));
 }
-export const SLOT_AT: Record<Slot, [number, number]> = { layer: [0.36, 0.36], top: [0.56, 0.27], "one-piece": [0.52, 0.42], bottom: [0.52, 0.62], shoes: [0.52, 0.94], extra: [0.72, 0.5] };
 
 // Where a brand card links (founder, 22 Nov 2026: "dont show brand and link
 // to another country"; a tester's Mumbai H&M opened Australia, London Uniqlo
@@ -228,6 +219,14 @@ function rightCountry(href: string, country: string) {
 // A piece searched for (Search, founder 23 Nov 2026): the brand's own store
 // searched for it with Google (their country's site, as shopLink found it),
 // or, with no store of theirs, the brand and the piece in their country.
+// A picture of a look in a style, from Feta's library of outfit boards
+// (one each for womenswear and menswear, made once; founder, 23 Nov 2026:
+// never a sketch). "Both" takes turns by the seed.
+export function stylePicture(styleId: string, wears: Wears, seed = ""): string {
+  const side = wears === "men" ? "men" : wears === "women" ? "women" : [...seed].reduce((n, c) => n + c.charCodeAt(0), 0) % 2 ? "men" : "women";
+  return `/style/boards/${styleId}-${side}.jpg`;
+}
+
 // Feta never says it's in stock.
 export function pieceLink(link: { href: string; label: string }, brandName: string, piece: string, countryName: string): { href: string; label: string } {
   const google = (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
