@@ -249,19 +249,27 @@ button {
 /* Top-right Feedback pill, on every screen. */
 /* Tucked into the corner, so screens start near the top (founder, 21 Nov
    2026: "so much white space on the top"). */
+/* A slim tab on the right edge, in the gutter, so it never sits over a
+   heading or a card's label (persona re-test, 23 Nov 2026: at the top it
+   covered "Tonight, made for you" and Style's headers). */
 .feedback-pill {
   position: absolute;
-  top: 4px;
-  right: 12px;
+  top: 58%;
+  right: 0;
   z-index: 96;
-  padding: 3px 9px;
-  border-radius: 99px;
-  background: rgba(26, 22, 22, 0.55);
+  padding: 10px 4px;
+  /* Rounded on the left once turned. */
+  border-radius: 0 10px 10px 0;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  background: rgba(26, 22, 22, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: var(--onPhoto);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
 }
 
 .toast {

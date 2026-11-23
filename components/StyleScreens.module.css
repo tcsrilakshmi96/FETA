@@ -154,7 +154,6 @@
   color: var(--inkFixed);
   font-size: 13px;
   font-weight: 600;
-  margin-right: 70px; /* clear of the Feedback pill */
 }
 .done:disabled {
   opacity: 0.4;
