@@ -352,3 +352,33 @@ Choose up to ${max} that genuinely suit them (none if nothing fits), best first.
   const chosen = (JSON.parse(text).chosen ?? []) as { index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[];
   return chosen.filter((c, i, all) => Number.isInteger(c.index) && c.index >= 0 && c.index < events.length && all.findIndex((x) => x.index === c.index) === i).slice(0, max);
 }
+
+// An event's link must land on that event: a guessed link often redirects
+// to the site's home or a listings page and still "opens" (founder, 23 Nov
+// 2026: "Tickets on GoOut" opened the wrong page though the details were
+// right). Only where it lands is read, never the page. Sites that turn
+// automatic checks away (401/403/429) count as opening, as before.
+export async function eventLinkLands(url: string, timeoutMs = 4000): Promise<boolean> {
+  if (!/^https:\/\//.test(url)) return false;
+  try {
+    const res = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(timeoutMs), headers: { "User-Agent": "Mozilla/5.0 (compatible; FetaLinkCheck/1.0)" } });
+    if ([401, 403, 429].includes(res.status)) return true;
+    if (res.status >= 400) return false;
+    return !res.redirected || landsOnSame(url, res.url);
+  } catch {
+    return false;
+  }
+}
+
+// The landing page keeps the event's own part of the address ("/bread-hot-wine-ab12").
+export function landsOnSame(asked: string, landed: string) {
+  try {
+    const a = new URL(asked);
+    const b = new URL(landed);
+    const last = a.pathname.split("/").filter(Boolean).pop();
+    if (!last) return true;
+    return b.pathname.includes(last) || (a.search !== "" && b.search === a.search);
+  } catch {
+    return false;
+  }
+}

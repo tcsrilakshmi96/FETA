@@ -15,7 +15,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, pickFrom, selectPicks } from "@/lib/server/curate";
-import { cityCalendar, eventOver, eventPasses, eventSources, searchChip } from "@/lib/server/events";
+import { cityCalendar, eventOver, eventPasses, eventSources, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
@@ -875,6 +875,9 @@ async function main() {
     // Limits never mention money
     ...(["picks", "kept", "style", "ask"] as const).map((w) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(limitNotice(w, "Asia/Kolkata")) && `limit text "${w}" mentions money`),
     ...[0, 1, 3].map((n) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(leftNotice(n, "Europe/Lisbon")) && `searches-left text mentions money (${n})`),
+    // An event link that redirects away from the event is wrong (founder, 23 Nov 2026: GoOut)
+    landsOnSame("https://goout.net/en/bread-hot-wine/szabcde/", "https://goout.net/en/prague/events/") && "a link that lands on a listings page counts as the event",
+    !landsOnSame("https://goout.net/en/bread-hot-wine/szabcde/", "https://goout.net/cs/bread-hot-wine/szabcde/") && "a link that lands on the same event in another language is dropped",
     // Diet never on anything shareable
     /vegetarian|vegan|jain/i.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "a", kind: "EAT", because: "Because you asked for vegetarian dinner near Alfama." }, { placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan says their diet",
     !/love comedy/.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan loses a reason with no diet in it",
