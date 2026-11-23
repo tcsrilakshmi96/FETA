@@ -127,11 +127,23 @@ What they chose: ${chosen.join(", ") || "nothing yet"}.
 What Feta knows about them: ${[...taste.lines, ...(taste.own ?? [])].slice(0, 20).join("; ") || "little so far"}.
 ${taste.lovedPlaces?.length ? `Places they love: ${taste.lovedPlaces.join("; ")}.\n` : ""}${taste.places?.lovedNotes.length ? `What they love about places, in their words: ${taste.places.lovedNotes.join(" | ")}.\n` : ""}${tried.length ? `Already suggested, don't repeat: ${tried.join(", ")}.\n` : ""}
 Suggest 3 kinds of ${what} they have NOT chosen and probably haven't tried, but would very likely love given their personality, each different. Respect their diet (${taste.answers.diet || "anything"})${taste.answers.drinks === "no_alcohol" ? " and that they don't drink" : ""}.
-Reply with only JSON: {"kinds": [{"label": 1 to 4 words, e.g. "Burmese", "query": a Google Maps search, e.g. "burmese restaurant", "why": one warm sentence to them, under 20 words, linking it to what they love, e.g. "You love Thai and quiet cafés, and you've never tried Burmese."}]}`;
+Reply with only JSON: {"kinds": [{"label": 1 to 4 words naming the kind, "query": a Google Maps search for it}]}`;
   const parsed = await askGemini<{ kinds?: Partial<Surprise>[] }>(prompt);
+  // Never something they already chose, typed or love (persona re-test, 23
+  // Nov 2026: Burmese for someone who typed Burmese, beside a branch of a
+  // place she loves), and the line is Feta's own, not a guess at their
+  // personality ("Since you love unique flavors and casual vibes").
+  const known = plainKnown([...chosen, ...taste.lines, ...(taste.own ?? []), ...(taste.lovedPlaces ?? [])]);
   return (parsed.kinds ?? [])
-    .filter((k): k is Surprise => typeof k.label === "string" && typeof k.query === "string" && typeof k.why === "string")
-    .map((k) => ({ label: k.label.slice(0, 30), query: k.query.slice(0, 80), why: k.why.slice(0, 160) }));
+    .filter((k): k is Surprise => typeof k.label === "string" && typeof k.query === "string")
+    .filter((k) => !(k.label.toLowerCase().match(/[a-z]{4,}/g) ?? []).some((w) => known.has(w)))
+    .map((k) => ({ label: k.label.slice(0, 30), query: k.query.slice(0, 80), why: `Something new to you: ${k.label.slice(0, 30).toLowerCase()}.` }));
+}
+
+// The telling words of everything they've shared ("burmese", "pottery").
+const COMMON = new Set(["loves", "also", "food", "place", "places", "restaurant", "cafe", "with", "near", "good", "likes", "they", "their", "from", "into", "night", "things"]);
+function plainKnown(texts: string[]) {
+  return new Set(texts.flatMap((t) => t.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !COMMON.has(w)));
 }
 
 // Test mode: catalogue kinds they didn't choose, in order.
