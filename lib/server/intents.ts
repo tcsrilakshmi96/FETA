@@ -36,7 +36,7 @@ export type Intent = {
 // what's popular nearby when fewer than this many things are asked for.
 export const MAX_SEARCHES = 4;
 
-const NOW: IntentSource[] = ["asked", "plan", "tweak"];
+export const NOW: IntentSource[] = ["asked", "plan", "tweak"];
 const SHARED: IntentSource[] = ["cuisine", "interest", "typed", "loved"];
 
 function interestLabel(id: string) {

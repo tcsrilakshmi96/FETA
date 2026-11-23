@@ -385,6 +385,22 @@ const PERSONAS: Persona[] = [
     some: /Morning Dosa House/,
   },
   {
+    // Persona test, 23 Nov 2026: a vegetarian in Bengaluru chose South
+    // Indian, Japanese, Korean and bakeries and typed Burmese, and got 8
+    // bakeries in a row from the local favourites; South Indian and Korean
+    // never showed and no banner said so.
+    name: "Bengaluru vegetarian, five choices, local favourites mostly bakeries: every choice, bakeries a few",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_south_indian", "cuisine_japanese", "cuisine_korean", "cuisine_bakery"],
+    lines: ["Also loves Burmese"],
+    local: /Glen's|Lavonne|CakeBox|Corner House|Daily Crumbs|Sweet Chariot|Crumb Bakery|Sugar Spoon/,
+    covers: ["cuisine_south_indian", "cuisine_japanese", "cuisine_korean", "cuisine_bakery", "said_0"],
+    most: { cuisine_bakery: 2 },
+    half: true,
+  },
+  {
     name: "Asked in chat: rooftop dinner",
     city: "Bengaluru",
     category: "food_drinks",

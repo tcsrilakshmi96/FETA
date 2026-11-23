@@ -103,6 +103,15 @@ export const CATALOGUE: Row[] = [
   // address with 2 reviews that a workshop search finds.
   ["Sad Sweets", "dessert_shop", ["bakery", "cafe"], "bakery desserts cakes", true, 1, 1.8, 120, "eve", 0.3, 10],
   ["257, Lakshmi Nilaya", "point_of_interest", ["establishment"], "art workshop pottery", null, 0, 5.0, 2, "day", 0.4, 30],
+  // Bakeries and dessert shops, which fill Bengaluru's local favourites
+  // (persona test, 23 Nov 2026: a South Indian, Japanese, Korean, bakery
+  // and Burmese lover got 8 bakeries in a row, one a cake-delivery shop).
+  ["Glen's Bakehouse", "bakery", ["cafe"], "bakery cafe cakes", true, 2, 4.4, 4800, "eve", 1.1, 35],
+  ["Lavonne Patisserie", "bakery", ["cafe"], "patisserie bakery desserts", true, 2, 4.5, 2100, "eve", 1.6, 65],
+  ["CakeBox Express", "bakery", ["meal_delivery"], "cake delivery bakery", true, 1, 4.2, 300, "eve", 0.9, 150],
+  ["Corner House Ice Creams", "ice_cream_shop", ["dessert_shop"], "ice cream desserts", true, 1, 4.6, 12000, "late", 1.3, 210],
+  ["Daily Crumbs", "bakery", ["cafe"], "bakery breads", true, 1, 4.3, 900, "eve", 2.0, 240],
+  ["Sweet Chariot", "bakery", ["cafe"], "bakery cakes", true, 2, 4.4, 1300, "eve", 2.2, 280],
 ];
 
 const HOTELS = ["Hotel Sakura (test hotel)", "Riverside Inn (test hotel)", "Old Town Suites (test hotel)"];
