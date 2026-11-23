@@ -46,9 +46,11 @@ const PER_USD: Record<string, number> = {
 };
 const USD_BANDS = [80, 180, 350];
 
+// A round amount people would say: €75, €150, €300, ₹6,500, ₹15,000
+// (traveller, 23 Nov 2026: "Under €74", "€74–166" read as odd buckets).
 function round(n: number) {
-  const p = 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1);
-  return Math.round(n / p) * p;
+  const step = 10 ** Math.floor(Math.log10(n)) / 2;
+  return Math.max(step, Math.round(n / step) * step);
 }
 
 export function hotelBudgets(currency: string): { id: string; label: string }[] {

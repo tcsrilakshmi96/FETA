@@ -5,7 +5,7 @@ import type { Itinerary } from "@/lib/server/itinerary";
 import { planDays } from "@/lib/server/plan-days";
 import { bestPhoto, findDestination, searchPlaces, type Place } from "@/lib/server/places";
 import { photoRef } from "@/lib/server/photo-ref";
-import type { Pick } from "@/lib/server/picks";
+import { brandOf, type Pick } from "@/lib/server/picks";
 import { veniceJson } from "@/lib/server/venice";
 
 // The trip planner in Ask Feta (founder, 14 Nov 2026): 1) a route of cities,
@@ -180,6 +180,9 @@ export async function findStays(c: TripCity, budget: string, who: string | null)
     .filter((p) => (p.types ?? []).some((t) => ["lodging", "hotel", "resort_hotel", "inn", "japanese_inn", "bed_and_breakfast", "guest_house"].includes(t)))
     .filter((p) => (p.rating ?? 0) >= 4 && (p.userRatingCount ?? 0) >= 30)
     .sort((a, b) => (b.rating ?? 0) * Math.log10((b.userRatingCount ?? 1) + 10) - (a.rating ?? 0) * Math.log10((a.userRatingCount ?? 1) + 10))
+    // One hotel per chain (traveller, 23 Nov 2026: HF Fénix Lisboa and HF
+    // Fénix Music as two of three choices).
+    .filter((p, i, all) => all.findIndex((o) => brandOf(o.displayName?.text ?? "") === brandOf(p.displayName?.text ?? "")) === i)
     .slice(0, 3)
     .map((p) => toStay(p, at.city));
 }

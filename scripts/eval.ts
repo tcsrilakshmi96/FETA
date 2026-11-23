@@ -10,6 +10,7 @@
 
 import { asksQuestion, withDinner } from "@/lib/ask-rules";
 import { buildItinerary } from "@/lib/server/itinerary";
+import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
@@ -628,6 +629,14 @@ async function main() {
     chainNames > 1 && "two branches of one chain",
     !plan.days[0].stops.some((s) => /Castelo/.test(s.pick.name)) && "the castle (a top sight) left out of the first day",
     plan.days.some((d) => d.stops.length && !d.back) && "a day doesn't end back at the hotel",
+    ...["EUR", "INR", "USD", "GBP", "JPY"].flatMap((cur) =>
+      hotelBudgets(cur)
+        .flatMap((b) => b.label.match(/[\d,.]+/g) ?? [])
+        .map((n) => Number(n.replace(/,/g, "")))
+        // Round: its first two digits are a multiple of 5 (75, 150, 6,500).
+        .filter((n) => (n / 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1)) % 5 !== 0)
+        .map((n) => `an odd hotel budget (${cur} ${n})`),
+    ),
   ].filter(Boolean);
   if (dayFails.length) {
     failed++;
