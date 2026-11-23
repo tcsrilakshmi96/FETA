@@ -70,6 +70,14 @@ export function timeOrder(order: NightPlace[], weekday: number, start: number, t
   let wait = 0;
   for (const place of order) {
     const last = stops[stops.length - 1];
+    // One dinner a night: a second main meal in the evening is said plainly,
+    // with Drop it, never stacked (persona re-test, 23 Nov 2026: Koriken at
+    // 7, then Vilva Bhavan at 8:45 as "dinner last").
+    const dinner = stops.find((s) => mainMeal(s.place) && s.at + visitMinutes(s.place) > 17 * 60);
+    if (mainMeal(place) && dinner && now >= 17 * 60) {
+      problems.push({ place, why: `a second dinner, after ${dinner.place.name}` });
+      continue;
+    }
     const leg = last ? legBetween(last.place, place) : undefined;
     // Feta never puts an evening dinner before 7 pm.
     const ready = Math.max(quarter(now + (leg?.minutes ?? 0)), !theirs && mainMeal(place) && now >= 16 * 60 ? DINNER : 0);
