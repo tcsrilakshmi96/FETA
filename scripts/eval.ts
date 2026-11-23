@@ -27,6 +27,7 @@ import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
+import { readSpots } from "@/lib/server/style";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
@@ -950,6 +951,10 @@ async function main() {
       piecesMatch(linen, "linen shirts", (b) => b.text).cards.map((b) => b.name).join() !== "Linen House" && "a piece search doesn't find the brand that makes it",
       piecesMatch(linen, "silk dress", (b) => b.text).cards.length !== 0 && "a piece no brand mentions brings brands",
       !pieceLink({ href: "https://www.cos.com/en-cz/", label: "" }, "COS", "linen shirt", "Czechia").href.includes("site%3Acos.com") && "a piece link doesn't search the brand's own store",
+      // Dots on a look's picture: the AI's 0–1000 answer is read as fractions (live check, 24 Nov 2026)
+      JSON.stringify(readSpots([[324, 252], null], 2)) !== "[[0.324,0.252],null]" && "a picture's piece positions on a 0–1000 scale are thrown away",
+      JSON.stringify(readSpots([[0.3, 0.2]], 1)) !== "[[0.3,0.2]]" && "a picture's piece positions as fractions are lost",
+      readSpots([[0.3, 0.2]], 2) !== null && "piece positions for the wrong number of pieces are used",
     ].filter(Boolean);
     if (searchFails.length) {
       failed++;

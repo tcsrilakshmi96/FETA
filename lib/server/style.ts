@@ -143,9 +143,17 @@ ${pieces.map((p, i) => `${i + 1}. ${p.slot}: ${p.name}`).join("\n")}
 A piece you can't clearly see in the photo (a small necklace, a bag that isn't there) is null: never guess a spot.
 Reply with only JSON: {"spots": [[x, y] or null, ...]} in the same order, one per piece.`;
   const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }, inline(image)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
-  const o = JSON.parse(textOf(data)) as { spots?: unknown };
-  const spots = Array.isArray(o.spots) ? o.spots : [];
-  const ok = spots.length === pieces.length && spots.every((x) => x === null || (Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === "number" && v >= 0 && v <= 1)));
+  return readSpots((JSON.parse(textOf(data)) as { spots?: unknown }).spots, pieces.length);
+}
+
+// Where each piece is, as fractions, from the AI's answer. Gemini often
+// answers on its own 0–1000 scale instead (live check, 24 Nov 2026: every
+// answer was thrown away, so no dots showed). Null if it doesn't fit.
+export function readSpots(answer: unknown, count: number): ([number, number] | null)[] | null {
+  const raw = Array.isArray(answer) ? answer : [];
+  const big = raw.some((x) => Array.isArray(x) && x.some((v) => typeof v === "number" && v > 1));
+  const spots = raw.map((x) => (Array.isArray(x) && big ? x.map((v) => (typeof v === "number" ? v / 1000 : v)) : x));
+  const ok = spots.length === count && spots.every((x) => x === null || (Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === "number" && v >= 0 && v <= 1)));
   return ok ? (spots as ([number, number] | null)[]) : null;
 }
 
