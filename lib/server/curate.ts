@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { City } from "@/lib/cities";
-import { allIntents, intentWords, kindKey, matches, NOW, planSearches, plainText, type Intent } from "@/lib/server/intents";
+import { allIntents, kindKey, matches, NOW, planSearches, type Intent } from "@/lib/server/intents";
 import { searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import {
   applyHardFilters,
@@ -307,12 +307,11 @@ export function selectPicks(
 // choreographer, "hole-in-the-wall spots" from one vibe-card tap), else the
 // first of those things in Feta's own words, else nothing: no reason beats
 // an invented one. A vibe card sets the tone, it is never a reason.
-export function becauseFor(served: Intent[], aiLine?: string) {
-  const real = served.filter((i) => i.source !== "side" && i.reason);
-  const words = intentWords(real);
-  const line = plainText(aiLine ?? "");
-  if (aiLine?.startsWith("Because you") && words.some((w) => line.includes(w))) return aiLine;
-  return real[0]?.reason ?? "";
+export function becauseFor(served: Intent[]) {
+  // Feta's own words only, from what this place was found for (persona
+  // re-test, 23 Nov 2026: the ranking's lines kept adding things nobody said,
+  // "Because you love browsing antique markets" for someone into markets).
+  return served.find((i) => i.source !== "side" && i.reason)?.reason ?? "";
 }
 
 // A global fast-food chain stays only when it's the only place found for

@@ -632,10 +632,9 @@ async function main() {
   const thai = { id: "cuisine_thai", label: "Thai & SE Asian", reason: "Because you love Thai & SE Asian food.", query: "thai restaurant", def: { searches: [] }, explicit: true, source: "cuisine", food: true } satisfies Intent;
   const side = { id: "side_dressed_up", label: "A dressed-up dinner for an occasion", reason: "Because you picked a dressed-up dinner for an occasion.", query: "fine dining", def: { searches: [] }, explicit: false, source: "side", food: true } satisfies Intent;
   const reasonFails = [
-    becauseFor([side], "Because you picked a dressed-up dinner for an occasion.") !== "" && "a vibe card used as a reason",
-    becauseFor([thai], "Because you love hole-in-the-wall spots.") !== thai.reason && "an invented reason kept",
-    becauseFor([thai], "Because you love Thai: their green curry is the best nearby.") !== "Because you love Thai: their green curry is the best nearby." && "a real reason dropped",
-    becauseFor([], "Because you love live music.") !== "" && "a reason for a place that serves nothing they chose",
+    becauseFor([side]) !== "" && "a vibe card used as a reason",
+    becauseFor([thai]) !== thai.reason && "Feta's own reason missing",
+    becauseFor([]) !== "" && "a reason for a place that serves nothing they chose",
   ].filter(Boolean);
   if (reasonFails.length) {
     failed++;
