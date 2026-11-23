@@ -90,6 +90,15 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
   return p;
 }
 
+// A place they saved, skipped or have been to leaves their other lists on
+// the phone (tester, 23 Nov 2026: a café saved in Food & drinks stayed in
+// Things to do); the list it was acted on in handles its own.
+export function withoutElsewhere(slots: Record<string, Slot>, key: string, placeId: string): Record<string, Slot> {
+  return Object.fromEntries(
+    Object.entries(slots).map(([k, s]) => [k, k === key ? s : { ...s, picks: s.picks.filter((p) => p.placeId !== placeId), spares: s.spares.filter((p) => p.placeId !== placeId) }]),
+  );
+}
+
 // One list changed on the phone (a fresh set from Home): kept for the other
 // screens too.
 export function keepSlot(key: string, slot: Slot) {

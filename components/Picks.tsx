@@ -22,7 +22,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
+import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, withoutElsewhere, type Slot } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -266,7 +266,7 @@ export default function Picks() {
     setSlots((s) => {
       const list = s[key].picks;
       const picks = list[0]?.placeId === pick.placeId ? [...list.slice(1), list[0]] : list;
-      return { ...s, [key]: { ...s[key], picks, saved: [...s[key].saved, pick.placeId] } };
+      return { ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks, saved: [...s[key].saved, pick.placeId] } };
     });
     toast("Saved to Want to try");
   }
@@ -274,7 +274,7 @@ export default function Picks() {
   // "Not for me": it leaves the list, and Feta asks why (optional).
   function skip(pick: Pick) {
     savePickAction(pick.placeId, "skipped", { category, cityId: city!.id });
-    setSlots((s) => ({ ...s, [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet({ type: "reason", pick });
   }
 
@@ -282,7 +282,7 @@ export default function Picks() {
   // they don't know yet (testers: "I know Bombay, show me others").
   function been(pick: Pick) {
     savePickAction(pick.placeId, "been", { category, cityId: city!.id });
-    setSlots((s) => ({ ...s, [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet(null);
     toast("Moved to Been. Feta will show you places you don't know yet.");
   }

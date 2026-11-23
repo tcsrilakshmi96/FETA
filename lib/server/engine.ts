@@ -133,6 +133,20 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     .order("created_at", { ascending: false })
     .limit(20);
   const latest = (recent ?? []).find((s) => s.origin_key === originKey);
+  // A place in their Food & drinks list right now isn't repeated in Things
+  // to do (tester, 23 Nov 2026: the same café in both lists); food owns it.
+  if (body.category === "experiences" && !body.dayPlan && !body.only) {
+    const { data: food } = await db
+      .from("pick_sets")
+      .select("picks")
+      .eq("category", "food_drinks")
+      .eq("when_slot", body.when)
+      .eq("origin_key", originKey)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1);
+    for (const p of (food?.[0]?.picks as StoredPick[] | undefined) ?? []) exclude.add(p.placeId);
+  }
 
   // Tweaks ("Cheaper", "Closer"…) always search fresh and are kept apart.
   const tweaks = (body.tweaks ?? []).filter((t) => TWEAKS.includes(t as Tweak)) as Tweak[];
