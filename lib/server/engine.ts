@@ -6,7 +6,7 @@ import { cityById, isSmallCity } from "@/lib/server/cities";
 import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
 import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
-import { KIND_MAX, becauseFor, curate, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
+import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
 import { allIntents, intentWords, plainText, type Intent } from "@/lib/server/intents";
 import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
@@ -92,20 +92,6 @@ type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string;
 
 function json(body: Reply | { error: string }, status = 200) {
   return Response.json(body, { status });
-}
-
-// Events first, at most KIND_MAX for any one thing they're into (Round 6:
-// pottery took 5 of 8 and crowded out riding), up to the set's size.
-function eventsFirst(all: EventPick[], need: number): EventPick[] {
-  const perKind = new Map<string, number>();
-  return all
-    .filter((e) => {
-      const k = e.stored.serves?.[0];
-      if (!k) return true;
-      perKind.set(k, (perKind.get(k) ?? 0) + 1);
-      return perKind.get(k)! <= KIND_MAX;
-    })
-    .slice(0, need);
 }
 
 // The picks engine, shared by Picks (/api/picks) and Ask Feta (/api/ask).

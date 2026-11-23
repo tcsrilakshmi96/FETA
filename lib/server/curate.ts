@@ -234,6 +234,20 @@ function roundRobin(cands: Candidate[], searched: Intent[]): Candidate[] {
 // The most of one thing they're into among the 8, places and events together.
 export const KIND_MAX = 3;
 
+// Events first, at most KIND_MAX for any one thing they're into (Round 6:
+// pottery took 5 of 8 and crowded out riding), up to the set's size.
+export function eventsFirst<T extends { stored: { serves?: string[] } }>(all: T[], need: number): T[] {
+  const perKind = new Map<string, number>();
+  return all
+    .filter((e) => {
+      const k = e.stored.serves?.[0];
+      if (!k) return true;
+      perKind.set(k, (perKind.get(k) ?? 0) + 1);
+      return perKind.get(k)! <= KIND_MAX;
+    })
+    .slice(0, need);
+}
+
 export function selectPicks(
   ranked: Ranked[],
   pool: Candidate[],

@@ -14,19 +14,21 @@ import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
-import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
+import { becauseFor, curate, eventsFirst, KIND_MAX, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, eventSources, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
-import { applyHardFilters, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
-import { planNight, type NightPlace } from "@/lib/night-plan";
+import { planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
 import { brandPrice, lookProblem, shopLink } from "@/lib/style";
-import { resetTime } from "@/lib/limits";
+import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
+import { scopeCounts, todayScope } from "@/lib/profile-scope";
+import { shareSafe } from "@/lib/share-safe";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -42,6 +44,7 @@ type Persona = {
   lines?: string[];
   loved?: string[]; // places they love, as Feta describes them
   tweaks?: Tweak[];
+  notInto?: string[]; // Google types skipped as "Not into …"
   note?: string;
   dayPlan?: boolean;
   // Expectations.
@@ -410,6 +413,26 @@ const PERSONAS: Persona[] = [
     half: true,
   },
   {
+    // Core rule audit, 23 Nov 2026: no alcohol drops bars in Food & drinks too.
+    name: "Doesn't drink, Italian tonight: no bar, pub or brewery",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { drinks: "no_alcohol" },
+    yes: ["cuisine_italian"],
+    covers: ["cuisine_italian"],
+    rule: noBar,
+  },
+  {
+    // "Not into Thai restaurants" from a skip: never one again.
+    name: "Skipped as not into Thai: no Thai place comes back",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_korean", "cuisine_italian"],
+    notInto: ["thai_restaurant"],
+    never: /Thai/,
+  },
+  {
     // Founder's test, 23 Nov 2026: someone who hadn't shared anything yet got
     // "Rhythm Riders Band for Hire" as a thing to do on Home.
     name: "Shared nothing yet, things to do: no band for hire or office",
@@ -513,6 +536,7 @@ async function run(p: Persona) {
     yes: p.yes ?? [],
     no: [],
     lovedPlaces: p.loved,
+    ...(p.notInto ? { notInto: p.notInto } : {}),
   };
   const extra = await readTaste(taste, city, p.category);
   const found = await curate({
@@ -835,6 +859,43 @@ async function main() {
     failed++;
     console.log(`✗ Day plans: ${dayFails.join(", ")}`);
   } else console.log("✓ Day plans start from now, lead with the sights, end at the hotel, and skip offices, pubs by day, parks after dark and repeat chains");
+  // Core rules from CLAUDE.md that had no check (founder, 23 Nov 2026: "it
+  // doesn't remember the core logic all the time"). Each breaks loudly here.
+  const pl = (name: string, primaryType = "restaurant", veg: boolean | null = true) => ({ id: name, displayName: { text: name }, primaryType, types: [primaryType], servesVegetarianFood: veg }) as never;
+  const withDiet = (d: string, extra: Partial<Answers> = {}) => ({ ...EMPTY_ANSWERS, diet: d, ...extra }) as Answers;
+  const evPick = (id: string, serves: string) => ({ stored: { placeId: id, serves: [serves] } });
+  const coreFails = [
+    // Diets
+    dietOk(pl("Pork Belly House"), withDiet("everything", { avoid: ["pork"] } as Partial<Answers>), "GB") && !mainlyAvoided(pl("Pork Belly House"), ["pork"]) && "no pork: a pork place passes",
+    !mainlyAvoided(pl("Hawksmoor", "steak_house"), ["beef"]) && "no beef: a steak house passes",
+    dietOk(pl("Smokehouse BBQ", "barbecue_restaurant"), withDiet("vegan"), "GB") && "vegan: a barbecue place passes",
+    dietOk(pl("Kebab Corner"), withDiet("jain"), "IN") && "Jain: a kebab place passes",
+    !dietOk(pl("Udupi Grand", "south_indian_restaurant", null), withDiet("vegetarian"), "IN") && "vegetarian in India: a place with no answer is dropped",
+    dietOk(pl("Trattoria Roma", "italian_restaurant", null), withDiet("vegetarian"), "GB") && "vegetarian abroad: a place with no answer passes",
+    // Limits never mention money
+    ...(["picks", "kept", "style", "ask"] as const).map((w) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(limitNotice(w, "Asia/Kolkata")) && `limit text "${w}" mentions money`),
+    ...[0, 1, 3].map((n) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(leftNotice(n, "Europe/Lisbon")) && `searches-left text mentions money (${n})`),
+    // Diet never on anything shareable
+    /vegetarian|vegan|jain/i.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "a", kind: "EAT", because: "Because you asked for vegetarian dinner near Alfama." }, { placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan says their diet",
+    !/love comedy/.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan loses a reason with no diet in it",
+    // Trip-only and today-only lines
+    scopeCounts("Lisbon · 12–15 Dec", null) && "a trip-only line reaches everyday picks",
+    !scopeCounts("Lisbon · 12–15 Dec", "Lisbon · 12–15 Dec") && "a trip-only line is missing from its trip",
+    !scopeCounts(todayScope(), null) && "a today-only line is missing today",
+    scopeCounts(todayScope(new Date(Date.now() - 2 * 86400000)), null) && "an old today-only line still counts",
+    // Events lead things to do, at most KIND_MAX of one kind
+    eventsFirst([1, 2, 3, 4, 5].map((i) => evPick(`c${i}`, "comedy")), 8).length !== KIND_MAX && `more than ${KIND_MAX} events of one kind`,
+    eventsFirst([evPick("a", "comedy"), evPick("b", "pottery"), evPick("c", "comedy")], 8).map((e) => e.stored.placeId).join() !== "a,b,c" && "events lose their order",
+    // One branch per chain
+    selectPicks([], [{ place: pl("Dishoom Covent Garden", "indian_restaurant"), km: 1, intents: ["cuisine_north_indian"] }, { place: pl("Dishoom Carnaby", "indian_restaurant"), km: 1, intents: ["cuisine_north_indian"] }] as Candidate[], { room: 8, small: false, popularCap: 2, explicit: [] }).filter((c) => !c.spare).length !== 1 && "two branches of one chain shown",
+    // Plan a night: a closed day said plainly; Room for dessert never a second dinner
+    !/closed on Sundays/.test(planNight([{ placeId: "x", name: "Closed Sun", area: "", kind: "DO", light: false, lat: 12.97, lng: 77.6, mapsUri: "", hours: [[1, 600, 1320]] }], 0, 18 * 60).problems[0]?.why ?? "") && "a place closed that day isn't said plainly",
+    roomForOne(planNight([{ placeId: "d", name: "Dinner Place", area: "", kind: "EAT", light: false, lat: 12.97, lng: 77.6, mapsUri: "" }], 5, 19 * 60), [{ placeId: "e", name: "Another Dinner", area: "", kind: "EAT", light: false, lat: 12.9701, lng: 77.6, mapsUri: "" }], 5) !== null && "Room for dessert offers a second dinner",
+  ].filter(Boolean);
+  if (coreFails.length) {
+    failed++;
+    console.log(`✗ Core rules: ${coreFails.join(", ")}`);
+  } else console.log("✓ Core rules: diets (no pork, no beef, vegan, Jain, India and abroad), limits never mention money, trip and today lines, events first, one branch per chain, Plan a night");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {
