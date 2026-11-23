@@ -48,6 +48,7 @@ const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 // (founder, 19 Nov 2026), so the first search of the day waits for them
 // (one web search, about 11 s, then the venues); testers found 20 s too slow.
 const EVENTS_WAIT_MS = 15000;
+const EVENT_SEARCHES = 2;
 
 type Body = {
   category: Category;
@@ -472,6 +473,11 @@ async function eventPicks(ctx: {
   const cal = cityCalendar(city.timeZone);
   const kinds: (Intent | null)[] = ctx.intents.length ? ctx.intents : [null];
 
+  // At most EVENT_SEARCHES new web searches a set (about ₹3 each); kinds
+  // already searched in the city today are free and always used. The order
+  // of kinds turns with each set, so every interest gets its search in turn
+  // (founder, 23 Nov 2026: a fresh list paid for 3.5 event searches).
+  let freshLeft = EVENT_SEARCHES;
   const [searches, guides] = await Promise.all([
     Promise.all(
       kinds.map(async (intent) => {
@@ -483,6 +489,8 @@ async function eventPicks(ctx: {
       const key = [city.id, "events", span, day, intent?.query.toLowerCase() ?? "any"].join("|");
       const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
       if (cached) return { intent, span, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
+      if (freshLeft <= 0) return { intent, span, events: [] as FoundEvent[], searchHtml: "" };
+      freshLeft--;
       const found = await findEvents({ city, when: span, kind }).catch((error) => {
         console.error(error);
         return { events: [] as FoundEvent[], searchHtml: "" };
