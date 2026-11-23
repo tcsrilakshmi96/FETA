@@ -56,6 +56,8 @@ for (const i of [0, 3]) {
 await wait(500);
 await shot("a-line");
 ok("A: Next counts the looks tapped", await buttonVisible(/^Next · 2 looks/));
+ok("A: tapped looks hang on the line (2 / 8)", /2\s*\/ 8/.test(await text()));
+ok("A: the button sits at the bottom of the screen", await p.evaluate(() => { const el = [...document.querySelectorAll("button")].find((x) => /^Next · 2 looks/.test(x.textContent.trim())); return !!el && innerHeight - el.getBoundingClientRect().bottom < 60; }));
 await click(/^Next · 2 looks/);
 await wait(1200);
 ok("A: tapped looks go straight to the lineup (no reading)", /Continue with 2 styles/.test(await text()));
@@ -63,7 +65,10 @@ const s3 = await scrollEnd();
 ok("A: the styles screen scrolls", s3.scrolls ? s3.moved : true);
 await click(/^Continue with/);
 await wait(800);
-ok("A: budget comes after styles", await buttonVisible(/^See my style/));
+ok("A: budget comes after styles, nothing ticked", await buttonVisible(/^Tick at least one/));
+await click(/^Easy/);
+await click(/^Treat/);
+ok("A: two budget levels can be ticked", await buttonVisible(/^See my style/) && (await p.evaluate(() => document.querySelectorAll("button[aria-pressed=true]").length)) === 2);
 await click(/^See my style/);
 await p.waitForFunction(() => location.pathname === "/style", { timeout: 20000 }).catch(() => null);
 

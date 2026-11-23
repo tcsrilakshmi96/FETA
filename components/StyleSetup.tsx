@@ -59,7 +59,9 @@ export default function StyleSetup() {
   // Why the photos couldn't be read, shown in place of the lineup (founder,
   // 20 Nov 2026: a toast vanished and left an empty box, "has it given up?").
   const [readFailed, setReadFailed] = useState<string | null>(null);
-  const [budget, setBudget] = useState<string[]>(["c2"]);
+  // Nothing ticked to begin with (testers, 23 Nov 2026: Mid came ticked, so
+  // tapping Mid and Treat saved only Treat).
+  const [budget, setBudget] = useState<string[]>([]);
   const [homegrown, setHomegrown] = useState(false);
   const [votes, setVotes] = useState<StyleProfile["votes"]>([]);
   const [saving, setSaving] = useState(false);
@@ -88,7 +90,7 @@ export default function StyleSetup() {
       setOnYou(p.onYou);
       setKept({ wardrobe: p.wardrobe, offNotes: p.offNotes });
       setStyles(p.styles);
-      setBudget(p.budget.length ? p.budget : ["c2"]);
+      setBudget(p.budget);
       setHomegrown(p.homegrownOnly);
       setVotes(p.votes);
       setReadCount(p.readFromPhotos);
@@ -581,7 +583,7 @@ export default function StyleSetup() {
             </Line>
             <div className={s.bottomBar}>
               <button type="button" className={s.primary} disabled={!budget.length || saving} onClick={finish}>
-                {saving ? "Saving…" : "See my style"}
+                {saving ? "Saving…" : budget.length ? "See my style" : "Tick at least one"}
               </button>
             </div>
           </>
