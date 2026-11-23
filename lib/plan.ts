@@ -49,6 +49,21 @@ function openUntil(p: Pick, at: Date, minutes: number) {
   return new Date(p.closesAt).getTime() >= at.getTime() + minutes * 60000;
 }
 
+// What each stop is for comes from what the place is (Google's type), not
+// from the list it came from (persona test, 23 Nov 2026: a bakery as
+// dinner, a café as "something to do").
+// Somewhere for a treat or a coffee, not a dinner.
+const TREAT = /^(bakery|cafe|coffee_shop|tea_house|juice_shop|dessert_shop|dessert_restaurant|ice_cream_shop|confectionery|donut_shop|cake_shop|chocolate_shop|candy_store|pastry_shop|bagel_shop|acai_shop|cafeteria)$/;
+const FOOD_PLACE = /restaurant|cafe|coffee|bakery|bar$|pub|brewery|dessert|food|tea_house|juice|ice_cream|confection|donut|cake|bagel|deli|takeaway/;
+// Dinner: a place to eat a meal.
+export const isMeal = (p: Pick) => p.kind === "EAT" && !!p.type && !TREAT.test(p.type);
+// After dinner: drinks, or dessert or a coffee.
+const forAfter = (p: Pick) => p.kind === "DRINK" || (p.kind === "EAT" && TREAT.test(p.type ?? ""));
+// Something to do: an event, or a place to go; a café or a bar only when
+// it's where something they're into happens (board games, comedy), never
+// for a vibe card alone.
+const toDo = (p: Pick) => !!p.event || (p.kind === "DO" && (!FOOD_PLACE.test(p.type ?? "") || (p.serves ?? []).some((id) => !id.startsWith("side_") && id !== "popular")));
+
 const VERDICT_SCORE: Record<string, number> = { "Worth a detour": 0, "Good if you're nearby": 1, "Skip unless": 3 };
 
 // Up to "max" different evenings, best first, with no place in two of them,
@@ -56,10 +71,10 @@ const VERDICT_SCORE: Record<string, number> = { "Worth a detour": 0, "Good if yo
 export function planEvenings(food: Pick[], experiences: Pick[], when: When, now = new Date(), max = 4): Plan[] {
   // Someone who only chose things to do gets two things to do (founder,
   // 20 Nov 2026: "they might just choose an experience"); only food gets
-  // dinner, then drinks.
-  const eats = food.filter((p) => p.kind === "EAT" || p.kind === "DRINK");
-  const firsts = eats.length ? eats : experiences;
-  const afters = [...experiences, ...food.filter((p) => p.kind === "DRINK")];
+  // dinner, then drinks or dessert.
+  const things = experiences.filter(toDo);
+  const firsts = food.length ? food.filter(isMeal) : things;
+  const afters = [...things, ...food.filter(forAfter)];
   const found: { plan: Plan; score: number }[] = [];
 
   // Tonight starts soon; the weekend plan is for Saturday (or Sunday) evening.
