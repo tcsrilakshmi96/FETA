@@ -7,11 +7,11 @@ import { useRouter } from "next/navigation";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone, type Currency } from "@/lib/currency";
-import { removeFromList, saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
+import { removeFromList, saveAnswersToDb, saveCityToDb, saveProfileBasicsToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
 import InterestChips from "@/components/InterestChips";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, toggleSpend, type Answers } from "@/lib/onboarding";
-import { loadWants, type Want } from "@/lib/profile";
+import { loadName, loadWants, type Want } from "@/lib/profile";
 import {
   MAX_CUISINES,
   cuisinesFor,
@@ -172,7 +172,11 @@ export default function Questions() {
       ? [...swipes.filter((s) => !s.cardId.startsWith("cuisine_")), ...options.map((c) => ({ cardId: `cuisine_${c.id}`, verdict: chosen(c.id) ? ("yes" as const) : ("no" as const) }))]
       : swipes;
     saveSwipes(all);
-    const saving: Promise<unknown>[] = [saveSwipesToDb(all), saveAnswersToDb(answers)];
+    // Their name, what they want and their city go again with the answers,
+    // so the account is whole even if the page reloaded during setup (the
+    // journey found a reload left the account with no name or city, so it
+    // couldn't be brought back on another phone).
+    const saving: Promise<unknown>[] = [saveSwipesToDb(all), saveAnswersToDb(answers), saveProfileBasicsToDb(loadName(), loadWants()), ...(city ? [saveCityToDb(city)] : [])];
     // Plain lines for You, plus anything they typed in their own words.
     const own: ProfileLine[] = [
       typed.rest && { id: "food_other", text: `Also loves ${typed.rest.slice(0, 60)}`, source: "answers" as const },
