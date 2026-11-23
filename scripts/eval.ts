@@ -8,7 +8,7 @@
 // for a final check before release (about ₹50; ask the founder first). In
 // live mode the expectations that name test places are skipped.
 
-import { asksQuestion } from "@/lib/ask-rules";
+import { asksQuestion, withDinner } from "@/lib/ask-rules";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
@@ -577,6 +577,10 @@ async function main() {
   const askFails = [
     !asksQuestion("Happy to plan it. Are you after somewhere to eat and drink, something to do, or both?") && "a question isn't seen as one, so it gets no options",
     asksQuestion("Why not? Here are three places for tonight.") && "a reply that doesn't end on a question asks for options",
+    withDinner([{ category: "food_drinks", note: "craft beer, veg and meat" }, { category: "experiences", note: "comedy" }], ["Plan my date night", "Both. Saturday. He eats meat and loves craft beer, I'm veg"])[0].meal !== "dinner" && "a date night's food search isn't a dinner",
+    withDinner([{ category: "experiences", note: "live music" }], ["date night tonight"]).filter((s) => s.meal === "dinner").length !== 1 && "a date night with only something to do gets no dinner",
+    withDinner([{ category: "food_drinks", note: "cocktails" }], ["date night, we already ate, just drinks"])[0].meal && "a date that's only drinks is made a dinner",
+    withDinner([{ category: "food_drinks", note: "cheap eats" }], ["something cheaper tonight"])[0].meal && "an everyday search is made a dinner",
     ...diet.map(([d, note, country, want]) => {
       const [c] = searchCities(country === "IN" ? "Bengaluru" : "Lisbon", 1);
       const q = allIntents({ answers: { ...base, diet: d }, lines: [], own: [], yes: [], no: [] }, { category: "food_drinks", city: c, tweaks: [], note, rotation: 0 }).find((i) => i.id === "asked")?.query ?? "";
@@ -586,7 +590,7 @@ async function main() {
   if (askFails.length) {
     failed++;
     console.log(`✗ Ask Feta: ${askFails.join(", ")}`);
-  } else console.log("✓ Ask Feta: a question always comes with answers to tap");
+  } else console.log("✓ Ask Feta: a question comes with answers to tap, an ask carries their diet, a date night includes dinner");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

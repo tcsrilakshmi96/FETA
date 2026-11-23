@@ -75,7 +75,13 @@ type Body = {
   reach?: "walk" | "day_trip";
   searches?: number; // Google searches this set may run (Plan my evening runs 2)
   only?: "asked"; // just places that match the note (chat, Plan my evening), no everyday filler or events
+  // A meal they'll eat there (a date night's dinner, from chat): searched
+  // for, and only places mainly to eat count as what was asked (tester,
+  // 23 Nov 2026: "dinner and craft beer" brought two breweries, no dinner).
+  meal?: "breakfast" | "brunch" | "lunch" | "dinner";
 };
+
+const MEALS = ["breakfast", "brunch", "lunch", "dinner"] as const;
 
 // spares: the next best places, kept on the phone for "Show me more".
 // left: new searches left today, when 3 or fewer (the phone says so);
@@ -136,7 +142,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   // Tweaks ("Cheaper", "Closer"…) always search fresh and are kept apart.
   const tweaks = (body.tweaks ?? []).filter((t) => TWEAKS.includes(t as Tweak)) as Tweak[];
-  const note = (body.note ?? "").slice(0, 200).trim();
+  const meal = body.category === "food_drinks" && MEALS.includes(body.meal as (typeof MEALS)[number]) ? body.meal! : null;
+  const asked = (body.note ?? "").slice(0, 200).trim();
+  const note = meal && !new RegExp(`\\b${meal}\\b`, "i").test(asked) ? `${meal}${asked ? `, ${asked}` : ""}` : asked;
   const tweaked = tweaks.length > 0 || note.length > 0;
   const at: At | undefined = body.at && /^\d{4}-\d{2}-\d{2}$/.test(body.at.day) ? { weekday: new Date(`${body.at.day}T12:00:00Z`).getUTCDay(), start: Math.min(1439, Math.max(0, Math.round(body.at.start) || 0)), minutes: Math.min(720, Math.max(30, Math.round(body.at.minutes) || 60)) } : undefined;
   const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
@@ -262,6 +270,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     }
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
+  // A meal is only served by a place mainly to eat (a brewery isn't dinner).
+  if (meal) for (const c of found.pool) if (kindOf(c.place, body.category) !== "EAT") c.intents = (c.intents ?? []).filter((id) => id !== "asked");
   const allEvents = await allEventsPromise;
   // At most KIND_MAX events for any one thing they're into, and places for
   // it count those (Round 6: pottery took 5 of 8 and crowded out riding).
