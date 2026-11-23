@@ -15,7 +15,8 @@ import type { Itinerary } from "@/lib/server/itinerary";
 import { cleanRoute, tripHeader, type RouteIn, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
-export const maxDuration = 60;
+// A slow reply plus a trip route or two searches can pass a minute (backend audit, 23 Nov 2026).
+export const maxDuration = 120;
 
 // Ask Feta. Venice understands the person (chat, profile updates, turning
 // words into a search); the picks engine (Gemini + Google Maps) finds the
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
 Today is ${today}. ${homeCity ? `They are in ${homeCity.name}, ${homeCity.countryName}${here?.source === "area" ? ` (${here.label})` : ""}.` : "They haven't said where they are."}
 
 What Feta knows about them (this person only; taps in setup and on cards are leanings, not things they told you: never state them back as facts, and never assume who they're with or when they travel):
-${(homeCity && tasteSummary(taste, homeCity)) || "Not much yet."}
+${(homeCity && tasteSummary({ ...taste, saved: [] }, homeCity)) || "Not much yet."}
 
 Their style:
 ${styleText}
