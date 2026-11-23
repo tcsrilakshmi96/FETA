@@ -81,6 +81,7 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       limited: reply.limited,
     };
     if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
+    if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version);
     return slot;
   });
   if (!tweak) {
@@ -97,6 +98,21 @@ export function withoutElsewhere(slots: Record<string, Slot>, key: string, place
   return Object.fromEntries(
     Object.entries(slots).map(([k, s]) => [k, k === key ? s : { ...s, picks: s.picks.filter((p) => p.placeId !== placeId), spares: s.spares.filter((p) => p.placeId !== placeId) }]),
   );
+}
+
+// Events still being found when the list came (they take up to ~20 s, live
+// check 23 Nov 2026): ask once more a little later, when they've joined the
+// stored set, and tell the screens showing this list.
+export const SLOT_EVENT = "feta:slot";
+function eventsLater(key: string, origin: Origin, when: When, category: Category, version: number) {
+  setTimeout(async () => {
+    if (version !== tasteVersion) return;
+    const reply = await fetchPicks(category, when, origin);
+    if (version !== tasteVersion || !reply.picks?.some((p) => p.event)) return;
+    const slot: Slot = { loading: false, picks: reply.picks, spares: reply.spares ?? [], saved: keptSlots()[key]?.saved ?? [], banner: reply.banner, notice: reply.notice };
+    keepSlots({ ...keptSlots(), [key]: slot });
+    window.dispatchEvent(new CustomEvent(SLOT_EVENT, { detail: { key, slot } }));
+  }, 20000);
 }
 
 // One list changed on the phone (a fresh set from Home): kept for the other

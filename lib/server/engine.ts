@@ -86,10 +86,26 @@ const MEALS = ["breakfast", "brunch", "lunch", "dinner"] as const;
 // spares: the next best places, kept on the phone for "Show me more".
 // left: new searches left today, when 3 or fewer (the phone says so);
 // limited: today's limit is reached.
-type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; left?: number; limited?: boolean };
+// eventsComing: events were still being found when the list was sent; they
+// join the stored set, and the phone asks again shortly.
+type Reply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; left?: number; limited?: boolean; eventsComing?: boolean };
 
 function json(body: Reply | { error: string }, status = 200) {
   return Response.json(body, { status });
+}
+
+// Events first, at most KIND_MAX for any one thing they're into (Round 6:
+// pottery took 5 of 8 and crowded out riding), up to the set's size.
+function eventsFirst(all: EventPick[], need: number): EventPick[] {
+  const perKind = new Map<string, number>();
+  return all
+    .filter((e) => {
+      const k = e.stored.serves?.[0];
+      if (!k) return true;
+      perKind.set(k, (perKind.get(k) ?? 0) + 1);
+      return perKind.get(k)! <= KIND_MAX;
+    })
+    .slice(0, need);
 }
 
 // The picks engine, shared by Picks (/api/picks) and Ask Feta (/api/ask).
@@ -243,6 +259,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
         })
       : Promise.resolve([] as EventPick[]);
   later(eventsFull); // counted with this search even when it finishes after the reply
+  let eventsDone = false;
+  void eventsFull.then(() => (eventsDone = true));
   const eventsSearch = Promise.race([eventsFull, new Promise<EventPick[]>((resolve) => setTimeout(() => resolve([]), EVENTS_WAIT_MS))]);
 
   // Events shown last time stay while they're still on; new ones wait a
@@ -291,17 +309,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const allEvents = await allEventsPromise;
   // At most KIND_MAX events for any one thing they're into, and places for
   // it count those (Round 6: pottery took 5 of 8 and crowded out riding).
-  const perKind = new Map<string, number>();
-  const events = body.only
-    ? []
-    : [...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))]
-        .filter((e) => {
-          const k = e.stored.serves?.[0];
-          if (!k) return true;
-          perKind.set(k, (perKind.get(k) ?? 0) + 1);
-          return perKind.get(k)! <= KIND_MAX;
-        })
-        .slice(0, need);
+  const events = body.only ? [] : eventsFirst([...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))], need);
+  // Found after the wait (live check, 23 Nov 2026: 7 events in Bengaluru
+  // took 18 s and were left off, then the list without them was reused for
+  // 3 hours). They join this set once found; the phone asks again.
+  const late = !eventsDone && body.category === "experiences" && !body.only && events.length < need;
   const room = Math.max(0, need - events.length);
   const taken = events.map((e) => e.stored.serves?.[0]).filter((k): k is string => !!k);
   const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
@@ -349,7 +361,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}. No weak filler.`
     : missing;
 
-  await db.from("pick_sets").insert({
+  const { data: inserted } = await db.from("pick_sets").insert({
     user_id: userId,
     category: body.category,
     when_slot: body.when,
@@ -362,7 +374,20 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     searched: result.intents.filter((i) => i.explicit).map((i) => i.id),
     banner,
     expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString(),
-  });
+  }).select("id").single();
+  if (late && inserted?.id)
+    later(
+      eventsFull.then(async (found) => {
+        const now = eventsFirst([...events, ...found.filter((e) => !events.some((x) => x.stored.placeId === e.stored.placeId))], need);
+        if (now.length <= events.length) return;
+        // Events lead; places that no longer fit in the 8 become backup.
+        const places = stored.filter((p) => !p.event);
+        let room = need - now.length;
+        const picks = [...now.map((e) => e.stored), ...places.map((p) => (p.spare || room-- > 0 ? p : { ...p, spare: true }))];
+        const { error } = await db.from("pick_sets").update({ picks }).eq("id", inserted.id);
+        if (error) console.error("late events", error.message);
+      }),
+    );
 
   try {
     const today = cityCalendar(city.timeZone).today;
@@ -373,7 +398,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     ];
     const counts = await loveCounts(db, fresh.map((p) => p.placeId)).catch(() => new Map<string, number>());
     const withLove = fresh.map((p) => (counts.get(p.placeId) ? { ...p, lovedBy: counts.get(p.placeId) } : p));
-    return json({ picks: withLove.filter((p) => !p.spare), spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}), ...left });
+    return json({ picks: withLove.filter((p) => !p.spare), spares: withLove.filter((p) => p.spare), ...(banner ? { banner } : {}), ...left, ...(late ? { eventsComing: true } : {}) });
   } catch (error) {
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);

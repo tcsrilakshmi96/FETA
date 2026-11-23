@@ -25,7 +25,7 @@ import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot } from "@/lib/picks-store";
+import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { tonightPlan, type TonightPlan } from "@/lib/style-client";
@@ -73,6 +73,15 @@ export default function Home() {
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [when, setWhen] = useState<When>("tonight");
   const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
+  // Events that arrived after the list did (picks-store, eventsLater).
+  useEffect(() => {
+    const on = (e: Event) => {
+      const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
+      setSlots((s) => (s[key] ? { ...s, [key]: slot } : s));
+    };
+    window.addEventListener(SLOT_EVENT, on);
+    return () => window.removeEventListener(SLOT_EVENT, on);
+  }, []);
   const [planOpen, setPlanOpen] = useState(false);
   const [wants, setWants] = useState<Want[]>(["food", "do"]);
   const [name, setName] = useState("");

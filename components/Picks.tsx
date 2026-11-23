@@ -22,7 +22,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, withoutElsewhere, type Slot } from "@/lib/picks-store";
+import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -101,6 +101,15 @@ export default function Picks() {
   const [when, setWhen] = useState<When>("tonight");
   const [category, setCategory] = useState<Category>("food_drinks");
   const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
+  // Events that arrived after the list did (picks-store, eventsLater).
+  useEffect(() => {
+    const on = (e: Event) => {
+      const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
+      setSlots((s) => (s[key] ? { ...s, [key]: slot } : s));
+    };
+    window.addEventListener(SLOT_EVENT, on);
+    return () => window.removeEventListener(SLOT_EVENT, on);
+  }, []);
 
   useEffect(() => {
     keepSlots(slots);
