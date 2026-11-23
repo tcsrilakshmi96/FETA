@@ -142,6 +142,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       anyHours: input.dayPlan,
       at: input.at,
       foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
+      untypedOk: (p) => matched(p).length > 0,
       reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };

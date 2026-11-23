@@ -405,6 +405,15 @@ const PERSONAS: Persona[] = [
     half: true,
   },
   {
+    // Founder's test, 23 Nov 2026: someone who hadn't shared anything yet got
+    // "Rhythm Riders Band for Hire" as a thing to do on Home.
+    name: "Shared nothing yet, things to do: no band for hire or office",
+    city: "Bengaluru",
+    category: "experiences",
+    answers: {},
+    never: /Band for Hire/,
+  },
+  {
     // Persona test, 23 Nov 2026: a vegetarian traveller in Lisbon got fine
     // dining and meat-heavy places. Google says most Portuguese places serve
     // vegetarian food; their names (churrasqueira, marisqueira, bacalhau,

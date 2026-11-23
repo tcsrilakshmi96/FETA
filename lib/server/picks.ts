@@ -387,7 +387,7 @@ export function emptyDrops(): DropCounts {
 // thing to do (karaoke, a rooftop, board games).
 export function applyHardFilters(
   places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number },
+  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean },
   drops: DropCounts = emptyDrops(),
 ): Candidate[] {
   const { answers } = opts.taste;
@@ -402,6 +402,9 @@ export function applyHardFilters(
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
       (opts.category === "experiences" && isMainlyFoodOrDrink(place) && (isMainlyBar(place) || !opts.foodDrinkOk?.(place))) ||
+      // A thing to do Google can't say what it is (a band for hire, an
+      // office) only when it's what they chose, never as popular nearby.
+      (opts.category === "experiences" && !place.primaryType && !opts.untypedOk?.(place)) ||
       NEVER_PICKS.includes(place.primaryType ?? "") ||
       opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
