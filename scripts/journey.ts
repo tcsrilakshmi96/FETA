@@ -63,6 +63,9 @@ async function main() {
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true });
   const p = await browser.newPage();
   await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+  // A phone in another time zone than the server, as on Vercel, so a page
+  // that reads the time zone while drawing shows up as a hydration error.
+  await p.emulateTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone === "Europe/London" ? "Asia/Kolkata" : "Europe/London");
   const errors: string[] = [];
   p.on("pageerror", (e) => errors.push((e as Error).message));
   // The server's page and the phone's first draw must match (tester, 23 Nov 2026: React error #418 on /questions).
@@ -101,6 +104,9 @@ async function main() {
     }
     await p.waitForFunction(() => location.pathname === "/questions", { timeout: 20000 });
     check(true, "Start leads to the location screen, then the questions");
+    // Opened fresh, as after a reload, so the server draws it too and any
+    // difference from the phone's draw shows as a hydration error.
+    await p.reload({ waitUntil: "networkidle0" });
 
     // The questions, screen by screen.
     const city = await p.evaluate(() => JSON.parse(localStorage.getItem("feta.city") ?? "null") as { country: string; name: string } | null);
