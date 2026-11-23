@@ -96,7 +96,7 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
       if (!def) continue;
       const label = sideById(id, taste.answers)?.label ?? key;
       const searches = key === "local" ? [`traditional ${city.countryName} food`] : key === "indo_chinese" && city.country !== "IN" ? ["chinese restaurant"] : def.searches;
-      out.push({ id, label, reason: `Because you love ${label}${key === "bakery" || key === "healthy" ? "" : " food"}.`, query: cuisineVeg(variant(searches, rotation)), def, explicit: true, source: "cuisine", food });
+      out.push({ id, label, reason: `Because you love ${label}${key === "bakery" || key === "healthy" || /\bfood$/i.test(label) ? "" : " food"}.`, query: cuisineVeg(variant(searches, rotation)), def, explicit: true, source: "cuisine", food });
     }
   }
   for (const x of opts.extra ?? []) if (x.food === food) out.push(x);
