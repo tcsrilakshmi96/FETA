@@ -83,10 +83,12 @@ export default function StyleBrands() {
   const forYou = (() => {
     const seen = new Set<string>();
     const one = (all ?? []).filter((b) => !seen.has(b.id) && seen.add(b.id));
-    // Stable: keeps Feta Picks and loved-by first (brandsFor), then fits more styles.
+    // Stable: keeps Feta Picks and loved-by first (brandsFor), then fits more
+    // styles. Not by their own ♥, which would move a card as it's tapped
+    // (persona re-test, 23 Nov 2026); their usuals have their own row.
     return one
       .map((b, i) => ({ b, i }))
-      .sort((x, y) => Number(!!y.b.fetaPick) - Number(!!x.b.fetaPick) || Number(!!y.b.youLove) - Number(!!x.b.youLove) || (y.b.lovers ?? 0) - (x.b.lovers ?? 0) || (fitCount.get(y.b.id) ?? 1) - (fitCount.get(x.b.id) ?? 1) || x.i - y.i)
+      .sort((x, y) => Number(!!y.b.fetaPick) - Number(!!x.b.fetaPick) || (y.b.lovers ?? 0) - (x.b.lovers ?? 0) || (fitCount.get(y.b.id) ?? 1) - (fitCount.get(x.b.id) ?? 1) || x.i - y.i)
       .map((x) => x.b);
   })();
   const list = tab === FOR_YOU ? forYou : (all ?? []).filter((b) => b.style === tab);
