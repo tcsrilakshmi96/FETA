@@ -96,7 +96,7 @@ export default function StyleSetup() {
 
   async function addPhotos(list: FileList | null) {
     if (!list) return;
-    const room = MAX_PHOTOS - photos.length;
+    const room = MAX_PHOTOS - photos.length - tapped.length;
     const made = await Promise.all([...list].slice(0, room).map((f) => shrink(f).catch(() => null)));
     const ok = made.filter((p): p is string => !!p);
     if (list.length > room) toast(`Up to ${MAX_PHOTOS} photos. Kept the first ${room}.`);
@@ -302,16 +302,29 @@ export default function StyleSetup() {
               {Array.from({ length: MAX_PHOTOS }, (_, i) => {
                 const row = Math.floor(i / 4);
                 const f = 0.13 + (i % 4) * 0.247;
+                // Their photos, then Feta's looks they tapped, on the same line
+                // (founder's tester, 23 Nov 2026: tapped looks showed "0 / 8").
                 const photo = photos[i];
+                const look = photo ? undefined : tapped[i - photos.length];
+                const hung = !!(photo || look);
                 return (
-                  <div key={photo ? `p${i}-${photo.length}` : `e${i}`} className={`${s.hang} ${photo ? "" : s.still}`} style={vars({ left: `calc(${f * 100}% - 38px)`, top: row * 150 + sag(f) - 4, "--sway": `${3.2 + (i % 3) * 0.5}s`, "--delay": `${i * 0.2}s` })}>
-                    <div className={`${s.hanger} ${photo ? s.dropIn : ""}`}>
-                      <span className={s.peg} style={photo ? undefined : { opacity: 0.4 }} />
+                  <div key={photo ? `p${i}-${photo.length}` : look ? `t${look}` : `e${i}`} className={`${s.hang} ${hung ? "" : s.still}`} style={vars({ left: `calc(${f * 100}% - 38px)`, top: row * 150 + sag(f) - 4, "--sway": `${3.2 + (i % 3) * 0.5}s`, "--delay": `${i * 0.2}s` })}>
+                    <div className={`${s.hanger} ${hung ? s.dropIn : ""}`}>
+                      <span className={s.peg} style={hung ? undefined : { opacity: 0.4 }} />
                       {photo ? (
                         <span className={s.polaroid}>
                           {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
                           <img src={photo} alt={`Inspiration photo ${i + 1}`} />
                           <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}>
+                            ✕
+                          </button>
+                        </span>
+                      ) : look ? (
+                        <span className={s.polaroid} style={{ overflow: "hidden" }}>
+                          <span style={{ position: "absolute", inset: "5px 5px 14px", overflow: "hidden", background: "var(--stage)" }}>
+                            <StyleFigure style={look} wears={wears ?? "women"} imgStyle={{ position: "absolute", top: 0, height: "100%", maxWidth: "none" }} />
+                          </span>
+                          <button type="button" className={s.unpin} aria-label={`Take down ${styleById(look)?.short ?? "look"}`} onClick={() => setTapped((cur) => cur.filter((x) => x !== look))}>
                             ✕
                           </button>
                         </span>
@@ -328,7 +341,7 @@ export default function StyleSetup() {
             <div className={s.row}>
               <span className={s.small}>Tap a peg to add photos</span>
               <span className={s.count}>
-                {photos.length}
+                {Math.min(MAX_PHOTOS, photos.length + tapped.length)}
                 <span> / 8</span>
               </span>
             </div>
@@ -339,7 +352,7 @@ export default function StyleSetup() {
               {TAP_LOOKS.map((id) => {
                 const on = tapped.includes(id);
                 return (
-                  <button key={id} type="button" className={`${k.tile} ${on ? k.tileOn : ""}`} aria-pressed={on} onClick={() => setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))}>
+                  <button key={id} type="button" className={`${k.tile} ${on ? k.tileOn : ""}`} aria-pressed={on} onClick={() => setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : photos.length + cur.length >= MAX_PHOTOS ? cur : [...cur, id]))}>
                     <StyleFigure style={id} wears={wears} />
                     <span className={k.tileName}>{styleById(id)?.short}</span>
                     {on && <span className={k.tick} aria-hidden="true">✓</span>}
