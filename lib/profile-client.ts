@@ -28,6 +28,7 @@ export type Profile = {
   places: { want: number; been: number };
   whatsapp: string | null;
   email: string | null; // null while not signed in with Google
+  months: number; // whole months since their account was made, for "Aged N months"
 };
 
 // The last profile loaded, so You opens instantly when you come back to it
@@ -57,6 +58,9 @@ export async function loadProfile(): Promise<Profile | null> {
     },
     whatsapp: profile?.whatsapp_number ?? null,
     email: auth.user && !auth.user.is_anonymous ? (auth.user.email ?? null) : null,
+    // From the session on the phone: asking the server for the user gave a
+    // 403 on You once that session had ended (tester, 23 Nov 2026).
+    months: auth.user ? Math.floor((Date.now() - new Date(auth.user.created_at).getTime()) / (30 * 86400000)) : 0,
   };
   return lastProfile;
 }
