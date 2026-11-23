@@ -283,7 +283,7 @@ What Feta saw in outfits they love: ${ask.cues.length ? ask.cues.join("; ") : "n
 Their styles, strongest first: ${ask.styles.map((id) => styleById(id)?.name ?? id).join(", ")}.
 They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}. Clothes budget per piece: up to level ${top || "any"} of 4 (1 budget, 2 mid, 3 premium, 4 luxury).
 ${ask.loved.length ? `Brands they already love: ${ask.loved.join(", ")}.` : ""}
-Put first the brands whose clothes look most like what they wear AND fit their budget; a brand mostly above their budget goes after the ones within it unless it is a much better match; spread across their styles rather than one style filling the top; homegrown and lesser-known labels are a plus. "why" is at most 12 words, about the clothes and them (e.g. "Same relaxed cargo shapes as your photos, within budget"), never about bodies or looks.
+Put first the brands whose clothes look most like what they wear AND fit their budget; a brand mostly above their budget goes after the ones within it unless it is a much better match; spread across their styles rather than one style filling the top; homegrown and lesser-known labels are a plus. "why" is at most 12 words, about the clothes and them (e.g. "Same relaxed cargo shapes as your photos"), never about price or budget (Feta shows the checked price beside it) and never about bodies or looks.
 Brands (id | name | style | what it sells | price | homegrown | loved by others):
 ${ask.brands.map((b) => `${b.id} | ${b.name} | ${b.style} | ${b.cues.slice(0, 140)} | ${b.priceFeel ?? "?"} | ${b.homegrown ? "yes" : "no"} | ${b.lovers}`).join("\n")}
 Reply with only JSON: {"order": [{"id", "why"}]} including every brand once.`;
@@ -291,7 +291,9 @@ Reply with only JSON: {"order": [{"id", "why"}]} including every brand once.`;
   const parsed = JSON.parse(textOf(data)) as { order?: { id: string; why?: string }[] };
   const known = new Set(ask.brands.map((b) => b.id));
   const seen = new Set<string>();
-  const order = (parsed.order ?? []).filter((o) => known.has(o.id) && !seen.has(o.id) && seen.add(o.id)).map((o) => ({ id: o.id, why: String(o.why ?? "").slice(0, 100) }));
+  // A line about price would contradict the checked price shown beside it
+  // ("slightly above your budget" over "✓ In your budget", persona re-test).
+  const order = (parsed.order ?? []).filter((o) => known.has(o.id) && !seen.has(o.id) && seen.add(o.id)).map((o) => ({ id: o.id, why: /budget|price|afford|cheap|expensive|₹|\$|€|£/i.test(String(o.why ?? "")) ? "" : String(o.why ?? "").slice(0, 100) }));
   // Anything the model left out keeps its place at the end.
   return [...order, ...ask.brands.filter((b) => !seen.has(b.id)).map((b) => ({ id: b.id, why: "" }))];
 }
