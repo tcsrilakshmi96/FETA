@@ -93,7 +93,7 @@ export async function findEvents(opts: {
         : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
-Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search for them by name). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Never use or link District, BookMyShow, Meetup, Zomato or Swiggy. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found.
+Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search for them by name). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Never use or link District, BookMyShow, Meetup, Zomato or Swiggy. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found and that gives a date; never guess a date or the year.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), as the event's own page says, or "" if it gives none, "priceText": string as the listing says ("Free" if it's free), "minPrice": number in ${opts.city.currency} (0 if free) or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
@@ -170,6 +170,9 @@ export function eventPasses(
   opts: { when: EventSpan; timeZone: string; maxSpend: number | null },
 ) {
   if (!isPage(e.url) || neverSourceUrl(e.url)) return false;
+  // A real date, as the listing gives it (tester, 23 Nov 2026: events with
+  // no date or a past one); a pop-up's last day is a real date too, or none.
+  if (!isDay(e.date) || (e.endDate && !isDay(e.endDate))) return false;
   const cal = cityCalendar(opts.timeZone);
   // Any of its days in the window: one day, or a pop-up running Fri to Sun
   // (founder, 22 Nov 2026), shown while it's still on.
@@ -179,6 +182,14 @@ export function eventPasses(
   // Today's, on its only or last day: still to come, or started within the last hour.
   if (last === cal.today && e.date === cal.today && e.time && minutes(e.time) < minutes(cal.time) - 60) return false;
   return e.minPrice === null || e.minPrice === undefined || opts.maxSpend === null || e.minPrice <= opts.maxSpend;
+}
+
+const isDay = (d: unknown): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(new Date(`${d}T00:00:00Z`).getTime());
+
+// Whether an event saved to Want to try is over: its last day has passed.
+export function eventOver(e: { date: string; endDate?: string }, timeZone: string) {
+  const last = e.endDate && isDay(e.endDate) && e.endDate > e.date ? e.endDate : e.date;
+  return !isDay(last) || last < cityCalendar(timeZone).today;
 }
 
 function daysBetween(a: string, b: string) {

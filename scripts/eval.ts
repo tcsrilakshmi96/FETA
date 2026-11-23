@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
-import { cityCalendar, eventPasses, eventSources, searchChip } from "@/lib/server/events";
+import { cityCalendar, eventOver, eventPasses, eventSources, searchChip } from "@/lib/server/events";
 import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -545,6 +545,12 @@ async function main() {
     !eventPasses(ev(shift(-2), shift(2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up on now is missing",
     eventPasses(ev(shift(-2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a past one-day event shows",
     eventPasses(ev(shift(-5), shift(-1)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up that ended shows",
+    // Tester, 23 Nov 2026: events with no date shown.
+    eventPasses(ev(""), { when: "week", timeZone: tz, maxSpend: null }) && "an event with no date shows",
+    eventPasses(ev("TBA", shift(3)), { when: "week", timeZone: tz, maxSpend: null }) && "an event with a made-up date shows",
+    eventPasses(ev(`${cal.today}T19:00`), { when: "tonight", timeZone: tz, maxSpend: null }) && "an event with a malformed date shows",
+    !eventOver(ev(shift(-1)), tz) && "a past event stays in Want to try",
+    eventOver(ev(shift(-3), shift(1)), tz) && "a pop-up still on leaves Want to try",
   ].filter(Boolean);
   if (popFails.length) {
     failed++;
