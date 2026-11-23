@@ -159,7 +159,7 @@ export type Pick = StoredPick & {
 // still hold when Gemini's ranking is down.
 const MEAT_PLACE_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "korean_barbecue_restaurant"];
 const FISH_PLACE_TYPES = ["seafood_restaurant", "fish_and_chips_restaurant"];
-const MEAT_NAMES = "biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|beef|pork|lamb|churrasc\\w*|rodizio|asador|parrilla|frango|pollos?|leit[aã]o|bifanas?|yakiniku|yakitori|boucherie|rotisserie|lechon|non[- ]?veg";
+const MEAT_NAMES = "biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|beef|pork|lamb|churras\\w*|rodizio|asador|parrilla|frango|pollos?|leit[aã]o|bifanas?|yakiniku|yakitori|boucherie|rotisserie|lechon|non[- ]?veg";
 const FISH_NAMES = "seafood|fish|marisqu\\w*|mariscos?|bacalhau|peixes?|pescados?|polvo|sardinh\\w*|cevicher\\w*|poissonnerie|oysters?";
 const NON_VEG_TYPES = [...MEAT_PLACE_TYPES, ...FISH_PLACE_TYPES];
 const NON_VEG_WORDS = new RegExp(`\\b(${MEAT_NAMES}|${FISH_NAMES})\\b`, "i");
