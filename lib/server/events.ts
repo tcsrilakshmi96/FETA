@@ -291,6 +291,8 @@ export function siteName(url: string) {
     "allevents.in": "AllEvents",
     "instagram.com": "Instagram",
     "lbb.in": "LBB",
+    "paris.fr": "Que faire à Paris",
+    "opentix.life": "OPENTIX",
     "whatshot.in": "WhatsHot",
   };
   return known[host] ?? host;

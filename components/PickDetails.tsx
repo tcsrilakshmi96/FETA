@@ -264,6 +264,8 @@ export default function PickDetails({
 // they found: events, or the guides a "Featured in" place came from (Round 5
 // review: on the food list it said "Events found" above a guide search).
 export function SearchChip({ html, found = "events" }: { html: string; found?: "events" | "guides" }) {
+  // An event from a city's free open-data feed was found without Google Search: no chip.
+  if (!html) return null;
   return (
     <div className={styles.searchWrap}>
       <span className={styles.searchLabel}>{found === "events" ? "Events" : "City guides"} found with Google Search:</span>

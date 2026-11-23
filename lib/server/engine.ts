@@ -12,6 +12,7 @@ import { learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
 import { guideEventsFor } from "@/lib/server/guide-events";
+import { feedEvents } from "@/lib/server/event-feeds";
 import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -489,6 +490,9 @@ async function eventPicks(ctx: {
       const span: EventSpan = intent?.def.ahead ? "week" : body.when;
       const day = span === "weekend" ? cal.weekend.join("+") : cal.today;
       const kind = intent ? `${intent.label} (${intent.query})` : undefined;
+      // A city's free open-data feed first, where it has one for this kind (event-feeds.ts).
+      const fed = await feedEvents(city, intent, span, span === "weekend" ? cal.weekend : span === "week" ? cal.week : [cal.today]);
+      if (fed) return { intent, span, events: fed, searchHtml: "", feed: true };
       const key = [city.id, "events", span, day, intent?.query.toLowerCase() ?? "any"].join("|");
       const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
       if (cached) return { intent, span, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
@@ -528,7 +532,7 @@ async function eventPicks(ctx: {
   // Taking turns across what they're into, so one kind doesn't fill the set.
   const maxSpend = spendUpperBound(taste.answers, city);
   const lists = [...fromGuides, ...searches]
-    .filter((s) => s.searchHtml)
+    .filter((s) => s.searchHtml || ("feed" in s && s.feed))
     .map((s) =>
       s.events
         .filter((e) => eventPasses(e, { when: s.span, timeZone: city.timeZone, maxSpend }) && !ctx.exclude.has(`event:${e.url}`))
