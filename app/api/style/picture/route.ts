@@ -1,6 +1,6 @@
 import { FAKE } from "@/lib/server/fake-places";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
-import { lookPicture } from "@/lib/server/style";
+import { findSpots, lookPicture } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, styleById, type Look, type Slot, type Wears } from "@/lib/style";
 
@@ -31,7 +31,9 @@ export async function POST(request: Request) {
   return withCosts(db, "style_picture", async () => {
     askIs({ key: [look.id, wears, !!photo], label: `picture · ${look.style}` });
     try {
-      return Response.json({ image: await lookPicture(look, wears, photo) });
+      const image = await lookPicture(look, wears, photo);
+      const spots = await findSpots(image, look.pieces).catch(() => null);
+      return Response.json({ image, spots });
     } catch (error) {
       console.error(error);
       return Response.json({ notice: "Couldn't make this picture." });

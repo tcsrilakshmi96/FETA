@@ -117,6 +117,20 @@ Real fabric and fit, like a brand's lookbook. No text, no logos, no other people
   return `data:${img.mime_type ?? img.mimeType ?? "image/png"};base64,${img.data}`;
 }
 
+// Where each piece is in the picture, so the numbered dots sit on the
+// clothes (testers, 23 Nov 2026: dots on the wrong pieces, lines crossing).
+// One small look at the picture, about ₹0.1; none if it fails.
+export async function findSpots(image: string, pieces: Piece[]): Promise<[number, number][] | null> {
+  const prompt = `This is a full-length photo of one person. For each numbered piece of clothing, give the point at the centre of where it shows in the photo, as fractions of the image's width and height (x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom).
+${pieces.map((p, i) => `${i + 1}. ${p.slot}: ${p.name}`).join("\n")}
+Reply with only JSON: {"spots": [[x, y], ...]} in the same order, one per piece.`;
+  const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }, inline(image)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
+  const o = JSON.parse(textOf(data)) as { spots?: unknown };
+  const spots = Array.isArray(o.spots) ? o.spots : [];
+  const ok = spots.length === pieces.length && spots.every((x) => Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === "number" && v >= 0 && v <= 1));
+  return ok ? (spots as [number, number][]) : null;
+}
+
 export type LookAsk = {
   styles: string[]; // theirs, strongest first
   wears: Wears;

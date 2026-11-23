@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { SLOT_AT, SLOT_NAME, figureHalf, lookImage, styleById, type Look, type Wears } from "@/lib/style";
-import { cityNow, keptPicture, lookPicture } from "@/lib/style-client";
+import { cityNow, keptPicture, keptSpots, lookPicture } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 
 // Shared parts of Style (founder, 22–23 Nov 2026, docs/style-spec.md).
@@ -89,40 +89,75 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean): 
 // pieces listed beside it. A piece they own is dark, "YOURS ✓".
 export function LookCard({ look, wears, pic, making, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
   const n = look.pieces.length;
-  const ys = look.pieces.map((_, i) => ((i + 1) / (n + 1)) * 100);
-  // Where each dot sits: on the figure (64% of the card's width).
-  const dots = look.pieces.map((p, i) => {
+  const card = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const [img, setImg] = useState<{ w: number; h: number }>({ w: 9, h: 16 });
+  const [found, setFound] = useState<{ id: string; spots: [number, number][] | null } | null>(null);
+  const spots = found?.id === look.id ? found.spots : null;
+  useEffect(() => {
+    const el = card.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setBox({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Where the pieces are in their picture (found when it was made).
+  useEffect(() => {
+    let live = true;
+    if (pic) keptSpots(look).then((x) => live && setFound({ id: look.id, spots: x }));
+    return () => {
+      live = false;
+    };
+  }, [look, pic]);
+  // Each dot in % of the card. With the picture: where the piece really is
+  // (the picture fills the left 64%, cropped from the centre, top kept).
+  // Without: about where that kind of piece sits on a figure.
+  const dots = look.pieces.map((p, i): [number, number] => {
+    if (pic && spots && box) {
+      const figW = box.w * 0.64;
+      const scale = Math.max(figW / img.w, box.h / img.h);
+      const dw = img.w * scale;
+      const x = ((figW - dw) / 2 + spots[i][0] * dw) / box.w;
+      const y = (spots[i][1] * img.h * scale) / box.h;
+      return [Math.min(60, Math.max(4, x * 100)), Math.min(96, Math.max(4, y * 100))];
+    }
     const [x, y] = SLOT_AT[p.slot];
     // Two pieces in one slot (a layer and an extra) shouldn't sit on one spot.
     const same = look.pieces.slice(0, i).filter((q) => q.slot === p.slot).length;
-    return [x * 64 + same * 8, y * 100 + same * 6] as const;
+    return [x * 64 + same * 8, y * 100 + same * 6];
   });
+  // Numbered top to bottom by where the dots are, and listed in that order,
+  // so no two dotted lines cross.
+  const order = look.pieces.map((_, i) => i).sort((a, b) => dots[a][1] - dots[b][1] || a - b);
+  const row = new Map(order.map((piece, r) => [piece, r]));
+  const ys = order.map((_, r) => ((r + 1) / (n + 1)) * 100);
   return (
-    <div className={k.card}>
+    <div className={k.card} ref={card}>
       <div className={k.fig}>
         {pic ? (
           // eslint-disable-next-line @next/next/no-img-element -- made for them, kept on this phone
-          <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} />
+          <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth || 9, h: e.currentTarget.naturalHeight || 16 })} />
         ) : (
           <StyleFigure style={look.style} wears={wears} imgStyle={{ top: 0, height: "100%", opacity: making ? 0.55 : 1 }} />
         )}
       </div>
       <svg className={k.lines} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         {dots.map(([x, y], i) => (
-          <path key={i} d={`M${x + 2} ${y} L58 ${ys[i]}`} stroke="#1a1616" strokeWidth="1" strokeDasharray="3 3" fill="none" vectorEffect="non-scaling-stroke" />
+          <path key={i} d={`M${x + 2} ${y} L58 ${ys[row.get(i)!]}`} stroke="#1a1616" strokeWidth="1" strokeDasharray="3 3" fill="none" vectorEffect="non-scaling-stroke" />
         ))}
       </svg>
       {dots.map(([x, y], i) => (
         <button key={`d${i}`} type="button" className={`${k.num} ${owned(look.pieces[i].name) ? k.numMine : ""}`} style={{ left: `${x}%`, top: `${y}%` }} aria-label={look.pieces[i].name} onClick={() => onPiece?.(i)}>
-          <span style={{ animationDelay: `${0.1 * i}s` }}>{i + 1}</span>
+          <span style={{ animationDelay: `${0.1 * row.get(i)!}s` }}>{row.get(i)! + 1}</span>
         </button>
       ))}
       {look.pieces.map((p, i) => {
         const mine = owned(p.name);
+        const r = row.get(i)!;
         return (
-          <button key={`i${i}`} type="button" className={`${k.item} ${mine ? k.itemMine : ""}`} style={{ top: `${ys[i]}%`, animationDelay: `${0.12 * i}s` }} onClick={() => onPiece?.(i)}>
+          <button key={`i${i}`} type="button" className={`${k.item} ${mine ? k.itemMine : ""}`} style={{ top: `${ys[r]}%`, animationDelay: `${0.12 * r}s` }} onClick={() => onPiece?.(i)}>
             <b>
-              {String(i + 1).padStart(2, "0")} · {mine ? "YOURS ✓" : SLOT_NAME[p.slot]}
+              {String(r + 1).padStart(2, "0")} · {mine ? "YOURS ✓" : SLOT_NAME[p.slot]}
             </b>
             <span>{p.name}</span>
           </button>
