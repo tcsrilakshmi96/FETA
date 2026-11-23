@@ -390,7 +390,7 @@ export default function Questions() {
                   <span>＋ Something else</span>
                 </button>
               </div>
-              {showOther && <input className={styles.field} value={otherFood} onChange={(e) => setOtherFood(e.target.value)} placeholder="e.g. Burmese, Parsi, Goan" aria-label="Another cuisine" maxLength={60} autoFocus />}
+              {showOther && <input className={styles.field} value={otherFood} onChange={(e) => setOtherFood(e.target.value)} placeholder="e.g. Burmese, Peruvian, Ethiopian" aria-label="Another cuisine" maxLength={60} autoFocus />}
             </>
           )}
           {doing && (

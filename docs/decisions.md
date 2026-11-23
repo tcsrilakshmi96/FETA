@@ -250,3 +250,4 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - 23 Nov 2026: A place added at setup as one they love has ✕ to take it back (it leaves Been too).
 - 23 Nov 2026: Tapping a 5th cuisine at setup says "That's 4 already. Untick one to choose another, or add more under Something else." instead of doing nothing.
 - 23 Nov 2026: Pick cards: a place's name takes at most two lines (the whole name is in Details), and a long chip wraps into even lines with its ✓ kept beside the words (tester: "check with / staff", a ✓ alone, three-line names).
+- 23 Nov 2026: Examples work in any city: Ask's starter is "Help me plan a trip" (was Goa), the trip card's hint names the trip's own first city (was Kyoto and Nara), and setup's other-cuisine hint is "Burmese, Peruvian, Ethiopian" (was Parsi, Goan).

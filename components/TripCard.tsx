@@ -169,7 +169,7 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
           </li>
         ))}
       </ol>
-      <p className={styles.hint}>To add a city or change the plan, just tell me below, e.g. “add Nara” or “more days in Kyoto”.</p>
+      <p className={styles.hint}>To add a city or change the plan, just tell me below, e.g. “add a beach town” or “more days in {cities[0]?.name ?? "the first city"}”.</p>
       {dirty && (
         <button type="button" className={styles.secondary} onClick={saveRoute} disabled={!!busy}>
           {busy === "save" ? "Saving…" : "Save these changes"}
