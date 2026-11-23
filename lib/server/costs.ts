@@ -29,7 +29,7 @@ export const PRICE_USD = {
   gemini_search: 0.035, // Grounding with Google Search, about 2 queries (events)
   gemini_vision: 0.004, // reading up to 8 inspiration photos into styles (tokens, roughly)
   gemini_image: 0.045, // one drawing of a person in a style (Gemini image model)
-  venice_chat: 0.006, // one Ask Feta reply (Venice, tokens, roughly)
+  venice_chat: 0.006, // one Ask Feta reply (Venice, tokens, roughly; trackVenice counts the real tokens)
 } as const;
 export type Sku = keyof typeof PRICE_USD;
 
@@ -98,6 +98,19 @@ export function trackGemini(sku: Sku, data: unknown) {
   const rate = u && GEMINI_USD_PER_M[(u.model ?? "gemini-3.5-flash").replace(/^models\//, "").replace(/-preview.*$/, "")];
   if (!u || !rate) return track(sku);
   add(sku, 1, (u.input * rate.input + u.output * rate.output) / 1e6 + u.searches * SEARCH_USD);
+}
+
+// Venice (the founder's credits) at what each reply says it used, at
+// Venice's list price for the model, US dollars per million tokens.
+const VENICE_USD_PER_M: Record<string, { input: number; output: number }> = {
+  "claude-sonnet-5-5": { input: 2, output: 10 },
+  "claude-haiku-5-5": { input: 0.1, output: 0.5 },
+  "claude-opus-5-5": { input: 4, output: 20 },
+};
+export function trackVenice(model: string, usage: { prompt_tokens?: number; completion_tokens?: number } | undefined) {
+  const rate = VENICE_USD_PER_M[model];
+  if (!rate || !usage) return track("venice_chat");
+  add("venice_chat", 1, ((usage.prompt_tokens ?? 0) * rate.input + (usage.completion_tokens ?? 0) * rate.output) / 1e6);
 }
 
 // Work that keeps going after the reply (a slow events search, the day's
