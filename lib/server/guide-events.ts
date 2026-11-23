@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
-import { later, trackGemini } from "@/lib/server/costs";
+import { later, saveEventsCache, trackGemini } from "@/lib/server/costs";
 import { cityCalendar, cleanTime, eventSources, isPage, PLAIN_SEARCHES, searchChip, type FoundEvent, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 
@@ -30,14 +30,14 @@ export async function guideEventsFor(db: SupabaseClient, city: City): Promise<Gu
   if (data) return { events: data.events as GuideEvent[], searchHtml: data.search_html };
   // Claimed at once (empty, for 10 minutes), so a city's first searches read
   // the guides once; a reading that failed is tried again after that.
-  const { error } = await db.from("events_cache").upsert({ key, events: [], search_html: "", expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() });
+  const { error } = await saveEventsCache(db, key, [], "", 10 / 60);
   if (error) return null;
   later(async () => {
     const found = await readGuides(city).catch((e) => {
       console.error(e);
       return null;
     });
-    if (found?.searchHtml) await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + 20 * 3600 * 1000).toISOString() });
+    if (found?.searchHtml) await saveEventsCache(db, key, found.events, found.searchHtml, 20);
   });
   return null;
 }

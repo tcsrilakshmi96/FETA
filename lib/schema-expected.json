@@ -488,5 +488,25 @@
   "kind": "table",
   "name": "brand_wishes",
   "file": "20261123120000_brand_wishes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "server_key_ok",
+  "file": "20261123130000_server_only_writes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "save_events_cache",
+  "file": "20261123130000_server_only_writes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "log_costs",
+  "file": "20261123130000_server_only_writes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "real_spend_today",
+  "file": "20261123130000_server_only_writes.sql"
  }
 ]

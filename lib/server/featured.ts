@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
-import { later, trackGemini } from "@/lib/server/costs";
+import { later, saveEventsCache, trackGemini } from "@/lib/server/costs";
 import { eventSources, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 import { placeIdFor } from "@/lib/server/places";
@@ -35,7 +35,7 @@ export async function featuredFor(db: SupabaseClient, city: City, category: Cate
       return null;
     });
     if (found?.searchHtml && found.places.length) {
-      await db.from("events_cache").upsert({ key, events: found.places, search_html: found.searchHtml, expires_at: new Date(Date.now() + 20 * 3600 * 1000).toISOString() });
+      await saveEventsCache(db, key, found.places, found.searchHtml, 20);
     }
   });
   return null;

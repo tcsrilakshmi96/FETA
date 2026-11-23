@@ -1,19 +1,28 @@
-import { askIs, withCosts } from "@/lib/server/costs";
+import { anonDb, askIs, DAILY_BUDGET_INR, realSpendToday, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails } from "@/lib/server/places";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
 // For the public share page (/p/<place id>): the place's name, area and a
 // photo, fetched live from Google (nothing stored). No personal data.
 // ?lite=1: name and area only, without the photo (for "How was it?").
-// Friends opening a share have no account; from the app, the lookup is
-// counted as the signed-in person's (audit, 20 Nov 2026: it was never counted).
+// From the app, the lookup is counted as the signed-in person's (audit, 20
+// Nov 2026: it was never counted); a friend's counts toward everyone's day.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[A-Za-z0-9_.-]{10,300}$/.test(id)) return Response.json({ error: "Not found" }, { status: 404 });
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
   const lite = new URL(request.url).searchParams.get("lite") === "1";
-  return withCosts(db && (await userIdFor(db, token!)) ? db : null, "place", () => {
+  const signedIn = db && (await userIdFor(db, token!)) ? db : null;
+  // A friend with no account (backend audit, 23 Nov 2026: it was free to
+  // call over and over, and never counted): counted toward everyone's day,
+  // and refused once the day's budget is spent.
+  const asker = signedIn ?? anonDb();
+  if (!signedIn) {
+    const spent = await realSpendToday(asker);
+    if (spent !== null && spent >= DAILY_BUDGET_INR) return Response.json({ error: "Busy" }, { status: 429 });
+  }
+  return withCosts(asker, "place", () => {
     askIs({ key: [id, lite], label: lite ? "live check (lite)" : "live check" });
     return live(request, id);
   });

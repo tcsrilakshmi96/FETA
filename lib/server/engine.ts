@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
+import { budgetToday, later, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
 import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
@@ -538,7 +538,7 @@ async function eventPicks(ctx: {
         // Shared by everyone there into the same thing; kept longer to cut
         // repeat searches (founder, 23 Nov 2026: ₹512 of event searches a day).
         const hours = span === "tonight" ? 6 : 24;
-        await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
+        await saveEventsCache(db, key, found.events, found.searchHtml, hours);
       }
       return { intent, span, ...found };
       }),

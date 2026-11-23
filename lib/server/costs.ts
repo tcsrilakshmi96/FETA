@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { after } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { limitNotice, type LimitWhat } from "@/lib/limits";
 
 // Every paid call is counted while a request runs and written to api_costs
@@ -160,10 +160,7 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
         services: Object.fromEntries([...store.tally].map(([sku, t]) => [sku, t.units])),
         ms,
       };
-      const [costs, hits] = await Promise.all([rows.length ? db.from("api_costs").insert(rows) : Promise.resolve({ error: null }), db.from("api_hits").insert(hit)]);
-      if (costs.error) console.error("cost log", costs.error.message);
-      // Before migration 20261123110000 runs there's no api_hits: costs still log.
-      if (hits.error && !/api_hits/.test(hits.error.message)) console.error("hit log", hits.error.message);
+      await logCosts(db, rows, hit);
     };
     // Written after the reply, so no one waits for it (every photo and
     // search did); outside a request, straight away.
@@ -237,4 +234,38 @@ export const LIBRARY_BUDGET_INR = Number(process.env.LIBRARY_BUDGET_INR ?? 1500)
 export async function librarySpentToday(db: SupabaseClient): Promise<number> {
   const { data, error } = await db.rpc("library_spend_today_inr");
   return error ? 0 : Number(data ?? 0);
+}
+
+// Shared things only Feta's server writes (backend audit, 23 Nov 2026;
+// migration 20261123130000): functions that check the server key. Until
+// that migration runs, the old direct writes still work.
+const SERVER_KEY = () => process.env.USAGE_REPORT_KEY ?? "";
+const notThereYet = (message?: string) => !!message && /could not find the function|does not exist|schema cache/i.test(message);
+
+export async function saveEventsCache(db: SupabaseClient, key: string, events: unknown, html: string, hours: number) {
+  const { error } = await db.rpc("save_events_cache", { p_key: SERVER_KEY(), p_cache_key: key, p_events: events, p_html: html, p_hours: hours });
+  if (!error) return { error: null };
+  if (!notThereYet(error.message)) return { error };
+  return db.from("events_cache").upsert({ key, events, search_html: html, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
+}
+
+async function logCosts(db: SupabaseClient, rows: { route: string; sku: string; units: number; est_inr: number }[], hit: Record<string, unknown>) {
+  const { error } = await db.rpc("log_costs", { p_key: SERVER_KEY(), p_costs: rows, p_hit: hit });
+  if (!error) return;
+  if (!notThereYet(error.message)) return console.error("cost log", error.message);
+  const [costs, hits] = await Promise.all([rows.length ? db.from("api_costs").insert(rows) : Promise.resolve({ error: null }), db.from("api_hits").insert(hit)]);
+  if (costs.error) console.error("cost log", costs.error.message);
+  if (hits.error) console.error("hit log", hits.error.message);
+}
+
+// A database client with no account (a friend opening a shared place).
+export function anonDb(): SupabaseClient {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+// Today's spend by real people, for a lookup with no account; null when it
+// can't be read (before the migration runs).
+export async function realSpendToday(db: SupabaseClient): Promise<number | null> {
+  const { data, error } = await db.rpc("real_spend_today", { p_key: SERVER_KEY() });
+  return error ? null : Number(data ?? 0);
 }
