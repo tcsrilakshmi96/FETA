@@ -52,9 +52,18 @@ export default function StyleBrands() {
       const load = async () => {
         const [all, loved] = await Promise.all([brandsFor(p.styles, origin.city, p.wears, p.budget), loadLovedBrands()]);
         setUsuals(loved);
-        // Shown straight away, then reordered for them when Feta's ranking arrives.
-        setAll(all);
-        setAll(await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name)));
+        // Shown once Feta has ordered them, and never reordered under their
+        // finger after that (testers, 23 Nov 2026: a ♥ on Uniqlo landed on
+        // another brand when the list re-sorted): brands found later by
+        // research join at the end.
+        const ranked = await rankForMe(all, p, origin.city.countryName, loved.map((l) => l.name));
+        const at = (b: BrandCard) => `${b.id}:${b.style}`;
+        setAll((shown) => {
+          if (!shown) return ranked;
+          const now = new Map(ranked.map((b) => [at(b), b]));
+          const kept = shown.filter((b) => now.has(at(b))).map((b) => now.get(at(b))!);
+          return [...kept, ...ranked.filter((b) => !shown.some((x) => at(x) === at(b)))];
+        });
         return all;
       };
       reload.current = load;
@@ -253,8 +262,6 @@ export default function StyleBrands() {
                       )}
                       {tab === FOR_YOU && fits > 1 && <span className={s.small} style={{ color: "var(--tan)" }}>Fits {fits} of your styles</span>}
                       {b.forYou && <span className={s.forYou}>{b.forYou}</span>}
-                      {/* Feta's line on why it suits them; the research's line only when there isn't one. */}
-                      {!b.forYou && b.why && <span className={`${s.small} ${s.clamp}`} style={{ color: "rgba(var(--inkRGB),0.75)" }}>{b.why}</span>}
                       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 14, rowGap: 4 }}>
                         {fit === "fits" && b.price.price !== null && (
                           <span className={s.fits}>
