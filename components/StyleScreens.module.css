@@ -245,13 +245,26 @@
   color: rgba(var(--inkRGB), 0.65);
   text-align: center;
 }
+/* A screen with a pinned button (setup): the page fills the screen and the
+   button sits at its foot, flush with the bottom edge (founder, 23 Nov 2026:
+   "the buttons are floating in all the screens"). The screen's bottom
+   padding, room for the tab bar elsewhere, made the sticky button stop
+   120px above the edge, mid-screen, and move as the page scrolled. */
+.screen:has(.bottomBar) {
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+.screen:has(.bottomBar) > .page {
+  flex: 1 0 auto;
+  width: 100%;
+}
 .bottomBar {
   position: sticky;
   bottom: 0;
-  /* A fade behind the pinned button, so it reads as a footer over what scrolls beneath. */
-  margin: 0 -16px;
+  margin: auto -16px 0;
   /* Solid behind the button, so what scrolls beneath never shows through it. */
-  padding: 24px 16px 16px;
+  padding: 24px 16px calc(16px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, rgb(var(--bgRGB)) 70%, rgba(var(--bgRGB), 0));
   display: flex;
   flex-direction: column;
