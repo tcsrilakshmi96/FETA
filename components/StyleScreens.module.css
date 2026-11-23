@@ -1241,9 +1241,16 @@
   background: var(--saffron);
   animation: ping 1.4s ease-out infinite;
 }
+/* Big enough to tap (testers, 23 Nov 2026: Save and Edit styles were too
+   small): at least 36px tall, with room around the words. */
 .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 2px;
   color: var(--tan);
-  font-size: 12.5px;
+  font-size: 13.5px;
+  font-weight: 500;
 }
 .fits {
   color: #2f8a46;
