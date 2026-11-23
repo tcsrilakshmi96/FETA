@@ -249,3 +249,4 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - 23 Nov 2026: Places they love at setup are suggested only within their city's area (Google's suggestions restricted to about 50 km around it; tester in Bengaluru was offered Dhaka and Cleveland). Places elsewhere in their country can still be added in Saved → Been (no longer anywhere in the world).
 - 23 Nov 2026: A place added at setup as one they love has ✕ to take it back (it leaves Been too).
 - 23 Nov 2026: Tapping a 5th cuisine at setup says "That's 4 already. Untick one to choose another, or add more under Something else." instead of doing nothing.
+- 23 Nov 2026: Pick cards: a place's name takes at most two lines (the whole name is in Details), and a long chip wraps into even lines with its ✓ kept beside the words (tester: "check with / staff", a ✓ alone, three-line names).

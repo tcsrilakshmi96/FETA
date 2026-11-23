@@ -432,7 +432,7 @@ export default function Picks() {
                 {curatedLabel(hero) && <span className={styles.loved}>{curatedLabel(hero)}</span>}
                 <span className={styles.chips}>
                   {hero.chips.map((chip) => (
-                    <span key={chip}>{chip}</span>
+                    <span key={chip}>{chip.replace(/ ✓$/, "\u00a0✓")}</span>
                   ))}
                 </span>
               </span>
