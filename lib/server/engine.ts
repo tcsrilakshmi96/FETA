@@ -182,7 +182,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
   // "Anywhere in Goa" or a trip destination means the whole place, not a
   // walk from its centre.
-  const wide = body.reach || body.origin.source === "city" ? { ...taste, answers: { ...taste.answers, distance: body.reach === "walk" ? "walk_2km" : (body.reach ?? "city") } } : taste;
+  // A trip's day plans cover the whole city: its famous sights are rarely
+  // within an everyday distance of the hotel (traveller, 23 Nov 2026:
+  // Lisbon's days had no Belém or castle).
+  const wide = body.reach || body.origin.source === "city" || body.dayPlan ? { ...taste, answers: { ...taste.answers, distance: body.reach === "walk" ? "walk_2km" : (body.reach ?? "city") } } : taste;
   const effective = applyTweaks(wide, tweaks);
 
   // 1. Recent picks for the same place come back the same: the places and
@@ -316,7 +319,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const late = !eventsDone && body.category === "experiences" && !body.only && events.length < need;
   const room = Math.max(0, need - events.length);
   const taken = events.map((e) => e.stored.serves?.[0]).filter((k): k is string => !!k);
-  const result = { ...found, ...pickFrom(found, { room, small, popularCap: popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
+  // A day plan wants the famous sights, not the "something new" cap on very popular places.
+  const result = { ...found, ...pickFrom(found, { room, small, popularCap: body.dayPlan ? 99 : popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
   if (result.chosen.length === 0 && events.length === 0) {
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
     return json({ picks: [], notice: whyNothing(result.drops, effective.answers, body.when, city.country) });
