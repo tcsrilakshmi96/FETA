@@ -17,7 +17,7 @@ import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, eventSources, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
-import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
@@ -732,6 +732,15 @@ async function main() {
     brandPrice({ price_feel: null, sample_price: 40, sample_currency: "USD", checked_date: null }, ["c2"], "GBP").fit !== "above" && "a brand with no price level or local price is shown",
     !lookProblem({ id: "x", style: "indian-fusion", title: "Indo Indo Evening", why: "", pieces: [{ slot: "one-piece", name: "Indigo cotton kurta set" }, { slot: "shoes", name: "Tan leather kolhapuris" }] }, ["indian-fusion"]) && "a look titled \"Indo Indo Evening\" passes",
   ].filter(Boolean);
+  const nightFails = [
+    !notANightOut({ displayName: { text: "Simplifry | Vegan Cloud Kitchen" }, primaryType: "vegan_restaurant" } as never) && "a cloud kitchen passes",
+    !notANightOut({ displayName: { text: "The Binge Town - Private Theatre Venues for Celebration" }, primaryType: "" } as never) && "a private theatre for hire passes",
+    notANightOut({ displayName: { text: "Comedy Theatre" }, primaryType: "performing_arts_theater" } as never) && "a real theatre is dropped",
+  ].filter(Boolean);
+  if (nightFails.length) {
+    failed++;
+    console.log(`✗ Places to go out: ${nightFails.join(", ")}`);
+  } else console.log("✓ Cloud kitchens and places for hire are never picks");
   if (brandFails.length) {
     failed++;
     console.log(`✗ Style brands: ${brandFails.join(", ")}`);

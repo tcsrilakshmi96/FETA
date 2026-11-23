@@ -334,7 +334,18 @@ const NEVER_PICKS = [
   // Offices and services: nowhere to spend an evening (persona test, 23 Nov
   // 2026: Plan my evening sent people to tour companies' offices at 10 pm).
   "travel_agency", "tour_agency", "tourist_information_center", "event_planner", "real_estate_agency", "insurance_agency", "corporate_office", "consultant", "employment_agency", "lawyer", "accounting",
+  // Delivery only: nowhere to sit (persona re-test, 23 Nov 2026: a vegan
+  // cloud kitchen for a group dinner).
+  "meal_delivery",
 ];
+
+// Places you hire or order from rather than go out to, by name (persona
+// re-test, 23 Nov 2026: "Private Theatre Venues for Celebration", a cloud
+// kitchen, a band for hire).
+const NOT_A_NIGHT_OUT = /\b(cloud kitchen|delivery only|for hire|on hire|for celebrations?|private theat(?:re|er)s?|party halls?|banquet halls?|caterers?|catering)\b/i;
+export function notANightOut(place: Place) {
+  return NEVER_PICKS.includes(place.primaryType ?? "") || NOT_A_NIGHT_OUT.test(place.displayName?.text ?? "");
+}
 
 // Global fast-food chains (founder, 21 Nov 2026, after a Taco Bell: "yes,
 // unless that's the only option"). Kept only when nothing else found fits
@@ -406,7 +417,7 @@ export function applyHardFilters(
       // A thing to do Google can't say what it is (a band for hire, an
       // office) only when it's what they chose, never as popular nearby.
       (opts.category === "experiences" && !place.primaryType && !opts.untypedOk?.(place)) ||
-      NEVER_PICKS.includes(place.primaryType ?? "") ||
+      notANightOut(place) ||
       opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
     ) {
