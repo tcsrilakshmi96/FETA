@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
-import { cityCalendar, eventPasses, eventSources } from "@/lib/server/events";
+import { cityCalendar, eventPasses, eventSources, searchChip } from "@/lib/server/events";
 import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -560,11 +560,13 @@ async function main() {
     }),
     eventPasses(ev(cal.today, undefined, "https://www.district.in/events/comedy-night"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a District event shows",
     eventPasses(ev(cal.today, undefined, "https://in.bookmyshow.com/events/standup/ET001"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a BookMyShow event shows",
+    // The Search chip shows the searches: plain words, not "site:" (tester, 23 Nov 2026).
+    /site:/.test(searchChip([{ type: "google_search_result", result: [{ search_suggestions: "<a>site:district.in comedy</a>" }, { search_suggestions: "<a>comedy Bengaluru this weekend</a>" }] }])) && "a chip shows a site: search",
   ].filter(Boolean);
   if (sourceFails.length) {
     failed++;
     console.log(`✗ Never-used sources: ${sourceFails.join(", ")}`);
-  } else console.log("✓ District, BookMyShow, Meetup, Zomato and Swiggy are never searched or shown");
+  } else console.log("✓ District, BookMyShow, Meetup, Zomato and Swiggy are never searched or shown, and the Search chip reads as plain words");
   // Style brands (review, 22 Nov 2026): Mumbai H&M opened Australia, London
   // Uniqlo opened India, and "In your budget" showed with no price behind it.
   const link = (website: string, proof: string | null, c: string, cn: string) => shopLink({ name: "B", website }, { presence_url: proof }, c, cn).href;

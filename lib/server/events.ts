@@ -28,11 +28,22 @@ export type FoundEvent = {
 
 export type EventSearch = { events: FoundEvent[]; searchHtml: string };
 
-type Step = {
+export type Step = {
   type: string;
   result?: { search_suggestions?: string }[];
   content?: { type: string; text?: string }[];
 };
+
+// Google's Search chip for what a grounded search found, shown unaltered.
+// It shows the searches themselves, so they are written in plain words
+// (tester, 23 Nov 2026: a chip read "site:district.in comedy"); of several,
+// one without a search operator.
+export const PLAIN_SEARCHES = "Write every search in plain words, as a person would type it (the site's or guide's name and the city, e.g. \"Time Out comedy this weekend\"), never with site: or other search operators: people see these searches.";
+
+export function searchChip(steps: Step[]) {
+  const chips = steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).filter(Boolean);
+  return chips.find((h) => !/\b(site|inurl|intitle):/i.test(h)) ?? chips[0] ?? "";
+}
 
 // Today's date, the time now, and this weekend's dates, in the city's zone.
 export function cityCalendar(timeZone: string) {
@@ -82,7 +93,7 @@ export async function findEvents(opts: {
         : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
-Use at most 2 searches. Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search them with site: and their web addresses). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Never use or link District, BookMyShow, Meetup, Zomato or Swiggy. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found.
+Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search for them by name). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Never use or link District, BookMyShow, Meetup, Zomato or Swiggy. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), as the event's own page says, or "" if it gives none, "priceText": string as the listing says ("Free" if it's free), "minPrice": number in ${opts.city.currency} (0 if free) or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
@@ -108,8 +119,7 @@ Reply with only a JSON array. Each item:
   const data = (await res.json()) as { steps?: Step[] };
   trackGemini("gemini_search", data);
   const steps = data.steps ?? [];
-  const searchHtml =
-    steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
+  const searchHtml = searchChip(steps);
   const text = steps
     .filter((s) => s.type === "model_output")
     .flatMap((s) => s.content ?? [])

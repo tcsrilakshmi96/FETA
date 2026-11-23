@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, trackGemini } from "@/lib/server/costs";
-import { eventSources, neverSourceUrl, siteName } from "@/lib/server/events";
+import { eventSources, neverSourceUrl, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 import { placeIdFor } from "@/lib/server/places";
 import type { Category } from "@/lib/server/picks";
@@ -17,8 +17,6 @@ import type { Category } from "@/lib/server/picks";
 
 export type Featured = { placeId: string; name: string; guide: string; url: string };
 export type FeaturedSet = { places: Featured[]; searchHtml: string };
-
-type Step = { type: string; result?: { search_suggestions?: string }[]; content?: { type: string; text?: string }[] };
 
 // Review sites and social media are not guides; the sites never to be used
 // (CLAUDE.md) are checked in events.ts.
@@ -46,7 +44,7 @@ export async function featuredFor(db: SupabaseClient, city: City, category: Cate
 async function findFeatured(city: City, category: Category): Promise<FeaturedSet> {
   const what = category === "food_drinks" ? "places to eat and drink (restaurants, cafés, bars, bakeries)" : "things to do (museums, galleries, parks, walks, markets, experiences; not restaurants or bars)";
   const input = `Search the web for specific ${what} in ${city.name}, ${city.countryName} that local guides and editorial lists recommend now, from the last two years. Look first on ${eventSources(city)}, then other reputable local guides and magazines. Not review sites (Tripadvisor, Yelp, Google) and not ticket sites; never Zomato, Swiggy, District, BookMyShow or Meetup.
-Use at most 3 searches. Up to 20 different places, each a single named place you could find on Google Maps, featured in an article or list you actually found.
+Use at most 3 searches. ${PLAIN_SEARCHES} Up to 20 different places, each a single named place you could find on Google Maps, featured in an article or list you actually found.
 
 Reply with only a JSON array. Each item: {"name": string (the place, with its neighbourhood if given), "guide": string (the publication, e.g. "Time Out"), "url": the article's real URL (not a redirect)}.`;
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
@@ -59,7 +57,7 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   const data = (await res.json()) as { steps?: Step[] };
   trackGemini("gemini_search", data);
   const steps = data.steps ?? [];
-  const searchHtml = steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
+  const searchHtml = searchChip(steps);
   const text = steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join("");
   let items: { name?: string; guide?: string; url?: string }[] = [];
   try {

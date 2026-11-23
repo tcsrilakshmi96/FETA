@@ -236,3 +236,4 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 
 ## 23 Nov 2026: Fixes from two persona testers (things to do, events and other)
 - 23 Nov 2026: District, BookMyShow, Meetup, Zomato and Swiggy are never a source, even where her event-site list names them: `eventSources` leaves them out, events and guide posts linking to them are dropped (`neverSourceUrl` in `lib/server/events.ts`, one check for events, guide events and Featured in), and the searches are told never to use them (tester: "Found on District" in Bengaluru).
+- 23 Nov 2026: Google's Search chip shows the searches themselves, so event, guide and Featured in searches are written in plain words, never `site:` (tester saw "site:district.in comedy" in a chip); of several chips, one without an operator is shown (`searchChip` in `lib/server/events.ts`, one copy for all three). Chips already cached go within a day.
