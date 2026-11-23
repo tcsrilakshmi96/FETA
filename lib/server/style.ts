@@ -120,15 +120,16 @@ Real fabric and fit, like a brand's lookbook. No text, no logos, no other people
 // Where each piece is in the picture, so the numbered dots sit on the
 // clothes (testers, 23 Nov 2026: dots on the wrong pieces, lines crossing).
 // One small look at the picture, about ₹0.1; none if it fails.
-export async function findSpots(image: string, pieces: Piece[]): Promise<[number, number][] | null> {
+export async function findSpots(image: string, pieces: Piece[]): Promise<([number, number] | null)[] | null> {
   const prompt = `This is a full-length photo of one person. For each numbered piece of clothing, give the point at the centre of where it shows in the photo, as fractions of the image's width and height (x 0 = left edge, 1 = right edge; y 0 = top, 1 = bottom).
 ${pieces.map((p, i) => `${i + 1}. ${p.slot}: ${p.name}`).join("\n")}
-Reply with only JSON: {"spots": [[x, y], ...]} in the same order, one per piece.`;
+A piece you can't clearly see in the photo (a small necklace, a bag that isn't there) is null: never guess a spot.
+Reply with only JSON: {"spots": [[x, y] or null, ...]} in the same order, one per piece.`;
   const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }, inline(image)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
   const o = JSON.parse(textOf(data)) as { spots?: unknown };
   const spots = Array.isArray(o.spots) ? o.spots : [];
-  const ok = spots.length === pieces.length && spots.every((x) => Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === "number" && v >= 0 && v <= 1));
-  return ok ? (spots as [number, number][]) : null;
+  const ok = spots.length === pieces.length && spots.every((x) => x === null || (Array.isArray(x) && x.length === 2 && x.every((v) => typeof v === "number" && v >= 0 && v <= 1)));
+  return ok ? (spots as ([number, number] | null)[]) : null;
 }
 
 export type LookAsk = {
@@ -190,7 +191,7 @@ export async function makeLooks(ask: LookAsk): Promise<Look[]> {
   // stylist's brief: the season there, a colour story, colour and fabric in
   // every piece, what people really wear to this kind of place in this city,
   // and their own pieces built in.
-  const base = `You are a sharp personal stylist in ${ask.city}, dressing one person. It is ${ask.localTime}: dress for the weather usual in ${ask.city} at this time of year.
+  const base = `You are a sharp personal stylist in ${ask.city}, dressing one person. It is ${ask.localTime}: dress for the weather usual in ${ask.city} at this time of year. In a warm or tropical climate never suggest warm layers (velvet, wool, knits, sweaters, boots for warmth); use breathable fabrics.
 Their styles, strongest first: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}. They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
 ${forText(ask.for)}
 ${ask.for.own ? `They're wearing something of their own: ${ask.for.own}. Use it in every look, word for word.\n` : ""}${ask.wardrobe.length ? `Pieces they own: ${ask.wardrobe.slice(-20).join("; ")}. Build at least one look around one of these when it suits this outing, naming it exactly as written here.\n` : ""}${ask.usuals.length ? `Brands they shop from (the kind of clothes, never name them): ${ask.usuals.slice(0, 8).join(", ")}.\n` : ""}${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.worn.length ? `Looks they chose before: ${ask.worn.slice(-6).join("; ")}.\n` : ""}${ask.off.length ? `What was off in earlier looks (fix it): ${ask.off.slice(-4).join("; ")}.\n` : ""}${ask.avoid.length ? `Already shown for this outing, give clearly different ones: ${ask.avoid.join("; ")}.\n` : ""}${ask.note ? `They also said: ${ask.note}\n` : ""}

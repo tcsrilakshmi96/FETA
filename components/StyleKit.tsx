@@ -93,7 +93,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [img, setImg] = useState<{ w: number; h: number }>({ w: 9, h: 16 });
-  const [found, setFound] = useState<{ id: string; spots: [number, number][] | null } | null>(null);
+  const [found, setFound] = useState<{ id: string; spots: ([number, number] | null)[] | null } | null>(null);
   const spots = found?.id === look.id ? found.spots : null;
   useEffect(() => {
     const el = card.current;
@@ -113,13 +113,18 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
   // Each dot in % of the card. With the picture: where the piece really is
   // (the picture fills the left 64%, cropped from the centre, top kept).
   // Without: about where that kind of piece sits on a figure.
-  const dots = look.pieces.map((p, i): [number, number] => {
+  // A piece the picture doesn't clearly show (a necklace, a bag) has no dot:
+  // it's listed, with no line (persona re-tests, 23 Nov 2026: dots for
+  // jewellery and bags guessed onto the coat).
+  const dots = look.pieces.map((p, i): [number, number] | null => {
     if (pic && spots && box) {
+      const spot = spots[i];
+      if (!spot) return null;
       const figW = box.w * 0.64;
       const scale = Math.max(figW / img.w, box.h / img.h);
       const dw = img.w * scale;
-      const x = ((figW - dw) / 2 + spots[i][0] * dw) / box.w;
-      const y = (spots[i][1] * img.h * scale) / box.h;
+      const x = ((figW - dw) / 2 + spot[0] * dw) / box.w;
+      const y = (spot[1] * img.h * scale) / box.h;
       return [Math.min(60, Math.max(4, x * 100)), Math.min(96, Math.max(4, y * 100))];
     }
     const [x, y] = SLOT_AT[p.slot];
@@ -127,9 +132,10 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
     const same = look.pieces.slice(0, i).filter((q) => q.slot === p.slot).length;
     return [x * 64 + same * 8, y * 100 + same * 6];
   });
+  const at = (i: number) => dots[i]?.[1] ?? 200 + i;
   // Numbered top to bottom by where the dots are, and listed in that order,
   // so no two dotted lines cross.
-  const order = look.pieces.map((_, i) => i).sort((a, b) => dots[a][1] - dots[b][1] || a - b);
+  const order = look.pieces.map((_, i) => i).sort((a, b) => at(a) - at(b) || a - b);
   const row = new Map(order.map((piece, r) => [piece, r]));
   const ys = order.map((_, r) => ((r + 1) / (n + 1)) * 100);
   return (
@@ -143,12 +149,10 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
         )}
       </div>
       <svg className={k.lines} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        {dots.map(([x, y], i) => (
-          <path key={i} d={`M${x + 2} ${y} L58 ${ys[row.get(i)!]}`} stroke="#1a1616" strokeWidth="1" strokeDasharray="3 3" fill="none" vectorEffect="non-scaling-stroke" />
-        ))}
+        {dots.map((d, i) => d && <path key={i} d={`M${d[0] + 2} ${d[1]} L58 ${ys[row.get(i)!]}`} stroke="#1a1616" strokeWidth="1" strokeDasharray="3 3" fill="none" vectorEffect="non-scaling-stroke" />)}
       </svg>
-      {dots.map(([x, y], i) => (
-        <button key={`d${i}`} type="button" className={`${k.num} ${owned(look.pieces[i].name) ? k.numMine : ""}`} style={{ left: `${x}%`, top: `${y}%` }} aria-label={look.pieces[i].name} onClick={() => onPiece?.(i)}>
+      {dots.map((d, i) => d && (
+        <button key={`d${i}`} type="button" className={`${k.num} ${owned(look.pieces[i].name) ? k.numMine : ""}`} style={{ left: `${d[0]}%`, top: `${d[1]}%` }} aria-label={look.pieces[i].name} onClick={() => onPiece?.(i)}>
           <span style={{ animationDelay: `${0.1 * row.get(i)!}s` }}>{row.get(i)! + 1}</span>
         </button>
       ))}

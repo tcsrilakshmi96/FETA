@@ -324,7 +324,7 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
       // Tried again.
     }
     const photo = await fromPhone("selfie");
-    const r = await post<{ image?: string; spots?: [number, number][] | null }>("/api/style/picture", { look, wears, photo });
+    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null }>("/api/style/picture", { look, wears, photo });
     if (r?.image) await keepOnPhone(key, r.image);
     if (r?.image && r.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(r.spots));
     else
@@ -352,7 +352,7 @@ export async function forgetPicture(look: Look) {
   }
 }
 // Where each piece sits in the look's picture (x, y as fractions), when known.
-export async function keptSpots(look: Look): Promise<[number, number][] | null> {
+export async function keptSpots(look: Look): Promise<([number, number] | null)[] | null> {
   try {
     const v = JSON.parse((await fromPhone(`spots:${look.id}`)) ?? "null");
     return Array.isArray(v) && v.length === look.pieces.length ? v : null;
