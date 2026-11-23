@@ -450,6 +450,14 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     }
   }
 
+  // Learned while planning a trip: for that trip only unless they say
+  // otherwise (traveller, 23 Nov 2026: "Porto sights" reached Lisbon's
+  // everyday picks and searched both lists again).
+  const forTrip = header && added.length && !todayOnly ? header : null;
+  if (forTrip) {
+    const { error } = await db.from("profile_lines").update({ trip: forTrip }).in("id", added.map((a) => a.id));
+    if (error) console.error("Scoping trip lines failed", error.message);
+  }
   await db.from("chat_messages").insert([
     { user_id: userId, role: "user", content: message },
     {

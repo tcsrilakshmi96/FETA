@@ -159,10 +159,11 @@ export default function Ask() {
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={!!m.tripOnly}
+                    aria-checked={m.tripOnly !== false}
                     className={styles.tripToggle}
                     onClick={() => {
-                      const next = !m.tripOnly;
+                      // On by default: learned while planning a trip (Ask route).
+                      const next = m.tripOnly === false;
                       setLinesTrip(m.reply!.added.map((a) => a.id), next ? m.reply!.trip : null);
                       patch(m.id, { tripOnly: next });
                     }}
@@ -171,7 +172,7 @@ export default function Ask() {
                       <span className={styles.tripTitle}>Only for this trip</span>
                       <span className={styles.tripSub}>Keeps your everyday picks unchanged. Used for {m.reply.trip}.</span>
                     </span>
-                    <span className={`switch ${m.tripOnly ? "on" : ""}`} />
+                    <span className={`switch ${m.tripOnly !== false ? "on" : ""}`} />
                   </button>
                 )}
                 {/* Round 6: "out with my parents tonight" reached Lisbon a week later. */}
