@@ -9,7 +9,7 @@ import { currentUserId, supabase } from "@/lib/supabase";
 export type { Category, Pick, When };
 
 // left: new searches left today, when 3 or fewer; limited: today's limit is reached.
-export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; error?: string; left?: number; limited?: boolean };
+export type PicksReply = { picks: Pick[]; spares?: Pick[]; banner?: string; notice?: string; error?: string; left?: number; limited?: boolean; eventsComing?: boolean };
 
 // Asks Feta's server for picks (8 to show, the rest as backup). The server reads the user's answers and
 // swipes from the database itself.
@@ -42,7 +42,9 @@ export async function fetchPicks(
       body: JSON.stringify({ category, when, origin, more, ...tweak }),
     });
     const reply = (await res.json()) as PicksReply;
-    if (typeof reply.left === "number") announce(leftNotice(reply.left));
+    // The reset in their city's time (traveller, 23 Nov 2026: "more from
+    // midnight" in Lisbon, India's midnight).
+    if (typeof reply.left === "number") announce(leftNotice(reply.left, origin.city.timeZone));
     return reply;
   } catch {
     return { picks: [], notice: "No connection just now. Try again in a moment." };
