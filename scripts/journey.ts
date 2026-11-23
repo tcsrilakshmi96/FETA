@@ -65,6 +65,8 @@ async function main() {
   await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
   const errors: string[] = [];
   p.on("pageerror", (e) => errors.push((e as Error).message));
+  // The server's page and the phone's first draw must match (tester, 23 Nov 2026: React error #418 on /questions).
+  p.on("console", (m) => m.type() === "error" && /hydrat|#418/i.test(m.text()) && errors.push(m.text().slice(0, 200)));
   let token: string | null = null;
   try {
     // Welcome: three cards, 18+, then the name and what they want.
@@ -119,6 +121,10 @@ async function main() {
         const missingInterests = expectedInterests.filter((l) => !chips.includes(l));
         check(missingInterests.length === 0, `All ${expectedInterests.length} things to do are on screen`, `missing: ${missingInterests.join(", ")}`);
         for (const l of ticked) await click(p, new RegExp(`^${l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+        // A 5th cuisine says "up to 4" (tester, 23 Nov 2026: silently ignored).
+        const fifth = expectedCuisines.find((l) => !ticked.includes(l) && l !== typedKnown)!;
+        await click(p, new RegExp(`^${fifth.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+        check(/That's 4 already/.test(await p.evaluate(() => document.body.innerText)), "A 5th cuisine says up to 4");
         await click(p, /Something else/);
         await p.waitForSelector("input[aria-label='Another cuisine']");
         await p.type("input[aria-label='Another cuisine']", `${typedKnown}, Burmese`);
@@ -129,6 +135,16 @@ async function main() {
         await click(p, /^Pottery$/);
         const own = await p.$("input[placeholder*='own words'], textarea[placeholder*='own words']");
         if (own) await own.type("pottery with friends");
+      } else if (/places/i.test(heading)) {
+        // A place added by mistake can be taken back (tester, 23 Nov 2026).
+        await p.type("input[aria-label='A place you love']", "Corner Cafe");
+        await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /test 1/.test(b.textContent ?? "")), { timeout: 15000 }).catch(() => null);
+        await click(p, /test 1/);
+        await p.waitForSelector("button[aria-label^='Remove ']", { timeout: 5000 }).catch(() => null);
+        const added = !!(await p.$("button[aria-label^='Remove ']"));
+        await p.evaluate(() => (document.querySelector("button[aria-label^='Remove ']") as HTMLButtonElement | null)?.click());
+        await wait(300);
+        check(added && !(await p.$("button[aria-label^='Remove ']")), "A place they love can be added and taken back with ✕");
       } else if (/basics/i.test(heading)) {
         await click(p, /^Everything$/);
         // Spend: the two middle levels, like most people ("₹500–1,500", "₹1,500–3,000").
