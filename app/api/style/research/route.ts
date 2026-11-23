@@ -30,6 +30,11 @@ export async function POST(request: Request) {
   const style = styleById(String(body.style ?? ""));
   if (!city || !style) return Response.json({ error: "Bad request" }, { status: 400 });
   if (FAKE) return Response.json({ skipped: "test mode" });
+  // Only from the founder's admin account (founder, 23 Nov 2026: in-app
+  // research was ₹30–60 a style on Gemini; it's now done with her Claude plan
+  // and imported). Everyone else sees backup brands meanwhile.
+  const { data: admin } = await db.rpc("is_admin");
+  if (!admin) return Response.json({ skipped: "research is done by Feta, not on open" });
   if ((await librarySpentToday(db)) >= LIBRARY_BUDGET_INR) return Response.json({ skipped: "budget" });
   const { data: claimed, error } = await db.rpc(body.more ? "start_style_research_more" : "start_style_research", { p_key: process.env.USAGE_REPORT_KEY, p_country: city.country, p_style: style.id });
   if (error || !claimed) return Response.json({ skipped: error ? "unavailable" : "done or running" });
