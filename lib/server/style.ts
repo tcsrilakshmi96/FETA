@@ -3,7 +3,6 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { trackGemini, type Sku } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
-import { veniceJson } from "@/lib/server/venice";
 import { SLOTS, STYLES, lookProblem, orderedPieces, pieceProblem, styleById, tooAlike, type Look, type LookFor, type Piece, type Slot, type Where, type Wears } from "@/lib/style";
 
 // Style's three AI steps (founder, 20 Nov 2026), all through Gemini with
@@ -20,12 +19,6 @@ type Lens = { style_id: string; name: string; definition: string; visible_signal
 async function lenses(db: SupabaseClient): Promise<Lens[]> {
   const { data } = await db.from("style_lenses").select("style_id, name, definition, visible_signals, keep_separate");
   return (data as Lens[] | null) ?? [];
-}
-
-// Writing looks and ordering brands go to Venice (the founder's credits,
-// 23 Nov 2026): nothing in them is Google's.
-async function venice(prompt: string, maxTokens = 2500): Promise<string> {
-  return JSON.stringify(await veniceJson<object>([{ role: "user", content: prompt }], maxTokens));
 }
 
 async function gemini(sku: Sku, model: string, parts: object[], generationConfig: object, timeoutMs: number) {
@@ -158,10 +151,7 @@ export type LookAsk = {
 const WHERE_WORDS: Record<Where, string> = { day: "an everyday day: errands, coffee, whatever comes up", work: "a day at work", dinner: "going out for dinner", drinks: "going out for drinks", do: "going out to do something", else: "somewhere they describe" };
 
 function forText(f: LookFor) {
-  // The kind of each stop, never its name: names come from Google, and
-  // looks are written on Venice, which never gets Google's content.
-  const KIND: Record<string, string> = { EAT: "a meal out", DRINK: "drinks", DO: "something to do", EVENT: "an event" };
-  if (f.where === "plan") return `Their plan${f.tomorrow ? " for tomorrow" : ""}: ${f.stops.map((s) => `${s.time ? `${s.time} ` : ""}${KIND[s.kind] ?? "a stop"}`).join(", then ")}.${f.walkKm ? ` About ${f.walkKm.toFixed(1)} km on foot between stops.` : ""}`;
+  if (f.where === "plan") return `Their plan${f.tomorrow ? " for tomorrow" : ""}: ${f.stops.map((s) => `${s.time ? `${s.time} ` : ""}${s.name} (${s.kind})`).join(", then ")}.${f.walkKm ? ` About ${f.walkKm.toFixed(1)} km on foot between stops.` : ""}`;
   return [
     `They are ${WHERE_WORDS[f.where]}${f.tomorrow ? ", tomorrow" : ""}.`,
     f.place ? `Where: ${f.place}.` : "",
@@ -215,14 +205,16 @@ Give ${n} complete outfit${n > 1 ? "s" : ""} a good stylist would really put tog
 - Plain, warm, short. Never brands or prices; never comment on body, size or looks.
 Reply with only JSON: {"looks": [{"style": the style id it is from (one of theirs), "title", "why", "pieces": [{"slot": "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra", "name": the piece}]}]}`;
   // Medium thinking: a stylist's choices, not a list (about ₹0.5 a set).
-  let looks = parseLooks(await venice(base), ask);
+  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
+  let looks = parseLooks(textOf(ask1), ask);
   const problems = (ls: Look[]) =>
     ls.map((l, i) => lookProblem(l, ask.styles) ?? (ls.slice(0, i).some((m) => tooAlike(l, m)) ? "too like an earlier look" : null));
   let bad = problems(looks);
   if (looks.length < n || bad.some(Boolean)) {
     // Once more, saying what was wrong (never cut to fit).
     const why = bad.map((b, i) => (b ? `look ${i + 1}: ${b}` : "")).filter(Boolean).join("; ") || `only ${looks.length} came back`;
-    const again = parseLooks(await venice(`${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.`), ask);
+    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
+    const again = parseLooks(textOf(ask2), ask);
     const againBad = problems(again);
     const good = (ls: Look[], b: (string | null)[]) => ls.filter((_, i) => !b[i]);
     looks = good(again, againBad).length >= good(looks, bad).length ? again : looks;
@@ -243,7 +235,8 @@ export async function swapPiece(ask: LookAsk, look: Look, index: number, tried: 
 They like this look, "${look.title}": ${look.pieces.map((p) => `${p.slot}: ${p.name}`).join("; ")}, except the ${piece.slot} ("${piece.name}"). Suggest a different ${piece.slot} that works with the rest for this outing.${tried.length ? ` Already tried: ${tried.join("; ")}.` : ""} Name it fully in 2 to 6 plain words, never ending mid-phrase; no brands.
 Reply with only JSON: {"name": the new piece, "why": the look's one-sentence why, updated if needed}`;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const o = JSON.parse(await venice(prompt + (attempt ? "\nYour last answer was cut off or empty. Answer again." : ""), 600)) as { name?: string; why?: string };
+    const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt + (attempt ? "\nYour last answer was cut off or empty. Answer again." : "") }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 15000);
+    const o = JSON.parse(textOf(data)) as { name?: string; why?: string };
     const name = String(o.name ?? "").trim();
     if (!pieceProblem(name) && name.toLowerCase() !== piece.name.toLowerCase())
       return { ...look, why: String(o.why ?? "").trim().slice(0, 220) || look.why, pieces: look.pieces.map((p, i) => (i === index ? { ...p, name } : p)) };
@@ -294,7 +287,8 @@ Put first the brands whose clothes look most like what they wear AND fit their b
 Brands (id | name | style | what it sells | price | homegrown | loved by others):
 ${ask.brands.map((b) => `${b.id} | ${b.name} | ${b.style} | ${b.cues.slice(0, 140)} | ${b.priceFeel ?? "?"} | ${b.homegrown ? "yes" : "no"} | ${b.lovers}`).join("\n")}
 Reply with only JSON: {"order": [{"id", "why"}]} including every brand once.`;
-  const parsed = JSON.parse(await venice(prompt, 4000)) as { order?: { id: string; why?: string }[] };
+  const data = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: prompt }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+  const parsed = JSON.parse(textOf(data)) as { order?: { id: string; why?: string }[] };
   const known = new Set(ask.brands.map((b) => b.id));
   const seen = new Set<string>();
   // A line about price would contradict the checked price shown beside it
