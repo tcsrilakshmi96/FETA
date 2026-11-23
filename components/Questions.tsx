@@ -6,7 +6,7 @@ import Mascot from "@/components/Mascot";
 import { useRouter } from "next/navigation";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { loadCity, type City } from "@/lib/cities";
-import { currencyForTimeZone } from "@/lib/currency";
+import { currencyForTimeZone, type Currency } from "@/lib/currency";
 import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
 import InterestChips from "@/components/InterestChips";
@@ -58,6 +58,10 @@ export default function Questions() {
   const [anythingElse, setAnythingElse] = useState("");
   const [asking, setAsking] = useState(false); // "Recommend them to people like you?"
   const [asked, setAsked] = useState(false);
+  // The phone's own money until their city is known. Read after the page
+  // loads: the server's time zone isn't theirs, and reading it while drawing
+  // gave the server ₹ and the phone £ (React error #418, tester 23 Nov 2026).
+  const [phoneCurrency, setPhoneCurrency] = useState<Currency | null>(null);
   const session = useRef("");
 
   // Answers from an earlier visit, and a city to work with: theirs, or a
@@ -69,6 +73,7 @@ export default function Questions() {
     setAnswers(loadAnswers());
     setSwipes(loadSwipes());
     setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
+    setPhoneCurrency(currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone));
     /* eslint-enable react-hooks/set-state-in-effect */
     const saved = loadCity();
     if (saved) setCity(saved);
@@ -85,7 +90,7 @@ export default function Questions() {
   const doing = wants.includes("do");
   const steps: Step[] = ["basics", "loves", ...(food || doing ? (["taste", "vibe"] as Step[]) : [])];
   const current = steps[Math.min(step, steps.length - 1)];
-  const currency = city?.currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const currency = city?.currency ?? phoneCurrency;
   const veg = isVegDiet(answers.diet);
 
   // Places they love: Google suggestions as they type, a moment after they stop.
@@ -156,7 +161,7 @@ export default function Questions() {
       typed.rest && { id: "food_other", text: `Also loves ${typed.rest.slice(0, 60)}`, source: "answers" as const },
       anythingElse.trim() && { id: "loves_other", text: `Loves ${anythingElse.trim().slice(0, 100)}`, source: "answers" as const },
     ].filter(Boolean) as ProfileLine[];
-    const lines = [...pickedUpLines(answers, all, currency, city?.country), ...own];
+    const lines = [...pickedUpLines(answers, all, currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone), city?.country), ...own];
     saveProfileLines(lines);
     saving.push(saveProfileLinesToDb(lines, []));
     await Promise.all(saving);
@@ -259,7 +264,7 @@ export default function Questions() {
           )}
           <p className={styles.label}>{food ? "Spend per person · tick all that are fine" : "Spend on a night out, per person · tick all that are fine"}</p>
           <div className={styles.chips}>
-            {optionsFor(q("spend"), currency, city?.country).map((o) => (
+            {currency && optionsFor(q("spend"), currency, city?.country).map((o) => (
               <button key={o.id} type="button" aria-pressed={answers.spend.includes(o.id)} className={answers.spend.includes(o.id) ? styles.on : ""} onClick={() => set({ spend: toggleSpend(answers.spend, o.id), spendCurrency: currency })}>
                 {o.label}
               </button>
@@ -267,7 +272,7 @@ export default function Questions() {
           </div>
           <p className={styles.label}>How far will you go?</p>
           <div className={styles.chips}>
-            {optionsFor(q("distance"), currency, city?.country).map((o) => (
+            {optionsFor(q("distance"), currency ?? "USD", city?.country).map((o) => (
               <button key={o.id} type="button" className={answers.distance === o.id ? styles.on : ""} onClick={() => set({ distance: answers.distance === o.id ? null : o.id })}>
                 {o.label}
               </button>
