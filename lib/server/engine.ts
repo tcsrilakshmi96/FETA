@@ -524,8 +524,8 @@ async function eventPicks(ctx: {
   // A hike or an adventure may be a trip out (founder, 21 Nov 2026): the card says so.
   // Its link must open (tester, 22 Nov 2026: a Melbourne ticket link didn't
   // resolve); only the answer is read, never the page. The sites never to
-  // be used never get this far (eventPasses).
-  const opens = (url: string) => linkAlive(url, 4000);
+  // be scraped aren't touched at all.
+  const opens = (url: string) => (/district\.in|bookmyshow|meetup\.com|zomato|swiggy|insider\.in/.test(url) ? Promise.resolve(true) : linkAlive(url, 4000));
   const withVenues = (
     await Promise.all(fresh.map(async (x) => {
         const [venue, ok] = await Promise.all([findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined), opens(x.e.url)]);

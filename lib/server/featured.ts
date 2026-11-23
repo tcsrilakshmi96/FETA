@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, trackGemini } from "@/lib/server/costs";
-import { eventSources, neverSourceUrl, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
+import { eventSources, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 import { placeIdFor } from "@/lib/server/places";
 import type { Category } from "@/lib/server/picks";
@@ -18,9 +18,9 @@ import type { Category } from "@/lib/server/picks";
 export type Featured = { placeId: string; name: string; guide: string; url: string };
 export type FeaturedSet = { places: Featured[]; searchHtml: string };
 
-// Review sites and social media are not guides; the sites never to be used
-// (CLAUDE.md) are checked in events.ts.
-const NOT_GUIDES = /tripadvisor|yelp|google\.|vertexaisearch|facebook|instagram|reddit/;
+// Review sites, ticket sites and social media are not guides, and Zomato,
+// Swiggy, District and BookMyShow are never read (CLAUDE.md).
+const NOT_GUIDES = /zomato|swiggy|district\.in|bookmyshow|tripadvisor|yelp|google\.|vertexaisearch|facebook|instagram|reddit/;
 
 // The day's set for this city and category, or nothing yet: the first
 // person of the day starts the search after their reply and doesn't wait.
@@ -68,7 +68,7 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   const real = items.filter((i) => {
     try {
       const u = new URL(i.url ?? "");
-      return !!i.name && u.protocol === "https:" && !NOT_GUIDES.test(u.hostname) && !neverSourceUrl(i.url!);
+      return !!i.name && u.protocol === "https:" && !NOT_GUIDES.test(u.hostname);
     } catch {
       return false;
     }

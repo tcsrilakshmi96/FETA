@@ -93,7 +93,7 @@ export async function findEvents(opts: {
         : `this weekend: ${cal.weekend.map(readable).join(" or ")}`;
   const input = `Today is ${readable(cal.today)} and it is ${cal.time} in ${opts.city.name}, ${opts.city.countryName}. All dates and times are local to ${opts.city.name}.
 Search the web for up to 8 real public events ${opts.kind ? `for someone into ${opts.kind}: events, sessions, nights, workshops, meet-ups, open mics, classes, walks or trips of that kind` : "of different kinds (gigs, comedy, theatre, art, talks, workshops, food pop-ups, markets, experiences, sport)"} happening ${window} in ${opts.city.name}.
-Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search for them by name). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Never use or link District, BookMyShow, Meetup, Zomato or Swiggy. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found and that gives a date; never guess a date or the year.
+Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these sites, which locals use for ${opts.city.name}: ${eventSources(opts.city)} (search for them by name). Search more widely (other listings, the organiser's own site) only if they have nothing of this kind. Only events that really are of that kind; none is a fine answer. Pop-ups, markets and exhibitions running across several days count if any of their days fall in that time, even if they started earlier. Only include events whose listing you actually found and that gives a date; never guess a date or the year.
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), as the event's own page says, or "" if it gives none, "priceText": string as the listing says ("Free" if it's free), "minPrice": number in ${opts.city.currency} (0 if free) or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
@@ -169,7 +169,7 @@ export function eventPasses(
   e: FoundEvent,
   opts: { when: EventSpan; timeZone: string; maxSpend: number | null },
 ) {
-  if (!isPage(e.url) || neverSourceUrl(e.url)) return false;
+  if (!isPage(e.url)) return false;
   // A real date, as the listing gives it (tester, 23 Nov 2026: events with
   // no date or a past one); a pop-up's last day is a real date too, or none.
   if (!isDay(e.date) || (e.endDate && !isDay(e.endDate))) return false;
@@ -238,7 +238,7 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
 // 2026) is in data/event-sites.json: by city, by region ("California",
 // "Kerala") and by country; the closest come first.
 const LOCAL_TICKETS: Record<string, string> = {
-  IN: "Urbanaut (urbanaut.app), Luma (lu.ma), Skillboxes",
+  IN: "Urbanaut (urbanaut.app), Luma (lu.ma), District, BookMyShow, Skillboxes",
   GB: "Ticketmaster UK, DICE, Resident Advisor, Eventbrite, Time Out",
   US: "Ticketmaster, Eventbrite, DICE, Resident Advisor, Time Out",
   DE: "Eventim, Resident Advisor, Eventbrite, DICE",
@@ -254,30 +254,19 @@ const LOCAL_TICKETS: Record<string, string> = {
 
 const SITES = eventSites as { cities: Record<string, string>; regions: Record<string, string>; countries: Record<string, string> };
 
-// Never a source (CLAUDE.md): District (once Insider), BookMyShow, Meetup,
-// Zomato and Swiggy are never searched, read, linked or named, even where
-// her list names them (tester, 23 Nov 2026: "Found on District").
-const NEVER_SOURCE = /district|bookmyshow|meetup|zomato|swiggy|insider/i;
-const NEVER_HOST = /(^|\.)(district\.in|bookmyshow\.com|meetup\.com|zomato\.com|swiggy\.com|insider\.in)$/i;
-
-export function neverSourceUrl(url: string) {
-  try {
-    return NEVER_HOST.test(new URL(url).hostname);
-  } catch {
-    return false;
-  }
-}
-
 export function eventSources(city: City) {
   const lists = [SITES.cities[city.id], SITES.regions[`${city.country}|${city.region}`], SITES.countries[city.country], LOCAL_TICKETS[city.country]];
-  const sites = [...new Set(lists.filter(Boolean).flatMap((l) => l!.split(", ")))].filter((s) => !NEVER_SOURCE.test(s));
+  const sites = [...new Set(lists.filter(Boolean).flatMap((l) => l!.split(", ")))];
   return sites.length ? sites.slice(0, 15).join(", ") : "Eventbrite, Luma (lu.ma), Ticketmaster, Resident Advisor, Time Out and local ticket sites";
 }
 
 export function siteName(url: string) {
   const host = new URL(url).hostname.replace(/^www\.|^in\./, "");
   const known: Record<string, string> = {
+    "bookmyshow.com": "BookMyShow",
+    "district.in": "District",
     "skillboxes.com": "Skillboxes",
+    "insider.in": "District",
     "eventbrite.com": "Eventbrite",
     "eventbrite.co.uk": "Eventbrite",
     "eventbrite.de": "Eventbrite",
@@ -298,6 +287,7 @@ export function siteName(url: string) {
     "feverup.com": "Fever",
     "lu.ma": "Luma",
     "luma.com": "Luma",
+    "meetup.com": "Meetup",
     "allevents.in": "AllEvents",
     "instagram.com": "Instagram",
     "lbb.in": "LBB",
