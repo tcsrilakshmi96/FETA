@@ -90,15 +90,17 @@ const PERSONAS: Persona[] = [
     some: /Casa Taco/,
   },
   {
-    name: "Curated layer: the founder's places that fit come before Google's",
+    // Founder, 23 Nov 2026: her places show only when they're for something
+    // the person chose ("why is a sports bar fitting a vegetarian?").
+    name: "Curated layer: the founder's places for what they chose come first, and only those",
     city: "Bengaluru",
     category: "food_drinks",
     answers: { diet: "vegetarian" },
     yes: ["cuisine_thai", "cuisine_korean"],
     founder: /Go Native|Element Sattvik|Coastal Thali|Tiffin Roastery|Slice Theory|Seoul Kitchen|Gangnam BBQ/,
     covers: ["cuisine_thai", "cuisine_korean"],
-    founderMin: 5, // 6 of hers fit; the variety rules (a few of one kind) may hold one back
-    never: /Gangnam BBQ/, // hers, but mainly meat: the diet still wins
+    founderMin: 1, // Seoul Kitchen: Korean
+    never: /Gangnam BBQ|Go Native|Element Sattvik|Coastal Thali|Tiffin Roastery|Slice Theory/, // meat-led, or nothing they chose
   },
   {
     name: "Lists first: Thai her lists already serve isn't searched on Google",
@@ -116,20 +118,20 @@ const PERSONAS: Persona[] = [
     city: "Bengaluru",
     category: "food_drinks",
     answers: { diet: "vegetarian" },
-    yes: ["cuisine_thai"],
+    yes: ["cuisine_south_indian", "cuisine_italian", "cuisine_indo_chinese"],
     local: /Tiffin Roastery|Slice Theory|Brahmin Tiffin|Wok This Way/,
     localMin: 3,
-    covers: ["cuisine_thai"],
+    covers: ["cuisine_south_indian", "cuisine_italian", "cuisine_indo_chinese"],
   },
   {
     name: "Places a city guide features that fit come before Google's",
     city: "Bengaluru",
     category: "food_drinks",
     answers: { diet: "vegetarian" },
-    yes: ["cuisine_thai"],
+    yes: ["cuisine_south_indian", "cuisine_italian", "cuisine_indo_chinese"],
     featured: /Tiffin Roastery|Slice Theory|Brahmin Tiffin|Wok This Way/,
     featuredMin: 3,
-    covers: ["cuisine_thai"],
+    covers: ["cuisine_south_indian", "cuisine_italian", "cuisine_indo_chinese"],
   },
   {
     name: "Founder: 4 cuisines ticked and loves cafes: the cafes still shape the first set",
@@ -645,7 +647,7 @@ async function main() {
   // (tester, 23 Nov 2026): an event shown, or a place whose Google type is
   // that thing, counts as found.
   const comedy = { id: "interest_comedy", label: "Stand-up comedy", reason: "Because you're into stand-up comedy.", query: "stand-up comedy club", def: INTEREST_SEARCH.comedy, explicit: true, source: "interest", food: false } satisfies Intent;
-  const club = { place: { id: "club", displayName: { text: "Laugh Store" }, primaryType: "comedy_club", types: ["comedy_club"] }, km: 1, local: true } as Candidate;
+  const club = { place: { id: "club", displayName: { text: "Laugh Store" }, primaryType: "comedy_club", types: ["comedy_club"] }, km: 1, local: true, intents: [comedy.id] } as Candidate;
   const found = (pool: Candidate[]) => ({ pool, ranked: [], intents: [comedy], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } });
   const bannerFails = [
     pickFrom(found([]), { room: 8, small: false, popularCap: 2, taken: [comedy.id] }).missing.length && "says none found above a comedy night",

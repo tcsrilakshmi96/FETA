@@ -247,10 +247,15 @@ export function selectPicks(
   // No filler (founder, 19 Nov 2026: "the whole point of this app is
   // showing customised suggestions"): once they've shared anything, every
   // place shown, or kept as backup, is something they chose, said or love
-  // (its intents), or a curated place the ranking didn't mark "Skip unless".
+  // (its intents), curated places included.
   // A short list says so in the banner; what's merely popular nearby is
   // never shown to fill up.
-  const fits = (i: number) => (pool[i].intents?.length ?? 0) > 0 || (favourite(i) && byIndex.get(i)?.verdict !== "Skip unless");
+  // A curated place (hers, a local favourite, Featured in, loved by Feta
+  // users) counts only when it's for something they chose, like any other
+  // (founder, 23 Nov 2026: "why is the AI thinking a sports bar fits a
+  // vegetarian who didn't choose alcohol or sports?"). Before, it counted
+  // unless the ranking marked it "Skip unless", which it rarely does.
+  const fits = (i: number) => (pool[i].intents?.length ?? 0) > 0;
   const order: number[] = (opts.small && ranked.length ? [...good, ...weak] : [...good, ...weak, ...unranked]).filter((i) => !opts.explicit.length || fits(i));
   const rankOf = new Map(order.map((i, k) => [i, k]));
   const explicitIds = opts.explicit.map((i) => i.id);
@@ -278,7 +283,7 @@ export function selectPicks(
     if (chosen.some((c) => pool[c].intents?.includes(intent.id))) continue;
     take(order.find((i) => pool[i].intents?.includes(intent.id) && can(i, { popular: false })));
   }
-  for (const i of order) if (favourite(i) && byIndex.get(i)?.verdict !== "Skip unless" && can(i)) take(i);
+  for (const i of order) if (favourite(i) && (!opts.explicit.length || fits(i)) && byIndex.get(i)?.verdict !== "Skip unless" && can(i)) take(i);
   const half = Math.ceil(room / 2);
   for (const i of order) if (chosen.filter(forExplicit).length < half && forExplicit(i) && can(i)) take(i);
   for (const i of order) if (can(i)) take(i);

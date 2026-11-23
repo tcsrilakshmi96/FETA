@@ -651,11 +651,14 @@ async function fetaCandidates(ctx: {
   });
   const mark = (c: Candidate) => (onList(c.place.id) ? label(c) : null);
   if (notes.size === 0 && loved.size === 0 && localIds.size === 0 && featured.size === 0) return { looked: [], mark };
-  const byFit = (list: typeof curated) =>
-    list
-      .map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) }))
-      .sort((a, b) => b.fit - a.fit || a.near - b.near)
-      .map((f) => f.id);
+  // Each live check costs about ₹1.7: places whose name and note say
+  // nothing about what they want get at most 2 checks between them, nearest
+  // first (founder, 23 Nov 2026: optimise; they rarely turn out to fit).
+  const UNSURE = 2;
+  const byFit = (list: typeof curated) => {
+    const scored = list.map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) })).sort((a, b) => b.fit - a.fit || a.near - b.near);
+    return ctx.intents.length ? [...scored.filter((f) => f.fit > 0), ...scored.filter((f) => f.fit === 0).slice(0, UNSURE)].map((f) => f.id) : scored.map((f) => f.id);
+  };
   const lookups = [
     ...byFit(founder.filter((f) => !ctx.founderExclude.has(f.placeId))).slice(0, FETA_LOOKUPS),
     ...byFit(locals.filter((f) => !ctx.exclude.has(f.placeId))).slice(0, LOCAL_LOOKUPS),
