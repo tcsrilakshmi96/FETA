@@ -1,3 +1,4 @@
+import { asksQuestion } from "@/lib/ask-rules";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
@@ -243,11 +244,17 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   // A search goes through the same picks engine and hard filters as Picks.
   let picks: Pick[] = [];
   let notice: string | undefined;
-  const options = (parsed.options ?? [])
-    .filter((o): o is string => typeof o === "string")
-    .map((o) => o.trim().slice(0, 40))
-    .filter(Boolean)
-    .slice(0, 4);
+  let options = cleanOptions(parsed.options);
+  // A question always comes with answers to tap (tester, 23 Nov 2026: "Are
+  // you after somewhere to eat and drink, something to do, or both?" came
+  // with none, though the brief asks for them): when the model leaves them
+  // out, a second short call writes them for that question.
+  if (!options.length && asksQuestion(reply) && !asked.length && !parsed.itinerary && !parsed.route?.cities?.length && !parsed.outfit) {
+    options = await withCosts(db, "ask", () => (askIs({ key: reply, label: "chat options" }), optionsFor(message, reply))).catch((error) => {
+      console.error(error);
+      return [];
+    });
+  }
   // What to do with the reply. The model decides, except for one thing code
   // checks (founder, 15–16 Nov 2026: trips ended in restaurant cards, and
   // "3 days in Calicut" got a day plan with no stay or travel): a whole
@@ -509,6 +516,26 @@ async function resolvePlace(name: string | null, here: Origin | null, home: City
   // Goa, Bali or Kyoto) means the whole place around it.
   const source = city.id === home?.id ? "area" : "city";
   return { lat: found.lat, lng: found.lng, label: source === "area" ? name.slice(0, 60) : `Anywhere in ${name.slice(0, 50)}`, source, city };
+}
+
+function cleanOptions(list: unknown): string[] {
+  return (Array.isArray(list) ? list : [])
+    .filter((o): o is string => typeof o === "string")
+    .map((o) => o.trim().slice(0, 40))
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+// Tap-able answers for a question the reply asked (chat text only).
+async function optionsFor(message: string, question: string): Promise<string[]> {
+  const reply = await veniceJson<{ options?: string[] }>(
+    [
+      { role: "system", content: `You write the answers someone can tap to reply to a question in a chat. Reply with only {"options": 2 to 4 short answers, under 5 words each, in their voice, covering the likely choices}.` },
+      { role: "user", content: `They said: "${message}"\nThe question: "${question}"` },
+    ],
+    300,
+  );
+  return cleanOptions(reply.options);
 }
 
 // A trip route when the chat asked for a search or a day plan of a whole

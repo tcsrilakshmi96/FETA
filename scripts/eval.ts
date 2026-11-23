@@ -8,6 +8,7 @@
 // for a final check before release (about ₹50; ask the founder first). In
 // live mode the expectations that name test places are skipped.
 
+import { asksQuestion } from "@/lib/ask-rules";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
@@ -565,6 +566,15 @@ async function main() {
     failed++;
     console.log(`✗ Style brands: ${brandFails.join(", ")}`);
   } else console.log("✓ Style brands link to their country's store and claim a budget fit only with a real price");
+  // Ask Feta (two persona testers, 23 Nov 2026): what code checks in a chat answer.
+  const askFails = [
+    !asksQuestion("Happy to plan it. Are you after somewhere to eat and drink, something to do, or both?") && "a question isn't seen as one, so it gets no options",
+    asksQuestion("Why not? Here are three places for tonight.") && "a reply that doesn't end on a question asks for options",
+  ].filter(Boolean);
+  if (askFails.length) {
+    failed++;
+    console.log(`✗ Ask Feta: ${askFails.join(", ")}`);
+  } else console.log("✓ Ask Feta: a question always comes with answers to tap");
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {
