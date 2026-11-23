@@ -232,6 +232,19 @@ async function main() {
     const mine = await p.evaluate(() => ({ text: document.body.innerText, owner: localStorage.getItem("feta.owner") }));
     check(/Hi Journey/.test(mine.text) && !/Oldname/.test(mine.text) && mine.owner !== "someone-else", "Another account's things on the phone are cleared and this account's come back", mine.text.slice(0, 200));
 
+    // "Use my location" during setup goes on to the questions (founder,
+    // 23 Nov 2026: it went straight to Home, so nothing was asked).
+    const gps = await browser.createBrowserContext();
+    await gps.overridePermissions(BASE, ["geolocation"]);
+    const g = await gps.newPage();
+    await g.setGeolocation({ latitude: 12.97, longitude: 77.59 });
+    await g.goto(`${BASE}/location?setup=1`, { waitUntil: "networkidle0" });
+    await g.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Use my location/.test(b.textContent ?? ""))?.click());
+    await g.waitForFunction(() => location.pathname !== "/location", { timeout: 20000 }).catch(() => null);
+    const gpsPath = await g.evaluate(() => location.pathname);
+    check(gpsPath === "/questions", "Use my location in setup leads to the questions, not Home", gpsPath);
+    await gps.close();
+
     check(errors.length === 0, "No errors on any screen", errors.join(" | "));
   } catch (error) {
     check(false, "The walk-through finished", String(error));
