@@ -27,9 +27,10 @@ export function newAreaSession() {
   return crypto.randomUUID();
 }
 
-// Near the city; anywhere in the world when `anywhere` (places they love).
-export async function suggestAreas(input: string, city: City, session: string, anywhere = false): Promise<AreaSuggestion[]> {
-  const r = await call<{ suggestions: AreaSuggestion[] }>({ input, lat: city.lat, lng: city.lng, country: anywhere ? "" : city.country, session });
+// Near the city, in its country; only within the city's area when
+// `cityOnly` (places they love at setup).
+export async function suggestAreas(input: string, city: City, session: string, cityOnly = false): Promise<AreaSuggestion[]> {
+  const r = await call<{ suggestions: AreaSuggestion[] }>({ input, lat: city.lat, lng: city.lng, country: city.country, cityOnly, session });
   return r?.suggestions ?? [];
 }
 
