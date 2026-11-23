@@ -2,7 +2,7 @@ import "server-only";
 
 import type { City } from "@/lib/cities";
 import { runPicks } from "@/lib/server/engine";
-import { buildItinerary, type Itinerary } from "@/lib/server/itinerary";
+import { LAST_START, buildItinerary, type Itinerary } from "@/lib/server/itinerary";
 import type { Pick } from "@/lib/server/picks";
 
 // Day plans, one way for everyone: a day plan from Ask Feta and the days of
@@ -14,7 +14,7 @@ export type PlanOrigin = { lat: number; lng: number; label: string; source: "gps
 
 export async function planDays(
   token: string,
-  opts: { origin: PlanOrigin; start: string; days: number; who?: string | null; focus?: string | null; trip?: string; place: string },
+  opts: { origin: PlanOrigin; start: string; days: number; who?: string | null; focus?: string | null; trip?: string; place: string; hotel?: { lat: number; lng: number } | null },
 ): Promise<{ itinerary: Itinerary | null; limited?: string }> {
   const who = opts.who ?? "";
   // Friends and kids change what fits (tweaks); a partner makes dinner
@@ -33,6 +33,26 @@ export async function planDays(
   // (tester, 22 Nov 2026: trips in three cities never planned a day).
   const limited = [food, doing].find((r) => r.limited)?.notice;
   const all = [...(food.picks ?? []), ...(doing.picks ?? []), ...(food.spares ?? []), ...(doing.spares ?? [])];
-  const itinerary = buildItinerary(all, { start: opts.start, days: Math.min(3, Math.max(1, Math.round(opts.days))), place: opts.place });
+  // A plan for today starts from now, in the city's own time (traveller,
+  // 23 Nov 2026: Lisbon's day 1 began at 9:30 am in the afternoon); once
+  // the evening has gone, it starts tomorrow.
+  const tz = opts.origin.city.timeZone;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date()).split(":").map(Number);
+  const from = opts.start === today ? Math.ceil((h * 60 + m + 30) / 15) * 15 : undefined;
+  const start = from !== undefined && from > LAST_START ? nextDay(opts.start) : opts.start;
+  const itinerary = buildItinerary(all, {
+    start,
+    days: Math.min(3, Math.max(1, Math.round(opts.days))),
+    place: opts.place,
+    ...(start === today && from !== undefined ? { from } : {}),
+    ...(opts.hotel ? { hotel: opts.hotel } : {}),
+  });
   return { itinerary: itinerary.days.some((d) => d.stops.length > 0) ? itinerary : null, ...(limited ? { limited } : {}) };
+}
+
+function nextDay(iso: string) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }

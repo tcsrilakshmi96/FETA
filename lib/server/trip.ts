@@ -30,7 +30,7 @@ export type Stay = {
   lng?: number;
 };
 // A planned day as kept on the trip: place IDs, times and Feta's words.
-export type SavedDay = { date: string; label: string; stops: { time: string; slot: string; placeId: string; kind: string; travel?: string }[] };
+export type SavedDay = { date: string; label: string; stops: { time: string; slot: string; placeId: string; kind: string; travel?: string }[]; back?: string };
 
 export type Trip = {
   id: string;
@@ -213,6 +213,7 @@ export async function planCityDays(opts: {
     focus: c.focus,
     trip: `${c.name} · ${opts.trip.title}`.slice(0, 60),
     place: c.name,
+    hotel: opts.hotel,
   });
   if (!itinerary) return { itinerary: null, notice: limited ?? `I couldn't find enough open places to plan those days in ${c.name}.` };
   return { itinerary };
