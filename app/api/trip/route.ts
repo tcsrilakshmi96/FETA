@@ -1,5 +1,5 @@
 import { cityById } from "@/lib/server/cities";
-import { withCosts } from "@/lib/server/costs";
+import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { cleanRoute, estimateTransport, tripTitle, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
 
@@ -46,6 +46,10 @@ export async function POST(request: Request) {
     await save({ title, cities: kept, transport: null, stays: {}, days: {} });
     return Response.json({ trip: { ...trip, title, cities: kept, transport: null, stays: {}, days: {} } });
   }
+
+  // Getting around and hotels cost money too: today's limit holds for them
+  // (backend audit, 23 Nov 2026: only day plans were limited).
+  if ((body.action === "transport" || body.action === "stays") && (await overBudget(db))) return Response.json({ error: await limitNoticeHere("ask") }, { status: 429 });
 
   if (body.action === "transport") {
     const transport = await withCosts(db, "trip_transport", () => estimateTransport(trip, cityById(body.home ?? null))).catch((error) => {

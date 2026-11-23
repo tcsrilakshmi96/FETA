@@ -1,11 +1,12 @@
 import { cityById } from "@/lib/server/cities";
-import { askIs, LIBRARY_BUDGET_INR, librarySpentToday, withCosts } from "@/lib/server/costs";
+import { askIs, LIBRARY_BUDGET_INR, librarySpentToday, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { lookupBrand } from "@/lib/server/style-research";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { STYLES } from "@/lib/style";
 
-export const maxDuration = 60;
+// The lookup searches the web and can take a couple of minutes.
+export const maxDuration = 300;
 
 // A brand someone loves that isn't in Feta's library yet: looked up once
 // (about ₹3) and added as proposed, so everyone after finds it instantly.
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
   const city = cityById(body.cityId);
   if (name.length < 2 || !city) return Response.json({ error: "Bad request" }, { status: 400 });
   if (FAKE) return Response.json({ notice: "Looking up new brands is off in test mode." });
+  // Each person's own daily limit too, not only the shared library budget
+  // (backend audit, 23 Nov 2026: one account could use it all up).
+  if (await overBudget(db)) return Response.json({ notice: await limitNoticeHere("style") });
   if ((await librarySpentToday(db)) >= LIBRARY_BUDGET_INR) return Response.json({ notice: "Feta has done all its searching for today. Try again tomorrow." });
   return withCosts(db, "style_brand", async () => {
     askIs({ key: [name.toLowerCase(), city.country], label: `look up a brand · ${city.country}` });

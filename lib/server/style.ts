@@ -88,7 +88,7 @@ Reply with only JSON:
 {"photos": [one per photo, in order: {"saw": what the outfit is, at most 8 plain words, e.g. "Oversized blazer, white tee, straight jeans", "styles": 1 or 2 style ids}],
  "styles": [the 2 to 5 styles that run through these photos, strongest first: {"id", "why": what they have in common, at most 8 words, "photos": the photo numbers that show it}]}
 A photo with no clear outfit: {"saw": "No clear outfit", "styles": []}.`;
-  const data = await gemini("gemini_vision", "gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 40000);
+  const data = await gemini("gemini_vision", "gemini-3.5-flash", [{ text: prompt }, ...photos.slice(0, 8).map(inline)], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 34000);
   const parsed = JSON.parse(textOf(data)) as { photos?: { saw?: string; styles?: string[] }[]; styles?: { id: string; why?: string; photos?: number[] }[] };
   const seen = new Set<string>();
   return {

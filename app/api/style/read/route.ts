@@ -4,6 +4,7 @@ import { readPhotos } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import type { Wears } from "@/lib/style";
 
+// The photo read gets 34 s, so its own friendly notice can still be sent.
 export const maxDuration = 40;
 
 // Style setup: up to 8 inspiration photos read into their styles (founder,

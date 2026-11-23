@@ -4,7 +4,8 @@ import { findSpots, lookPicture } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, styleById, type Look, type Slot, type Wears } from "@/lib/style";
 
-export const maxDuration = 60;
+// The picture (up to 60 s) and then where its pieces are (up to 15 s).
+export const maxDuration = 90;
 
 // A look's realistic picture, made when that look comes on screen (founder,
 // 22 Nov 2026: about ₹4 each, only when seen). With their photo from My
