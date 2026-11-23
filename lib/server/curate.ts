@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { City } from "@/lib/cities";
-import { allIntents, intentWords, kindKey, matches, planSearches, plainText, type Intent } from "@/lib/server/intents";
+import { allIntents, intentWords, kindKey, matches, NOW, planSearches, plainText, type Intent } from "@/lib/server/intents";
 import { searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import {
   applyHardFilters,
@@ -76,7 +76,7 @@ const LIST_ENOUGH = 2;
 export type CurateResult = {
   pool: Candidate[];
   ranked: Ranked[];
-  intents: Intent[]; // searched this time
+  intents: Intent[]; // looked for this time: searched on Google, or a choice a list place is
   fromLists?: string[]; // served by Feta's lists, so not searched on Google
   drops: DropCounts;
 };
@@ -86,9 +86,21 @@ const POOL_MAX = 30;
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
   const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan });
-  const plan = planSearches(intents, { category, when, max: input.searches, searchedBefore: input.searchedBefore });
 
-  // 2. Find.
+  // 2. Find. Feta's lists first; Google searches only what they don't
+  // cover yet, so a choice her lists serve frees its search for the next
+  // choice (persona test, 23 Nov 2026: bakeries on her lists took a search,
+  // and Korean waited).
+  const lists = input.favourites ? await input.favourites(intents).catch(() => null) : null;
+  const listed = lists?.looked ?? [];
+  const onLists = (i: Intent) => listed.filter((c) => matches(c.place, i, false)).length;
+  const fromLists = intents.filter((i) => i.def.types && !NOW.includes(i.source) && onLists(i) >= LIST_ENOUGH);
+  const plan = planSearches(intents.filter((i) => !fromLists.includes(i)), { category, when, max: input.searches, searchedBefore: input.searchedBefore });
+  // Everything looked for this set: what Google searched, and every choice
+  // a list place is (by its Google type). Each place is matched against all
+  // of it, so a list bakery counts as one of their bakeries whether or not
+  // bakeries were searched this time, and is held to "a few of one kind".
+  const looked = [...intents.filter((i) => plan.searched.includes(i) || fromLists.includes(i) || (i.explicit && i.def.types && onLists(i) > 0)), ...plan.searched.filter((i) => !intents.includes(i))];
   const limit = distanceLimitKm(taste.answers);
   const common = { lat: origin.lat, lng: origin.lng, needsDiet: input.needsDiet, regionCode: city.country };
   const text = (query: string, radiusKm: number) => searchPlaces({ ...common, query, radiusKm, openNow: !input.at && when === "tonight" && tonightMeansNow(city) });
@@ -105,12 +117,8 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 2026), searched further and allowed that far only for what it matches.
   const tripOut = when === "weekend" && !input.at;
   const reach = (i: Intent) => (tripOut && i.def.far ? Math.max(limit, TRIP_OUT_KM) : limit);
-  // Feta's lists first; Google searches only what they don't cover yet.
-  const lists = input.favourites ? await input.favourites(intents).catch(() => null) : null;
-  const listed = lists?.looked ?? [];
-  const fromLists = plan.searched.filter((i) => i.def.types && listed.filter((c) => matches(c.place, i, false)).length >= LIST_ENOUGH);
   const searches = [
-    ...plan.searched.filter((i) => !fromLists.includes(i)).map((i) => text(i.query, reach(i)).then((r) => add(r, i.id))),
+    ...plan.searched.map((i) => text(i.query, reach(i)).then((r) => add(r, i.id))),
     ...(plan.broad ? [nearby(limit).then((r) => add(r, "popular"))] : []),
   ];
   const settled = await Promise.allSettled(searches);
@@ -119,7 +127,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 3. Hard filters, then what each place matches.
   const matched = (p: Place) => {
     const from = found.get(p.id)?.from ?? new Set<string>();
-    return plan.searched.filter((i) => matches(p, i, from.has(i.id))).map((i) => i.id);
+    return looked.filter((i) => matches(p, i, from.has(i.id))).map((i) => i.id);
   };
   const drops = emptyDrops();
   const filter = () => {
@@ -133,19 +141,19 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
       city,
       anyHours: input.dayPlan,
       at: input.at,
-      foodDrinkOk: (p) => matched(p).some((id) => plan.searched.find((i) => i.id === id)?.def.foodDrink),
-      reachKm: (p) => Math.max(limit, ...plan.searched.filter((i) => matched(p).includes(i.id)).map(reach)),
+      foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
+      reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),
     }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
   const passed = chainsOnlyIfNeeded(filter());
   const onList = [...listed, ...passed.flatMap((c) => lists?.mark(c) ?? [])].filter((c, i, all) => all.findIndex((o) => o.place.id === c.place.id) === i);
   const listIds = new Set(onList.map((c) => c.place.id));
-  let pool = [...onList.map((c) => ({ ...c, intents: matched(c.place) })), ...roundRobin(passed, plan.searched).filter((c) => !listIds.has(c.place.id))].slice(0, POOL_MAX);
+  let pool = [...onList.map((c) => ({ ...c, intents: matched(c.place) })), ...roundRobin(passed, looked).filter((c) => !listIds.has(c.place.id))].slice(0, POOL_MAX);
 
   // 4. Rank. Places Gemini says are mainly meat or fish leave the pool for
   // vegetarians; what Gemini says a place "serves" confirms (never adds to)
   // what it matched.
-  let ranked = pool.length ? await chooseWithGemini({ candidates: pool, taste, city, category, when, tweaks: input.tweaks, note: input.note, intents: plan.searched, dayPlan: input.dayPlan }).catch((error) => {
+  let ranked = pool.length ? await chooseWithGemini({ candidates: pool, taste, city, category, when, tweaks: input.tweaks, note: input.note, intents: looked, dayPlan: input.dayPlan }).catch((error) => {
     console.error(error);
     return [] as Ranked[];
   }) : [];
@@ -160,11 +168,11 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   if (ranked.some((r) => r.serves?.length)) {
     for (const r of ranked) {
       const c = pool[r.index];
-      if (c?.intents?.length) c.intents = c.intents.filter((id) => (r.serves ?? []).includes(id) || !plan.searched.find((i) => i.id === id)?.explicit);
+      if (c?.intents?.length) c.intents = c.intents.filter((id) => (r.serves ?? []).includes(id) || !looked.find((i) => i.id === id)?.explicit);
     }
   }
 
-  return { pool, ranked, intents: plan.searched, fromLists: fromLists.map((i) => i.id), drops };
+  return { pool, ranked, intents: looked, fromLists: fromLists.map((i) => i.id), drops };
 }
 
 // 5. Keep the promise: the picks to show (room of them), then the rest as

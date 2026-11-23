@@ -103,6 +103,31 @@ export const CATALOGUE: Row[] = [
   // address with 2 reviews that a workshop search finds.
   ["Sad Sweets", "dessert_shop", ["bakery", "cafe"], "bakery desserts cakes", true, 1, 1.8, 120, "eve", 0.3, 10],
   ["257, Lakshmi Nilaya", "point_of_interest", ["establishment"], "art workshop pottery", null, 0, 5.0, 2, "day", 0.4, 30],
+  // Bakeries and dessert shops, which fill Bengaluru's local favourites
+  // (persona test, 23 Nov 2026: a South Indian, Japanese, Korean, bakery
+  // and Burmese lover got 8 bakeries in a row, one a cake-delivery shop).
+  ["Glen's Bakehouse", "bakery", ["cafe"], "bakery cafe cakes", true, 2, 4.4, 4800, "eve", 1.1, 35],
+  ["Lavonne Patisserie", "bakery", ["cafe"], "patisserie bakery desserts", true, 2, 4.5, 2100, "eve", 1.6, 65],
+  ["CakeBox Express", "bakery", ["meal_delivery"], "cake delivery bakery", true, 1, 4.2, 300, "eve", 0.9, 150],
+  ["Corner House Ice Creams", "ice_cream_shop", ["dessert_shop"], "ice cream desserts", true, 1, 4.6, 12000, "late", 1.3, 210],
+  ["Daily Crumbs", "bakery", ["cafe"], "bakery breads", true, 1, 4.3, 900, "eve", 2.0, 240],
+  ["Sweet Chariot", "bakery", ["cafe"], "bakery cakes", true, 2, 4.4, 1300, "eve", 2.2, 280],
+  // Lisbon-style places (persona test, 23 Nov 2026: a vegetarian traveller
+  // got fine dining and meat-heavy places). Google says most serve
+  // vegetarian food; their names say what they're about, in Portuguese.
+  ["Churrasqueira do Bairro", "portuguese_restaurant", ["restaurant"], "traditional portuguese grilled frango piri piri", true, 1, 4.5, 3200, "eve", 1.4, 15],
+  ["Marisqueira Azul", "portuguese_restaurant", ["restaurant"], "traditional portuguese marisco shellfish", true, 2, 4.6, 2400, "eve", 1.8, 95],
+  ["Taberna do Bacalhau", "portuguese_restaurant", ["restaurant"], "traditional portuguese bacalhau petiscos", true, 2, 4.4, 1800, "eve", 1.2, 170],
+  ["Casa das Bifanas", "sandwich_shop", ["restaurant"], "traditional portuguese bifana sandwich", true, 1, 4.5, 2600, "eve", 0.9, 230],
+  ["Ao 26 Vegan Kitchen", "vegan_restaurant", ["restaurant"], "vegan plant based", true, 2, 4.7, 1500, "eve", 1.5, 290],
+  ["Jardim Verde Tasca", "portuguese_restaurant", ["restaurant"], "traditional portuguese petiscos tasca veggie", true, 2, 4.5, 700, "eve", 2.1, 330],
+  // Businesses a things-to-do search finds that are not places to go
+  // (persona test, 23 Nov 2026: Plan my evening sent people to a band for
+  // hire and to tour companies' offices at 10 pm). Open late on Google.
+  ["Rhythm Riders Band for Hire", "", ["point_of_interest"], "live music band hire weddings parties", null, 0, 4.9, 140, "late", 1.2, 140],
+  ["Heritage Night Tours Co", "tour_agency", ["travel_agency", "point_of_interest"], "heritage walk tours art gallery walks museum", null, 2, 4.8, 400, "late", 1.4, 60],
+  // Fine dining with no price on Google.
+  ["Alma Atelier", "fine_dining_restaurant", ["restaurant"], "fine dining tasting menu traditional portuguese", true, 0, 4.8, 1200, "eve", 1.7, 120],
 ];
 
 const HOTELS = ["Hotel Sakura (test hotel)", "Riverside Inn (test hotel)", "Old Town Suites (test hotel)"];

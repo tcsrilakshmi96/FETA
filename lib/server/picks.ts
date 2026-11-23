@@ -153,8 +153,16 @@ export type Pick = StoredPick & {
 // steakhouse, a biryani or kebab house) are not picks for vegetarians
 // (founder's decision, 12 Nov 2026, "Option B"); Gemini also flags ones
 // these words miss. Never "pure veg": that can't be confirmed.
-const NON_VEG_TYPES = ["steak_house", "seafood_restaurant", "barbecue_restaurant", "fish_and_chips_restaurant", "chicken_restaurant", "chicken_wings_restaurant"];
-const NON_VEG_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meat|meats|seafood|fish|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|non[- ]?veg)\b/i;
+// The words are in the languages of the places' own names (persona test,
+// Lisbon, 23 Nov 2026: a churrasqueira, a marisqueira and a bacalhau
+// tavern passed, since Google says they serve vegetarian food), and they
+// still hold when Gemini's ranking is down.
+const MEAT_PLACE_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "korean_barbecue_restaurant"];
+const FISH_PLACE_TYPES = ["seafood_restaurant", "fish_and_chips_restaurant"];
+const MEAT_NAMES = "biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|beef|pork|lamb|churrasc\\w*|rodizio|asador|parrilla|frango|pollos?|leit[aã]o|bifanas?|yakiniku|yakitori|boucherie|rotisserie|lechon|non[- ]?veg";
+const FISH_NAMES = "seafood|fish|marisqu\\w*|mariscos?|bacalhau|peixes?|pescados?|polvo|sardinh\\w*|cevicher\\w*|poissonnerie|oysters?";
+const NON_VEG_TYPES = [...MEAT_PLACE_TYPES, ...FISH_PLACE_TYPES];
+const NON_VEG_WORDS = new RegExp(`\\b(${MEAT_NAMES}|${FISH_NAMES})\\b`, "i");
 
 export function mainlyNonVeg(place: Place) {
   return NON_VEG_TYPES.includes(place.primaryType ?? "") || NON_VEG_WORDS.test(place.displayName?.text ?? "");
@@ -164,7 +172,7 @@ export function mainlyNonVeg(place: Place) {
 // about it are dropped by type and name; Gemini is told too. Never a promise.
 const AVOID_WORDS: Record<string, RegExp> = {
   beef: /\b(beef|steaks?|steakhouse|brisket)\b/i,
-  pork: /\b(pork|bacon|pig|lechon|tonkatsu|carnitas|char siu|charcuterie)\b/i,
+  pork: /\b(pork|bacon|pig|lechon|tonkatsu|carnitas|char siu|charcuterie|bifanas?|leit[aã]o)\b/i,
 };
 
 export function mainlyAvoided(place: Place, avoid: string[] = []) {
@@ -176,8 +184,8 @@ export function needsDietCheck(answers: Answers) {
 }
 
 // Pescatarians: places mainly about meat (fish and seafood are fine).
-const MEAT_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "hamburger_restaurant", "korean_barbecue_restaurant", "brazilian_restaurant"];
-const MEAT_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|burgers?|wings|beef|pork|lamb|churrasc\w*|rotisserie)\b/i;
+const MEAT_TYPES = [...MEAT_PLACE_TYPES, "hamburger_restaurant", "brazilian_restaurant"];
+const MEAT_WORDS = new RegExp(`\\b(${MEAT_NAMES}|burgers?|wings)\\b`, "i");
 
 export function mainlyMeat(place: Place) {
   return MEAT_TYPES.includes(place.primaryType ?? "") || MEAT_WORDS.test(place.displayName?.text ?? "");
@@ -252,10 +260,13 @@ const MAX_PRICE_LEVEL = [0, 1, 1, 2, 3, 4];
 // Whether a place costs more than the most they'll spend (founder, 19 Nov
 // 2026: the top of their range is a limit, the bottom isn't; a great
 // cheaper place is still a fit). Google's actual price range (per person)
-// beats its rough price label; a place with neither is "unknown" and passes.
+// beats its rough price label; a place with neither is "unknown" and passes,
+// except fine dining, which is very expensive whether or not Google says so
+// (persona test, Lisbon, 23 Nov 2026: a tasting-menu place with no price
+// passed a mid-range budget).
 function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" | "unknown" {
   const start = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
-  const google = PRICE_LEVELS[place.priceLevel ?? ""];
+  const google = PRICE_LEVELS[place.priceLevel ?? ""] ?? (place.primaryType === "fine_dining_restaurant" ? 4 : undefined);
   if (!Number.isFinite(start) && google === undefined) return "unknown";
   const r = spendRange(answers);
   if (!r) return "fits";
@@ -314,11 +325,14 @@ function isMainlyFoodOrDrink(place: Place) {
 
 export const POPULAR_REVIEWS = 3000;
 
-// Shops, not places to go out to.
+// Shops and offices, not places to go out to.
 const NEVER_PICKS = [
   "liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall",
   // Hotels are not a night out (their restaurants count when Google lists the restaurant itself).
   "hotel", "lodging", "resort_hotel", "motel", "guest_house", "bed_and_breakfast", "hostel", "inn", "extended_stay_hotel", "budget_japanese_inn", "japanese_inn",
+  // Offices and services: nowhere to spend an evening (persona test, 23 Nov
+  // 2026: Plan my evening sent people to tour companies' offices at 10 pm).
+  "travel_agency", "tour_agency", "tourist_information_center", "event_planner", "real_estate_agency", "insurance_agency", "corporate_office", "consultant", "employment_agency", "lawyer", "accounting",
 ];
 
 // Global fast-food chains (founder, 21 Nov 2026, after a Taco Bell: "yes,

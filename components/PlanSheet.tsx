@@ -11,7 +11,7 @@ import { planFromStops } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
-import { clock, planEvenings, type Plan } from "@/lib/plan";
+import { clock, isMeal, planEvenings, type Plan } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
 
 // Found near a dinner pick, kept while the app is open so reopening the
@@ -68,7 +68,7 @@ export default function PlanSheet({
 }) {
   const onScreen = useMemo(() => (loading ? [] : planEvenings(food, experiences, when)), [loading, food, experiences, when]);
   const [choice, setChoice] = useState(0);
-  const dinner = food.find((p) => p.kind === "EAT" && p.lat !== undefined) ?? food.find((p) => p.lat !== undefined);
+  const dinner = food.find((p) => isMeal(p) && p.lat !== undefined);
   const nearKey = dinner ? `${when}|${dinner.placeId}` : "";
   const [near, setNear] = useState<{ key: string; picks: Pick[] } | null>(null);
   const searching = !loading && onScreen.length === 0 && !!dinner && near?.key !== nearKey;

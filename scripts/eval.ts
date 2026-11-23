@@ -14,7 +14,8 @@ import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
 import { cityCalendar, eventPasses } from "@/lib/server/events";
 import type { Intent } from "@/lib/server/intents";
-import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { planEvenings } from "@/lib/plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
@@ -385,6 +386,37 @@ const PERSONAS: Persona[] = [
     some: /Morning Dosa House/,
   },
   {
+    // Persona test, 23 Nov 2026: a vegetarian in Bengaluru chose South
+    // Indian, Japanese, Korean and bakeries and typed Burmese, and got 8
+    // bakeries in a row from the local favourites; South Indian and Korean
+    // never showed and no banner said so.
+    name: "Bengaluru vegetarian, five choices, local favourites mostly bakeries: every choice, bakeries a few",
+    city: "Bengaluru",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_south_indian", "cuisine_japanese", "cuisine_korean", "cuisine_bakery"],
+    lines: ["Also loves Burmese"],
+    local: /Glen's|Lavonne|CakeBox|Corner House|Daily Crumbs|Sweet Chariot|Crumb Bakery|Sugar Spoon/,
+    covers: ["cuisine_south_indian", "cuisine_japanese", "cuisine_korean", "cuisine_bakery", "said_0"],
+    most: { cuisine_bakery: 2 },
+    half: true,
+  },
+  {
+    // Persona test, 23 Nov 2026: a vegetarian traveller in Lisbon got fine
+    // dining and meat-heavy places. Google says most Portuguese places serve
+    // vegetarian food; their names (churrasqueira, marisqueira, bacalhau,
+    // bifanas) say they're about meat or fish. Fine dining with no price on
+    // Google is still above a mid-range budget.
+    name: "Vegetarian traveller in Lisbon, local food: no churrasqueira or bacalhau, no fine dining over budget",
+    city: "Lisbon",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_local", "cuisine_italian", "dressed_up"],
+    covers: ["cuisine_local", "cuisine_italian"],
+    never: /Churrasqueira|Marisqueira|Bacalhau|Bifanas|Alma Atelier|Gilded Fork/,
+    some: /Jardim Verde/,
+  },
+  {
     name: "Asked in chat: rooftop dinner",
     city: "Bengaluru",
     category: "food_drinks",
@@ -395,6 +427,65 @@ const PERSONAS: Persona[] = [
     some: /Terrace Twelve|Skyline/,
   },
 ];
+
+// Plan my evening (persona test, 23 Nov 2026: a bakery as dinner, a café
+// as "something to do", a band for hire as a venue, tour companies'
+// offices at 10 pm): plans built from a vegetarian's picks (South Indian
+// and bakeries; live music, comedy and art), as the phone builds them.
+const PLAN_FOOD: Persona = {
+  name: "plan food",
+  city: "Bengaluru",
+  category: "food_drinks",
+  answers: { diet: "vegetarian" },
+  yes: ["cuisine_bakery", "cuisine_south_indian", "quiet_cafe"],
+  local: /Glen's|Lavonne|CakeBox|Corner House|Daily Crumbs|Sweet Chariot|Crumb Bakery|Sugar Spoon/,
+};
+const PLAN_DO: Persona = { name: "plan do", city: "Bengaluru", category: "experiences", answers: { interests: ["live_music", "comedy", "art_culture"] }, yes: ["unwind"] };
+const MEAL_TYPES = /restaurant$/;
+const OFFICE = /agency|planner|office|consultant/;
+
+async function planCheck() {
+  const picksFor = async (p: Persona): Promise<Pick[]> => {
+    const r = await run(p);
+    return r.shown.map(({ candidate: c, ranked }) => ({
+      placeId: c.place.id,
+      kind: kindOf(c.place, p.category),
+      verdict: ranked?.verdict ?? "Good if you're nearby",
+      because: "",
+      ...(c.intents?.length ? { serves: c.intents } : {}),
+      name: c.place.displayName?.text ?? "?",
+      area: "",
+      distanceKm: c.km,
+      chips: [],
+      googleLine: "",
+      mapsUri: "",
+      directionsUri: "",
+      book: null,
+      photo: null,
+      type: c.place.primaryType,
+      lat: c.place.location?.latitude,
+      lng: c.place.location?.longitude,
+      hours: weeklyHours(c.place),
+    }));
+  };
+  const [food, doing] = await Promise.all([picksFor(PLAN_FOOD), picksFor(PLAN_DO)]);
+  // A Friday at 5 pm on the phone's clock.
+  const plans = planEvenings(food as never, doing as never, "tonight", new Date(2026, 10, 27, 17, 0));
+  const fails: string[] = [];
+  if (!plans.length) fails.push("no plan at all");
+  for (const plan of plans) {
+    const [a, b] = plan.stops.map((s) => s.pick as unknown as Pick);
+    const dinner = [a, b].find((s) => s.kind === "EAT");
+    if (dinner && !MEAL_TYPES.test(dinner.type ?? "")) fails.push(`${dinner.name} (${dinner.type}) as dinner`);
+    for (const s of [a, b]) {
+      if (s.kind === "DO" && !s.type) fails.push(`${s.name}: no Google type, not a place to go`);
+      if (s.kind === "DO" && OFFICE.test(s.type ?? "")) fails.push(`${s.name}: an office as something to do`);
+      if (s.kind === "DO" && /cafe|coffee|bakery|restaurant/.test(s.type ?? "") && !(s.serves ?? []).some((id) => !id.startsWith("side_"))) fails.push(`${s.name}: a café as something to do`);
+    }
+  }
+  const lines = plans.map((p) => p.stops.map((s) => `${s.time.getHours()}:${String(s.time.getMinutes()).padStart(2, "0")} ${s.pick.name} [${s.pick.kind} ${(s.pick as unknown as Pick).type}]`).join(" → "));
+  return { fails, lines };
+}
 
 async function run(p: Persona) {
   const [city] = searchCities(p.city, 1);
@@ -497,7 +588,7 @@ async function run(p: Persona) {
   const lessKnownLeft = found.pool.filter((c) => !isPopular(c) && !shown.some((s) => s.candidate === c)).length;
   if (popular > popularCap(taste) && lessKnownLeft > 0) fails.push(`${popular} very popular places while ${lessKnownLeft} less-known ones were left`);
   const reasons = shown.map((c) => `${c.candidate.place.displayName?.text} [${c.candidate.place.primaryType}${c.candidate.place.servesVegetarianFood === undefined ? ", veg unknown" : ""}] ${(c.candidate.intents ?? []).join(" ")} — ${c.ranked?.because ?? ""}`);
-  return { fails, names, forChoices, reasons, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => (found.fromLists?.includes(i.id) ? `${i.query} (from her lists)` : i.query)) };
+  return { fails, names, forChoices, reasons, shown, missing: picked.missing.map((m) => m.label), searched: found.intents.map((i) => (found.fromLists?.includes(i.id) ? `${i.query} (from her lists)` : i.query)) };
 }
 
 // Every choice on screen has search words (lib/server/catalog.ts).
@@ -568,6 +659,11 @@ async function main() {
     failed++;
     console.log(`✗ Style brands: ${brandFails.join(", ")}`);
   } else console.log("✓ Style brands link to their country's store and claim a budget fit only with a real price");
+  const plan = await planCheck();
+  if (plan.fails.length) failed++;
+  console.log(`${plan.fails.length ? "✗" : "✓"} Plan my evening: dinner is a meal, something to do is a place to go`);
+  for (const l of plan.lines) console.log(`    ${l}`);
+  for (const f of plan.fails) console.log(`    ✗ ${f}`);
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {
