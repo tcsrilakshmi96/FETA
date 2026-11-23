@@ -10,7 +10,7 @@ import { useToast } from "@/components/Toast";
 import WaitFun from "@/components/WaitFun";
 import { loadOrigin } from "@/lib/origin";
 import { WHERES, styleById, type LookFor, type Where } from "@/lib/style";
-import { chooseLook, chosenLookFor, cityDay, cityNow, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, swapInSet, tonightPlan, wornOn, type LookSet, type StyleProfile } from "@/lib/style-client";
+import { chooseLook, chosenLookFor, cityDay, cityNow, forgetPicture, fromPhone, keepOnPhone, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, shrink, swapInSet, tonightPlan, wornOn, type LookSet, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
@@ -57,7 +57,15 @@ export default function Style() {
   const wears = profile?.wears ?? "women";
   const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
   const onScreen = mode === "looks" && li < (set?.looks.length ?? 0);
-  const { pic, making } = useLookPicture(look, wears, onScreen || remake || mode === "worn");
+  // Looks on them (founder, 23 Nov 2026: "can that be the actual person's
+  // image instead of random people?"): offered right under the look.
+  const [onMe, setOnMe] = useState<boolean | null>(null);
+  const [round, setRound] = useState(0);
+  const selfieFile = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    fromPhone("selfie").then((x) => setOnMe(!!x));
+  }, []);
+  const { pic, making } = useLookPicture(look, wears, onScreen || remake || mode === "worn", round);
 
   async function openFor(next: LookFor) {
     setF(next);
@@ -201,6 +209,20 @@ export default function Style() {
     const shown = set.looks.map((l) => `${l.title}: ${l.pieces.map((x) => x.name).join(", ")}`);
     await make(f, set.day, set.setNo + 1, shown);
     if (note) toast(`${note}: noted. 3 new looks`);
+  }
+  async function addSelfie(list: FileList | null) {
+    const file = list?.[0];
+    if (!file || !set) return;
+    const photo = await shrink(file, 1024).catch(() => null);
+    if (!photo) return toast("Couldn't open that photo.");
+    await keepOnPhone("selfie", photo);
+    await Promise.all(set.looks.map(forgetPicture));
+    setOnMe(true);
+    setRound((r) => r + 1);
+    const nextP = { ...p, onYou: true };
+    setProfile(nextP);
+    saveStyleProfile(nextP, origin!.city);
+    toast("Making this look on you");
   }
   function have(i: number) {
     if (!look) return;
@@ -414,6 +436,13 @@ export default function Style() {
                 <span>Swipe to wear →</span>
               </div>
               <p className={k.why}>{look.why}</p>
+              {onMe === false && (
+                <button type="button" className={k.onMe} onClick={() => selfieFile.current?.click()}>
+                  <b>See it on you ›</b>
+                  <span>Add one head-to-toe photo. It goes to Google&apos;s image AI only to make your looks and stays on this phone.</span>
+                </button>
+              )}
+              <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
             </>
           )}
 

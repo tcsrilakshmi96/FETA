@@ -338,6 +338,19 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
   picturesAsked.set(key, work);
   return work;
 }
+// Their photo added after a look's picture was made: that picture goes, so
+// the next one is made on them.
+export async function forgetPicture(look: Look) {
+  const key = `pic:${look.id}`;
+  picturesAsked.delete(key);
+  await keepOnPhone(key, null);
+  await keepOnPhone(`spots:${look.id}`, null);
+  try {
+    sessionStorage.removeItem(`feta.picFailed:${key}`);
+  } catch {
+    // Nothing to clear.
+  }
+}
 // Where each piece sits in the look's picture (x, y as fractions), when known.
 export async function keptSpots(look: Look): Promise<[number, number][] | null> {
   try {

@@ -56,10 +56,11 @@ export function StyleFigure({ style, wears, className, imgStyle }: { style: stri
 // The look's picture: kept on this phone, else made now (about ₹4, only
 // when the look is on screen: founder, 22 Nov 2026), else the style's own
 // illustration while it's made or when it can't be.
-export function useLookPicture(look: Look | null, wears: Wears, make: boolean): { pic: string | null; making: boolean } {
+export function useLookPicture(look: Look | null, wears: Wears, make: boolean, round = 0): { pic: string | null; making: boolean } {
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
-  const id = look?.id ?? "";
+  // A new round (their photo just added) makes each look's picture again.
+  const id = look ? `${look.id}#${round}` : "";
   useEffect(() => {
     if (!look || id in pics) return;
     let live = true;

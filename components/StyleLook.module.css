@@ -980,3 +980,25 @@
   0% { transform: scale(1); opacity: 0.65; }
   100% { transform: scale(2.8); opacity: 0; }
 }
+
+/* "See it on you": their photo, offered under the look. */
+.onMe {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px dashed rgba(var(--inkRGB), 0.25);
+  text-align: left;
+  color: var(--ink);
+}
+.onMe b {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.onMe span {
+  font-size: 12px;
+  opacity: 0.7;
+}
