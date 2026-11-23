@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, trackGemini } from "@/lib/server/costs";
-import { eventSources, siteName } from "@/lib/server/events";
+import { eventSources, neverSourceUrl, siteName } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 import { placeIdFor } from "@/lib/server/places";
 import type { Category } from "@/lib/server/picks";
@@ -20,9 +20,9 @@ export type FeaturedSet = { places: Featured[]; searchHtml: string };
 
 type Step = { type: string; result?: { search_suggestions?: string }[]; content?: { type: string; text?: string }[] };
 
-// Review sites and ticketing sites are not guides, and Zomato, Swiggy,
-// District and BookMyShow are never used (CLAUDE.md).
-const NOT_GUIDES = /zomato|swiggy|district\.in|bookmyshow|tripadvisor|yelp|google\.|vertexaisearch|facebook|instagram|reddit/;
+// Review sites and social media are not guides; the sites never to be used
+// (CLAUDE.md) are checked in events.ts.
+const NOT_GUIDES = /tripadvisor|yelp|google\.|vertexaisearch|facebook|instagram|reddit/;
 
 // The day's set for this city and category, or nothing yet: the first
 // person of the day starts the search after their reply and doesn't wait.
@@ -45,7 +45,7 @@ export async function featuredFor(db: SupabaseClient, city: City, category: Cate
 
 async function findFeatured(city: City, category: Category): Promise<FeaturedSet> {
   const what = category === "food_drinks" ? "places to eat and drink (restaurants, cafés, bars, bakeries)" : "things to do (museums, galleries, parks, walks, markets, experiences; not restaurants or bars)";
-  const input = `Search the web for specific ${what} in ${city.name}, ${city.countryName} that local guides and editorial lists recommend now, from the last two years. Look first on ${eventSources(city)}, then other reputable local guides and magazines. Not review sites (Zomato, Tripadvisor, Yelp, Google) and not ticket sites.
+  const input = `Search the web for specific ${what} in ${city.name}, ${city.countryName} that local guides and editorial lists recommend now, from the last two years. Look first on ${eventSources(city)}, then other reputable local guides and magazines. Not review sites (Tripadvisor, Yelp, Google) and not ticket sites; never Zomato, Swiggy, District, BookMyShow or Meetup.
 Use at most 3 searches. Up to 20 different places, each a single named place you could find on Google Maps, featured in an article or list you actually found.
 
 Reply with only a JSON array. Each item: {"name": string (the place, with its neighbourhood if given), "guide": string (the publication, e.g. "Time Out"), "url": the article's real URL (not a redirect)}.`;
@@ -70,7 +70,7 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   const real = items.filter((i) => {
     try {
       const u = new URL(i.url ?? "");
-      return !!i.name && u.protocol === "https:" && !NOT_GUIDES.test(u.hostname);
+      return !!i.name && u.protocol === "https:" && !NOT_GUIDES.test(u.hostname) && !neverSourceUrl(i.url!);
     } catch {
       return false;
     }

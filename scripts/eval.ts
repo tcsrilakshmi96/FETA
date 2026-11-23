@@ -12,7 +12,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
-import { cityCalendar, eventPasses } from "@/lib/server/events";
+import { cityCalendar, eventPasses, eventSources } from "@/lib/server/events";
 import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -540,7 +540,7 @@ async function main() {
   const tz = "Europe/London";
   const cal = cityCalendar(tz);
   const shift = (n: number) => new Date(new Date(`${cal.today}T12:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
-  const ev = (date: string, endDate?: string) => ({ title: "Pop-up", venueName: "Shoreditch", date, ...(endDate ? { endDate } : {}), time: "", priceText: "", minPrice: null, url: "https://www.instagram.com/p/test" });
+  const ev = (date: string, endDate?: string, url = "https://www.instagram.com/p/test") => ({ title: "Pop-up", venueName: "Shoreditch", date, ...(endDate ? { endDate } : {}), time: "", priceText: "", minPrice: null, url });
   const popFails = [
     !eventPasses(ev(shift(-2), shift(2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up on now is missing",
     eventPasses(ev(shift(-2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a past one-day event shows",
@@ -550,6 +550,21 @@ async function main() {
     failed++;
     console.log(`✗ Pop-ups: ${popFails.join(", ")}`);
   } else console.log("✓ A pop-up running several days shows while it's on, with an Instagram link");
+  // Never District, BookMyShow, Meetup, Zomato or Swiggy (tester, 23 Nov
+  // 2026: "Found on District" in Bengaluru).
+  const banned = /district|bookmyshow|meetup|zomato|swiggy|insider/i;
+  const sourceFails = [
+    ...["Bengaluru", "Mumbai", "Delhi", "London"].flatMap((name) => {
+      const [c] = searchCities(name, 1);
+      return banned.test(eventSources(c)) ? [`${name} searches ${eventSources(c).match(banned)![0]}`] : [];
+    }),
+    eventPasses(ev(cal.today, undefined, "https://www.district.in/events/comedy-night"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a District event shows",
+    eventPasses(ev(cal.today, undefined, "https://in.bookmyshow.com/events/standup/ET001"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a BookMyShow event shows",
+  ].filter(Boolean);
+  if (sourceFails.length) {
+    failed++;
+    console.log(`✗ Never-used sources: ${sourceFails.join(", ")}`);
+  } else console.log("✓ District, BookMyShow, Meetup, Zomato and Swiggy are never searched or shown");
   // Style brands (review, 22 Nov 2026): Mumbai H&M opened Australia, London
   // Uniqlo opened India, and "In your budget" showed with no price behind it.
   const link = (website: string, proof: string | null, c: string, cn: string) => shopLink({ name: "B", website }, { presence_url: proof }, c, cn).href;
