@@ -536,6 +536,21 @@ async function main() {
     failed++;
     console.log(`✗ Reasons: ${reasonFails.join(", ")}`);
   } else console.log("✓ Reasons name only what a place serves");
+  // "No stand-up comedy" never sits above a comedy night or a comedy club
+  // (tester, 23 Nov 2026): an event shown, or a place whose Google type is
+  // that thing, counts as found.
+  const comedy = { id: "interest_comedy", label: "Stand-up comedy", reason: "Because you're into stand-up comedy.", query: "stand-up comedy club", def: INTEREST_SEARCH.comedy, explicit: true, source: "interest", food: false } satisfies Intent;
+  const club = { place: { id: "club", displayName: { text: "Laugh Store" }, primaryType: "comedy_club", types: ["comedy_club"] }, km: 1, local: true } as Candidate;
+  const found = (pool: Candidate[]) => ({ pool, ranked: [], intents: [comedy], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } });
+  const bannerFails = [
+    pickFrom(found([]), { room: 8, small: false, popularCap: 2, taken: [comedy.id] }).missing.length && "says none found above a comedy night",
+    pickFrom(found([club]), { room: 8, small: false, popularCap: 2 }).missing.length && "says none found above a comedy club",
+    !pickFrom(found([]), { room: 8, small: false, popularCap: 2 }).missing.length && "says nothing when nothing was found",
+  ].filter(Boolean);
+  if (bannerFails.length) {
+    failed++;
+    console.log(`✗ Banner: ${bannerFails.join(", ")}`);
+  } else console.log("✓ The banner says a choice found nothing only when nothing shown serves it");
   // A pop-up running several days shows while it's on (founder, 22 Nov 2026).
   const tz = "Europe/London";
   const cal = cityCalendar(tz);
