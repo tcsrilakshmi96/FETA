@@ -333,7 +333,7 @@ const NEVER_PICKS = [
   "hotel", "lodging", "resort_hotel", "motel", "guest_house", "bed_and_breakfast", "hostel", "inn", "extended_stay_hotel", "budget_japanese_inn", "japanese_inn",
   // Offices and services: nowhere to spend an evening (persona test, 23 Nov
   // 2026: Plan my evening sent people to tour companies' offices at 10 pm).
-  "travel_agency", "tour_agency", "tourist_information_center", "event_planner", "real_estate_agency", "insurance_agency", "corporate_office", "consultant", "employment_agency", "lawyer", "accounting",
+  "travel_agency", "tour_agency", "tour_operator", "tourist_information_center", "event_planner", "real_estate_agency", "insurance_agency", "corporate_office", "consultant", "employment_agency", "lawyer", "accounting", "car_rental", "transportation_service",
   // Delivery only: nowhere to sit (persona re-test, 23 Nov 2026: a vegan
   // cloud kitchen for a group dinner).
   "meal_delivery",
@@ -343,9 +343,23 @@ const NEVER_PICKS = [
 // re-test, 23 Nov 2026: "Private Theatre Venues for Celebration", a cloud
 // kitchen, a band for hire).
 const NOT_A_NIGHT_OUT = /\b(cloud kitchen|delivery only|for hire|on hire|for celebrations?|private theat(?:re|er)s?|party halls?|banquet halls?|caterers?|catering)\b/i;
-export function notANightOut(place: Place) {
-  return NEVER_PICKS.includes(place.primaryType ?? "") || NOT_A_NIGHT_OUT.test(place.displayName?.text ?? "");
+export const neverAPickType = (type: string) => NEVER_PICKS.includes(type);
+
+// Somewhere to go out to, for this list: one rule for every screen (founder,
+// 23 Nov 2026: simplify; the rules had grown one blocked word at a time).
+// Never a shop, office, hotel, delivery kitchen or place you hire; for things
+// to do, never a shop, a bar, a café or restaurant unless something they're
+// into happens there (foodDrinkOk), and a place Google can't type only when
+// it's what they chose (untypedOk).
+export function somewhereToGo(place: Place, category: Category, ok: { foodDrinkOk?: (p: Place) => boolean; untypedOk?: (p: Place) => boolean } = {}) {
+  if (neverAPickType(place.primaryType ?? "") || NOT_A_NIGHT_OUT.test(place.displayName?.text ?? "")) return false;
+  if (category !== "experiences") return true;
+  if (/_store$/.test(place.primaryType ?? "")) return false;
+  if (isMainlyFoodOrDrink(place) && (isMainlyBar(place) || !ok.foodDrinkOk?.(place))) return false;
+  if (!place.primaryType && !ok.untypedOk?.(place)) return false;
+  return true;
 }
+export const notANightOut = (place: Place) => !somewhereToGo(place, "food_drinks");
 
 // Global fast-food chains (founder, 21 Nov 2026, after a Taco Bell: "yes,
 // unless that's the only option"). Kept only when nothing else found fits
@@ -413,14 +427,7 @@ export function applyHardFilters(
       opts.exclude.has(place.id) ||
       !place.location ||
       (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
-      (opts.category === "experiences" && isMainlyFoodOrDrink(place) && (isMainlyBar(place) || !opts.foodDrinkOk?.(place))) ||
-      // A thing to do Google can't say what it is (a band for hire, an
-      // office) only when it's what they chose, never as popular nearby.
-      (opts.category === "experiences" && !place.primaryType && !opts.untypedOk?.(place)) ||
-      // A shop is never a thing to do (live check, 23 Nov 2026: a riding-gear
-      // shop for horse riding).
-      (opts.category === "experiences" && /_store$/.test(place.primaryType ?? "")) ||
-      notANightOut(place) ||
+      !somewhereToGo(place, opts.category, opts) ||
       opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
     ) {

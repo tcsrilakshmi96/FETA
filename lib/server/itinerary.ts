@@ -2,7 +2,7 @@ import "server-only";
 
 import { travel } from "@/lib/plan";
 import { distanceKm } from "@/lib/cities";
-import { brandOf, type Pick } from "@/lib/server/picks";
+import { brandOf, neverAPickType, type Pick } from "@/lib/server/picks";
 
 // A full day (or up to 3) from Ask Feta or a trip city: breakfast,
 // something in the morning, lunch, the afternoon, dinner and a drink, in
@@ -35,7 +35,6 @@ function travelLine(km: number) {
 
 // What a day out never stops at (travellers, 23 Nov 2026: tour-company
 // offices in Lisbon): agencies and offices sell tours, they aren't sights.
-const OFFICE_TYPES = /^(travel_agency|tour_agency|tour_operator|tourist_information_center|corporate_office|consultant|insurance_agency|real_estate_agency|car_rental|transportation_service)$/;
 const OFFICE_NAMES = /\b(tours|travels|agency|excursions|holidays|transfers|tuk[- ]?tuks?)\b/i;
 const SIGHT_TYPES = /museum|historical|monument|landmark|church|cathedral|temple|mosque|palace|castle|fort|park|garden|gallery|viewpoint|observation|beach|market|aquarium|zoo/;
 // Places mainly for drinking: only after dinner, never a daytime stop.
@@ -45,7 +44,7 @@ const OUTDOOR_TYPES = /^(park|city_park|national_park|state_park|garden|botanica
 
 export function isOffice(p: Pick) {
   const type = p.type ?? "";
-  return OFFICE_TYPES.test(type) || (OFFICE_NAMES.test(p.name) && !SIGHT_TYPES.test(type));
+  return neverAPickType(type) || (OFFICE_NAMES.test(p.name) && !SIGHT_TYPES.test(type));
 }
 
 // Whether a place suits a slot's time of day (beyond its opening hours).
