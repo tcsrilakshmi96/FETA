@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { loadCity, type City } from "@/lib/cities";
 import { currencyForTimeZone, type Currency } from "@/lib/currency";
-import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
+import { removeFromList, saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
 import InterestChips from "@/components/InterestChips";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, toggleSpend, type Answers } from "@/lib/onboarding";
@@ -63,6 +63,7 @@ export default function Questions() {
   // gave the server ₹ and the phone £ (React error #418, tester 23 Nov 2026).
   const [phoneCurrency, setPhoneCurrency] = useState<Currency | null>(null);
   const session = useRef("");
+  const savingLoved = useRef(new Map<string, Promise<unknown>>());
 
   // Answers from an earlier visit, and a city to work with: theirs, or a
   // guess from the phone's time zone (prices and search suggestions only;
@@ -114,21 +115,36 @@ export default function Questions() {
     saveAnswers(all);
   }
 
-  async function addLoved(s: AreaSuggestion) {
+  function addLoved(s: AreaSuggestion) {
     setLoved([...loved, { placeId: s.placeId, name: s.name, detail: s.detail }]);
     setTyped("");
     setSuggestions([]);
-    // Ending the suggestion session keeps it free, and says where the place
-    // is, so it's saved in the right city as a place they love.
-    const at = await locateArea(s.placeId, session.current);
+    const typing = session.current;
     session.current = "";
-    const placeCity = at
-      ? await fetch(`/api/cities?near=${at.lat},${at.lng}`)
-          .then((r) => r.json() as Promise<{ city: City | null }>)
-          .then((r) => r.city)
-          .catch(() => null)
-      : null;
-    saveBeen(s.placeId, { verdict: "loved", category: categoryOf(s.types), cityId: placeCity?.id ?? city?.id });
+    // Ending the suggestion session keeps it free, and says where the place
+    // is, so it's saved in the right city as a place they love. Kept until
+    // saved, so ✕ straight away still takes it back.
+    savingLoved.current.set(
+      s.placeId,
+      (async () => {
+        const at = await locateArea(s.placeId, typing);
+        const placeCity = at
+          ? await fetch(`/api/cities?near=${at.lat},${at.lng}`)
+              .then((r) => r.json() as Promise<{ city: City | null }>)
+              .then((r) => r.city)
+              .catch(() => null)
+          : null;
+        await saveBeen(s.placeId, { verdict: "loved", category: categoryOf(s.types), cityId: placeCity?.id ?? city?.id });
+      })(),
+    );
+  }
+
+  // ✕ on a place they added by mistake (tester, 23 Nov 2026: no way to take one back).
+  async function removeLoved(placeId: string) {
+    setLoved((all) => all.filter((l) => l.placeId !== placeId));
+    await savingLoved.current.get(placeId);
+    savingLoved.current.delete(placeId);
+    await removeFromList(placeId, "been");
   }
 
   function toggleCuisine(id: string) {
@@ -307,6 +323,9 @@ export default function Questions() {
                   <span>
                     <strong>{l.name}</strong> <small>{l.detail}</small>
                   </span>
+                  <button type="button" onClick={() => removeLoved(l.placeId)} aria-label={`Remove ${l.name}`}>
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>

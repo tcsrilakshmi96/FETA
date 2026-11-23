@@ -247,3 +247,4 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - 23 Nov 2026: Setup's spend chips wait for the phone's time zone (read after the page loads) instead of reading it while drawing, which gave the server one currency and the phone another (React error #418 on /questions).
 - 23 Nov 2026: You reads when they joined ("Aged N months") from the session on the phone, like the rest of its profile, instead of asking Supabase for the user, which answered 403 once that session had ended (tester: a 403 on /you).
 - 23 Nov 2026: Places they love at setup are suggested only within their city's area (Google's suggestions restricted to about 50 km around it; tester in Bengaluru was offered Dhaka and Cleveland). Places elsewhere in their country can still be added in Saved → Been (no longer anywhere in the world).
+- 23 Nov 2026: A place added at setup as one they love has ✕ to take it back (it leaves Been too).
