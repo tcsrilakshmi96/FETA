@@ -589,7 +589,10 @@ async function fetaCandidates(ctx: {
   const founder = curated.filter((f) => !f.local);
   const locals = curated.filter((f) => f.local && !founder.some((m) => m.placeId === f.placeId));
   const localIds = new Set(locals.map((f) => f.placeId));
-  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name }]));
+  // One label per place, as they're ordered: hers, then local favourite,
+  // then Featured in (tester, 23 Nov 2026: "Local favourite" on the card,
+  // "Featured in" in its details).
+  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name }]));
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   const onList = (id: string) => notes.has(id) || loved.has(id) || localIds.has(id) || featured.has(id);
