@@ -378,7 +378,8 @@ export default function Home() {
                 <span className={styles.kick}>✦ {arrived ? "YOUR FIRST EVENING" : "PLAN MY EVENING"}</span>
                 <span className={styles.tileTitle}>
                   {plan
-                    ? `${plan.stops[0].pick.kind === "EAT" ? "Dinner" : plan.stops[0].pick.kind === "DRINK" ? "Drinks" : plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
+                    ? // Names both places (traveller, 23 Nov 2026: "Dinner 7:30, then Jam Club" didn't say where dinner was).
+                      `${plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
                     : wantsFood ? "Dinner and something nearby" : "Two things to do nearby"}
                 </span>
                 <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>

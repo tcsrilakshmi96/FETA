@@ -154,7 +154,7 @@ export default function PlanSheet({
             {plans.length > 1 && (
               <SendToGroup
                 kind="choice"
-                label={`Let the group choose (${Math.min(3, plans.length)} plans)`}
+                label={plans.length > 3 ? "Let the group choose (the top 3 plans)" : `Let the group choose (${plans.length} plans)`}
                 message={`${plan.day}: ${Math.min(3, plans.length)} plans from Feta.`}
                 payload={{
                   title: plan.day,
