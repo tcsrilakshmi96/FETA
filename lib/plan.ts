@@ -62,7 +62,12 @@ const forAfter = (p: Pick) => p.kind === "DRINK" || (p.kind === "EAT" && TREAT.t
 // Something to do: an event, or a place to go; a café or a bar only when
 // it's where something they're into happens (board games, comedy), never
 // for a vibe card alone.
-const toDo = (p: Pick) => !!p.event || (p.kind === "DO" && (!FOOD_PLACE.test(p.type ?? "") || (p.serves ?? []).some((id) => !id.startsWith("side_") && id !== "popular")));
+// Never an open-air sight after dark (traveller, 23 Nov 2026: a statue and
+// a square at 9 pm); a viewpoint at night is fine.
+const OPEN_AIR = /^(park|city_park|national_park|garden|botanical_garden|plaza|monument|sculpture|statue|historical_landmark|historical_place|memorial|beach|hiking_area|playground|cemetery|fountain)$/;
+const OPEN_AIR_NAME = /\b(statue|monument|memorial|pra[cç]a|plaza|piazza|square|park|garden|jardim)\b/i;
+const outdoors = (p: Pick) => OPEN_AIR.test(p.type ?? "") || OPEN_AIR_NAME.test(p.name);
+const toDo = (p: Pick) => !!p.event || (p.kind === "DO" && !outdoors(p) && (!FOOD_PLACE.test(p.type ?? "") || (p.serves ?? []).some((id) => !id.startsWith("side_") && id !== "popular")));
 
 const VERDICT_SCORE: Record<string, number> = { "Worth a detour": 0, "Good if you're nearby": 1, "Skip unless": 3 };
 
