@@ -27,9 +27,11 @@ const WAIT: Record<WaitKind, { seconds: number; lines: string[] }> = {
     seconds: 10,
     lines: ["Drawing this look…", "Picking the colours…", "Adding the shoes…"],
   },
+  // Three complete looks take about 20–30 s (founder, 23 Nov 2026: a 5 s
+  // countdown, then a long wait).
   look: {
-    seconds: 5,
-    lines: ["Picking a look…", "Checking it suits the plan…"],
+    seconds: 25,
+    lines: ["Reading where you're going…", "Picking from your styles…", "Choosing colours that work together…", "Checking every look has shoes…", "Making the three really different…", "Using what's already in your wardrobe…"],
   },
 };
 

@@ -205,15 +205,19 @@ Give ${n} complete outfit${n > 1 ? "s" : ""} a good stylist would really put tog
 - Plain, warm, short. Never brands or prices; never comment on body, size or looks.
 Reply with only JSON: {"looks": [{"style": the style id it is from (one of theirs), "title", "why", "pieces": [{"slot": "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra", "name": the piece}]}]}`;
   // Medium thinking: a stylist's choices, not a list (about ₹0.5 a set).
-  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
+  const started = Date.now();
+  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 28000);
   let looks = parseLooks(textOf(ask1), ask);
   const problems = (ls: Look[]) =>
     ls.map((l, i) => lookProblem(l, ask.styles) ?? (ls.slice(0, i).some((m) => tooAlike(l, m)) ? "too like an earlier look" : null));
   let bad = problems(looks);
-  if (looks.length < n || bad.some(Boolean)) {
+  // Redone once, only with time left before the request's 60 s limit; with
+  // little left, the good looks from the first answer are shown.
+  const left = 52000 - (Date.now() - started);
+  if ((looks.length < n || bad.some(Boolean)) && left > 10000) {
     // Once more, saying what was wrong (never cut to fit).
     const why = bad.map((b, i) => (b ? `look ${i + 1}: ${b}` : "")).filter(Boolean).join("; ") || `only ${looks.length} came back`;
-    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
+    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, Math.min(25000, left));
     const again = parseLooks(textOf(ask2), ask);
     const againBad = problems(again);
     const good = (ls: Look[], b: (string | null)[]) => ls.filter((_, i) => !b[i]);

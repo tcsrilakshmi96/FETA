@@ -5,7 +5,9 @@ import { makeLooks, swapPiece, type LookAsk } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, WHERES, styleById, type Look, type LookFor, type Slot, type Where } from "@/lib/style";
 
-export const maxDuration = 45;
+// Two Gemini calls at most (a look redone once) fit inside this (founder,
+// 23 Nov 2026: at 45 s a slow redo was cut off: "couldn't put looks together").
+export const maxDuration = 60;
 
 // What to wear (founder, 22–23 Nov 2026, docs/style-spec.md): 3 complete
 // looks for one outing, or one piece of a look changed. What they are,

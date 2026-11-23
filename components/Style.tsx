@@ -88,7 +88,10 @@ export default function Style() {
   async function make(next: LookFor, day: string, setNo: number, avoidLooks: string[]) {
     if (!origin) return;
     setBusy(true);
-    const r = await newSet(next, day, origin.city.id, setNo, avoidLooks, origin.city);
+    let r = await newSet(next, day, origin.city.id, setNo, avoidLooks, origin.city);
+    // One quiet retry before saying anything went wrong (founder, 23 Nov
+    // 2026: "after Try again I got it… an error will ruin the experience").
+    if (!r.set && !r.limited) r = await newSet(next, day, origin.city.id, setNo, avoidLooks, origin.city);
     setBusy(false);
     if (r.set) {
       setSet(r.set);
