@@ -260,10 +260,13 @@ const MAX_PRICE_LEVEL = [0, 1, 1, 2, 3, 4];
 // Whether a place costs more than the most they'll spend (founder, 19 Nov
 // 2026: the top of their range is a limit, the bottom isn't; a great
 // cheaper place is still a fit). Google's actual price range (per person)
-// beats its rough price label; a place with neither is "unknown" and passes.
+// beats its rough price label; a place with neither is "unknown" and passes,
+// except fine dining, which is very expensive whether or not Google says so
+// (persona test, Lisbon, 23 Nov 2026: a tasting-menu place with no price
+// passed a mid-range budget).
 function priceFit(place: Place, answers: Answers, city: City): "fits" | "over" | "unknown" {
   const start = place.priceRange?.startPrice?.currencyCode === city.currency ? Number(place.priceRange.startPrice.units) : NaN;
-  const google = PRICE_LEVELS[place.priceLevel ?? ""];
+  const google = PRICE_LEVELS[place.priceLevel ?? ""] ?? (place.primaryType === "fine_dining_restaurant" ? 4 : undefined);
   if (!Number.isFinite(start) && google === undefined) return "unknown";
   const r = spendRange(answers);
   if (!r) return "fits";
