@@ -20,6 +20,7 @@ import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
 import { brandPrice, shopLink } from "@/lib/style";
+import { resetTime } from "@/lib/limits";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -551,6 +552,19 @@ async function main() {
     failed++;
     console.log(`✗ Banner: ${bannerFails.join(", ")}`);
   } else console.log("✓ The banner says a choice found nothing only when nothing shown serves it");
+  // The limit's reset in their own time, with "tomorrow" when it is
+  // (tester, 23 Nov 2026: "more from 6:30 pm" at 9 pm in Lisbon).
+  const at = (iso: string) => new Date(iso).getTime();
+  const resetFails = [
+    resetTime("Europe/Lisbon", at("2026-11-23T12:00:00Z")) !== "6:30 pm" && `Lisbon at noon: ${resetTime("Europe/Lisbon", at("2026-11-23T12:00:00Z"))}`,
+    resetTime("Europe/Lisbon", at("2026-11-23T21:00:00Z")) !== "tomorrow at 6:30 pm" && `Lisbon at 9 pm: ${resetTime("Europe/Lisbon", at("2026-11-23T21:00:00Z"))}`,
+    resetTime("Asia/Kolkata", at("2026-11-23T12:00:00Z")) !== "midnight" && `Bengaluru: ${resetTime("Asia/Kolkata", at("2026-11-23T12:00:00Z"))}`,
+    resetTime("Pacific/Auckland", at("2026-11-23T05:00:00Z")) !== "tomorrow at 7:30 am" && `Auckland at 6 pm: ${resetTime("Pacific/Auckland", at("2026-11-23T05:00:00Z"))}`,
+  ].filter(Boolean);
+  if (resetFails.length) {
+    failed++;
+    console.log(`✗ Limit reset: ${resetFails.join(", ")}`);
+  } else console.log("✓ The daily limit's reset says tomorrow when it is");
   // A pop-up running several days shows while it's on (founder, 22 Nov 2026).
   const tz = "Europe/London";
   const cal = cityCalendar(tz);
