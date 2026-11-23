@@ -291,3 +291,9 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - Plan my evening never ends at a statue, square or park after dark; Home's tile names both places. Plan a night says a second dinner plainly.
 - Trip day plans cover the whole city and aren't held to the everyday cap on very popular places, so the famous sights come in.
 - Style: no dot for a piece the picture doesn't clearly show; no warm layers in a warm city; no men's page for a womenswear shopper (and the other way round); a ♥ never moves a brand card; brand lines never talk about price.
+
+## 23 Nov 2026: Founder's Prague test
+- Style looks failed ("couldn't put looks together") then worked on Try again: the redo could run past the 45 s limit. The route has 60 s, the redo only runs with time left, the screen retries once quietly before any error, and the wait says 25 s, not 5.
+- "Tickets on GoOut" opened the wrong page: a guessed link redirected and still "opened". Event links must land on the event (only where it lands is read).
+- Beer tasting added; Tastings in general starts with the city's speciality (beer in Prague).
+- Feedback beside "Hi <name>" on Home; the side tab elsewhere.
