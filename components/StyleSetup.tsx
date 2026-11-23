@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
 import { Figure, Line, vars } from "@/components/StyleParts";
 import { StyleFigure } from "@/components/StyleKit";
@@ -36,6 +37,7 @@ const TAP_LOOKS = ["minimalist", "smart-casual", "polished-minimal", "streetwear
 const sag = (f: number) => 10 + 48 * f * (1 - f);
 
 export default function StyleSetup() {
+  const router = useRouter();
   const toast = useToast();
   const [step, setStep] = useState<Step>(0);
   const [wears, setWears] = useState<Wears | null>(null);
@@ -132,9 +134,9 @@ export default function StyleSetup() {
   async function finish() {
     setSaving(true);
     await saveStyleProfile({ wears: wears ?? "women", styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou, votes, cues, ...kept }, origin?.city ?? null);
-    // A full load back (founder, 20 Nov 2026: "its stuck in saving the
-    // budget": an in-app move could be overtaken and land on setup again).
-    window.location.replace(fromMe ? "/style/me" : "/style");
+    // An in-app move once the save is done, so Home keeps its picks
+    // (founder, 23 Nov 2026: "every time I go back home it's refreshing").
+    router.replace(fromMe ? "/style/me" : "/style");
   }
 
   // Next from the clothesline: photos are read on the styles step; looks
@@ -183,11 +185,10 @@ export default function StyleSetup() {
             onClick={() =>
               // From My style, Back goes back there; never through the steps.
               fromMe || editing
-                ? window.location.assign(fromMe ? "/style/me" : "/style")
+                ? router.push(fromMe ? "/style/me" : "/style")
                 : step > 0
                   ? setStep(PREV[step])
-                  : // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                    window.location.assign("/home")
+                  : router.push("/home")
             }
           >
             ‹ {fromMe ? "My style" : step === 0 ? "Home" : "Back"}
