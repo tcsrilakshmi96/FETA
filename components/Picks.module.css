@@ -572,7 +572,9 @@
   color: #ffe2a3;
 }
 
-.info > span:not(.name),
+/* Not the meta row: it is a flex row, distance left and verdict right
+   ("4.8 kmGood if you're nearby" ran together, persona re-test 23 Nov 2026). */
+.info > span:not(.name):not(.meta),
 .because {
   display: block;
 }
