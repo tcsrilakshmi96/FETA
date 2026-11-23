@@ -104,6 +104,7 @@
 /* Tonight · This weekend with Choose for me beside it, one row. */
 .whenRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
@@ -118,6 +119,8 @@
   align-items: center;
   gap: 4px;
   flex: none;
+  /* Big enough to tap (persona re-test: 28px missed taps). */
+  min-height: 40px;
   padding: 3px 14px 3px 6px;
   border-radius: 99px;
   background: var(--ink);
@@ -183,6 +186,8 @@
 }
 
 .seg button {
+  min-height: 36px;
+  white-space: nowrap;
   padding: 6px 12px;
   border-radius: 99px;
   font-size: 12.5px;
