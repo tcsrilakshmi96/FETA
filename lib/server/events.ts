@@ -270,8 +270,6 @@ export function siteName(url: string) {
     "eventbrite.com": "Eventbrite",
     "eventbrite.co.uk": "Eventbrite",
     "eventbrite.de": "Eventbrite",
-    "ticketmaster.com": "Ticketmaster",
-    "ticketmaster.co.uk": "Ticketmaster",
     "dice.fm": "DICE",
     "ra.co": "Resident Advisor",
     "eventim.de": "Eventim",
@@ -292,6 +290,8 @@ export function siteName(url: string) {
     "instagram.com": "Instagram",
     "lbb.in": "LBB",
     "paris.fr": "Que faire à Paris",
+    "ticketmaster.com": "Ticketmaster",
+    "ticketmaster.co.uk": "Ticketmaster",
     "opentix.life": "OPENTIX",
     "whatshot.in": "WhatsHot",
   };

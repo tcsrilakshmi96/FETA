@@ -26,6 +26,12 @@ export async function feedEvents(city: City, intent: Intent | null, span: EventS
     const kind = id ? PARIS_KINDS[id] : PARIS_ANY;
     return kind ? cached(`paris|${JSON.stringify(kind)}|${window.from}|${window.to}`, () => paris(kind, window)) : null;
   }
+  // Ticketmaster: on once the founder adds her free key (TICKETMASTER_API_KEY
+  // in Vercel); concerts, comedy, theatre and sport in its countries.
+  if (process.env.TICKETMASTER_API_KEY && TM_COUNTRIES.has(city.country)) {
+    const cls = id ? TM_KINDS[id] : "Music,Arts & Theatre";
+    if (cls) return cached(`tm|${city.id}|${cls}|${window.from}|${window.to}`, () => ticketmaster(cls, city, window));
+  }
   if (city.country === "TW" && TW_CITY[city.name]) {
     const cats = id ? TW_CATEGORIES[id] : TW_ANY;
     return cats ? cached(`tw|${city.name}|${cats.join(",")}|${window.from}|${window.to}`, () => taiwan(cats, TW_CITY[city.name], window)) : null;
@@ -118,6 +124,54 @@ function fromParis(r: ParisRecord): FoundEvent | null {
     url: r.url,
     fromList: true,
   };
+}
+
+// ---------- Ticketmaster (Discovery API, free key) ----------
+
+const TM_COUNTRIES = new Set(["US", "CA", "GB", "IE", "DE", "FR", "ES", "IT", "NL", "BE", "CH", "AT", "DK", "SE", "NO", "FI", "PL", "CZ", "AU", "NZ", "MX", "CL", "PE", "ZA", "TR", "AE", "IL"]);
+const TM_KINDS: Record<string, string> = {
+  live_music: "Music",
+  comedy: "Comedy",
+  dancing: "Dance",
+  art_culture: "Arts & Theatre",
+  games_sports: "Sports",
+  nightlife: "Music",
+};
+
+type TmEvent = { name?: string; url?: string; dates?: { start?: { localDate?: string; localTime?: string } }; priceRanges?: { min?: number; currency?: string }[]; _embedded?: { venues?: { name?: string; city?: { name?: string } }[] } };
+
+async function ticketmaster(classification: string, city: City, w: Window): Promise<FoundEvent[]> {
+  const q = new URLSearchParams({
+    apikey: process.env.TICKETMASTER_API_KEY!,
+    latlong: `${city.lat},${city.lng}`,
+    radius: "30",
+    unit: "km",
+    classificationName: classification,
+    startDateTime: `${w.from}T00:00:00Z`,
+    endDateTime: `${w.to}T23:59:59Z`,
+    size: "40",
+    sort: "date,asc",
+  });
+  const res = await fetch(`https://app.ticketmaster.com/discovery/v2/events.json?${q}`, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error(`Ticketmaster ${res.status}`);
+  const data = (await res.json()) as { _embedded?: { events?: TmEvent[] } };
+  return (data._embedded?.events ?? [])
+    .filter((e) => e.name && e.url && e.dates?.start?.localDate)
+    .map((e) => {
+      const venue = e._embedded?.venues?.[0];
+      const price = e.priceRanges?.[0];
+      const same = price?.currency === city.currency && typeof price.min === "number";
+      return {
+        title: e.name!.slice(0, 120),
+        venueName: [venue?.name, venue?.city?.name].filter(Boolean).join(", ").slice(0, 120),
+        date: e.dates!.start!.localDate!,
+        time: (e.dates!.start!.localTime ?? "").slice(0, 5),
+        priceText: same ? `From ${price!.min}` : "",
+        minPrice: same ? price!.min! : null,
+        url: e.url!,
+        fromList: false,
+      };
+    });
 }
 
 // ---------- Taiwan ----------
