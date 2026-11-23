@@ -6,7 +6,7 @@ import { planDays } from "@/lib/server/plan-days";
 import { bestPhoto, findDestination, searchPlaces, type Place } from "@/lib/server/places";
 import { photoRef } from "@/lib/server/photo-ref";
 import { brandOf, type Pick } from "@/lib/server/picks";
-import { veniceJson } from "@/lib/server/venice";
+import { askGemini } from "@/lib/server/taste-reader";
 
 // The trip planner in Ask Feta (founder, 14 Nov 2026): 1) a route of cities,
 // nights and a two-line story for each (Venice, from general knowledge, no
@@ -99,16 +99,13 @@ export async function estimateTransport(trip: Trip, home: City | null): Promise<
   const away = home && !trip.cities.some((c) => c.cityId === home.id);
   const stops = trip.cities.map((c) => `${c.name} (${c.nights} nights)`);
   const route = (away ? [`${home.name} (home)`, ...stops, `${home.name} (home)`] : stops).join(" → ");
-  const reply = await veniceJson<{ legs?: TripLeg[]; tip?: string }>([
-    {
-      role: "system",
-      content: `You plan how travellers get between cities. Reply with only a JSON object:
+  // On Gemini: Venice credits are for Ask Feta only (founder, 23 Nov 2026).
+  const reply = await askGemini<{ legs?: TripLeg[]; tip?: string }>(`You plan how travellers get between cities. Reply with only a JSON object:
 {"legs": [{"from": city, "to": city, "mode": "train", "flight", "bus", "ferry" or "car", "minutes": door-to-door travel time as a number, "cost": typical one-way cost per person in ${currency} as a number (economy or standard class, booked a few weeks ahead), "note": under 8 words, e.g. "Shinkansen, covered by a rail pass"}],
  "tip": one short sentence that saves money or hassle on this route (e.g. whether a rail pass pays off), or "".}
-One leg between each pair of places in the order given (including from and back to home when listed), by the way most travellers would go. Rough numbers are fine; never invent precision.`,
-    },
-    { role: "user", content: `Route: ${route}.` },
-  ]);
+One leg between each pair of places in the order given (including from and back to home when listed), by the way most travellers would go. Rough numbers are fine; never invent precision.
+
+Route: ${route}.`, 20000);
   const legs = (reply.legs ?? [])
     .filter((l) => l.from && l.to)
     .slice(0, 15)

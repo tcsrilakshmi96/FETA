@@ -1,11 +1,10 @@
 import "server-only";
 import { trackVenice } from "@/lib/server/costs";
 
-// Venice AI (OpenAI-compatible), with the founder's credits: Ask Feta, trip
-// routes, and Style's looks and brand order. It never receives Google Maps
-// or Places content (that stays with Gemini). Claude Sonnet 5.5 since 23 Nov
-// 2026 (founder: "use Venice credits, not more Gemini"; Haiku was too weak
-// for judgement), about ₹1.5–2 a chat reply.
+// Venice AI (OpenAI-compatible), with the founder's credits: Ask Feta only
+// (founder, 23 Nov 2026: her Venice credits are limited; everything else is
+// on Gemini). Claude Sonnet 5.5 (Haiku was too weak for judgement), about
+// ₹1.5–2 a reply. It never receives Google Maps or Places content.
 export const VENICE_MODEL = "claude-sonnet-5-5";
 
 export type ChatTurn = { role: "system" | "user" | "assistant"; content: string };

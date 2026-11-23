@@ -81,7 +81,7 @@ export function learnedKey(category: Category, label: string) {
 }
 
 // One JSON answer from Gemini (Feta's own data only, plus place descriptions).
-async function askGemini<T>(prompt: string): Promise<T> {
+export async function askGemini<T>(prompt: string, timeoutMs = 8000): Promise<T> {
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
@@ -89,7 +89,7 @@ async function askGemini<T>(prompt: string): Promise<T> {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } },
     }),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`Gemini read failed: ${res.status}`);
   const data = await res.json();
