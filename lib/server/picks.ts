@@ -153,8 +153,16 @@ export type Pick = StoredPick & {
 // steakhouse, a biryani or kebab house) are not picks for vegetarians
 // (founder's decision, 12 Nov 2026, "Option B"); Gemini also flags ones
 // these words miss. Never "pure veg": that can't be confirmed.
-const NON_VEG_TYPES = ["steak_house", "seafood_restaurant", "barbecue_restaurant", "fish_and_chips_restaurant", "chicken_restaurant", "chicken_wings_restaurant"];
-const NON_VEG_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meat|meats|seafood|fish|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|non[- ]?veg)\b/i;
+// The words are in the languages of the places' own names (persona test,
+// Lisbon, 23 Nov 2026: a churrasqueira, a marisqueira and a bacalhau
+// tavern passed, since Google says they serve vegetarian food), and they
+// still hold when Gemini's ranking is down.
+const MEAT_PLACE_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "korean_barbecue_restaurant"];
+const FISH_PLACE_TYPES = ["seafood_restaurant", "fish_and_chips_restaurant"];
+const MEAT_NAMES = "biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|beef|pork|lamb|churrasc\\w*|rodizio|asador|parrilla|frango|pollos?|leit[aã]o|bifanas?|yakiniku|yakitori|boucherie|rotisserie|lechon|non[- ]?veg";
+const FISH_NAMES = "seafood|fish|marisqu\\w*|mariscos?|bacalhau|peixes?|pescados?|polvo|sardinh\\w*|cevicher\\w*|poissonnerie|oysters?";
+const NON_VEG_TYPES = [...MEAT_PLACE_TYPES, ...FISH_PLACE_TYPES];
+const NON_VEG_WORDS = new RegExp(`\\b(${MEAT_NAMES}|${FISH_NAMES})\\b`, "i");
 
 export function mainlyNonVeg(place: Place) {
   return NON_VEG_TYPES.includes(place.primaryType ?? "") || NON_VEG_WORDS.test(place.displayName?.text ?? "");
@@ -164,7 +172,7 @@ export function mainlyNonVeg(place: Place) {
 // about it are dropped by type and name; Gemini is told too. Never a promise.
 const AVOID_WORDS: Record<string, RegExp> = {
   beef: /\b(beef|steaks?|steakhouse|brisket)\b/i,
-  pork: /\b(pork|bacon|pig|lechon|tonkatsu|carnitas|char siu|charcuterie)\b/i,
+  pork: /\b(pork|bacon|pig|lechon|tonkatsu|carnitas|char siu|charcuterie|bifanas?|leit[aã]o)\b/i,
 };
 
 export function mainlyAvoided(place: Place, avoid: string[] = []) {
@@ -176,8 +184,8 @@ export function needsDietCheck(answers: Answers) {
 }
 
 // Pescatarians: places mainly about meat (fish and seafood are fine).
-const MEAT_TYPES = ["steak_house", "barbecue_restaurant", "chicken_restaurant", "chicken_wings_restaurant", "hamburger_restaurant", "korean_barbecue_restaurant", "brazilian_restaurant"];
-const MEAT_WORDS = /\b(biryani|biriyani|kebabs?|kababs?|chicken|mutton|meats?|steaks?|steakhouse|bbq|barbe?que|butcher|shawarma|grill house|burgers?|wings|beef|pork|lamb|churrasc\w*|rotisserie)\b/i;
+const MEAT_TYPES = [...MEAT_PLACE_TYPES, "hamburger_restaurant", "brazilian_restaurant"];
+const MEAT_WORDS = new RegExp(`\\b(${MEAT_NAMES}|burgers?|wings)\\b`, "i");
 
 export function mainlyMeat(place: Place) {
   return MEAT_TYPES.includes(place.primaryType ?? "") || MEAT_WORDS.test(place.displayName?.text ?? "");
