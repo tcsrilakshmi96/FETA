@@ -441,6 +441,8 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
     .select(`style_id, association, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets!inner (${MARKET}))`)
     .in("style_id", styles)
     .neq("review_status", "rejected")
+    // A tag people agreed on shows once Admin approves it (audit, 23 Nov 2026).
+    .or("found_by.neq.people,review_status.eq.approved")
     .eq("brands.brand_markets.country", country);
   if (error) {
     console.error("Loading brands failed", error.message);
@@ -493,7 +495,8 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
       .from("brand_styles")
       .select(`style_id, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets (${MARKET}))`)
       .in("style_id", thin)
-      .neq("review_status", "rejected");
+      .neq("review_status", "rejected")
+      .or("found_by.neq.people,review_status.eq.approved");
     for (const r of (wide ?? []) as unknown as Row[]) {
       const markets = r.brands.brand_markets.filter((m) => m.presence_type !== "ships from abroad");
       if (markets.length < GLOBAL_MARKETS || !fitsWear(r.brands.wears) || cards.some((c) => c.id === r.brands.id && c.style === r.style_id)) continue;

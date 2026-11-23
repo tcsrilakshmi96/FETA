@@ -8,7 +8,7 @@
 //   npm run journey
 //
 // Starts its own test server (FAKE_PLACES=1) on port 3100, opens Feta with
-// ?qa=1 so it never counts as a person, and deletes its account at the end.
+// ?qa=<tester code> so it never counts as a person, and deletes its account at the end.
 // Needs Google Chrome on this Mac.
 import { spawn, type ChildProcess } from "node:child_process";
 import puppeteer, { type Page } from "puppeteer-core";
@@ -56,6 +56,8 @@ const click = (p: Page, re: RegExp) =>
     return !!el;
   }, re.source);
 const texts = (p: Page, selector: string) => p.evaluate((s) => [...document.querySelectorAll(s)].map((e) => (e.textContent ?? "").trim()), selector);
+// The tester code (QA_CODE in .env.local), so the account is a test one.
+const QA = process.env.QA_CODE ?? "";
 const rest = async (token: string, path: string) => (await fetch(`${DB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${token}` } })).json();
 
 async function main() {
@@ -73,7 +75,7 @@ async function main() {
   let token: string | null = null;
   try {
     // Welcome: three cards, 18+, then the name and what they want.
-    await p.goto(`${BASE}/?qa=1`, { waitUntil: "networkidle0" });
+    await p.goto(`${BASE}/?qa=${QA}`, { waitUntil: "networkidle0" });
     await click(p, /^Next$/);
     await wait(300);
     await click(p, /^Next$/);

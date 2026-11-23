@@ -508,5 +508,20 @@
   "kind": "function",
   "name": "real_spend_today",
   "file": "20261123130000_server_only_writes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "guard_is_test",
+  "file": "20261123140000_close_audit_gaps.sql"
+ },
+ {
+  "kind": "function",
+  "name": "mark_test",
+  "file": "20261123140000_close_audit_gaps.sql"
+ },
+ {
+  "kind": "table",
+  "name": "qa_codes",
+  "file": "20261123140000_close_audit_gaps.sql"
  }
 ]

@@ -17,27 +17,32 @@ export function supabase() {
   return client;
 }
 
-// AI QA runs open Feta with ?qa=1 (founder, 18 Nov 2026): this browser is
-// remembered as a test, and its account is marked so admin numbers leave it out.
+// Test runs open Feta with ?qa=<tester code> (founder, 18 Nov 2026; the
+// code since the audit of 23 Nov 2026, when ?qa=1 let anyone move into the
+// test budget): this browser remembers the code, and the account is marked
+// as a test one only if the database accepts it (mark_test), so admin
+// numbers leave it out.
 const QA_KEY = "feta.qa";
-if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("qa") === "1") {
+const qaInLink = () => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("qa"));
+if (qaInLink()) {
   try {
-    localStorage.setItem(QA_KEY, "1");
+    localStorage.setItem(QA_KEY, qaInLink()!.slice(0, 64));
   } catch {
     // Marked for this visit only.
   }
 }
 
-function isQa() {
+function qaCode(): string | null {
   try {
-    return localStorage.getItem(QA_KEY) === "1" || new URLSearchParams(window.location.search).get("qa") === "1";
+    return localStorage.getItem(QA_KEY) || qaInLink();
   } catch {
-    return false;
+    return qaInLink();
   }
 }
+const isQa = () => !!qaCode();
 
-async function markTest(userId: string) {
-  const { error } = await supabase().from("profiles").update({ is_test: true }).eq("id", userId);
+async function markTest() {
+  const { error } = await supabase().rpc("mark_test", { p_code: qaCode() });
   if (error) console.error("Marking test visitor failed", error.message);
 }
 
@@ -112,7 +117,7 @@ export function currentUserId(): Promise<string | null> {
       const existing = data.session?.user.id;
       if (existing) {
         await claimPhone(existing);
-        if (isQa()) await markTest(existing);
+        if (isQa()) await markTest();
         return existing;
       }
       const { data: anon, error } = await supabase().auth.signInAnonymously();
@@ -123,7 +128,7 @@ export function currentUserId(): Promise<string | null> {
       }
       const id = anon.user?.id ?? null;
       if (id) await claimPhone(id, { brandNew: true });
-      if (id && isQa()) await markTest(id);
+      if (id && isQa()) await markTest();
       return id;
     })();
   }

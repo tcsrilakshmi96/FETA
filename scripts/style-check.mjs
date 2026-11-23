@@ -4,6 +4,9 @@
 // FAKE_PLACES=1 dev server on port 3000 (made-up looks, no pictures), ₹0:
 //   FAKE_PLACES=1 npx next dev -p 3000   then   npm run style-check
 import puppeteer from "puppeteer-core";
+import { readFileSync } from "node:fs";
+// The tester code (QA_CODE in .env.local), so the account is a test one.
+const QA = (readFileSync(".env.local", "utf8").match(/^QA_CODE=(.*)$/m)?.[1] ?? "").trim();
 const prefix = process.argv[2] ?? "/tmp/style-check";
 const BASE = "http://localhost:3000";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -25,7 +28,7 @@ const until = (re, ms = 15000) => p.waitForFunction((src) => new RegExp(src, "i"
 // A swipe on the look card (pointer events, as on a phone).
 const swipe = (dx) => p.evaluate((dx) => { const el = document.querySelector("[class*=deck]"); if (!el) return false; const r = el.getBoundingClientRect(); const y = r.top + 200; const x = r.left + r.width / 2; el.dispatchEvent(new PointerEvent("pointerdown", { clientX: x, clientY: y, bubbles: true })); el.dispatchEvent(new PointerEvent("pointerup", { clientX: x + dx, clientY: y, bubbles: true })); return true; }, dx);
 
-await p.goto(`${BASE}/?qa=1`, { waitUntil: "networkidle0" });
+await p.goto(`${BASE}/?qa=${QA}`, { waitUntil: "networkidle0" });
 const city = { id: "gn:1277333", name: "Bengaluru", region: "Karnataka", country: "IN", countryName: "India", timeZone: "Asia/Kolkata", currency: "INR", lat: 12.97, lng: 77.59 };
 await p.evaluate((city) => { sessionStorage.setItem("feta.origin", JSON.stringify({ lat: city.lat, lng: city.lng, label: "Anywhere in Bengaluru", source: "city", city })); localStorage.setItem("feta.city", JSON.stringify(city)); localStorage.setItem("feta.name", "Check"); localStorage.setItem("feta.wants", JSON.stringify(["style"])); }, city);
 

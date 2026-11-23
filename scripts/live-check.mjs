@@ -58,7 +58,9 @@ async function account(p) {
   const s = await (await fetch(`${DB}/auth/v1/signup`, { method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify({ data: {} }) })).json();
   const h = { apikey: KEY, Authorization: `Bearer ${s.access_token}`, "Content-Type": "application/json", Prefer: "return=minimal" };
   const c = CITIES[p.city];
-  await fetch(`${DB}/rest/v1/profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: h, body: JSON.stringify({ is_test: true, first_name: "Livecheck", wants: [p.category === "food_drinks" ? "food" : "do"], city_id: c.id, country: c.country, time_zone: c.timeZone, currency: c.currency }) });
+  await fetch(`${DB}/rest/v1/profiles?id=eq.${s.user.id}`, { method: "PATCH", headers: h, body: JSON.stringify({ first_name: "Livecheck", wants: [p.category === "food_drinks" ? "food" : "do"], city_id: c.id, country: c.country, time_zone: c.timeZone, currency: c.currency }) });
+  // A test account only through the tester code (QA_CODE in .env.local).
+  await fetch(`${DB}/rest/v1/rpc/mark_test`, { method: "POST", headers: h, body: JSON.stringify({ p_code: env.QA_CODE ?? "" }) });
   await fetch(`${DB}/rest/v1/answers`, { method: "POST", headers: { ...h, Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ user_id: s.user.id, halal: false, who: [], avoid: [], spend_currency: c.currency, ...p.answers }) });
   if (p.swipes.length) await fetch(`${DB}/rest/v1/swipes`, { method: "POST", headers: h, body: JSON.stringify(p.swipes.map((card_id) => ({ user_id: s.user.id, card_id, verdict: "yes" }))) });
   tokens.push(s.access_token);

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { distanceKm } from "@/lib/cities";
-import { askIs, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { userIdFor } from "@/lib/server/taste";
 import { eventOver } from "@/lib/server/events";
 import { bestPhoto, photoUri, placeDetails, type Place } from "@/lib/server/places";
 import type { StoredPick } from "@/lib/server/picks";
@@ -44,13 +45,17 @@ export async function GET(request: Request) {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  if (!(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
   const { data: actions, error } = await db
     .from("pick_actions")
     .select("place_id, action, note, created_at, weekend_for, visits, verdict")
     .in("action", ["saved", "been"])
     .order("created_at", { ascending: false })
     .limit(MAX_ITEMS * 2);
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("lists", error.message);
+    return Response.json({ error: "Couldn't load your lists just now." }, { status: 500 });
+  }
 
   // A place marked "been" leaves "Want to try".
   const been = new Set(actions.filter((a) => a.action === "been").map((a) => a.place_id));
@@ -66,9 +71,20 @@ export async function GET(request: Request) {
     for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId) && !events.has(p.placeId)) events.set(p.placeId, { ...p.event, over: eventOver(p.event, set.time_zone ?? "UTC") });
   }
 
-  // Saved always shows what they saved (Round 6: a tester over the limit
-  // hearted a place and Saved stayed empty); over today's budget, without photos.
+  // Over today's limit (audit, 23 Nov 2026: Saved kept paying for up to 30
+  // live lookups each time): nothing is looked up. The phone shows the copy
+  // it already has; without one, each saved place still shows (their note,
+  // Open in Google Maps), so Saved is never empty (Round 6).
   const over = await overBudget(db);
+  if (over) {
+    const items: ListItem[] = rows.flatMap((r) => {
+      const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;
+      const event = events.get(r.place_id);
+      if (r.place_id.startsWith("event:")) return event && !(event.over && r.action !== "been") ? [{ ...base, name: event.title, area: event.venueName, distanceKm: null, lat: null, lng: null, mapsUri: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.venueName)}`, photo: null, event: { when: [event.date, event.time].filter(Boolean).join(" "), url: event.url, site: event.site } }] : [];
+      return [{ ...base, name: "A place you saved", area: "Open in Google Maps", distanceKm: null, lat: null, lng: null, mapsUri: `https://www.google.com/maps/place/?q=place_id:${r.place_id}`, photo: null }];
+    });
+    return Response.json({ items, notice: await limitNoticeHere("kept") });
+  }
   const items = await withCosts(db, "lists", () => (askIs({ key: [rows.map((r) => r.place_id).sort(), lat.toFixed(2), lng.toFixed(2)], label: `saved list · ${rows.length} places` }), Promise.all(
     rows.map(async (r, i): Promise<ListItem | null> => {
       const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;
@@ -97,7 +113,7 @@ export async function GET(request: Request) {
         lat: place.location?.latitude ?? null,
         lng: place.location?.longitude ?? null,
         mapsUri: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${place.id}`,
-        photo: !over && i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
+        photo: i < MAX_PHOTOS && bestPhoto(place)?.name ? await photoUri(bestPhoto(place)!.name) : null,
       };
     }),
   )));
