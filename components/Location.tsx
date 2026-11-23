@@ -132,6 +132,7 @@ export default function Location() {
   if (first)
     return (
       <FirstWhere
+        next={setup ? "/questions" : "/home"}
         onCity={(c) => {
           setCity(c);
           setFirst(false);

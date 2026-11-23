@@ -13,7 +13,9 @@ import styles from "./Setup.module.css";
 // Feta should look. Their location (one-time, never stored; the city
 // follows it), or a city typed in, say for a trip. An exact area can be
 // chosen later from the area pill on Home.
-export default function FirstWhere({ onCity }: { onCity: (city: City) => void }) {
+// `next` is where their location leads: the questions during setup, else
+// Home (founder, 23 Nov 2026: "Use my location" skipped the questions).
+export default function FirstWhere({ onCity, next }: { onCity: (city: City) => void; next: string }) {
   const router = useRouter();
   const toast = useToast();
   const [query, setQuery] = useState("");
@@ -60,7 +62,7 @@ export default function FirstWhere({ onCity }: { onCity: (city: City) => void })
           return;
         }
         saveOrigin(originFromGps(point.lat, point.lng, here));
-        router.push("/home");
+        router.push(next);
       },
       (error) => {
         setFinding(false);
