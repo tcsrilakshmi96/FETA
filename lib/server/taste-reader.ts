@@ -17,7 +17,7 @@ import type { Category, Taste } from "@/lib/server/picks";
 // never does. Read once per new search, kept in this server's memory for
 // an hour so "Show me more" doesn't pay again.
 
-type Read = { label: string; query: string; from: "said" | "loved" };
+export type Read = { label: string; query: string; from: "said" | "loved" };
 
 const AT_A_BAR = /\b(bar|pub|cafe|café|lounge|karaoke|rooftop|board games?|speakeasy|comedy|jazz|trivia|quiz)\b/i;
 
@@ -40,6 +40,11 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
   }
   const food = category === "food_drinks";
   const unlearned = new Set(taste.unlearned ?? []);
+  // What they said beats what Feta guesses: how fancy or cheap a place is,
+  // read from places they love, is never searched for (their budget decides
+  // that). Traveller, 23 Nov 2026: "Upscale Asian Fine Dining" from two loved
+  // places brought tasting menus to someone who said hole-in-the-wall.
+  reads = reads.flatMap((r) => (r.from === "loved" ? plainRead(r) : [r]));
   return reads.filter((r) => r.from === "said" || !unlearned.has(learnedKey(category, r.label))).slice(0, 5).map((r, i) => ({
     id: `${r.from}_${i}`,
     label: r.label,
@@ -53,6 +58,14 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     source: r.from === "said" ? "typed" : "loved",
     food,
   }));
+}
+
+const PRICE_WORDS = /\b(upscale|fine[- ]dining|luxury|luxurious|fancy|premium|high[- ]end|gourmet|michelin|tasting[- ]menu|expensive|posh|elegant|cheap|budget|affordable|inexpensive)\b/gi;
+export function plainRead(r: Read): Read[] {
+  const clean = (t: string) => t.replace(PRICE_WORDS, "").replace(/\s{2,}/g, " ").trim();
+  const label = clean(r.label);
+  const query = clean(r.query);
+  return label.length > 2 && query.length > 2 ? [{ ...r, label, query }] : [];
 }
 
 // A label inside a sentence: only its first word lowered, so names keep

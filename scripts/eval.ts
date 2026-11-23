@@ -21,7 +21,7 @@ import { applyHardFilters, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, m
 import { planEvenings } from "@/lib/plan";
 import { planNight, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
-import { readTaste } from "@/lib/server/taste-reader";
+import { plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
@@ -742,6 +742,9 @@ async function main() {
   const eat = (name: string, lat: number): NightPlace => ({ placeId: name, name, area: "", kind: "EAT", light: false, lat, lng: 77.6, mapsUri: "" });
   const two = planNight([eat("Koriken", 12.97), eat("Vilva Bhavan", 12.971)], 1, 18 * 60);
   if (two.stops.length !== 1 || !/second dinner/.test(two.problems[0]?.why ?? "")) nightFails.push("two dinners stacked in Plan a night");
+  // What they said beats a guess: a price word read from loved places is never searched (traveller, 23 Nov 2026).
+  const plain = plainRead({ label: "Upscale Asian Fine Dining", query: "upscale asian fine dining restaurant", from: "loved" });
+  if (plain.length !== 1 || /upscale|fine/i.test(plain[0].label + plain[0].query)) nightFails.push(`"Upscale Asian Fine Dining" kept its price words (${JSON.stringify(plain)})`);
   if (nightFails.length) {
     failed++;
     console.log(`✗ Places to go out: ${nightFails.join(", ")}`);
