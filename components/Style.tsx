@@ -118,17 +118,22 @@ export default function Style() {
       }
       setProfile(p);
       setLate(cityNow().hour >= 22);
+      let came: string | null = null;
       try {
-        const came = sessionStorage.getItem(FROM_KEY);
-        setFrom(came === "plan" || came === "place" ? came : null);
+        came = sessionStorage.getItem(FROM_KEY);
       } catch {
         // From Home.
       }
+      const fromCard = came === "plan" || came === "place";
+      setFrom(fromCard ? (came as "plan" | "place") : null);
       const askWhere = new URLSearchParams(window.location.search).get("where") === "1";
       if (askWhere) return setMode("where");
       const chosen = chosenLookFor();
       const worn = await wornOn(cityDay());
-      if (worn && worn.chosen !== null && (!chosen || chosen.key === worn.forKey)) {
+      // The look they chose today stays put (testers, 23 Nov 2026: "You're
+      // wearing" on Home opened new looks for an older plan). Only a tap on
+      // "What to wear" on another plan or place opens that one instead.
+      if (worn && worn.chosen !== null && (!fromCard || !chosen || chosen.key === worn.forKey)) {
         setSet(worn);
         setF(worn.forDetail ?? { key: worn.forKey, text: worn.forText, where: worn.forKey.startsWith("plan:") ? "plan" : ((worn.forKey.split(":")[0] as Where) ?? "day"), stops: [], walkKm: null });
         setLi(worn.chosen);
