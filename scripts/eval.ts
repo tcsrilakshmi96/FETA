@@ -17,6 +17,7 @@ import type { Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
+import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
 import { brandPrice, shopLink } from "@/lib/style";
@@ -565,6 +566,24 @@ async function main() {
     failed++;
     console.log(`✗ Limit reset: ${resetFails.join(", ")}`);
   } else console.log("✓ The daily limit's reset says tomorrow when it is");
+  // A change in You searches again only for the list it touches (tester,
+  // 23 Nov 2026: a new cuisine used a search for Things to do too).
+  const you: Taste = { answers: { ...base, interests: ["comedy"] }, lines: ["Favourite food: Thai", "Into stand-up comedy"], lineKeys: ["cuisines", "interests"], yes: ["cuisine_thai"], no: [] };
+  const plusKorean: Taste = { ...you, lines: ["Favourite food: Thai, Korean", "Into stand-up comedy"], yes: ["cuisine_thai", "cuisine_korean"] };
+  const plusKaraoke: Taste = { ...you, answers: { ...you.answers, interests: ["comedy", "karaoke"] }, lines: ["Favourite food: Thai", "Into stand-up comedy and karaoke"] };
+  const cheaper: Taste = { ...you, answers: { ...you.answers, spend: ["1"] } };
+  const fp = tasteFingerprint;
+  const fingerprintFails = [
+    fp(you, "experiences") !== fp(plusKorean, "experiences") && "a new cuisine searches Things to do again",
+    fp(you, "food_drinks") === fp(plusKorean, "food_drinks") && "a new cuisine doesn't search Food again",
+    fp(you, "food_drinks") !== fp(plusKaraoke, "food_drinks") && "a new interest searches Food again",
+    fp(you, "experiences") === fp(plusKaraoke, "experiences") && "a new interest doesn't search Things to do again",
+    (fp(you, "food_drinks") === fp(cheaper, "food_drinks") || fp(you, "experiences") === fp(cheaper, "experiences")) && "a budget change doesn't search both",
+  ].filter(Boolean);
+  if (fingerprintFails.length) {
+    failed++;
+    console.log(`✗ Changes in You: ${fingerprintFails.join(", ")}`);
+  } else console.log("✓ A change in You searches again only for the list it touches");
   // A pop-up running several days shows while it's on (founder, 22 Nov 2026).
   const tz = "Europe/London";
   const cal = cityCalendar(tz);

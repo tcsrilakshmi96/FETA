@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
 import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
-import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
+import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { KIND_MAX, becauseFor, curate, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
 import { allIntents, intentWords, plainText, type Intent } from "@/lib/server/intents";
@@ -112,15 +112,17 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const keptOnly = new Set((actionsRes.data ?? []).filter((r) => r.action !== "skipped").map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
   // The taste fingerprint means a changed taste (a new line, new answers)
-  // searches again instead of showing the last picks; day plans are kept
-  // apart from everyday picks.
-  const originKey = `${
-    body.origin.source === "gps"
-      ? `gps:${city.id}`
-      : body.origin.source === "area"
-        ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
-        : `city:${city.id}`
-  }|t:${tasteFingerprint(taste)}${body.dayPlan ? "|plan" : ""}`;
+  // searches that category again instead of showing the last picks; day
+  // plans are kept apart from everyday picks.
+  const keyFor = (category: Category) =>
+    `${
+      body.origin.source === "gps"
+        ? `gps:${city.id}`
+        : body.origin.source === "area"
+          ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
+          : `city:${city.id}`
+    }|t:${tasteFingerprint(taste, category)}${body.dayPlan ? "|plan" : ""}`;
+  const originKey = keyFor(body.category);
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
   const small = isSmallCity(city.id);
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
@@ -141,7 +143,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       .select("picks")
       .eq("category", "food_drinks")
       .eq("when_slot", body.when)
-      .eq("origin_key", originKey)
+      .eq("origin_key", keyFor("food_drinks"))
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1);
@@ -366,15 +368,6 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     console.error(error);
     return json({ picks: [], notice: "Something went wrong showing your picks. Try again in a minute." }, 500);
   }
-}
-
-// A short hash of everything that shapes a search.
-function tasteFingerprint(t: Taste) {
-  const a = t.answers;
-  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id), [...t.lines].sort(), t.notInto ?? [], [...(t.unlearned ?? [])].sort()]);
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return (h >>> 0).toString(36);
 }
 
 function listOf(words: string[]) {
