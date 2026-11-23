@@ -14,7 +14,7 @@ import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catal
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
 import { cityCalendar, eventPasses } from "@/lib/server/events";
-import type { Intent } from "@/lib/server/intents";
+import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, type Candidate, type Category, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
@@ -567,9 +567,21 @@ async function main() {
     console.log(`✗ Style brands: ${brandFails.join(", ")}`);
   } else console.log("✓ Style brands link to their country's store and claim a budget fit only with a real price");
   // Ask Feta (two persona testers, 23 Nov 2026): what code checks in a chat answer.
+  // What they ask for carries their diet: [diet, what they asked, where, how it's searched].
+  const diet: [string, string, string, RegExp][] = [
+    ["vegetarian", "local food", "PT", /^vegetarian local food$/],
+    ["vegan", "dinner near Indiranagar", "IN", /^vegetarian dinner near Indiranagar$/],
+    ["vegetarian", "vegan brunch", "PT", /^vegan brunch$/],
+    ["everything", "local food", "PT", /^local food$/],
+  ];
   const askFails = [
     !asksQuestion("Happy to plan it. Are you after somewhere to eat and drink, something to do, or both?") && "a question isn't seen as one, so it gets no options",
     asksQuestion("Why not? Here are three places for tonight.") && "a reply that doesn't end on a question asks for options",
+    ...diet.map(([d, note, country, want]) => {
+      const [c] = searchCities(country === "IN" ? "Bengaluru" : "Lisbon", 1);
+      const q = allIntents({ answers: { ...base, diet: d }, lines: [], own: [], yes: [], no: [] }, { category: "food_drinks", city: c, tweaks: [], note, rotation: 0 }).find((i) => i.id === "asked")?.query ?? "";
+      return !want.test(q) && `a ${d} asking for "${note}" in ${c.name} is searched as "${q}"`;
+    }),
   ].filter(Boolean);
   if (askFails.length) {
     failed++;
