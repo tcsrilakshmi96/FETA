@@ -282,3 +282,12 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - 23 Nov 2026: Places you love stay searchable anywhere in the world (founder, 21 Nov 2026), nearest first; a tester's Dhaka and Cleveland suggestions in Bengaluru were for names with no local match. Limiting setup to their city was undone: it reverses her decision, so it waits for her OK.
 - 23 Nov 2026: Events may link out to BookMyShow, District or Meetup again ("Tickets on BookMyShow"); Feta never reads or scrapes them, and never uses Zomato or Swiggy. A fix that dropped every event linking there (from a brief that overstated the rule) left Bengaluru with no events at all.
 - 23 Nov 2026 (live check, Bengaluru, ₹118, test accounts deleted): events were found (6 pottery workshops and a horse ride on BookMyShow and District) but took 18 s, past the 15 s wait, so the list went out without them and was reused for 3 hours. Late events now join the stored set and the phone asks again. Events may link to BookMyShow and District again (the ban had removed nearly all of India's). A riding-gear shop came up for horse riding: shops are never things to do. The limit message uses their city's time zone.
+
+## 23 Nov 2026: Persona re-test fixes (base rules)
+- What they said beats a guess: price words read from loved places ("Upscale Asian Fine Dining") are never searched; their budget decides.
+- Learned while planning a trip: kept for that trip by default ("Only for this trip" starts on), so it never changes everyday picks or searches both lists again.
+- Reasons are Feta's own words; Surprise me never suggests what they already chose and doesn't guess at their personality.
+- Never a pick: delivery-only kitchens, places you hire (private theatres, party halls, caterers), shops as things to do.
+- Plan my evening never ends at a statue, square or park after dark; Home's tile names both places. Plan a night says a second dinner plainly.
+- Trip day plans cover the whole city and aren't held to the everyday cap on very popular places, so the famous sights come in.
+- Style: no dot for a piece the picture doesn't clearly show; no warm layers in a warm city; no men's page for a womenswear shopper (and the other way round); a ♥ never moves a brand card; brand lines never talk about price.
