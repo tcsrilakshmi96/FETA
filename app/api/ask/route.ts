@@ -442,11 +442,15 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       user_id: userId,
       role: "assistant",
       content: reply,
-      // Place IDs and Feta's own words only.
+      // Place IDs and Feta's own words only: everything else the answer
+      // showed comes back when Ask is opened again (lib/ask-client.ts).
       extras: {
         picks: picks.map((p) => ({ placeId: p.placeId, kind: p.kind, verdict: p.verdict, because: p.because })),
         added,
         ...(noted.length ? { noted } : {}),
+        ...(todayOnly ? { today: true } : {}),
+        ...(notice ? { notice } : {}),
+        ...(outfit ? { outfit, brands } : {}),
         trip: header,
         weekend,
         ...(explained ? { why: true } : {}),

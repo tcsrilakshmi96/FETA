@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import LetsGo from "@/components/LetsGo";
@@ -12,20 +12,13 @@ import PickPhoto from "@/components/PickPhoto";
 import TripCard from "@/components/TripCard";
 import { useToast } from "@/components/Toast";
 import { savePickAction } from "@/lib/db";
-import { askFeta, loadChat, type AskReply } from "@/lib/ask-client";
+import { chatState, emptyChat, openChat, patchMessage, sendChat, subscribeChat, type AskReply } from "@/lib/ask-client";
 import type { Pick } from "@/lib/picks-client";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { setLinesTrip, undoLines } from "@/lib/profile-client";
 import { todayScope } from "@/lib/profile-scope";
 import { addWeekendWish, removeWeekendWish } from "@/lib/weekend-client";
 import styles from "./Ask.module.css";
-
-type Message =
-  | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; notedUndone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; weekendId?: string; tripId?: string | null };
-
-const GREETING =
-  "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
 
 const PROMPTS = ["Plan my date night", "Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "I'm going to Goa next month", "Why this one?"];
 
@@ -39,16 +32,15 @@ function notedLabel(noted: NonNullable<AskReply["noted"]>) {
 
 export default function Ask() {
   const router = useRouter();
-  const [messages, setMessages] = useState<Message[]>([{ id: 0, role: "assistant", text: GREETING }]);
+  // The conversation is kept outside the screen (lib/ask-client.ts), so
+  // closing Ask, or a reply arriving after it closed, loses nothing.
+  const { messages, trip, thinking } = useSyncExternalStore(subscribeChat, chatState, emptyChat);
   const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const [trip, setTrip] = useState<string | null>(null);
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [detail, setDetail] = useState<Pick | null>(null);
   const [going, setGoing] = useState<Pick | null>(null);
   const toast = useToast();
   const listRef = useRef<HTMLDivElement>(null);
-  const nextId = useRef(1);
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- the origin and link are only readable in the browser */
@@ -57,34 +49,17 @@ export default function Ask() {
     setInput(new URLSearchParams(window.location.search).get("q")?.slice(0, 200) ?? "");
     /* eslint-enable react-hooks/set-state-in-effect */
     // A saved trip opened from Saved: its card at the end of the chat.
-    const openTrip = new URLSearchParams(window.location.search).get("trip");
-    loadChat().then((past) => {
-      const shown = openTrip ? past.map((m) => (m.tripId === openTrip ? { ...m, tripId: null } : m)) : past;
-      const opened = openTrip ? [{ id: nextId.current++, role: "assistant", text: "Here's your trip. Change anything, or carry on where you left off.", tripId: openTrip } as Message] : [];
-      if (shown.length === 0 && opened.length === 0) return;
-      setMessages([
-        ...shown.map((m) => ({ id: nextId.current++, role: m.role, text: m.content, tripId: m.tripId }) as Message),
-        ...opened,
-      ]);
-      setTrip(past.map((m) => m.trip).filter(Boolean).pop() ?? null);
-    });
+    openChat(new URLSearchParams(window.location.search).get("trip"));
   }, []);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, thinking]);
 
-  async function send(text: string) {
-    const message = text.trim();
-    if (!message || thinking) return;
+  function send(text: string) {
+    if (!text.trim() || thinking) return;
     setInput("");
-    setMessages((m) => [...m, { id: nextId.current++, role: "user", text: message }]);
-    setThinking(true);
-    const reply = await askFeta(message, origin);
-    setThinking(false);
-    if (reply.trip) setTrip(reply.trip);
-    const text2 = reply.notice && reply.picks.length === 0 ? `${reply.reply}\n${reply.notice}` : reply.reply;
-    setMessages((m) => [...m, { id: nextId.current++, role: "assistant", text: text2, reply, tripId: reply.tripId ?? null }]);
+    sendChat(text, origin);
   }
 
   // When Feta has just asked a question, its tap-able answers replace the
@@ -95,9 +70,7 @@ export default function Ask() {
   const lastTripCard = new Map<string, number>();
   for (const m of messages) if (m.role === "assistant" && m.tripId) lastTripCard.set(m.tripId, m.id);
 
-  function patch(id: number, change: Partial<Extract<Message, { role: "assistant" }>>) {
-    setMessages((all) => all.map((m) => (m.id === id && m.role === "assistant" ? { ...m, ...change } : m)));
-  }
+  const patch = patchMessage;
 
   function close() {
     if (window.history.length > 1) router.back();
@@ -126,7 +99,13 @@ export default function Ask() {
         {messages.map((m) => (
           <div key={m.id} className={styles.msg}>
             <div className={`${styles.bubble} ${m.role === "user" ? styles.fromMe : styles.fromFeta}`}>{m.text}</div>
-            {m.role === "assistant" && m.reply?.itinerary && <ItineraryView itinerary={m.reply.itinerary} onStop={setDetail} />}
+            {/* Places aren't stored (Google's details), only that they were shown. */}
+            {m.role === "assistant" && !!m.earlier && (
+              <p className={styles.attribution}>
+                {m.earlier === 1 ? "A place was" : `${m.earlier} places were`} here, checked live at the time. Ask again to see what fits now.
+              </p>
+            )}
+            {m.role === "assistant" && m.reply?.itinerary &&<ItineraryView itinerary={m.reply.itinerary} onStop={setDetail} />}
             {m.role === "assistant" && m.reply?.outfit && <OutfitCard outfit={m.reply.outfit} brands={m.reply.brands ?? []} />}
             {/* One card per trip: the latest one, after an edit. */}
             {m.role === "assistant" && m.tripId && lastTripCard.get(m.tripId) === m.id && <TripCard key={`${m.tripId}-${m.id}`} id={m.tripId} home={origin?.city ?? null} onStop={setDetail} />}
