@@ -48,6 +48,18 @@ export default function AdminBrands() {
   const [picks, setPicks] = useState<Map<string, string>>(new Map()); // her ★ Feta Picks and notes
   const [editingLogo, setEditingLogo] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState("");
+  // Brands wanted where Feta has few (brand_wishes): research these with Claude and import.
+  const [wishes, setWishes] = useState<{ country: string; style: string; people: number }[]>([]);
+  useEffect(() => {
+    supabase()
+      .from("brand_wishes")
+      .select("country, style_id")
+      .then(({ data }) => {
+        const n = new Map<string, number>();
+        for (const w of data ?? []) n.set(`${w.country}|${w.style_id}`, (n.get(`${w.country}|${w.style_id}`) ?? 0) + 1);
+        setWishes([...n.entries()].map(([k, people]) => ({ country: k.split("|")[0], style: k.split("|")[1], people })).sort((a, b) => b.people - a.people));
+      });
+  }, []);
 
   // How many brands each country has, for the country menu.
   useEffect(() => {
@@ -143,6 +155,11 @@ export default function AdminBrands() {
       <p className={styles.sub}>
         Brands Feta found, for each style and country. They show to people as &ldquo;New find&rdquo; until you approve them; rejected ones never show. ★ marks your own favourites (Feta Pick, shown first, with your note).
       </p>
+      {wishes.length > 0 && (
+        <p className={styles.sub}>
+          <b>Wanted</b> (people opened Brands where Feta has few; ask Claude to research these): {wishes.slice(0, 12).map((w) => `${w.country} · ${w.style} (${w.people})`).join(", ")}
+        </p>
+      )}
 
       <div className={styles.filters}>
         <select value={country} onChange={(e) => { setCountry(e.target.value); setPage(0); }} aria-label="Country">

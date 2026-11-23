@@ -558,6 +558,15 @@ async function startResearch(style: string, cityId: string, more = false) {
   return r?.started ? "started" : (r?.skipped ?? "failed");
 }
 
+// Brands wanted where Feta has few (migration 20261123120000): free, one
+// row per person, country and style, shown in Admin → Brands.
+async function wishFor(country: string, styles: { style: string; brands: number }[]) {
+  const { error } = await supabase()
+    .from("brand_wishes")
+    .upsert(styles.map((m) => ({ country, style_id: m.style, brands: m.brands })), { onConflict: "user_id,country,style_id" });
+  if (error && !/brand_wishes/.test(error.message)) console.error("Brand wish", error.message);
+}
+
 // Checks back while research runs: calls onDone with styles that finished.
 function watch(country: string, styles: string[], onDone: (style: string) => void, onResearching: (styles: string[]) => void) {
   const left = new Set(styles);
@@ -590,6 +599,9 @@ export async function researchCountry(cityId: string, country: string, mine: { s
   const fresh = new Set((data ?? []).filter((r) => r.done && Date.now() - new Date(r.researched_at).getTime() < 120 * 86400000).map((r) => r.style_id as string));
   const myOrder = [...mine].sort((a, b) => a.brands - b.brands).map((m) => m.style).filter((id) => !fresh.has(id));
   const results = await Promise.all(myOrder.map(async (id) => [id, await startResearch(id, cityId)] as const));
+  // Not the founder: written down for research instead (free), where few brands are known.
+  const thin = mine.filter((m) => m.brands < 6 && results.some(([id, r]) => id === m.style && r.startsWith("research is done")));
+  if (thin.length) await wishFor(country, thin);
   const running = results.filter(([, r]) => r === "started" || r === "done or running").map(([id]) => id);
   if (running.length) watch(country, running, onDone, onResearching ?? (() => {}));
 }
@@ -601,6 +613,10 @@ export async function findMoreBrands(style: string, cityId: string, country: str
   if (r === "started" || r === "done or running") {
     watch(country, [style], onDone, onResearching);
     return null;
+  }
+  if (r.startsWith("research is done")) {
+    await wishFor(country, [{ style, brands: 0 }]);
+    return "Thanks. Feta is adding more brands for this style here soon.";
   }
   return r === "budget" ? "Feta has done all its brand research for today. Try again tomorrow." : "Feta couldn't start looking just now. Try again in a bit.";
 }

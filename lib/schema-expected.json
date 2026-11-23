@@ -483,5 +483,10 @@
   "kind": "table",
   "name": "api_hits",
   "file": "20261123110000_cost_monitor.sql"
+ },
+ {
+  "kind": "table",
+  "name": "brand_wishes",
+  "file": "20261123120000_brand_wishes.sql"
  }
 ]
