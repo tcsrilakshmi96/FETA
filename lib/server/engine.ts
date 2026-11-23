@@ -490,7 +490,9 @@ async function eventPicks(ctx: {
       // Google's chip must be shown with what its search found, so a search
       // without one is kept for nothing.
       if (found.searchHtml) {
-        const hours = span === "tonight" ? 3 : 12;
+        // Shared by everyone there into the same thing; kept longer to cut
+        // repeat searches (founder, 23 Nov 2026: ₹512 of event searches a day).
+        const hours = span === "tonight" ? 6 : 24;
         await db.from("events_cache").upsert({ key, events: found.events, search_html: found.searchHtml, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
       }
       return { intent, span, ...found };
@@ -595,10 +597,10 @@ async function eventPicks(ctx: {
 // before Google's (curate.ts). A list place Google's search finds anyway is
 // labelled for free (mark). Only place IDs, her notes, counts and (for up
 // to 30 days) where her places and local favourites are, are stored.
-const FETA_LOOKUPS = 6;
-const COMMUNITY_LOOKUPS = 2;
-const LOCAL_LOOKUPS = 8;
-const FEATURED_LOOKUPS = 3;
+const FETA_LOOKUPS = 3;
+const COMMUNITY_LOOKUPS = 1;
+const LOCAL_LOOKUPS = 4;
+const FEATURED_LOOKUPS = 2;
 
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
@@ -639,7 +641,7 @@ async function fetaCandidates(ctx: {
   // Each live check costs about ₹1.7: places whose name and note say
   // nothing about what they want get at most 2 checks between them, nearest
   // first (founder, 23 Nov 2026: optimise; they rarely turn out to fit).
-  const UNSURE = 2;
+  const UNSURE = 1;
   const byFit = (list: typeof curated) => {
     const scored = list.map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) })).sort((a, b) => b.fit - a.fit || a.near - b.near);
     return ctx.intents.length ? [...scored.filter((f) => f.fit > 0), ...scored.filter((f) => f.fit === 0).slice(0, UNSURE)].map((f) => f.id) : scored.map((f) => f.id);
@@ -698,7 +700,8 @@ const PRICE_WORDS: Record<string, string> = {
   PRICE_LEVEL_VERY_EXPENSIVE: "very expensive",
 };
 
-const LOVED_READS = 3;
+// Two loved places per search (cost cut, 23 Nov 2026), taking turns through all.
+const LOVED_READS = 2;
 
 async function describeLoved(taste: Taste, rotation: number, category: Category) {
   const all = (taste.loved ?? []).filter((l) => !l.id.startsWith("event:") && (!l.category || l.category === category)).map((l) => l.id);
