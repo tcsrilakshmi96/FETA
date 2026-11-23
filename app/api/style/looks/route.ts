@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     wears: p?.wears === "men" || p?.wears === "both" ? p.wears : "women",
     for: lookFor,
     city: cityById(body.cityId)?.name ?? "their city",
-    localTime: t(body.localTime, 30),
+    localTime: t(body.localTime, 48),
     count: 3,
     wardrobe: (p?.wardrobe ?? []).slice(0, 30),
     usuals: ((loved ?? []) as unknown as { brands: { name: string } | null }[]).map((r) => r.brands?.name).filter((n): n is string => !!n),

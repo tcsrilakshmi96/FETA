@@ -172,14 +172,25 @@ export async function makeLooks(ask: LookAsk): Promise<Look[]> {
     : mine.length === 1
       ? `They have one style, so give ${n} different takes on it${n > 1 ? " (one simpler, one dressed up or bolder)" : ""}.`
       : `Use their styles best fit first, then a second take on the best one.`;
-  const base = `You are Feta's stylist in ${ask.city}. It is ${ask.localTime}.
+  // Founder, 23 Nov 2026: "the clothes suggestions are not great". A
+  // stylist's brief: the season there, a colour story, colour and fabric in
+  // every piece, what people really wear to this kind of place in this city,
+  // and their own pieces built in.
+  const base = `You are a sharp personal stylist in ${ask.city}, dressing one person. It is ${ask.localTime}: dress for the weather usual in ${ask.city} at this time of year.
 Their styles, strongest first: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}. They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
 ${forText(ask.for)}
-${ask.for.own ? `They're wearing something of their own: ${ask.for.own}. Use it in every look, word for word.\n` : ""}${ask.wardrobe.length ? `Pieces they own (use them where they fit, named the same): ${ask.wardrobe.slice(0, 20).join("; ")}.\n` : ""}${ask.usuals.length ? `Brands they shop from (the kind of clothes, never name them): ${ask.usuals.slice(0, 8).join(", ")}.\n` : ""}${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.worn.length ? `Looks they chose before: ${ask.worn.slice(-6).join("; ")}.\n` : ""}${ask.off.length ? `What was off in earlier looks (fix it): ${ask.off.slice(-4).join("; ")}.\n` : ""}${ask.avoid.length ? `Already shown for this outing, give clearly different ones: ${ask.avoid.join("; ")}.\n` : ""}${ask.note ? `They also said: ${ask.note}\n` : ""}
+${ask.for.own ? `They're wearing something of their own: ${ask.for.own}. Use it in every look, word for word.\n` : ""}${ask.wardrobe.length ? `Pieces they own: ${ask.wardrobe.slice(-20).join("; ")}. Build at least one look around one of these when it suits this outing, naming it exactly as written here.\n` : ""}${ask.usuals.length ? `Brands they shop from (the kind of clothes, never name them): ${ask.usuals.slice(0, 8).join(", ")}.\n` : ""}${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.worn.length ? `Looks they chose before: ${ask.worn.slice(-6).join("; ")}.\n` : ""}${ask.off.length ? `What was off in earlier looks (fix it): ${ask.off.slice(-4).join("; ")}.\n` : ""}${ask.avoid.length ? `Already shown for this outing, give clearly different ones: ${ask.avoid.join("; ")}.\n` : ""}${ask.note ? `They also said: ${ask.note}\n` : ""}
 ${rule}
-Give ${n} complete outfit${n > 1 ? "s" : ""}. Each has shoes, and a top with a bottom (or a one-piece like a dress or jumpsuit); add a layer or one extra (bag, belt, jewellery) only when it matters. Name every piece fully in 2 to 6 plain words, e.g. "High-neck linen blouse", never ending mid-phrase. ${n > 1 ? "The looks must differ in silhouette and pieces, not the same outfit reworded. " : ""}Hard asks (covered shoulders, no heels, keep my boots) always hold. Dress for exactly this outing and time. Plain, warm, short. Never brands or prices; never comment on body, size or looks.
-Reply with only JSON: {"looks": [{"style": the style id it is from (one of theirs), "title": 2 to 4 words, "why": one short sentence on why it suits this outing, "pieces": [{"slot": "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra", "name": the piece}]}]}`;
-  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+Give ${n} complete outfit${n > 1 ? "s" : ""} a good stylist would really put together: what people dress like for this kind of place in ${ask.city}, true to the style, wearable and easy to find in shops there.
+- Each has shoes, and a top with a bottom (or a one-piece like a dress, jumpsuit or kurta set); add a layer or one extra (bag, belt, jewellery, scarf) only when it lifts the look. At most 5 pieces.
+- Each look has a clear colour story (2 or 3 colours that work together) and one piece that makes it.
+- Name every piece fully in 2 to 6 plain words with its colour and fabric or finish, e.g. "Rust linen midi skirt", "Black leather loafers", never ending mid-phrase.
+- ${n > 1 ? "The looks differ in silhouette, colours and pieces, not the same outfit reworded. " : ""}Hard asks (covered shoulders, no heels, keep my boots) always hold. Dress for exactly this outing, its setting and the time.
+- "title" is 2 to 4 words that name the look's idea, no word repeated (e.g. "Rust and denim dinner"). "why" is one short sentence on why it works for this outing.
+- Plain, warm, short. Never brands or prices; never comment on body, size or looks.
+Reply with only JSON: {"looks": [{"style": the style id it is from (one of theirs), "title", "why", "pieces": [{"slot": "top" | "layer" | "bottom" | "one-piece" | "shoes" | "extra", "name": the piece}]}]}`;
+  // Medium thinking: a stylist's choices, not a list (about ₹0.5 a set).
+  const ask1 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: base }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
   let looks = parseLooks(textOf(ask1), ask);
   const problems = (ls: Look[]) =>
     ls.map((l, i) => lookProblem(l, ask.styles) ?? (ls.slice(0, i).some((m) => tooAlike(l, m)) ? "too like an earlier look" : null));
@@ -187,7 +198,7 @@ Reply with only JSON: {"looks": [{"style": the style id it is from (one of their
   if (looks.length < n || bad.some(Boolean)) {
     // Once more, saying what was wrong (never cut to fit).
     const why = bad.map((b, i) => (b ? `look ${i + 1}: ${b}` : "")).filter(Boolean).join("; ") || `only ${looks.length} came back`;
-    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, 20000);
+    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "medium" } }, 25000);
     const again = parseLooks(textOf(ask2), ask);
     const againBad = problems(again);
     const good = (ls: Look[], b: (string | null)[]) => ls.filter((_, i) => !b[i]);

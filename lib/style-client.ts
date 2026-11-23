@@ -237,7 +237,8 @@ export function cityNow() {
   const z = timeZone ? { timeZone } : {};
   return {
     hour: Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, ...z }).format(now)) % 24,
-    localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", hour: "numeric", minute: "2-digit", hour12: true, ...z }).format(now),
+    // With the date, so the stylist dresses for the season there.
+    localTime: new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit", hour12: true, ...z }).format(now),
     clock: new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, ...z }).format(now).replace(" ", " "),
     date: new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", ...z }).format(now).replace(",", ""),
   };
