@@ -694,6 +694,9 @@ ${wanted.length ? `- Cover what they want most: the best place for each id above
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
     {
       method: "POST",
+      // A stalled ranking can't take the whole request with it (backend audit,
+      // 23 Nov 2026): the list goes out in Feta's own order instead.
+      signal: AbortSignal.timeout(25000),
       headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],

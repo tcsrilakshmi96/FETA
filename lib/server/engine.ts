@@ -189,9 +189,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   //    (testers, 21 Nov 2026: every Home visit searched again, about 20 s and
   //    ₹100). If most no longer pass (closed now), it searches afresh.
   const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
-  const previous = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date() ? firstShown(latest) : [];
+  const fresh = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date();
+  const previous = fresh ? firstShown(latest) : [];
+  // A search that found nothing that fits is kept too, so opening again
+  // says so without paying for the same search (backend audit, 23 Nov 2026).
+  if (fresh && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
   if (previous.length) {
-    const shown = await showStored(previous, latest!.banner, { taste, body, city, origin, exclude, needsDiet });
+    const shown = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet });
     if (shown.picks.length >= Math.min(4, previous.length)) return json(shown.reply);
   }
 
@@ -200,7 +204,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const budget = await budgetToday(db);
   if (budget.left <= 0 || budget.over) {
     if (latest) {
-      const shown = await showStored(firstShown(latest), latest.banner, { taste, body, city, origin, exclude, needsDiet });
+      const shown = await showStored(firstShown(latest), latest.banner, { taste: effective, body, city, origin, exclude, needsDiet });
       if (shown.picks.length > 0) return json({ ...shown.reply, notice: await limitNoticeHere("kept"), limited: true });
     }
     return json({ picks: [], notice: await limitNoticeHere("picks"), limited: true });
@@ -329,7 +333,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const result = { ...found, ...picked };
   if (result.chosen.length === 0 && events.length === 0) {
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
-    return json({ picks: [], notice: whyNothing(result.drops, effective.answers, body.when, city.country) });
+    const notice = whyNothing(result.drops, effective.answers, body.when, city.country);
+    await db.from("pick_sets").insert({ user_id: userId, category: body.category, when_slot: body.when, origin_key: setKey, city_id: city.id, country: city.country, time_zone: city.timeZone, currency: city.currency, picks: [], searched: result.intents.filter((i) => i.explicit).map((i) => i.id), banner: notice, expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString() });
+    return json({ picks: [], notice });
   }
 
   // Places shown last time keep their order at the top.
@@ -460,7 +466,12 @@ async function showStored(
   const places = live.filter((p): p is Place => !!p);
   // A bar or café shown as a thing to do (karaoke, a rooftop) was checked
   // against what they asked for when it was chosen.
-  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true });
+  // Where they are hasn't changed (the set is kept per place), so distance
+  // and what each place was found for were checked when it was found; what
+  // changes is whether it's open and still there (backend audit, 23 Nov
+  // 2026: re-checking with their everyday distance dropped a whole-city set
+  // and paid for a new search; a trip out at the weekend vanished).
+  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
   const placePicks = await Promise.all(
     placeStored

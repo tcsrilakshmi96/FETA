@@ -32,11 +32,15 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
   const hit = memo.get(key);
   let reads = hit && Date.now() - hit.at < HOUR ? hit.reads : null;
   if (!reads) {
+    let failed = false;
     reads = FAKE ? fakeRead(said, loved, category) : await geminiRead(said, loved, city, category).catch((error) => {
       console.error(error);
+      failed = true;
       return [] as Read[];
     });
-    memo.set(key, { at: Date.now(), reads });
+    // A failed read is tried again next time, not kept for an hour (backend
+    // audit, 23 Nov 2026: one timeout hid what they typed for an hour).
+    if (!failed) memo.set(key, { at: Date.now(), reads });
   }
   const food = category === "food_drinks";
   const unlearned = new Set(taste.unlearned ?? []);

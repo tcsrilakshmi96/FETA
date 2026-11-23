@@ -37,7 +37,9 @@ export async function guideEventsFor(db: SupabaseClient, city: City): Promise<Gu
       console.error(e);
       return null;
     });
+    // Nothing found: tried again in 6 hours, not every 10 minutes all day (backend audit, 23 Nov 2026).
     if (found?.searchHtml) await saveEventsCache(db, key, found.events, found.searchHtml, 20);
+    else await saveEventsCache(db, key, [], "", 6);
   });
   return null;
 }

@@ -219,11 +219,15 @@ export default function Picks() {
     else tweak(tweaks, note);
   }
 
+  // More of the same list: a search's or a tweak's, never the everyday one
+  // (backend audit, 23 Nov 2026: Show me more after Cheaper added everyday places).
+  const moreAsk = searchAsk ?? (tweaked[key] ? { tweaks: tweaked[key].tweaks, note: tweaked[key].note } : undefined);
+
   // "Show me more": new ones go below the ones already shown.
   async function showMore() {
     if (!origin || !slot || slot.more) return;
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category, searchAsk);
+    const next = await nextPicks(slot, origin, when, category, moreAsk);
     if (next.fresh.length === 0) toast(next.notice ?? "That's everything that fits right now. Try Tweak.");
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: [...s[key].picks, ...next.fresh], spares: next.spares } }));
   }
@@ -233,7 +237,7 @@ export default function Picks() {
   async function freshSet(): Promise<PillPart[]> {
     if (!origin || !slot || slot.loading || slot.more) return [];
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category, searchAsk);
+    const next = await nextPicks(slot, origin, when, category, moreAsk);
     if (next.fresh.length === 0) {
       setSlots((s) => ({ ...s, [key]: { ...s[key], more: false } }));
       return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];

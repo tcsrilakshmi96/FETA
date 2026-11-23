@@ -29,14 +29,18 @@ export async function featuredFor(db: SupabaseClient, city: City, category: Cate
   const key = [city.id, "featured", category, today].join("|");
   const { data } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
   if (data) return { places: data.events as Featured[], searchHtml: data.search_html };
+  // Claimed at once, so the city's other searches meanwhile don't start it
+  // again; a search that finds nothing (or fails) is tried again in 6 hours,
+  // not on every search all day (backend audit, 23 Nov 2026).
+  const { error } = await saveEventsCache(db, key, [], "", 10 / 60);
+  if (error) return null;
   later(async () => {
     const found = await findFeatured(city, category).catch((error) => {
       console.error(error);
       return null;
     });
-    if (found?.searchHtml && found.places.length) {
-      await saveEventsCache(db, key, found.places, found.searchHtml, 20);
-    }
+    if (found?.searchHtml && found.places.length) await saveEventsCache(db, key, found.places, found.searchHtml, 20);
+    else await saveEventsCache(db, key, [], "", 6);
   });
   return null;
 }

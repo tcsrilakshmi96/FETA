@@ -75,6 +75,8 @@ await p.waitForFunction(() => location.pathname === "/style", { timeout: 20000 }
 // B · No plan: Where are you going?
 ok("B: no plan asks where they're going", await until(/Where are you/));
 await shot("b-where");
+// After 10 pm (city time) it asks tonight or tomorrow first.
+await click(/^Tonight$/);
 await click(/^Dinner$/);
 await click(/^Show my looks/);
 ok("C: 3 looks, the first one on screen", await until(/1 of 3/, 20000));
