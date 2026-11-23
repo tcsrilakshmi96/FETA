@@ -401,6 +401,21 @@ const PERSONAS: Persona[] = [
     half: true,
   },
   {
+    // Persona test, 23 Nov 2026: a vegetarian traveller in Lisbon got fine
+    // dining and meat-heavy places. Google says most Portuguese places serve
+    // vegetarian food; their names (churrasqueira, marisqueira, bacalhau,
+    // bifanas) say they're about meat or fish. Fine dining with no price on
+    // Google is still above a mid-range budget.
+    name: "Vegetarian traveller in Lisbon, local food: no churrasqueira or bacalhau, no fine dining over budget",
+    city: "Lisbon",
+    category: "food_drinks",
+    answers: { diet: "vegetarian" },
+    yes: ["cuisine_local", "cuisine_italian", "dressed_up"],
+    covers: ["cuisine_local", "cuisine_italian"],
+    never: /Churrasqueira|Marisqueira|Bacalhau|Bifanas|Alma Atelier|Gilded Fork/,
+    some: /Jardim Verde/,
+  },
+  {
     name: "Asked in chat: rooftop dinner",
     city: "Bengaluru",
     category: "food_drinks",

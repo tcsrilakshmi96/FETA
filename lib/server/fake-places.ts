@@ -112,6 +112,17 @@ export const CATALOGUE: Row[] = [
   ["Corner House Ice Creams", "ice_cream_shop", ["dessert_shop"], "ice cream desserts", true, 1, 4.6, 12000, "late", 1.3, 210],
   ["Daily Crumbs", "bakery", ["cafe"], "bakery breads", true, 1, 4.3, 900, "eve", 2.0, 240],
   ["Sweet Chariot", "bakery", ["cafe"], "bakery cakes", true, 2, 4.4, 1300, "eve", 2.2, 280],
+  // Lisbon-style places (persona test, 23 Nov 2026: a vegetarian traveller
+  // got fine dining and meat-heavy places). Google says most serve
+  // vegetarian food; their names say what they're about, in Portuguese.
+  ["Churrasqueira do Bairro", "portuguese_restaurant", ["restaurant"], "traditional portuguese grilled frango piri piri", true, 1, 4.5, 3200, "eve", 1.4, 15],
+  ["Marisqueira Azul", "portuguese_restaurant", ["restaurant"], "traditional portuguese marisco shellfish", true, 2, 4.6, 2400, "eve", 1.8, 95],
+  ["Taberna do Bacalhau", "portuguese_restaurant", ["restaurant"], "traditional portuguese bacalhau petiscos", true, 2, 4.4, 1800, "eve", 1.2, 170],
+  ["Casa das Bifanas", "sandwich_shop", ["restaurant"], "traditional portuguese bifana sandwich", true, 1, 4.5, 2600, "eve", 0.9, 230],
+  ["Ao 26 Vegan Kitchen", "vegan_restaurant", ["restaurant"], "vegan plant based", true, 2, 4.7, 1500, "eve", 1.5, 290],
+  ["Jardim Verde Tasca", "portuguese_restaurant", ["restaurant"], "traditional portuguese petiscos tasca veggie", true, 2, 4.5, 700, "eve", 2.1, 330],
+  // Fine dining with no price on Google.
+  ["Alma Atelier", "fine_dining_restaurant", ["restaurant"], "fine dining tasting menu traditional portuguese", true, 0, 4.8, 1200, "eve", 1.7, 120],
 ];
 
 const HOTELS = ["Hotel Sakura (test hotel)", "Riverside Inn (test hotel)", "Old Town Suites (test hotel)"];

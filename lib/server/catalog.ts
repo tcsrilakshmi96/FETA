@@ -40,7 +40,12 @@ export const CUISINE_SEARCH: Record<string, SearchDef> = {
   regional: { searches: ["regional indian thali restaurant", "bengali or goan or chettinad restaurant"], related: /indian|vegetarian/ },
   indian: { searches: ["indian restaurant", "south indian restaurant"], types: /indian|pakistani|bangladeshi|sri_lankan|nepal/ },
   indo_chinese: { searches: ["indo chinese restaurant"], types: /chinese|dim_sum|cantonese|sichuan/, related: ASIAN },
-  local: { searches: [] }, // "traditional <country> food", built per city in intents.ts
+  // "traditional <country> food", built per city in intents.ts. Any
+  // restaurant that search finds counts: Google names the cuisine by the
+  // country's adjective (portuguese_restaurant for Portugal), which the
+  // search words can't check (persona test, Lisbon, 23 Nov 2026: no
+  // Portuguese place ever counted as local food).
+  local: { searches: [], related: /_restaurant$/ },
   italian: { searches: ["italian restaurant", "pizzeria", "pasta restaurant"], types: /italian|pizza/, related: /mediterranean|european/ },
   japanese: { searches: ["japanese restaurant", "sushi or ramen restaurant"], types: /japanese|sushi|ramen|izakaya|udon|yakitori/, related: ASIAN },
   korean: { searches: ["korean restaurant", "korean food"], types: /korean/, related: ASIAN },
