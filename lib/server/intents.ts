@@ -173,12 +173,17 @@ const words = (q: string) => q.toLowerCase().split(/[^a-z]+/).filter((w) => w.le
 
 // Strong evidence (the place's type) counts wherever it was found. A place
 // found by the intent's own search counts too, unless it's clearly another
-// cuisine (an Indian place from a "thai restaurant" search).
+// cuisine (an Indian place from a "thai restaurant" search) or a thing to
+// do Google can't say what it is.
 export function matches(place: Place, intent: Intent, fromThisSearch: boolean) {
   const types = [place.primaryType ?? "", ...(place.types ?? [])].filter(Boolean);
   if (intent.def.types && types.some((t) => intent.def.types!.test(t))) return true;
   if (!fromThisSearch) return false;
   const primary = place.primaryType ?? "";
+  // A thing to do Google has no type for counts only when its name says
+  // it's what was searched ("Kiln Pottery" for "pottery class"): a band for
+  // hire isn't a live music venue (persona test, 23 Nov 2026).
+  if (!intent.food && !primary) return words(intent.query).some((w) => (place.displayName?.text ?? "").toLowerCase().includes(w));
   if (intent.def.related?.test(primary)) return true;
   if (!intent.food || !specificCuisine(primary)) return true;
   // A cuisine type named in the search itself ("vietnamese restaurant").

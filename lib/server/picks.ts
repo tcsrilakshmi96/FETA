@@ -325,11 +325,14 @@ function isMainlyFoodOrDrink(place: Place) {
 
 export const POPULAR_REVIEWS = 3000;
 
-// Shops, not places to go out to.
+// Shops and offices, not places to go out to.
 const NEVER_PICKS = [
   "liquor_store", "convenience_store", "grocery_store", "supermarket", "gas_station", "store", "department_store", "shopping_mall",
   // Hotels are not a night out (their restaurants count when Google lists the restaurant itself).
   "hotel", "lodging", "resort_hotel", "motel", "guest_house", "bed_and_breakfast", "hostel", "inn", "extended_stay_hotel", "budget_japanese_inn", "japanese_inn",
+  // Offices and services: nowhere to spend an evening (persona test, 23 Nov
+  // 2026: Plan my evening sent people to tour companies' offices at 10 pm).
+  "travel_agency", "tour_agency", "tourist_information_center", "event_planner", "real_estate_agency", "insurance_agency", "corporate_office", "consultant", "employment_agency", "lawyer", "accounting",
 ];
 
 // Global fast-food chains (founder, 21 Nov 2026, after a Taco Bell: "yes,

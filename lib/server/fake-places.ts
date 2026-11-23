@@ -121,6 +121,11 @@ export const CATALOGUE: Row[] = [
   ["Casa das Bifanas", "sandwich_shop", ["restaurant"], "traditional portuguese bifana sandwich", true, 1, 4.5, 2600, "eve", 0.9, 230],
   ["Ao 26 Vegan Kitchen", "vegan_restaurant", ["restaurant"], "vegan plant based", true, 2, 4.7, 1500, "eve", 1.5, 290],
   ["Jardim Verde Tasca", "portuguese_restaurant", ["restaurant"], "traditional portuguese petiscos tasca veggie", true, 2, 4.5, 700, "eve", 2.1, 330],
+  // Businesses a things-to-do search finds that are not places to go
+  // (persona test, 23 Nov 2026: Plan my evening sent people to a band for
+  // hire and to tour companies' offices at 10 pm). Open late on Google.
+  ["Rhythm Riders Band for Hire", "", ["point_of_interest"], "live music band hire weddings parties", null, 0, 4.9, 140, "late", 1.2, 140],
+  ["Heritage Night Tours Co", "tour_agency", ["travel_agency", "point_of_interest"], "heritage walk tours art gallery walks museum", null, 2, 4.8, 400, "late", 1.4, 60],
   // Fine dining with no price on Google.
   ["Alma Atelier", "fine_dining_restaurant", ["restaurant"], "fine dining tasting menu traditional portuguese", true, 0, 4.8, 1200, "eve", 1.7, 120],
 ];
