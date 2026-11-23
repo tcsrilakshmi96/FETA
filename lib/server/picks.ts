@@ -417,6 +417,9 @@ export function applyHardFilters(
       // A thing to do Google can't say what it is (a band for hire, an
       // office) only when it's what they chose, never as popular nearby.
       (opts.category === "experiences" && !place.primaryType && !opts.untypedOk?.(place)) ||
+      // A shop is never a thing to do (live check, 23 Nov 2026: a riding-gear
+      // shop for horse riding).
+      (opts.category === "experiences" && /_store$/.test(place.primaryType ?? "")) ||
       notANightOut(place) ||
       opts.taste.notInto?.includes(place.primaryType ?? "") ||
       poorlyKnown(place)
