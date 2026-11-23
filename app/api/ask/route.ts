@@ -25,7 +25,11 @@ type Origin = { lat: number; lng: number; label: string; source: "gps" | "area" 
 
 type VeniceReply = {
   reply?: string;
-  learned?: ({ text?: string; about?: string | null; for?: string } | string)[];
+  learned?: ({ text?: string; for?: string } | string)[];
+  // What they said about someone else (a partner, friends), apart from what
+  // they said about themselves (tester, 23 Nov 2026: a vegetarian's "he eats
+  // meat" landed in her own profile as "Eats meat").
+  people?: { who?: string; name?: string | null; text?: string }[];
   weekend?: string | null;
   itinerary?: { place?: string | null; days?: number; start?: string | null; who?: string; note?: string } | null;
   trip?: { place?: string; dates?: string } | null;
@@ -52,6 +56,9 @@ export type AskReply = {
   reply: string;
   picks: Pick[];
   added: { id: string; text: string }[];
+  // Lines about the people they go out with: "Noted about Arjun", never
+  // "Added to your profile".
+  noted?: { id: string; text: string; who: string; name: string | null }[];
   today?: boolean; // what was added counts only today ("out with my parents tonight")
   trip: string | null; // "Goa · 14–18 Dec"
   notice?: string;
@@ -133,7 +140,7 @@ ${styleText}
 What they've told Feta about the people they go out with:
 ${people || "Nothing yet."}
 
-Plans with or for someone else (a date, friends, family): what you know is about this person, not the others; never assume a partner or friend likes what they like. Before searching, ask at most one short question, with "options", and only when their message leaves it open (if it already says who, what and where, search straight away and say what you assumed; testers waited through three questions): whether they want somewhere to eat and drink, something to do, or both (options like "Food and drinks", "Something to do", "Both"), unless they already said; the mood (romantic, fun, chill, adventurous); and what the others like (unless it's listed above). Then act, using what suits them all; if their tastes differ, say how the plan works for both. If they say "just pick", act straight away. Never say you're looking or searching without sending the search in that same reply. Save what they tell you about the others in "learned" with "about".
+Plans with or for someone else (a date, friends, family): what you know is about this person, not the others; never assume a partner or friend likes what they like. Before searching, ask at most one short question, with "options", and only when their message leaves it open (if it already says who, what and where, search straight away and say what you assumed; testers waited through three questions): whether they want somewhere to eat and drink, something to do, or both (options like "Food and drinks", "Something to do", "Both"), unless they already said; the mood (romantic, fun, chill, adventurous); and what the others like (unless it's listed above). Then act, using what suits them all; if their tastes differ, say how the plan works for both. If they say "just pick", act straight away. Never say you're looking or searching without sending the search in that same reply. What they tell you about anyone else ("he eats meat", "my mum is Jain") goes in "people", never in "learned".
 ${currentTrip ? `\nThe trip you're planning together: ${currentTrip.title}${currentTrip.start_date ? `, from ${currentTrip.start_date}` : ""}${currentTrip.who ? `, with ${currentTrip.who}` : ""}: ${currentTrip.cities.map((c) => `${c.name} ${c.nights} nights`).join(", ")}. It's saved in Saved; its card has the next steps (getting around, hotels, then day plans for each city, which are kept with the trip). For day plans in its cities, point them to the card's "plan days" buttons instead of sending an itinerary.\n` : ""}
 Be a real assistant, not a menu (founder, 19 Nov 2026: "you can chat with it about anything in life and it should be able to answer and suggest"). Answer anything they ask, about going out or not (a gift idea, what to say in a toast, how to plan a busy week, a recipe, what to wear, a tricky conversation), well and briefly, from what you know; then, when it fits naturally, offer how Feta can help (a place, a plan). Never claim to have checked facts or prices live; for medical, legal or money decisions, give general guidance and suggest a professional. Help with anything about eating out, things to do, days out and trips too, even when it isn't one of Feta's usual options (a sunrise hike, a pottery class, a quiet place to read, the best time to go, what to bring or wear). Suggest things they may not have thought of, from what you know about them, and say why; offer a natural next step ("Breakfast near the trail after?"). Put what you learn about them in "learned" (e.g. "Into hikes and sunrise treks"), so Feta gets to know them over time.
 Real places come only from Feta's own search, which checks them against their diet, budget, distance and opening hours. Never present a place as checked yourself; you may name a well-known place or landmark in a search "note" so Feta looks it up. Your reply is written before the search comes back: never promise to pick one or say more once results arrive; the places show under your reply. Don't tell them what their taste is from one loved place or a tap in setup ("You like hole-in-the-wall places"); say why a search suits what they asked for instead.
@@ -146,7 +153,8 @@ Besides talking, you can do one of these per reply (leave the others null).
 Reply with only a JSON object:
 {"reply": what you say, 1 to 4 short sentences (a little longer when they ask for advice or an explanation that needs it),
  "options": 2 to 4 tap-able answers (under 5 words each) whenever your reply asks a question (always, so they can just tap), else [],
- "learned": up to 3 new lasting things worth remembering about them or the people they go out with, each {"text": a short plain line with no pronouns (e.g. "Loves Mexican food"), "about": null, "partner", "family", "friends" or "kids", "for": "always", or "today" for something true only tonight or for this one outing (who they're with tonight, tonight's mood, an occasion: "out with my parents tonight" is "today")}; [] if nothing new; never labels, personality types, health or allergy details,
+ "learned": up to 3 new lasting things worth remembering about the person you're talking to, and only them, each {"text": a short plain line about them (e.g. "Loves Mexican food"), "for": "always", or "today" for something true only tonight or for this one outing (who they're with tonight, tonight's mood, an occasion: "out with my parents tonight" is "today")}; [] if nothing new; never labels, personality types, health or allergy details,
+ "people": up to 3 things they told you about someone else they go out with, each {"who": "partner", "family", "friends" or "kids", "name": their name if they said it, else null, "text": a short line that names them (e.g. "Arjun eats meat and loves craft beer", "Mum is Jain")}; [] if nothing,
  "weekend": null, or a short phrase when they say they want to do something this coming weekend where they are (not a trip); Feta offers to add it, it never adds it itself,
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
  "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above, "outfit": null or as above,
@@ -190,9 +198,9 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   // Things learned go straight into the profile, shown with Undo.
   // Something true only tonight ("out with my parents tonight") counts for
   // today only (Round 6: it reached Lisbon picks a week later).
-  const learned = (parsed.learned ?? [])
-    .map((l) => (typeof l === "string" ? { text: l, about: null, for: "always" } : { text: l.text ?? "", about: l.about ?? null, for: l.for ?? "always" }))
-    .map((l) => ({ text: l.text.trim().slice(0, 80), about: (ABOUT as readonly string[]).includes(l.about ?? "") ? l.about : null, today: l.for === "today" }))
+  const learned = (Array.isArray(parsed.learned) ? parsed.learned : [])
+    .map((l) => (typeof l === "string" ? { text: l, for: "always" } : { text: l?.text ?? "", for: l?.for ?? "always" }))
+    .map((l) => ({ text: String(l.text).trim().slice(0, 80), today: l.for === "today" }))
     .filter((l) => l.text)
     .slice(0, 3);
   let added: { id: string; text: string }[] = [];
@@ -200,10 +208,30 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   if (learned.length > 0) {
     const { data, error } = await db
       .from("profile_lines")
-      .insert(learned.map((l) => ({ user_id: userId, line_key: `${l.about ? `people:${l.about}` : "chat"}:${crypto.randomUUID()}`, text: l.text, source: "chat", trip: l.today ? todayScope() : null })))
+      .insert(learned.map((l) => ({ user_id: userId, line_key: `chat:${crypto.randomUUID()}`, text: l.text, source: "chat", trip: l.today ? todayScope() : null })))
       .select("id, text");
     if (error) console.error("Saving chat lines failed", error.message);
     added = data ?? [];
+  }
+  // About the people they go out with: kept apart (Ask's brief only, never
+  // everyday picks) and shown as "Noted about Arjun", never in their profile.
+  const others = (Array.isArray(parsed.people) ? parsed.people : [])
+    .filter((p) => p && typeof p === "object")
+    .map((p) => ({
+      who: (ABOUT as readonly string[]).includes(p.who ?? "") ? p.who! : "friends",
+      name: typeof p.name === "string" && p.name.trim() ? p.name.trim().slice(0, 30) : null,
+      text: String(p.text ?? "").trim().slice(0, 80),
+    }))
+    .filter((p) => p.text)
+    .slice(0, 3);
+  let noted: NonNullable<AskReply["noted"]> = [];
+  if (others.length > 0) {
+    const { data, error } = await db
+      .from("profile_lines")
+      .insert(others.map((p) => ({ user_id: userId, line_key: `people:${p.who}:${crypto.randomUUID()}`, text: p.text, source: "chat" })))
+      .select("id, text");
+    if (error) console.error("Saving people lines failed", error.message);
+    noted = (data ?? []).map((row, i) => ({ id: row.id, text: row.text, who: others[i].who, name: others[i].name }));
   }
 
   // Something for this weekend is offered with "Add to my weekend"; only
@@ -418,6 +446,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       extras: {
         picks: picks.map((p) => ({ placeId: p.placeId, kind: p.kind, verdict: p.verdict, because: p.because })),
         added,
+        ...(noted.length ? { noted } : {}),
         trip: header,
         weekend,
         ...(explained ? { why: true } : {}),
@@ -430,7 +459,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     },
   ]);
 
-  return Response.json({ reply, picks, added, ...(todayOnly ? { today: true } : {}), trip: header, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
+  return Response.json({ reply, picks, added, ...(noted.length ? { noted } : {}), ...(todayOnly ? { today: true } : {}), trip: header, weekend, itinerary, tripId, ...(outfit ? { outfit, brands } : {}), ...(notice ? { notice } : {}), ...(options.length && !searches.length && !tripId ? { options } : {}) } satisfies AskReply);
 }
 
 // The day and time asked for, in the city's own time: a time with no day

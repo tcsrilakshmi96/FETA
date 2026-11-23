@@ -22,12 +22,20 @@ import styles from "./Ask.module.css";
 
 type Message =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; weekendId?: string; tripId?: string | null };
+  | { id: number; role: "assistant"; text: string; reply?: AskReply; undone?: boolean; notedUndone?: boolean; tripOnly?: boolean; todayOnly?: boolean; weekendUndone?: boolean; weekendId?: string; tripId?: string | null };
 
 const GREETING =
   "Going somewhere, or out with someone new? Tell me and I'll adjust your picks. Anything I learn shows up in You, where you can change it.";
 
 const PROMPTS = ["Plan my date night", "Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "I'm going to Goa next month", "Why this one?"];
+
+const WHO: Record<string, string> = { partner: "your partner", family: "your family", friends: "your friends", kids: "your kids" };
+
+// "NOTED ABOUT ARJUN", or who they are when no name was said.
+function notedLabel(noted: NonNullable<AskReply["noted"]>) {
+  const names = [...new Set(noted.map((n) => n.name ?? WHO[n.who] ?? "them"))];
+  return `NOTED ABOUT ${names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " and " + names[names.length - 1]}`.toUpperCase();
+}
 
 export default function Ask() {
   const router = useRouter();
@@ -207,6 +215,32 @@ export default function Ask() {
                     <span className={`switch ${(m.todayOnly ?? m.reply.today) ? "on" : ""}`} />
                   </button>
                 )}
+              </div>
+            )}
+            {/* About someone they go out with: never "your profile" (tester,
+                23 Nov 2026: her boyfriend's "eats meat" read as hers). */}
+            {m.role === "assistant" && m.reply?.noted && m.reply.noted.length > 0 && (
+              <div className={styles.added}>
+                <div className={styles.addedHead}>
+                  <span className={styles.addedLabel}>{notedLabel(m.reply.noted)}</span>
+                  <button
+                    type="button"
+                    className={styles.undo}
+                    disabled={m.notedUndone}
+                    onClick={() => {
+                      undoLines(m.reply!.noted!.map((a) => a.id));
+                      patch(m.id, { notedUndone: true });
+                    }}
+                  >
+                    {m.notedUndone ? "Undone" : "Undo"}
+                  </button>
+                </div>
+                <div className={styles.addedLines} style={{ opacity: m.notedUndone ? 0.4 : 1 }}>
+                  {m.reply.noted.map((a) => (
+                    <span key={a.id}>＋ {a.text}</span>
+                  ))}
+                  <span className={styles.tripSub}>Used only when they come along. Your own picks stay yours.</span>
+                </div>
               </div>
             )}
             {m.role === "assistant" && m.reply?.weekend && (
