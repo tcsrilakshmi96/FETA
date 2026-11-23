@@ -1,5 +1,6 @@
 "use client";
 
+import { shareSafe } from "@/lib/share-safe";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // Send to the group: a pick or a plan as a Feta link that friends can open
@@ -31,7 +32,7 @@ export type Vote = "yes" | "no" | "1" | "2" | "3";
 export async function createShare(kind: ShareKind, payload: SharePayload | ChoicePayload, planId?: string | null): Promise<string | null> {
   const userId = await currentUserId();
   if (!userId) return null;
-  const { data, error } = await supabase().from("shares").insert({ user_id: userId, kind, payload, ...(planId ? { plan_id: planId } : {}) }).select("slug").single();
+  const { data, error } = await supabase().from("shares").insert({ user_id: userId, kind, payload: shareSafe(payload), ...(planId ? { plan_id: planId } : {}) }).select("slug").single();
   if (error) {
     console.error("Creating share failed", error.message);
     return null;
