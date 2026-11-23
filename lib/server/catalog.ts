@@ -80,7 +80,8 @@ export const INTEREST_SEARCH: Record<string, SearchDef> = {
   class_painting: { searches: ["painting class", "art workshop"], types: /art_studio|art_school|painting/, ahead: true },
   class_dance: { searches: ["dance class", "salsa class"], types: /dance/, ahead: true },
   class_candle: { searches: ["candle making workshop", "perfume making workshop"], types: /workshop|craft|candle|perfume/, ahead: true },
-  tastings: { searches: ["wine tasting", "coffee tasting", "chocolate tasting"], types: /winery|wine|tasting|coffee_roast|chocolate/, ahead: true },
+  tastings: { searches: ["wine tasting", "beer tasting", "coffee tasting", "chocolate tasting"], soberSearches: ["coffee tasting", "chocolate tasting", "tea tasting"], types: /winery|wine|brewery|brewpub|beer|tasting|coffee_roast|chocolate/, ahead: true },
+  taste_beer: { searches: ["beer tasting", "brewery tour"], types: /brewery|brewpub|beer/, alcohol: true, ahead: true },
   taste_wine: { searches: ["wine tasting", "winery"], types: /winery|wine/, alcohol: true, ahead: true },
   taste_coffee: { searches: ["coffee tasting", "coffee roastery"], types: /coffee_roast|coffee/, ahead: true },
   taste_chocolate: { searches: ["chocolate tasting", "chocolate factory tour"], types: /chocolate/, ahead: true },
@@ -166,4 +167,13 @@ export const DEFAULT_DOING: Record<"tonight" | "weekend", { query: string; def: 
     { query: "museum", def: INTEREST_SEARCH.art_culture },
     { query: "workshop or class", def: INTEREST_SEARCH.workshops },
   ],
+};
+
+// "Tastings" with nothing more specific starts with what the place is known
+// for (founder, 23 Nov 2026: "in Czech, beer tastings are popular"). By
+// country; anywhere else the usual order.
+export const LOCAL_TASTING: Record<string, string> = {
+  CZ: "beer tasting", DE: "beer tasting", BE: "beer tasting", IE: "whiskey tasting", GB: "gin tasting",
+  FR: "wine tasting", IT: "wine tasting", ES: "wine tasting", PT: "port wine tasting", AR: "wine tasting", CL: "wine tasting", ZA: "wine tasting", AU: "wine tasting", NZ: "wine tasting", GE: "wine tasting",
+  JP: "sake tasting", MX: "mezcal tasting", PE: "pisco tasting", CO: "coffee tasting", ET: "coffee tasting", CH: "chocolate tasting", IN: "tea tasting", LK: "tea tasting", TW: "tea tasting", CN: "tea tasting",
 };

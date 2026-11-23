@@ -878,6 +878,8 @@ async function main() {
     // An event link that redirects away from the event is wrong (founder, 23 Nov 2026: GoOut)
     landsOnSame("https://goout.net/en/bread-hot-wine/szabcde/", "https://goout.net/en/prague/events/") && "a link that lands on a listings page counts as the event",
     !landsOnSame("https://goout.net/en/bread-hot-wine/szabcde/", "https://goout.net/cs/bread-hot-wine/szabcde/") && "a link that lands on the same event in another language is dropped",
+    // Tastings in Prague start with beer (founder, 23 Nov 2026)
+    !/beer/.test(allIntents({ answers: { ...EMPTY_ANSWERS, interests: ["tastings"] }, lines: [], yes: [], no: [] } as Taste, { category: "experiences", city: searchCities("Prague", 1)[0], tweaks: [], rotation: 0 }).find((i) => i.id === "interest_tastings")?.query ?? "") && "Tastings in Prague don't start with beer",
     // Diet never on anything shareable
     /vegetarian|vegan|jain/i.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "a", kind: "EAT", because: "Because you asked for vegetarian dinner near Alfama." }, { placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan says their diet",
     !/love comedy/.test(JSON.stringify(shareSafe({ title: "Tonight", stops: [{ placeId: "b", kind: "DO", because: "Because you love comedy." }] }))) && "a shared plan loses a reason with no diet in it",

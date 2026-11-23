@@ -153,6 +153,7 @@ export const QUESTIONS: Question[] = [
       { id: "class_candle", label: "Candle and perfume making", parent: "workshops" },
       { id: "tastings", label: "Tastings" },
       { id: "taste_wine", label: "Wine tasting", parent: "tastings" },
+      { id: "taste_beer", label: "Beer tasting", parent: "tastings" },
       { id: "taste_coffee", label: "Coffee tasting", parent: "tastings" },
       { id: "taste_chocolate", label: "Chocolate tasting", parent: "tastings" },
       { id: "taste_tea", label: "Tea tasting", parent: "tastings" },

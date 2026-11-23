@@ -2,7 +2,7 @@ import "server-only";
 
 import type { City } from "@/lib/cities";
 import { QUESTIONS } from "@/lib/onboarding";
-import { CUISINE_SEARCH, DAY_PLAN, DEFAULT_DOING, INTEREST_SEARCH, SIDE_SEARCH, TWEAK_SEARCH, type SearchDef } from "@/lib/server/catalog";
+import { CUISINE_SEARCH, LOCAL_TASTING, DAY_PLAN, DEFAULT_DOING, INTEREST_SEARCH, SIDE_SEARCH, TWEAK_SEARCH, type SearchDef } from "@/lib/server/catalog";
 import type { Place } from "@/lib/server/places";
 import { sideById } from "@/lib/swipes";
 import { isVegDiet } from "@/lib/onboarding";
@@ -87,7 +87,10 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
     const def = INTEREST_SEARCH[id];
     if (!def || !!def.drinkPlace !== food || (def.alcohol && sober)) continue;
     const label = interestLabel(id);
-    out.push({ id: `interest_${id}`, label, reason: `Because you're into ${label.toLowerCase()}.`, query: variant(sober && def.soberSearches ? def.soberSearches : def.searches, rotation), def, explicit: true, source: "interest", food });
+    // Tastings in general: the city's own speciality first (beer in Prague).
+    const local = id === "tastings" && !sober ? LOCAL_TASTING[city.country] : undefined;
+    const searches = sober && def.soberSearches ? def.soberSearches : local ? [local, ...def.searches.filter((q) => q !== local)] : def.searches;
+    out.push({ id: `interest_${id}`, label, reason: `Because you're into ${label.toLowerCase()}.`, query: variant(searches, rotation), def, explicit: true, source: "interest", food });
   }
   if (food) {
     for (const id of taste.yes.filter((y) => y.startsWith("cuisine_"))) {
