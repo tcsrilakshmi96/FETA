@@ -159,6 +159,9 @@ export function pieceProblem(name: string): string | null {
 export function lookProblem(l: Look, styles: string[]): string | null {
   if (!styles.includes(l.style)) return "not one of their styles";
   if (!l.title || TRAILING.test(l.title.trim()) || l.title.length > 40) return "title cut off";
+  // "Indo Indo Evening" (testers, 23 Nov 2026).
+  const words = l.title.toLowerCase().match(/[\p{L}']+/gu) ?? [];
+  if (new Set(words).size < words.length) return "a word repeated in the title";
   if (!l.pieces.some((p) => p.slot === "shoes")) return "no shoes";
   const onePiece = l.pieces.some((p) => p.slot === "one-piece");
   if (!onePiece && !(l.pieces.some((p) => p.slot === "top") && l.pieces.some((p) => p.slot === "bottom"))) return "no top and bottom";

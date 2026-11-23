@@ -19,7 +19,7 @@ import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
-import { brandPrice, shopLink } from "@/lib/style";
+import { brandPrice, lookProblem, shopLink } from "@/lib/style";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -562,6 +562,7 @@ async function main() {
     brandPrice({ price_feel: "budget", sample_price: 2499, sample_currency: "INR", checked_date: null }, ["c1"], "INR").fit !== "above" && "a ₹2,499 piece passes an under-₹1,500 budget",
     brandPrice({ price_feel: "budget", sample_price: null, sample_currency: null, checked_date: null }, ["c1"], "INR").fit !== "explore" && "an unpriced brand claims a budget fit",
     brandPrice({ price_feel: null, sample_price: 40, sample_currency: "USD", checked_date: null }, ["c2"], "GBP").fit !== "above" && "a brand with no price level or local price is shown",
+    !lookProblem({ id: "x", style: "indian-fusion", title: "Indo Indo Evening", why: "", pieces: [{ slot: "one-piece", name: "Indigo cotton kurta set" }, { slot: "shoes", name: "Tan leather kolhapuris" }] }, ["indian-fusion"]) && "a look titled \"Indo Indo Evening\" passes",
   ].filter(Boolean);
   if (brandFails.length) {
     failed++;
