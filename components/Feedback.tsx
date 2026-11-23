@@ -1,18 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Feedback.module.css";
 
-// The Feedback pill on every screen, and its sheet: a note, an optional
-// screenshot of the screen behind, Send.
+// Home has its own Feedback button beside "Hi <name>" (founder, 23 Nov
+// 2026); it opens this sheet with this event.
+export const OPEN_FEEDBACK = "feta:feedback";
+export function openFeedback() {
+  window.dispatchEvent(new Event(OPEN_FEEDBACK));
+}
+
+// The Feedback tab on every other screen, and its sheet: a note, an
+// optional screenshot of the screen behind, Send.
 export default function Feedback() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [attach, setAttach] = useState(true);
   const [state, setState] = useState<"form" | "sending" | "sent" | "failed">("form");
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_FEEDBACK, show);
+    return () => window.removeEventListener(OPEN_FEEDBACK, show);
+  }, []);
 
   function close() {
     setOpen(false);
@@ -44,9 +56,11 @@ export default function Feedback() {
 
   return (
     <>
-      <button type="button" className="feedback-pill" data-no-capture onClick={() => setOpen(true)}>
-        Feedback
-      </button>
+      {pathname !== "/home" && (
+        <button type="button" className="feedback-pill" data-no-capture onClick={() => setOpen(true)}>
+          Feedback
+        </button>
+      )}
       {open && (
         <div data-no-capture>
           <div className={styles.dim} onClick={close} />

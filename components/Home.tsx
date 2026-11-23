@@ -13,6 +13,7 @@ import FirstTime from "@/components/FirstTime";
 import IphoneInstall from "@/components/IphoneInstall";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
+import { openFeedback } from "@/components/Feedback";
 import PickPhoto from "@/components/PickPhoto";
 import PlanSheet from "@/components/PlanSheet";
 import SaveTaste from "@/components/SaveTaste";
@@ -309,7 +310,12 @@ export default function Home() {
           </h1>
           {/* Light or dark from Home (founder, 21 Nov 2026), the same setting as in You. */}
           <div className={styles.helloRow}>
-            {name ? <p className={styles.hello}>Hi {name}!</p> : <span />}
+            <span className={styles.helloLeft}>
+              {name ? <p className={styles.hello}>Hi {name}!</p> : null}
+              <button type="button" className={styles.feedback} onClick={openFeedback} data-no-capture>
+                Feedback
+              </button>
+            </span>
             <ThemeToggle />
           </div>
           <IphoneInstall />

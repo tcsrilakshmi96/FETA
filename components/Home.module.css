@@ -437,3 +437,20 @@
 .style .tileTitle {
   padding-right: 36px;
 }
+
+/* Feedback beside "Hi <name>" (founder, 23 Nov 2026). */
+.helloLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.feedback {
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 99px;
+  border: 1px solid rgba(var(--inkRGB), 0.2);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: rgba(var(--inkRGB), 0.8);
+}
