@@ -184,9 +184,7 @@ export async function findDestination(name: string): Promise<{ name: string; lat
 // "Type a neighbourhood or landmark": suggestions near the city, then the
 // chosen one's location. Autocomplete is free when the session ends in this
 // details call, which uses the cheapest fields (Essentials).
-// cityOnly: only places within the city's area (places they love at setup;
-// tester, 23 Nov 2026: Dhaka and Cleveland suggested in Bengaluru).
-export async function suggestAreas(input: string, near: { lat: number; lng: number }, country: string, session: string, cityOnly = false) {
+export async function suggestAreas(input: string, near: { lat: number; lng: number }, country: string, session: string) {
   if (FAKE) return [0, 1, 2].map((n) => ({ placeId: `fake_${near.lat.toFixed(4)}_${near.lng.toFixed(4)}_${n}_f`, name: `${input} (test ${n + 1})`, detail: "Test Area, Test City", types: ["restaurant", "food"] }));
   const res = await fetch(`${BASE}/places:autocomplete`, {
     method: "POST",
@@ -195,10 +193,9 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
       input,
       sessionToken: session,
       languageCode: "en",
-      includedRegionCodes: [country.toLowerCase()],
-      ...(cityOnly
-        ? { locationRestriction: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 50000 } } }
-        : { locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 40000 } } }),
+      // No country for "places you love": they can be anywhere in the world.
+      ...(country ? { includedRegionCodes: [country.toLowerCase()] } : {}),
+      locationBias: { circle: { center: { latitude: near.lat, longitude: near.lng }, radius: 40000 } },
       // Nearest first, so Toit in their city comes before Toit Pune (tester,
       // 21 Nov 2026); places elsewhere still come after.
       origin: { latitude: near.lat, longitude: near.lng },

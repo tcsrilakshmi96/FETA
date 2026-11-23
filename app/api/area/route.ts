@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
   const db = token ? userDb(token) : null;
   if (!token || !db || !(await userIdFor(db, token))) return Response.json({ error: "Not signed in" }, { status: 401 });
-  let body: { input?: string; lat?: number; lng?: number; country?: string; cityOnly?: boolean; placeId?: string; session?: string };
+  let body: { input?: string; lat?: number; lng?: number; country?: string; placeId?: string; session?: string };
   try {
     body = await request.json();
   } catch {
@@ -23,9 +23,10 @@ export async function POST(request: Request) {
       return Response.json(at ? { location: at } : { error: "Not found" }, { status: at ? 200 : 404 });
     }
     const input = (body.input ?? "").trim().slice(0, 80);
-    if (input.length < 2 || !Number.isFinite(body.lat) || !Number.isFinite(body.lng) || !/^[A-Z]{2}$/.test(body.country ?? "")) {
+    // An empty country searches everywhere (places you love can be abroad).
+    if (input.length < 2 || !Number.isFinite(body.lat) || !Number.isFinite(body.lng) || !/^([A-Z]{2})?$/.test(body.country ?? "")) {
       return Response.json({ suggestions: [] });
     }
-    return Response.json({ suggestions: await suggestAreas(input, { lat: body.lat!, lng: body.lng! }, body.country!, session, body.cityOnly === true) });
+    return Response.json({ suggestions: await suggestAreas(input, { lat: body.lat!, lng: body.lng! }, body.country!, session) });
   });
 }
