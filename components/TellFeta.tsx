@@ -9,6 +9,9 @@ import styles from "./TellFeta.module.css";
 // where they can add further things they like"). What they type is saved
 // as a line in their own words, and the next search looks for it
 // (lib/server/taste-reader.ts), so it changes the picks straight away.
+// Called "Add to your taste" since Search came (founder, 23 Nov 2026), so
+// the two boxes read differently: this one is kept for good, a search is
+// just for now.
 export default function TellFeta({ hint, onAdded }: { hint: string; onAdded?: (text: string) => void }) {
   const toast = useToast();
   const [text, setText] = useState("");
@@ -32,9 +35,10 @@ export default function TellFeta({ hint, onAdded }: { hint: string; onAdded?: (t
 
   return (
     <form className={styles.box} onSubmit={send}>
-      <p className={styles.title}>Tell Feta what you like</p>
+      <p className={styles.title}>Add to your taste</p>
+      <p className={styles.sub}>Kept for good: Feta looks for it in every list. Just looking once? Use Search on Home.</p>
       <div className={styles.row}>
-        <input className={styles.field} value={text} onChange={(e) => setText(e.target.value)} placeholder={hint} maxLength={80} aria-label="Tell Feta what you like" />
+        <input className={styles.field} value={text} onChange={(e) => setText(e.target.value)} placeholder={hint} maxLength={80} aria-label="Add to your taste" />
         <button type="submit" className={styles.send} disabled={!text.trim() || busy} aria-label="Add">
           {busy ? "…" : "＋"}
         </button>

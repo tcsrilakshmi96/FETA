@@ -58,6 +58,8 @@ Everything Style must do, from the founder's feedback, her testers, the UX revie
 - From a piece: only brands that sell that kind of piece, with "‹ Back to your look".
 - Research runs for their styles in their country only, once per country (not once per page load); a round that found nothing is not marked done; out of research budget is said plainly.
 
+- Search a piece (founder, 23 Nov 2026): a box under "Brands for your styles", and Home's Search for clothes words. Brands in their country, in any style and within their budget, whose name or research notes say they make every word typed (else the closest, said so); Homegrown only holds; each links to its own store searched for the piece ("See “linen shirt” on their site ↗"), never a promise it's in stock. Free; Clear goes back to their brands.
+
 ## My style (one page, edits in place, "Saved")
 You shop · Your styles (with why, ✕, + hang up more looks) · Your wardrobe · Budget per piece · Looks you wore (Wear it again, no new picture) · Brands you love · Looks on you (optional photo, stays on this phone; on a new phone say so once).
 - Changing what they shop for switches every figure and look.

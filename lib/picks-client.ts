@@ -23,12 +23,15 @@ export function savingTaste<T>(write: PromiseLike<T>): Promise<T> {
   return p;
 }
 
+// A Tweak, or a search from the Search screen (just what they typed).
+export type Ask = { tweaks: string[]; note?: string; search?: boolean };
+
 export async function fetchPicks(
   category: Category,
   when: When,
   origin: Origin,
   more = false,
-  tweak?: { tweaks: string[]; note?: string },
+  tweak?: Ask,
 ): Promise<PicksReply> {
   await saving;
   await currentUserId();

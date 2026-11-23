@@ -225,6 +225,22 @@ function rightCountry(href: string, country: string) {
   const named = linkCountries(href);
   return named.length === 0 || named.includes(country.toLowerCase());
 }
+// A piece searched for (Search, founder 23 Nov 2026): the brand's own store
+// searched for it with Google (their country's site, as shopLink found it),
+// or, with no store of theirs, the brand and the piece in their country.
+// Feta never says it's in stock.
+export function pieceLink(link: { href: string; label: string }, brandName: string, piece: string, countryName: string): { href: string; label: string } {
+  const google = (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+  let host: string | null = null;
+  try {
+    host = new URL(link.href).hostname.replace(/^www\./, "");
+  } catch {
+    host = null;
+  }
+  if (!host || host === "google.com") return { href: google(`${brandName} ${piece} ${countryName}`), label: `Find “${piece}” in ${countryName} ↗` };
+  return { href: google(`${piece} site:${host}`), label: `See “${piece}” on their site ↗` };
+}
+
 export function shopLink(brand: { name: string; website: string | null; origin_country?: string | null }, market: { presence_url: string | null; presence_ok?: boolean | null }, country: string, countryName: string, wears?: Wears): { href: string; label: string } {
   const own = brand.website ? (() => { try { return siteName(new URL(brand.website).hostname); } catch { return null; } })() : null;
   // Never the other side's page (persona re-test, 23 Nov 2026: a womenswear

@@ -80,6 +80,11 @@ type Body = {
   // for, and only places mainly to eat count as what was asked (tester,
   // 23 Nov 2026: "dinner and craft beer" brought two breweries, no dinner).
   meal?: "breakfast" | "brunch" | "lunch" | "dinner";
+  // From the Search screen (founder, 23 Nov 2026): just what they typed
+  // (note), one Google search, events of that kind for things to do, and a
+  // place named in it always shown first, saying any rule it breaks. Their
+  // taste isn't read or changed: a search is for right now.
+  search?: boolean;
 };
 
 const MEALS = ["breakfast", "brunch", "lunch", "dinner"] as const;
@@ -108,6 +113,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     return json({ error: "Bad request" }, 400);
   }
 
+  // A search keeps only what was typed, like a chat search.
+  const only = body.only ?? (body.search && body.note?.trim() ? "asked" : undefined);
   const db = userDb(token);
   const userId = await userIdFor(db, token);
   if (!userId) return json({ error: "Not signed in" }, 401);
@@ -146,7 +153,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const latest = (recent ?? []).find((s) => s.origin_key === originKey);
   // A place in their Food & drinks list right now isn't repeated in Things
   // to do (tester, 23 Nov 2026: the same café in both lists); food owns it.
-  if (body.category === "experiences" && !body.dayPlan && !body.only) {
+  if (body.category === "experiences" && !body.dayPlan && !only) {
     const { data: food } = await db
       .from("pick_sets")
       .select("picks")
@@ -204,7 +211,8 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // 3. New search. "Show me more" and tweaks skip anything shown (or kept
   //    as backup) in the last day; topping up skips what is already kept.
   // (Not for day plans: asking again for the same days should find them again.)
-  if ((body.more || tweaked) && !body.dayPlan) {
+  // (A search finds what was typed even if it was in today's lists.)
+  if ((body.more || (tweaked && !body.search)) && !body.dayPlan) {
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     for (const set of recent ?? []) {
       if (new Date(set.created_at).getTime() > dayAgo) for (const p of set.picks as StoredPick[]) exclude.add(p.placeId);
@@ -217,7 +225,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
 
   // What they've said and the places they love, read once for both the
   // events and the places.
-  const extra = await describeLoved(effective, rotation, body.category)
+  const extra = body.search ? [] : await describeLoved(effective, rotation, body.category)
     .then(() => readTaste(effective, city, body.category))
     .catch((error) => {
       console.error(error);
@@ -239,10 +247,11 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // A tweak an event can't be checked for (outdoors, quieter, with kids…)
   // leaves events out, so the top pick follows the tweaks like the list
   // (Round 6: Outdoors + Closer, and the top pick was an indoor café 8 km away).
-  const eventKinds = allIntents(effective, { category: body.category, city, tweaks, note, rotation, extra }).filter((i) => i.explicit && i.source !== "tweak");
+  // A search looks for events of what they typed only.
+  const eventKinds = allIntents(effective, { category: body.category, city, tweaks, note, rotation, extra, typed: body.search }).filter((i) => i.explicit && i.source !== "tweak" && (!body.search || i.id === "asked"));
   const eventsTweakable = tweaks.every((t) => t === "cheaper" || t === "closer");
   const eventsFull =
-    body.category === "experiences" && need > 1 && !body.trip && !body.only && eventsTweakable
+    body.category === "experiences" && need > 1 && !body.trip && (!only || body.search) && eventsTweakable
       ? eventPicks({ db, taste: effective, body, city, origin, exclude, intents: eventKinds, need, rotation }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
@@ -283,9 +292,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       extra,
       dayPlan: !!body.dayPlan,
       at,
-      ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : {}),
+      ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : body.search ? { searches: 1 } : {}),
+      ...(body.search ? { search: true } : {}),
       favourites: (intents) =>
-        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, intents }),
+        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, intents: body.search ? intents.filter((i) => i.id === "asked") : intents }),
     });
   } catch (error) {
     console.error(error);
@@ -299,15 +309,24 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const allEvents = await allEventsPromise;
   // At most KIND_MAX events for any one thing they're into, and places for
   // it count those (Round 6: pottery took 5 of 8 and crowded out riding).
-  const events = body.only ? [] : eventsFirst([...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))], need);
+  const events = only && !body.search ? [] : eventsFirst([...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))], need);
   // Found after the wait (live check, 23 Nov 2026: 7 events in Bengaluru
   // took 18 s and were left off, then the list without them was reused for
   // 3 hours). They join this set once found; the phone asks again.
-  const late = !eventsDone && body.category === "experiences" && !body.only && events.length < need;
+  const late = !eventsDone && body.category === "experiences" && (!only || body.search) && events.length < need;
   const room = Math.max(0, need - events.length);
   const taken = events.map((e) => e.stored.serves?.[0]).filter((k): k is string => !!k);
   // A day plan wants the famous sights, not the "something new" cap on very popular places.
-  const result = { ...found, ...pickFrom(found, { room, small, popularCap: body.dayPlan ? 99 : popularCap(taste), taken, ...(body.only ? { only: body.only } : {}) }) };
+  const picked = pickFrom(found, { room, small, popularCap: body.dayPlan ? 99 : popularCap(taste), taken, ...(only ? { only } : {}) });
+  // The place they searched for by name comes first, in or out of their usual rules.
+  if (found.named) {
+    const named = found.named;
+    const at = picked.chosen.findIndex((c) => c.candidate.place.id === named.place.id);
+    const entry = at >= 0 ? picked.chosen.splice(at, 1)[0] : { candidate: named, ranked: null };
+    picked.chosen.unshift(entry);
+    if (at < 0 || at >= picked.shown) picked.shown = Math.min(picked.chosen.length, picked.shown + 1);
+  }
+  const result = { ...found, ...picked };
   if (result.chosen.length === 0 && events.length === 0) {
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
     return json({ picks: [], notice: whyNothing(result.drops, effective.answers, body.when, city.country) });
@@ -324,12 +343,16 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     // The last pick shown says "Skip unless…" when there is a real compromise.
     const weakest = i === shownCount - 1 && events.length + shownCount >= 3 && r?.verdict !== "Worth a detour";
     const compromise = weakest ? compromiseFor(candidate, effective, body.when, city) : null;
+    // A search can find a place to eat from Things to do: it says what it is.
+    const kind = kindOf(candidate.place, body.search && mainlyOf(candidate.place, "food_drinks") ? "food_drinks" : body.category);
+    // The place they searched for by name says so, and any usual rule it breaks, on the card.
+    const named = found.named?.place.id === candidate.place.id;
     return {
       placeId: candidate.place.id,
-      kind: kindOf(candidate.place, body.category),
+      kind,
       verdict: compromise ? "Skip unless" : (r?.verdict ?? "Good if you're nearby"),
       ...(compromise ? { skipUnless: compromise } : r?.verdict === "Skip unless" && r.skipUnless ? { skipUnless: r.skipUnless } : {}),
-      because: becauseFor(result.intents.filter((i) => candidate.intents?.includes(i.id))),
+      because: named ? `You searched for it.${candidate.outside?.length ? ` ${candidate.outside.join(" · ")}.` : ""}` : becauseFor(result.intents.filter((i) => candidate.intents?.includes(i.id))),
       ...(candidate.fetaNote !== undefined ? { fetaNote: candidate.fetaNote } : {}),
       ...(candidate.local && candidate.fetaNote === undefined ? { local: true } : {}),
       ...(candidate.featured && candidate.fetaNote === undefined ? { featured: candidate.featured } : {}),
@@ -348,9 +371,16 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const whenText = body.when === "tonight" ? "tonight" : "this weekend";
   // Said plainly when something they asked for found nothing that fits.
   const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
-  const banner = short
-    ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}. No weak filler.`
-    : missing;
+  // A search for one place by name needs no "only 1 fits".
+  const banner = body.search
+    ? found.named && shownTotal === 1
+      ? null
+      : short
+        ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} for “${note}” ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}.`
+        : missing
+    : short
+      ? `Only ${shownTotal} ${shownTotal === 1 ? "place" : "places"} really ${shownTotal === 1 ? "fits" : "fit"} you here ${whenText}. No weak filler.`
+      : missing;
 
   const { data: inserted } = await db.from("pick_sets").insert({
     user_id: userId,
@@ -656,7 +686,8 @@ async function fetaCandidates(ctx: {
   // Each live check costs about ₹1.7: places whose name and note say
   // nothing about what they want get at most 2 checks between them, nearest
   // first (founder, 23 Nov 2026: optimise; they rarely turn out to fit).
-  const UNSURE = 1;
+  // A search checks only list places whose name and note match what was typed.
+  const UNSURE = ctx.body.search ? 0 : 1;
   const byFit = (list: typeof curated) => {
     const scored = list.map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) })).sort((a, b) => b.fit - a.fit || a.near - b.near);
     return ctx.intents.length ? [...scored.filter((f) => f.fit > 0), ...scored.filter((f) => f.fit === 0).slice(0, UNSURE)].map((f) => f.id) : scored.map((f) => f.id);
@@ -668,9 +699,10 @@ async function fetaCandidates(ctx: {
       .filter(([id]) => !ctx.exclude.has(id))
       .map(([id, f], i) => ({ id, i, fit: fitsWanted(f.name, ctx.intents) }))
       .sort((a, b) => b.fit - a.fit || a.i - b.i)
+      .filter((f) => !ctx.body.search || f.fit > 0)
       .slice(0, FEATURED_LOOKUPS)
       .map((f) => f.id),
-    ...[...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id),
+    ...(ctx.body.search ? [] : [...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id)),
   ];
   const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet))))
     .filter((p): p is Place => !!p)

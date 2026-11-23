@@ -290,6 +290,16 @@ export default function Home() {
               </button>
             </span>
             <span className={styles.buttons}>
+              {/* Search (founder, 23 Nov 2026): a round button like You, so nothing on Home moves. */}
+              <button type="button" className="labelled" onClick={() => router.push("/search")} aria-label="Search a place, an activity or a piece">
+                <span className={styles.acct}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M20 20l-4-4" />
+                  </svg>
+                </span>
+                <small aria-hidden="true">Search</small>
+              </button>
               <FetaStar cityId={city.id} cityName={city.name} onOpen={() => setFetaOpen(true)} />
               <button type="button" className="labelled" onClick={() => router.push("/you")} aria-label="You: your preferences and account">
                 <span className={styles.acct}>{name ? name[0].toUpperCase() : "◯"}</span>

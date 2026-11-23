@@ -50,7 +50,10 @@ const variant = (list: string[], rotation: number) => list[rotation % list.lengt
 // they love (taste-reader.ts).
 // dayPlan: a day out or a trip city, which needs sights and meals through
 // the day, not only evening places.
-export function allIntents(taste: Taste, opts: { category: Category; city: City; tweaks: Tweak[]; note?: string; rotation: number; extra?: Intent[]; dayPlan?: boolean }): Intent[] {
+// typed: a search from the Search screen looks for exactly what they typed
+// (a place's name with "vegetarian" in front can miss it); their diet is
+// still a hard filter.
+export function allIntents(taste: Taste, opts: { category: Category; city: City; tweaks: Tweak[]; note?: string; rotation: number; extra?: Intent[]; dayPlan?: boolean; typed?: boolean }): Intent[] {
   const { category, city, rotation } = opts;
   const food = category === "food_drinks";
   const sober = taste.answers.drinks === "no_alcohol";
@@ -65,7 +68,8 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   const cuisineVeg = (q: string) => (veg && city.country !== "IN" ? `vegetarian ${q}` : q);
   const out: Intent[] = [];
   const note = (opts.note ?? "").trim();
-  if (note) out.push({ id: "asked", label: note, reason: `Because you asked for ${note}.`, query: vegWord(note), def: { searches: [vegWord(note)] }, explicit: true, source: "asked", food });
+  const askedQuery = opts.typed ? note : vegWord(note);
+  if (note) out.push({ id: "asked", label: note, reason: `Because you asked for ${note}.`, query: askedQuery, def: { searches: [askedQuery] }, explicit: true, source: "asked", food });
   if (opts.dayPlan) {
     if (food) for (const p of DAY_PLAN.food) out.push({ id: p.id, label: p.label, reason: `Because a good day there starts with ${p.label}.`, query: vegWord(p.query), def: { searches: [p.query] }, explicit: true, source: "plan", food });
     else for (const p of DAY_PLAN.doing) out.push({ id: p.id, label: p.label, reason: `Because it's one of the best things to see there.`, query: p.query, def: p.def, explicit: true, source: "plan", food });

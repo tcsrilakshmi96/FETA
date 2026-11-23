@@ -297,3 +297,9 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - "Tickets on GoOut" opened the wrong page: a guessed link redirected and still "opened". Event links must land on the event (only where it lands is read).
 - Beer tasting added; Tastings in general starts with the city's speciality (beer in Prague).
 - Feedback beside "Hi <name>" on Home; the side tab elsewhere.
+
+## 23 Nov 2026: Search
+- Founder: "in the style section we should have a search button… a specific product we show brands that have that product, in a city a specific place, or a specific activity", and it may search outside what they chose. Mock-ups must use the app's real screens and not disrupt the current UX, so Search is a round button beside Favourites and You (a bar across the top pushed Plan a trip under the tab bar) and its own full screen like Ask.
+- Places: the engine's `search` mode (like Ask's `only: "asked"`): one Google search for exactly what was typed (no "vegetarian" added in front, which can miss a place's name; diet stays a hard filter), no taste reading, list places only when they match, events of that kind. A kind of place keeps every usual rule. A place searched by name is never hidden: it comes first and says which rules it breaks, from the same list the hard filters use (`rulesBroken`; the filter counts the first), and a place to eat is checked as one even when searched from Things to do.
+- Pieces: free matching against what Feta knows of each brand (name, research notes, the sample piece); research notes rarely list every piece, so new country research should note each brand's main pieces. A paid web check ("look wider") only if testers ask.
+- "Tell Feta what you like" on the picks list is now "Add to your taste" with a line saying it's kept for good, so it isn't confused with Search (just for now).

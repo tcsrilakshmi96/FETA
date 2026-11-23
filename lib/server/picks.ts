@@ -397,7 +397,9 @@ export function poorlyKnown(place: Place) {
 // featured: a city guide recommends it, with the article's link and Google's
 // Search chip (the guide was found with Grounding with Google Search).
 export type FeaturedIn = { guide: string; url: string; searchHtml: string };
-export type Candidate = { place: Place; km: number; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn };
+// outside: a place searched for by name that breaks their usual rules says
+// so on its card ("Above your usual budget"), instead of being hidden.
+export type Candidate = { place: Place; km: number; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn; outside?: string[] };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;
@@ -411,67 +413,62 @@ export function emptyDrops(): DropCounts {
 // Google are usually cheap (founder's decision). Diet: dietOk. Unknown hours
 // fail. foodDrinkOk: a bar or café that Experiences keeps because it is the
 // thing to do (karaoke, a rooftop, board games).
-export function applyHardFilters(
-  places: Place[],
-  opts: { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean },
-  drops: DropCounts = emptyDrops(),
-): Candidate[] {
-  const { answers } = opts.taste;
+export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
+
+export function applyHardFilters(places: Place[], opts: FilterOpts, drops: DropCounts = emptyDrops()): Candidate[] {
   const out: Candidate[] = [];
   for (const place of places) {
     drops.seen++;
-    const drop = (why: keyof DropCounts) => {
-      drops[why]++;
-    };
-    if (
-      opts.exclude.has(place.id) ||
-      !place.location ||
-      (place.businessStatus && place.businessStatus !== "OPERATIONAL") ||
-      !somewhereToGo(place, opts.category, opts) ||
-      opts.taste.notInto?.includes(place.primaryType ?? "") ||
-      poorlyKnown(place)
-    ) {
-      drop("other");
+    const broken = rulesBroken(place, opts);
+    if (broken.length) {
+      drops[broken[0].why]++;
       continue;
     }
-    const km = distanceKm(opts.origin, { lat: place.location.latitude, lng: place.location.longitude });
-    if (opts.reachKm ? km > opts.reachKm(place) : tooFar(km, answers)) {
-      drop("far");
-      continue;
-    }
-    const fit = priceFit(place, answers, opts.city);
-    if (fit === "over") {
-      drop("price");
-      continue;
-    }
-    // Diet applies to food and drinks only (Google has no diet data for, say, a park).
-    if (opts.category === "food_drinks" && !dietOk(place, answers, opts.city.country)) {
-      drop("diet");
-      continue;
-    }
-    // A restaurant that also has a bar is fine for someone who doesn't drink.
-    if (answers.drinks === "no_alcohol" && ALCOHOL_TYPES.includes(place.primaryType ?? "")) {
-      drop("alcohol");
-      continue;
-    }
-    // A day plan checks each stop's hours for its own day and time (itinerary.ts).
-    // A time asked for in chat ("tomorrow morning") is checked for that time;
-    // things to do with no hours on Google (a trail, a lake) pass.
-    if (
-      !opts.anyHours &&
-      (opts.at
-        ? place.regularOpeningHours?.periods?.length
-          ? !openFor(place, opts.at.weekday, opts.at.start, opts.at.minutes)
-          : opts.category === "food_drinks"
-        : (opts.when === "tonight" && !openTonight(place, opts.city)) ||
-          (opts.when === "weekend" && !opensOnWeekend(place)) ||
-          (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
-    ) {
-      drop("hours");
-      continue;
-    }
-    out.push({ place, km });
+    out.push({ place, km: placeKm(place, opts.origin) });
   }
+  return out;
+}
+
+export const placeKm = (place: Place, origin: { lat: number; lng: number }) => (place.location ? distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) : Infinity);
+
+// Every hard rule a place breaks, in the order the filter checks them (the
+// first is what an empty list's message counts). line: what a place they
+// searched for by name says instead of being hidden (founder, 23 Nov 2026:
+// "Bar Leone" asked for by name always shows, with why Feta wouldn't
+// normally pick it); null when there's nothing worth saying.
+type Broken = { why: Exclude<keyof DropCounts, "seen">; line: string | null };
+
+export function rulesBroken(place: Place, opts: FilterOpts): Broken[] {
+  const { answers } = opts.taste;
+  const out: Broken[] = [];
+  if (opts.exclude.has(place.id)) out.push({ why: "other", line: null });
+  if (!place.location) return [...out, { why: "other", line: null }];
+  if (place.businessStatus && place.businessStatus !== "OPERATIONAL")
+    out.push({ why: "other", line: place.businessStatus === "CLOSED_PERMANENTLY" ? "Closed for good, says Google Maps" : "Closed for now, says Google Maps" });
+  if (!somewhereToGo(place, opts.category, opts)) out.push({ why: "other", line: null });
+  if (opts.taste.notInto?.includes(place.primaryType ?? "")) out.push({ why: "other", line: "A kind of place you said you're not into" });
+  if (poorlyKnown(place)) out.push({ why: "other", line: "Fewer or lower reviews than Feta usually picks" });
+  const km = placeKm(place, opts.origin);
+  if (opts.reachKm ? km > opts.reachKm(place) : tooFar(km, answers)) out.push({ why: "far", line: "Further than you usually go" });
+  if (priceFit(place, answers, opts.city) === "over") out.push({ why: "price", line: "Above your usual budget" });
+  // Diet applies to food and drinks only (Google has no diet data for, say, a park).
+  if (opts.category === "food_drinks" && !dietOk(place, answers, opts.city.country)) out.push({ why: "diet", line: "May not suit how you eat · check with staff" });
+  // A restaurant that also has a bar is fine for someone who doesn't drink.
+  if (answers.drinks === "no_alcohol" && ALCOHOL_TYPES.includes(place.primaryType ?? "")) out.push({ why: "alcohol", line: "Mainly a bar" });
+  // A day plan checks each stop's hours for its own day and time (itinerary.ts).
+  // A time asked for in chat ("tomorrow morning") is checked for that time;
+  // things to do with no hours on Google (a trail, a lake) pass.
+  if (
+    !opts.anyHours &&
+    (opts.at
+      ? place.regularOpeningHours?.periods?.length
+        ? !openFor(place, opts.at.weekday, opts.at.start, opts.at.minutes)
+        : opts.category === "food_drinks"
+      : (opts.when === "tonight" && !openTonight(place, opts.city)) ||
+        (opts.when === "weekend" && !opensOnWeekend(place)) ||
+        (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
+  )
+    out.push({ why: "hours", line: opts.at ? "Not open at that time" : opts.when === "tonight" ? "Not open tonight" : "Not open this weekend" });
   return out;
 }
 
@@ -779,9 +776,12 @@ function googleLine(place: Place, when: When, city: City) {
 // With "Anywhere in <city>" there is no distance chip: kilometres from the
 // city's centre point mean nothing to them.
 function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): string[] {
-  const out: string[] = [];
+  // What a place searched for by name breaks comes first; a diet line there
+  // replaces the usual diet chip.
+  const out: string[] = [...(c.outside ?? [])];
   const diet = taste.answers.diet;
-  if (needsDietCheck(taste.answers) && isMainlyFoodOrDrink(c.place)) {
+  const dietSaid = out.some((l) => l.startsWith("May not suit how you eat"));
+  if (needsDietCheck(taste.answers) && isMainlyFoodOrDrink(c.place) && !dietSaid) {
     const confirmed = c.place.servesVegetarianFood === true;
     if (diet === "jain") out.push("Jain: ask for no onion, garlic or root veg · not confirmed");
     else if (diet === "vegan") out.push("Vegan options · not confirmed, check with staff");
@@ -794,7 +794,7 @@ function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): strin
   // The ✓ only when the price is known to be in their range, never for a much cheaper place.
   const spend = spendRange(taste.answers) && spendText(taste.answers, city.currency);
   if (spend && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push(`${spend} ✓`);
-  if (!wholeCity) out.push(tooFar(c.km, taste.answers) ? `${formatDistance(c.km, city.country)} away · a trip out` : `${formatDistance(c.km, city.country)} ✓`);
+  if (!wholeCity) out.push(tooFar(c.km, taste.answers) ? `${formatDistance(c.km, city.country)} away${c.outside?.length ? "" : " · a trip out"}` : `${formatDistance(c.km, city.country)} ✓`);
   return out;
 }
 

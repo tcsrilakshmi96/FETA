@@ -1,4 +1,4 @@
-/* "Tell Feta what you like": on the picks list and at the top of You. */
+/* "Add to your taste" (was "Tell Feta what you like"): on the picks list. */
 .box {
   margin-top: 18px;
   padding: 14px;
@@ -9,6 +9,12 @@
 .title {
   font-size: 14px;
   font-weight: 500;
+}
+
+.sub {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.7;
 }
 
 .row {

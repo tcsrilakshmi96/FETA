@@ -14,10 +14,10 @@ import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
-import { becauseFor, curate, eventsFirst, KIND_MAX, pickFrom, selectPicks } from "@/lib/server/curate";
+import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, eventSources, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
-import { applyHardFilters, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -25,7 +25,8 @@ import { plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
-import { brandPrice, lookProblem, shopLink } from "@/lib/style";
+import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
+import { guessSearch, piecesMatch } from "@/lib/search";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
@@ -901,6 +902,60 @@ async function main() {
     failed++;
     console.log(`✗ Core rules: ${coreFails.join(", ")}`);
   } else console.log("✓ Core rules: diets (no pork, no beef, vegan, Jain, India and abroad), limits never mention money, trip and today lines, events first, one branch per chain, Plan a night");
+  // Search (founder, 23 Nov 2026): what they typed, their rules held for a
+  // kind of place, a place named always shown first with the rules it
+  // breaks, clothes words lead with brands, a piece matched to brands.
+  {
+    const [blr] = searchCities("Bengaluru", 1);
+    const vegLow: Taste = { answers: { ...EMPTY_ANSWERS, diet: "vegetarian", spend: ["level_1"], distance: "city" } as Answers, lines: [], own: [], yes: [], no: [] };
+    const vegMid: Taste = { ...vegLow, answers: { ...vegLow.answers, spend: ["level_2", "level_3"] } as Answers };
+    const searchFor = (note: string, category: Category = "food_drinks", taste = vegLow) =>
+      curate({ taste, city: blr, origin: { lat: blr.lat, lng: blr.lng }, category, when: "tonight", tweaks: [], note, exclude: new Set(), needsDiet: category === "food_drinks", need: 8, rotation: 0, searches: 1, search: true });
+    const fork = await searchFor("The Gilded Fork");
+    const catchy = await searchFor("coastal catch");
+    const catchyDo = await searchFor("Coastal Catch", "experiences");
+    const kind = await searchFor("rooftop restaurant", "food_drinks", vegMid);
+    const kindPicks = pickFrom(kind, { room: 8, small: false, popularCap: 3, only: "asked" });
+    const opts = { taste: vegLow, category: "food_drinks" as Category, when: "tonight" as When, origin: { lat: blr.lat, lng: blr.lng }, exclude: new Set<string>(), city: blr };
+    const sample = CATALOGUE.map((_, i) => fakeDetails(`fake_${blr.lat.toFixed(4)}_${blr.lng.toFixed(4)}_${i}_c`)!).filter(Boolean);
+    const linen = [
+      { name: "Linen House", text: "Linen House relaxed linen shirts and trousers" },
+      { name: "Street Co", text: "Street Co oversized hoodies cargo pants" },
+      { name: "Shirt Bar", text: "Shirt Bar crisp cotton shirts" },
+    ];
+    const searchFails = [
+      fork.named?.place.displayName?.text !== "The Gilded Fork" && "a place searched by name isn't kept",
+      !fork.named?.outside?.includes("Above your usual budget") && "a named place above their budget doesn't say so",
+      !catchy.named?.outside?.some((l) => /suit how you eat/.test(l)) && "a named meat-led place doesn't say it may not suit how they eat",
+      catchy.named?.outside?.some((l) => /safe|pure veg/i.test(l)) && "a named place claims a diet is safe",
+      !catchyDo.named?.outside?.some((l) => /suit how you eat/.test(l)) && "a place to eat searched from Things to do skips the diet line",
+      !!kind.named && "a kind of place (rooftop restaurant) is treated as a name",
+      kindPicks.shown === 0 && "a kind search (rooftop restaurant) finds nothing",
+      namedPlace([pl("Rooftop Bar Prague", "bar")], "rooftop bar") && "\"rooftop bar\" names a place called Rooftop Bar",
+      !namedPlace([pl("Bar Leone", "bar")], "bar leone") && "\"bar leone\" doesn't find Bar Leone",
+      !namedPlace([pl("Café de Flore", "cafe")], "cafe de flore") && "accents stop a name matching",
+      kindPicks.chosen.slice(0, kindPicks.shown).some((c) => (c.candidate.place.priceLevel ?? "").includes("EXPENSIVE")) && "a kind search breaks their budget",
+      kindPicks.chosen.slice(0, kindPicks.shown).some((c) => !c.candidate.intents?.includes("asked")) && "a search shows a place that isn't what was typed",
+      // The rules a place breaks, in the filter's order: the first is what the filter counts.
+      sample.some((pl0) => {
+        const d = { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 };
+        const kept = applyHardFilters([pl0], opts, d).length === 1;
+        const broken = rulesBroken(pl0, opts);
+        return kept !== (broken.length === 0) || (!kept && d[broken[0].why] !== 1);
+      }) && "rulesBroken and the hard filters disagree",
+      !guessSearch("linen shirt").clothes && "\"linen shirt\" isn't clothes",
+      guessSearch("pottery class").clothes && "\"pottery class\" is taken for clothes",
+      guessSearch("ramen").category !== "food_drinks" && "\"ramen\" doesn't search food",
+      guessSearch("horse riding").category !== "experiences" && "\"horse riding\" doesn't search things to do",
+      piecesMatch(linen, "linen shirts", (b) => b.text).cards.map((b) => b.name).join() !== "Linen House" && "a piece search doesn't find the brand that makes it",
+      piecesMatch(linen, "silk dress", (b) => b.text).cards.length !== 0 && "a piece no brand mentions brings brands",
+      !pieceLink({ href: "https://www.cos.com/en-cz/", label: "" }, "COS", "linen shirt", "Czechia").href.includes("site%3Acos.com") && "a piece link doesn't search the brand's own store",
+    ].filter(Boolean);
+    if (searchFails.length) {
+      failed++;
+      console.log(`✗ Search: ${searchFails.join(", ")}`);
+    } else console.log("✓ Search: a place named shows first saying which rules it breaks (never a diet promise), kinds keep their rules, clothes lead with brands, pieces match brands");
+  }
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {

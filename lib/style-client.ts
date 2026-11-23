@@ -389,6 +389,7 @@ export type BrandCard = {
   youLove?: boolean;
   forYou?: string; // why it suits them, from the ranking
   backup?: boolean; // sold in many countries, not yet checked in theirs
+  sample?: string | null; // a piece the research saw on sale there, for Search (never shown)
 };
 
 type Row = {
@@ -398,8 +399,8 @@ type Row = {
   review_status: string;
   brands: { id: string; name: string; website: string | null; logo_url: string | null; origin_country: string | null; wears: string | null; brand_markets: Market[] };
 };
-type Market = { country: string; presence_type: string; presence_url: string | null; presence_ok: boolean | null; price_feel: string | null; sample_price: number | null; sample_currency: string | null; checked_date: string | null };
-const MARKET = "country, presence_type, presence_url, presence_ok, price_feel, sample_price, sample_currency, checked_date";
+type Market = { country: string; presence_type: string; presence_url: string | null; presence_ok: boolean | null; price_feel: string | null; sample_price: number | null; sample_currency: string | null; checked_date: string | null; sample_item?: string | null };
+const MARKET = "country, presence_type, presence_url, presence_ok, price_feel, sample_price, sample_currency, sample_item, checked_date";
 
 // Research notes meant for the founder, not for people ("(MX URL live,
 // bot-blocked to scripts)", "Viewed catalog:"), taken out of what's shown.
@@ -430,7 +431,9 @@ const BACKUP_MIN = 6;
 const GLOBAL_MARKETS = 4;
 
 export type BrandCity = { country: string; countryName: string; currency: Currency };
-export async function brandsFor(styles: string[], city: BrandCity, wears: Wears, budget: string[]): Promise<BrandCard[]> {
+// backups: false for Search across every style (the whole library's backups
+// would be too many to read at once).
+export async function brandsFor(styles: string[], city: BrandCity, wears: Wears, budget: string[], opts: { backups?: boolean } = {}): Promise<BrandCard[]> {
   const { country, countryName, currency } = city;
   if (!styles.length || !(await currentUserId())) return [];
   const { data, error } = await supabase()
@@ -460,6 +463,7 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
       price: brandPrice(market!, budget, currency),
       link: shopLink(r.brands, market!, country, countryName, wears),
       approved: r.review_status === "approved",
+      sample: market!.sample_item ?? null,
     }));
   // Feta Picks (the founder's brands) first, then the ones people love most;
   // within those, the order above.
@@ -483,7 +487,7 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
   // can show those"): for a style with few brands confirmed there, brands
   // from the library sold in many countries, said plainly as not yet checked
   // there, after the confirmed ones, linking to "Find it in <country>".
-  const thin = styles.filter((st) => cards.filter((c) => c.style === st).length < BACKUP_MIN);
+  const thin = opts.backups === false ? [] : styles.filter((st) => cards.filter((c) => c.style === st).length < BACKUP_MIN);
   if (thin.length) {
     const { data: wide } = await supabase()
       .from("brand_styles")

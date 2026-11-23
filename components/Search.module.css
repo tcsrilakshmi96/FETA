@@ -1,0 +1,121 @@
+/* Search (founder, 23 Nov 2026): a full screen like Ask, in Home's look. */
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 30px 16px 40px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding: 0 18px;
+  border-radius: 99px;
+  background: var(--sheet);
+  border: 1.5px solid rgba(var(--inkRGB), 0.15);
+}
+
+.field input {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.cancel {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.mast {
+  font-family: var(--font-fraunces), serif;
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.mast i {
+  font-weight: 500;
+}
+
+.hint {
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0.7;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kick {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--roseText);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--sheet);
+  text-align: left;
+  box-shadow: 0 1px 0 rgba(var(--inkRGB), 0.06);
+}
+
+.row > span:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.rowSub {
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+.recent {
+  min-height: 44px;
+  text-align: left;
+  font-size: 15px;
+  padding: 0 4px;
+}
+
+.field input:focus {
+  outline: none;
+}
+
+.field:focus-within {
+  border-color: var(--ink);
+}

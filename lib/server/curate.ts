@@ -5,6 +5,9 @@ import { allIntents, kindKey, matches, NOW, planSearches, type Intent } from "@/
 import { searchNearby, searchPlaces, type Place } from "@/lib/server/places";
 import {
   applyHardFilters,
+  placeKm,
+  rulesBroken,
+  type FilterOpts,
   brandOf,
   chooseWithGemini,
   distanceLimitKm,
@@ -56,6 +59,10 @@ export type CurateInput = {
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
   at?: At; // a day and time asked for in chat, checked instead of tonight or the weekend
+  // From the Search screen (founder, 23 Nov 2026): what they typed is searched
+  // as typed, and a place whose name they typed always shows, first, with
+  // the rules it breaks on its card (named).
+  search?: boolean;
   // Feta's lists (the founder's places, local favourites, Featured in, Feta
   // users' favourites), checked live against the same hard filters before
   // Google is searched (engine.ts); what they want picks which to check.
@@ -79,13 +86,14 @@ export type CurateResult = {
   intents: Intent[]; // looked for this time: searched on Google, or a choice a list place is
   fromLists?: string[]; // served by Feta's lists, so not searched on Google
   drops: DropCounts;
+  named?: Candidate; // the place they searched for by name (search only)
 };
 
 const POOL_MAX = 30;
 
 export async function curate(input: CurateInput): Promise<CurateResult> {
   const { taste, city, origin, category, when } = input;
-  const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan });
+  const intents = allIntents(taste, { category, city, tweaks: input.tweaks, note: input.note, rotation: input.rotation, extra: input.extra, dayPlan: input.dayPlan, typed: input.search });
 
   // 2. Find. Feta's lists first; Google searches only what they don't
   // cover yet, so a choice her lists serve frees its search for the next
@@ -129,24 +137,33 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     const from = found.get(p.id)?.from ?? new Set<string>();
     return looked.filter((i) => matches(p, i, from.has(i.id))).map((i) => i.id);
   };
+  const filterOpts: FilterOpts = {
+    taste,
+    category,
+    when,
+    origin,
+    exclude: input.exclude,
+    city,
+    anyHours: input.dayPlan,
+    at: input.at,
+    foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
+    untypedOk: (p) => matched(p).length > 0,
+    reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),
+  };
   const drops = emptyDrops();
   const filter = () => {
     Object.assign(drops, emptyDrops());
-    return applyHardFilters([...found.values()].map((f) => f.place), {
-      taste,
-      category,
-      when,
-      origin,
-      exclude: input.exclude,
-      city,
-      anyHours: input.dayPlan,
-      at: input.at,
-      foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
-      untypedOk: (p) => matched(p).length > 0,
-      reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),
-    }, drops).map((c) => ({ ...c, intents: matched(c.place) }));
+    return applyHardFilters([...found.values()].map((f) => f.place), filterOpts, drops).map((c) => ({ ...c, intents: matched(c.place) }));
   };
   const passed = chainsOnlyIfNeeded(filter());
+  // A place whose name they searched for shows even if it breaks their usual
+  // rules, saying which (never hidden: "I searched it and it wasn't there").
+  // A place to eat is checked as one (diet) whichever list it was searched from.
+  const named = input.search && input.note ? namedPlace([...found.values()].filter((f) => f.from.has("asked")).map((f) => f.place), input.note) : null;
+  const namedCandidate: Candidate | undefined = named
+    ? passed.find((c) => c.place.id === named.id) ?? { place: named, km: placeKm(named, origin), intents: ["asked"], outside: rulesBroken(named, { ...filterOpts, category: mainlyOf(named, "food_drinks") ? "food_drinks" : category }).flatMap((b) => (b.line ? [b.line] : [])) }
+    : undefined;
+  if (namedCandidate) namedCandidate.intents = ["asked"];
   const onList = [...listed, ...passed.flatMap((c) => lists?.mark(c) ?? [])].filter((c, i, all) => all.findIndex((o) => o.place.id === c.place.id) === i);
   const listIds = new Set(onList.map((c) => c.place.id));
   let pool = [...onList.map((c) => ({ ...c, intents: matched(c.place) })), ...roundRobin(passed, looked).filter((c) => !listIds.has(c.place.id))].slice(0, POOL_MAX);
@@ -173,7 +190,41 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     }
   }
 
-  return { pool, ranked, intents: looked, fromLists: fromLists.map((i) => i.id), drops };
+  return { pool, ranked, intents: looked, fromLists: fromLists.map((i) => i.id), drops, ...(namedCandidate ? { named: namedCandidate } : {}) };
+}
+
+// The place they searched for by name, if what they typed is its name (or
+// its name is what they typed, give or take "the", accents and punctuation),
+// in Google's order. A kind of place ("rooftop bar") names no one place.
+const fold = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\bthe\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+// Words for kinds of place and things to do: a search made only of these
+// ("rooftop bar", "live jazz") is a kind, even if a place is called that.
+const KIND_WORDS = new Set(
+  "a an and at for in of on with near me best good cheap new live late night tonight weekend open bar bars pub pubs club clubs cafe cafes coffee tea restaurant restaurants food eat drinks drink cocktail cocktails wine beer craft brewery rooftop roof terrace garden brunch breakfast lunch dinner dessert desserts bakery ice cream pizza sushi ramen burger burgers tapas noodles dumplings thai indian italian chinese japanese korean mexican vietnamese french spanish greek turkish lebanese burmese local street vegan vegetarian veg music jazz comedy karaoke dance dancing salsa pottery class classes workshop workshops painting art gallery galleries museum museums theatre theater cinema movie movies market markets park parks hike hikes hiking trail trails walk walks yoga spa sauna climbing bowling games board escape room rooms tasting tastings horse riding kayak cycling bike tour tours show shows gig gigs concert concerts festival festivals popup pop up stand".split(" "),
+);
+
+export function namedPlace(places: Place[], typed: string): Place | null {
+  const q = fold(typed);
+  if (q.length < 3 || q.split(" ").every((w) => KIND_WORDS.has(w))) return null;
+  return (
+    places.find((p) => {
+      const name = fold(p.displayName?.text ?? "");
+      if (!name) return false;
+      // Whole words only: "bar" alone doesn't name "Bar Leone".
+      const within = (a: string, b: string) => ` ${b} `.includes(` ${a} `);
+      return name === q || (within(q, name) && q.length >= Math.min(6, name.length)) || (within(name, q) && name.length >= 4);
+    }) ?? null
+  );
 }
 
 // 5. Keep the promise: the picks to show (room of them), then the rest as

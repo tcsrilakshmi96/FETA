@@ -186,6 +186,30 @@ async function main() {
     check(/Hi Journey/.test(home), "Home says hello by name");
     check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
 
+    // Search (founder, 23 Nov 2026): the round button on Home moves nothing,
+    // a search shows its own list, and a search never changes their taste.
+    const homeBefore = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=grid] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
+    const searchBtn = await p.$("button[aria-label^='Search a place']");
+    check(!!searchBtn, "Home has a Search button");
+    const linesBefore = token ? ((await rest(token, "profile_lines?select=line_key")) as unknown[]).length : 0;
+    if (searchBtn) {
+      await searchBtn.click();
+      await p.waitForFunction(() => location.pathname === "/search", { timeout: 10000 }).catch(() => null);
+      await p.type("input[type=search]", "pottery");
+      await p.keyboard.press("Enter");
+      await p.waitForFunction(() => location.pathname === "/picks" && /pottery/.test(document.querySelector("h1")?.textContent ?? ""), { timeout: 15000 }).catch(() => null);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
+      await wait(1500);
+      const found = await p.evaluate(() => document.body.innerText);
+      check(/“pottery”/.test(found) && /Clay Studio/.test(found) && !/Add to your taste/.test(found), "A search for pottery shows a list titled with it, without the taste box", found.slice(0, 300));
+      const linesAfter = token ? ((await rest(token, "profile_lines?select=line_key")) as unknown[]).length : 0;
+      check(linesAfter === linesBefore, "A search adds nothing to their taste", `${linesBefore} → ${linesAfter} lines`);
+      await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
+      await wait(2500);
+      const homeAfter = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=grid] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
+      check(homeBefore > 0 && homeBefore === homeAfter, "Home's tiles sit where they did before the search", `${homeBefore} → ${homeAfter}`);
+    }
+
     // The picks list scrolled just past where the header shrinks stays put
     // (tester video, 19 Nov 2026: the header flickered between big and small).
     await p.goto(`${BASE}/picks?c=food_drinks`, { waitUntil: "networkidle0" });

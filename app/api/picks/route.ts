@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   return withCosts(token ? userDb(token) : null, "picks", () => {
     askIs({
       key: [b.when, b.category, b.origin?.city?.id, at(b.origin?.lat), at(b.origin?.lng), b.note ?? "", b.tweaks ?? null, b.more ?? null],
-      label: [b.when, b.category === "food_drinks" ? "food" : b.category === "experiences" ? "things to do" : b.category, b.origin?.city?.name, b.note ? "with a note" : "", b.more ? "more" : ""].filter(Boolean).join(" · "),
+      label: [b.when, b.category === "food_drinks" ? "food" : b.category === "experiences" ? "things to do" : b.category, b.origin?.city?.name, (b as { search?: boolean }).search ? "search" : b.note ? "with a note" : "", b.more ? "more" : ""].filter(Boolean).join(" · "),
     });
     return runPicks(token, body);
   });

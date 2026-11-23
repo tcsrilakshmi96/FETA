@@ -1362,3 +1362,31 @@
   gap: 14px;
   text-align: center;
 }
+
+/* Search a piece on Brands (founder, 23 Nov 2026). */
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 99px;
+  background: var(--sheet);
+  border: 1.5px solid rgba(var(--inkRGB), 0.12);
+}
+
+.searchBox input {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.searchBox input:focus {
+  outline: none;
+}
+
+.searchBox:focus-within {
+  border-color: var(--ink);
+}

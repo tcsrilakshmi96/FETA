@@ -2,7 +2,7 @@
 
 import type { Origin } from "@/lib/origin";
 import { originKey } from "@/lib/origin";
-import { fetchPicks, forgetFetaPicks, savingTaste, type Category, type Pick, type When } from "@/lib/picks-client";
+import { fetchPicks, forgetFetaPicks, savingTaste, type Ask, type Category, type Pick, type When } from "@/lib/picks-client";
 
 // Picks on the phone, shared by Home and the picks list, so opening one
 // after the other makes no new search. picks: on screen, best first.
@@ -51,6 +51,10 @@ export function slotKey(origin: Origin, when: When, category: Category) {
   return `${originKey(origin)}|${when}:${category}`;
 }
 
+export function searchKey(origin: Origin, when: When, category: Category, typed: string) {
+  return `${slotKey(origin, when, category)}|search:${typed.trim().toLowerCase()}`;
+}
+
 export function keptSlots(): Record<string, Slot> {
   if (!kept || Date.now() - kept.at > KEEP_MS) return {};
   return Object.fromEntries(
@@ -65,8 +69,9 @@ export function keepSlots(slots: Record<string, Slot>) {
 }
 
 // Loads a category's picks. Two screens asking at once share one request.
-export function loadSlot(origin: Origin, when: When, category: Category, tweak?: { tweaks: string[]; note?: string }): Promise<Slot> {
-  const key = slotKey(origin, when, category);
+// A search has its own slot (searchKey), never Home's or the everyday list's.
+export function loadSlot(origin: Origin, when: When, category: Category, tweak?: Ask): Promise<Slot> {
+  const key = tweak?.search && tweak.note ? searchKey(origin, when, category, tweak.note) : slotKey(origin, when, category);
   if (!tweak && inflight.has(key)) return inflight.get(key)!;
   const version = tasteVersion;
   const p = fetchPicks(category, when, origin, false, tweak).then((reply) => {
@@ -126,9 +131,10 @@ export function keepSlot(key: string, slot: Slot) {
 // set, on the picks list and on Home.
 export const SHOW = 8;
 
-export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
+// A search's next places are more of the same search (search).
+export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category, search?: Ask): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
   if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
-  const reply = await fetchPicks(category, when, origin, true);
+  const reply = await fetchPicks(category, when, origin, true, search);
   return {
     fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)),
     spares: (reply.spares ?? []),

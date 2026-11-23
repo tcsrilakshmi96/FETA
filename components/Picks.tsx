@@ -22,7 +22,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, loadSlot, nextPicks, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { keepSlots, keptSlots, loadSlot, nextPicks, searchKey, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -100,6 +100,9 @@ export default function Picks() {
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [when, setWhen] = useState<When>("tonight");
   const [category, setCategory] = useState<Category>("food_drinks");
+  // A search from the Search screen (/picks?q=…): the same list, for just
+  // what they typed; no Tweak, Plan my evening or taste box (founder, 23 Nov 2026).
+  const [search, setSearch] = useState<string | null>(null);
   const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
   // Events that arrived after the list did (picks-store, eventsLater).
   useEffect(() => {
@@ -155,6 +158,7 @@ export default function Picks() {
     // left (testers: Food & drinks kept opening Things to do).
     const params = new URLSearchParams(window.location.search);
     setWhen(params.get("w") === "weekend" ? "weekend" : "tonight");
+    setSearch(params.get("q")?.trim().slice(0, 80) || null);
     let c = params.get("c");
     try {
       c ??= localStorage.getItem(CATEGORY_KEY);
@@ -166,18 +170,20 @@ export default function Picks() {
   }, [router]);
 
   // Picks are kept per place you're searching from, so a new area loads fresh.
-  const key = origin ? slotKey(origin, when, category) : "";
+  const keyOf = useCallback((o: Origin, w: When, c: Category) => (search ? searchKey(o, w, c, search) : slotKey(o, w, c)), [search]);
+  const searchAsk = search ? { tweaks: [], note: search, search: true } : undefined;
+  const key = origin ? keyOf(origin, when, category) : "";
   const slot = slots[key];
 
   const load = useCallback(
     async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string }) => {
       if (!origin) return;
-      const k = slotKey(origin, w, c);
+      const k = keyOf(origin, w, c);
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
-      const slot = await loadSlot(origin, w, c, tweak);
+      const slot = await loadSlot(origin, w, c, tweak ?? (search ? { tweaks: [], note: search, search: true } : undefined));
       setSlots((s) => ({ ...s, [k]: slot }));
     },
-    [origin],
+    [origin, keyOf, search],
   );
 
   function tweak(tweaks: string[], note?: string) {
@@ -217,7 +223,7 @@ export default function Picks() {
   async function showMore() {
     if (!origin || !slot || slot.more) return;
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category);
+    const next = await nextPicks(slot, origin, when, category, searchAsk);
     if (next.fresh.length === 0) toast(next.notice ?? "That's everything that fits right now. Try Tweak.");
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: [...s[key].picks, ...next.fresh], spares: next.spares } }));
   }
@@ -227,7 +233,7 @@ export default function Picks() {
   async function freshSet(): Promise<PillPart[]> {
     if (!origin || !slot || slot.loading || slot.more) return [];
     setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category);
+    const next = await nextPicks(slot, origin, when, category, searchAsk);
     if (next.fresh.length === 0) {
       setSlots((s) => ({ ...s, [key]: { ...s[key], more: false } }));
       return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];
@@ -246,12 +252,13 @@ export default function Picks() {
   // Load the other category for the same tab at the same time, quietly, so
   // switching is instant (Experiences can take 10–15 s on a first search).
   const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
-  const otherKey = origin ? slotKey(origin, when, other) : "";
+  const otherKey = origin ? keyOf(origin, when, other) : "";
   useEffect(() => {
     // Only a category they chose (audit, 20 Nov 2026: it searched the other one anyway, ₹12–20).
+    // Not for a search: the other list is one tap away and searches only then.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
-    if (origin && slots[key] && !slots[otherKey] && loadWants().includes(other === "food_drinks" ? "food" : "do")) load(when, other);
-  }, [origin, key, otherKey, slots, load, when, other]);
+    if (origin && !search && slots[key] && !slots[otherKey] && loadWants().includes(other === "food_drinks" ? "food" : "do")) load(when, other);
+  }, [origin, key, otherKey, slots, load, when, other, search]);
 
   // Both categories for this tab, for Plan my evening.
   const foodSlot = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
@@ -333,14 +340,30 @@ export default function Picks() {
         </div>
 
         <div className={styles.titleRow}>
-          <button type="button" className={styles.back} aria-label="Back to Home" onClick={() => router.push("/home")}>
+          <button type="button" className={styles.back} aria-label={search ? "Back to Search" : "Back to Home"} onClick={() => (search ? router.push("/search") : router.push("/home"))}>
             ‹
           </button>
           <h1 className={styles.title}>
-            {category === "food_drinks" ? "Food & drinks" : "Things to do"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+            {search ? (
+              <>“{search}”</>
+            ) : (
+              <>
+                {category === "food_drinks" ? "Food & drinks" : "Things to do"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+              </>
+            )}
           </h1>
         </div>
 
+        {search ? (
+          // A search shows one list at a time; the other is a tap away.
+          <div className={styles.tools}>
+            {(["food_drinks", "experiences"] as Category[]).map((c) => (
+              <button key={c} type="button" className={`${styles.tool} ${category === c ? styles.toolOn : ""}`} aria-pressed={category === c} onClick={() => setCategory(c)}>
+                {c === "food_drinks" ? "Food & drinks" : "Things to do"}
+              </button>
+            ))}
+          </div>
+        ) : (
         <div className={styles.tools}>
           <button
             type="button"
@@ -368,6 +391,7 @@ export default function Picks() {
             </button>
           )}
         </div>
+        )}
       </div>
       <div ref={scroller} className={styles.scroll} style={{ paddingTop: headSpace }} onScroll={(e) => setCompact(e.currentTarget.scrollTop > 60)}>
 
@@ -464,7 +488,7 @@ export default function Picks() {
             </div>
           </div>
 
-          <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />
+          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />}
 
           {rest.length > 0 && <p className={styles.section}>{rest.length} MORE THAT FIT</p>}
           <ul className={styles.rows}>
