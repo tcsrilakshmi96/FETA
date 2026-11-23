@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
 import { budgetToday, later, limitNoticeHere } from "@/lib/server/costs";
-import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
+import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { KIND_MAX, becauseFor, curate, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
 import { allIntents, intentWords, plainText, type Intent } from "@/lib/server/intents";
@@ -118,15 +118,17 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const keptOnly = new Set((actionsRes.data ?? []).filter((r) => r.action !== "skipped").map((r) => r.place_id as string));
   // Place IDs and rounded coordinates only: no Google text in the database.
   // The taste fingerprint means a changed taste (a new line, new answers)
-  // searches again instead of showing the last picks; day plans are kept
-  // apart from everyday picks.
-  const originKey = `${
-    body.origin.source === "gps"
-      ? `gps:${city.id}`
-      : body.origin.source === "area"
-        ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
-        : `city:${city.id}`
-  }|t:${tasteFingerprint(taste)}${body.dayPlan ? "|plan" : ""}`;
+  // searches that category again instead of showing the last picks; day
+  // plans are kept apart from everyday picks.
+  const keyFor = (category: Category) =>
+    `${
+      body.origin.source === "gps"
+        ? `gps:${city.id}`
+        : body.origin.source === "area"
+          ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
+          : `city:${city.id}`
+    }|t:${tasteFingerprint(taste, category)}${body.dayPlan ? "|plan" : ""}`;
+  const originKey = keyFor(body.category);
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
   const small = isSmallCity(city.id);
   const needsDiet = body.category === "food_drinks" && needsDietCheck(answers);
@@ -139,6 +141,20 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     .order("created_at", { ascending: false })
     .limit(20);
   const latest = (recent ?? []).find((s) => s.origin_key === originKey);
+  // A place in their Food & drinks list right now isn't repeated in Things
+  // to do (tester, 23 Nov 2026: the same café in both lists); food owns it.
+  if (body.category === "experiences" && !body.dayPlan && !body.only) {
+    const { data: food } = await db
+      .from("pick_sets")
+      .select("picks")
+      .eq("category", "food_drinks")
+      .eq("when_slot", body.when)
+      .eq("origin_key", keyFor("food_drinks"))
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1);
+    for (const p of (food?.[0]?.picks as StoredPick[] | undefined) ?? []) exclude.add(p.placeId);
+  }
 
   // Tweaks ("Cheaper", "Closer"…) always search fresh and are kept apart.
   const tweaks = (body.tweaks ?? []).filter((t) => TWEAKS.includes(t as Tweak)) as Tweak[];
@@ -364,15 +380,6 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
 }
 
-// A short hash of everything that shapes a search.
-function tasteFingerprint(t: Taste) {
-  const a = t.answers;
-  const text = JSON.stringify([a.diet, a.halal, a.spend, a.distance, a.drinks, a.interests, a.avoid, [...t.yes].sort(), t.own ?? [], (t.loved ?? []).map((l) => l.id), [...t.lines].sort(), t.notInto ?? [], [...(t.unlearned ?? [])].sort()]);
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-  return (h >>> 0).toString(36);
-}
-
 function listOf(words: string[]) {
   return words.length <= 1 ? words.join("") : `${words.slice(0, -1).join(", ")} or ${words[words.length - 1]}`;
 }
@@ -517,8 +524,8 @@ async function eventPicks(ctx: {
   // A hike or an adventure may be a trip out (founder, 21 Nov 2026): the card says so.
   // Its link must open (tester, 22 Nov 2026: a Melbourne ticket link didn't
   // resolve); only the answer is read, never the page. The sites never to
-  // be scraped aren't touched at all.
-  const opens = (url: string) => (/district\.in|bookmyshow|meetup\.com|zomato|swiggy|insider\.in/.test(url) ? Promise.resolve(true) : linkAlive(url, 4000));
+  // be used never get this far (eventPasses).
+  const opens = (url: string) => linkAlive(url, 4000);
   const withVenues = (
     await Promise.all(fresh.map(async (x) => {
         const [venue, ok] = await Promise.all([findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined), opens(x.e.url)]);
@@ -599,7 +606,10 @@ async function fetaCandidates(ctx: {
   const founder = curated.filter((f) => !f.local);
   const locals = curated.filter((f) => f.local && !founder.some((m) => m.placeId === f.placeId));
   const localIds = new Set(locals.map((f) => f.placeId));
-  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name }]));
+  // One label per place, as they're ordered: hers, then local favourite,
+  // then Featured in (tester, 23 Nov 2026: "Local favourite" on the card,
+  // "Featured in" in its details).
+  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name }]));
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   const onList = (id: string) => notes.has(id) || loved.has(id) || localIds.has(id) || featured.has(id);

@@ -18,7 +18,6 @@ import {
 import { loadCity } from "@/lib/cities";
 import { saveWhatsApp } from "@/lib/db";
 import { showNumber } from "@/lib/phone";
-import { supabase } from "@/lib/supabase";
 import {
   aboutOf,
   addLine,
@@ -59,7 +58,6 @@ export default function You() {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [adding, setAdding] = useState<{ about: Person | null; text: string } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [months, setMonths] = useState(0); // whole months since they joined
 
   useEffect(() => {
     // Back from signing in with Google here.
@@ -74,9 +72,6 @@ export default function You() {
     setAppearanceState(loadAppearance());
     setCityName(loadCity()?.name ?? "");
     /* eslint-enable react-hooks/set-state-in-effect */
-    supabase()
-      .auth.getUser()
-      .then(({ data }) => data.user && setMonths(Math.floor((Date.now() - new Date(data.user.created_at).getTime()) / (30 * 86400000))));
     loadProfile().then((p) => {
       setProfile(p);
       if (window.location.search) window.history.replaceState(null, "", "/you");
@@ -96,6 +91,7 @@ export default function You() {
       </>
     );
 
+  const months = profile.months;
   const everyday = profile.lines.filter((l) => !l.trip);
   const mine = everyday.filter((l) => !aboutOf(l));
   const trips = [

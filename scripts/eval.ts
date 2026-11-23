@@ -15,15 +15,17 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, pickFrom } from "@/lib/server/curate";
-import { cityCalendar, eventPasses } from "@/lib/server/events";
+import { cityCalendar, eventOver, eventPasses, eventSources, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { readTaste } from "@/lib/server/taste-reader";
+import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readFileSync } from "node:fs";
 import { brandPrice, lookProblem, shopLink } from "@/lib/style";
+import { resetTime } from "@/lib/limits";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -639,20 +641,89 @@ async function main() {
     failed++;
     console.log(`✗ Reasons: ${reasonFails.join(", ")}`);
   } else console.log("✓ Reasons name only what a place serves");
+  // "No stand-up comedy" never sits above a comedy night or a comedy club
+  // (tester, 23 Nov 2026): an event shown, or a place whose Google type is
+  // that thing, counts as found.
+  const comedy = { id: "interest_comedy", label: "Stand-up comedy", reason: "Because you're into stand-up comedy.", query: "stand-up comedy club", def: INTEREST_SEARCH.comedy, explicit: true, source: "interest", food: false } satisfies Intent;
+  const club = { place: { id: "club", displayName: { text: "Laugh Store" }, primaryType: "comedy_club", types: ["comedy_club"] }, km: 1, local: true } as Candidate;
+  const found = (pool: Candidate[]) => ({ pool, ranked: [], intents: [comedy], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } });
+  const bannerFails = [
+    pickFrom(found([]), { room: 8, small: false, popularCap: 2, taken: [comedy.id] }).missing.length && "says none found above a comedy night",
+    pickFrom(found([club]), { room: 8, small: false, popularCap: 2 }).missing.length && "says none found above a comedy club",
+    !pickFrom(found([]), { room: 8, small: false, popularCap: 2 }).missing.length && "says nothing when nothing was found",
+  ].filter(Boolean);
+  if (bannerFails.length) {
+    failed++;
+    console.log(`✗ Banner: ${bannerFails.join(", ")}`);
+  } else console.log("✓ The banner says a choice found nothing only when nothing shown serves it");
+  // The limit's reset in their own time, with "tomorrow" when it is
+  // (tester, 23 Nov 2026: "more from 6:30 pm" at 9 pm in Lisbon).
+  const at = (iso: string) => new Date(iso).getTime();
+  const resetFails = [
+    resetTime("Europe/Lisbon", at("2026-11-23T12:00:00Z")) !== "6:30 pm" && `Lisbon at noon: ${resetTime("Europe/Lisbon", at("2026-11-23T12:00:00Z"))}`,
+    resetTime("Europe/Lisbon", at("2026-11-23T21:00:00Z")) !== "tomorrow at 6:30 pm" && `Lisbon at 9 pm: ${resetTime("Europe/Lisbon", at("2026-11-23T21:00:00Z"))}`,
+    resetTime("Asia/Kolkata", at("2026-11-23T12:00:00Z")) !== "midnight" && `Bengaluru: ${resetTime("Asia/Kolkata", at("2026-11-23T12:00:00Z"))}`,
+    resetTime("Pacific/Auckland", at("2026-11-23T05:00:00Z")) !== "tomorrow at 7:30 am" && `Auckland at 6 pm: ${resetTime("Pacific/Auckland", at("2026-11-23T05:00:00Z"))}`,
+  ].filter(Boolean);
+  if (resetFails.length) {
+    failed++;
+    console.log(`✗ Limit reset: ${resetFails.join(", ")}`);
+  } else console.log("✓ The daily limit's reset says tomorrow when it is");
+  // A change in You searches again only for the list it touches (tester,
+  // 23 Nov 2026: a new cuisine used a search for Things to do too).
+  const you: Taste = { answers: { ...base, interests: ["comedy"] }, lines: ["Favourite food: Thai", "Into stand-up comedy"], lineKeys: ["cuisines", "interests"], yes: ["cuisine_thai"], no: [] };
+  const plusKorean: Taste = { ...you, lines: ["Favourite food: Thai, Korean", "Into stand-up comedy"], yes: ["cuisine_thai", "cuisine_korean"] };
+  const plusKaraoke: Taste = { ...you, answers: { ...you.answers, interests: ["comedy", "karaoke"] }, lines: ["Favourite food: Thai", "Into stand-up comedy and karaoke"] };
+  const cheaper: Taste = { ...you, answers: { ...you.answers, spend: ["1"] } };
+  const fp = tasteFingerprint;
+  const fingerprintFails = [
+    fp(you, "experiences") !== fp(plusKorean, "experiences") && "a new cuisine searches Things to do again",
+    fp(you, "food_drinks") === fp(plusKorean, "food_drinks") && "a new cuisine doesn't search Food again",
+    fp(you, "food_drinks") !== fp(plusKaraoke, "food_drinks") && "a new interest searches Food again",
+    fp(you, "experiences") === fp(plusKaraoke, "experiences") && "a new interest doesn't search Things to do again",
+    (fp(you, "food_drinks") === fp(cheaper, "food_drinks") || fp(you, "experiences") === fp(cheaper, "experiences")) && "a budget change doesn't search both",
+  ].filter(Boolean);
+  if (fingerprintFails.length) {
+    failed++;
+    console.log(`✗ Changes in You: ${fingerprintFails.join(", ")}`);
+  } else console.log("✓ A change in You searches again only for the list it touches");
   // A pop-up running several days shows while it's on (founder, 22 Nov 2026).
   const tz = "Europe/London";
   const cal = cityCalendar(tz);
   const shift = (n: number) => new Date(new Date(`${cal.today}T12:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
-  const ev = (date: string, endDate?: string) => ({ title: "Pop-up", venueName: "Shoreditch", date, ...(endDate ? { endDate } : {}), time: "", priceText: "", minPrice: null, url: "https://www.instagram.com/p/test" });
+  const ev = (date: string, endDate?: string, url = "https://www.instagram.com/p/test") => ({ title: "Pop-up", venueName: "Shoreditch", date, ...(endDate ? { endDate } : {}), time: "", priceText: "", minPrice: null, url });
   const popFails = [
     !eventPasses(ev(shift(-2), shift(2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up on now is missing",
     eventPasses(ev(shift(-2)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a past one-day event shows",
     eventPasses(ev(shift(-5), shift(-1)), { when: "tonight", timeZone: tz, maxSpend: null }) && "a pop-up that ended shows",
+    // Tester, 23 Nov 2026: events with no date shown.
+    eventPasses(ev(""), { when: "week", timeZone: tz, maxSpend: null }) && "an event with no date shows",
+    eventPasses(ev("TBA", shift(3)), { when: "week", timeZone: tz, maxSpend: null }) && "an event with a made-up date shows",
+    eventPasses(ev(`${cal.today}T19:00`), { when: "tonight", timeZone: tz, maxSpend: null }) && "an event with a malformed date shows",
+    !eventOver(ev(shift(-1)), tz) && "a past event stays in Want to try",
+    eventOver(ev(shift(-3), shift(1)), tz) && "a pop-up still on leaves Want to try",
   ].filter(Boolean);
   if (popFails.length) {
     failed++;
     console.log(`✗ Pop-ups: ${popFails.join(", ")}`);
   } else console.log("✓ A pop-up running several days shows while it's on, with an Instagram link");
+  // Never District, BookMyShow, Meetup, Zomato or Swiggy (tester, 23 Nov
+  // 2026: "Found on District" in Bengaluru).
+  const banned = /district|bookmyshow|meetup|zomato|swiggy|insider/i;
+  const sourceFails = [
+    ...["Bengaluru", "Mumbai", "Delhi", "London"].flatMap((name) => {
+      const [c] = searchCities(name, 1);
+      return banned.test(eventSources(c)) ? [`${name} searches ${eventSources(c).match(banned)![0]}`] : [];
+    }),
+    eventPasses(ev(cal.today, undefined, "https://www.district.in/events/comedy-night"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a District event shows",
+    eventPasses(ev(cal.today, undefined, "https://in.bookmyshow.com/events/standup/ET001"), { when: "tonight", timeZone: tz, maxSpend: null }) && "a BookMyShow event shows",
+    // The Search chip shows the searches: plain words, not "site:" (tester, 23 Nov 2026).
+    /site:/.test(searchChip([{ type: "google_search_result", result: [{ search_suggestions: "<a>site:district.in comedy</a>" }, { search_suggestions: "<a>comedy Bengaluru this weekend</a>" }] }])) && "a chip shows a site: search",
+  ].filter(Boolean);
+  if (sourceFails.length) {
+    failed++;
+    console.log(`✗ Never-used sources: ${sourceFails.join(", ")}`);
+  } else console.log("✓ District, BookMyShow, Meetup, Zomato and Swiggy are never searched or shown, and the Search chip reads as plain words");
   // Style brands (review, 22 Nov 2026): Mumbai H&M opened Australia, London
   // Uniqlo opened India, and "In your budget" showed with no price behind it.
   const link = (website: string, proof: string | null, c: string, cn: string) => shopLink({ name: "B", website }, { presence_url: proof }, c, cn).href;

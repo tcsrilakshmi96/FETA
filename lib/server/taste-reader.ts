@@ -117,7 +117,10 @@ export type Surprise = { label: string; query: string; why: string };
 
 export async function readSurprise(taste: Taste, city: City, category: Category, tried: string[]): Promise<Surprise[]> {
   if (FAKE) return fakeSurprise(taste, category, tried);
-  const what = category === "food_drinks" ? "a place to eat or drink" : "a thing to do (not a restaurant)";
+  // Things to do never show a bar, café or restaurant found by name (Food
+  // & drinks has those), so a "karaoke bar" surprise always came back
+  // empty (tester, 23 Nov 2026: Surprise me found nothing).
+  const what = category === "food_drinks" ? "a place to eat or drink" : "a thing to do (a venue, class, activity or outing; not a bar, pub, café or restaurant)";
   const chosen = category === "food_drinks" ? taste.yes.filter((y) => y.startsWith("cuisine_")).map((y) => y.slice(8).replace(/_/g, " ")) : taste.answers.interests.map((i) => i.replace(/_/g, " "));
   const prompt = `A person in ${city.name}, ${city.countryName} wants to be surprised tonight with ${what}.
 What they chose: ${chosen.join(", ") || "nothing yet"}.
@@ -134,7 +137,7 @@ Reply with only JSON: {"kinds": [{"label": 1 to 4 words, e.g. "Burmese", "query"
 // Test mode: catalogue kinds they didn't choose, in order.
 function fakeSurprise(taste: Taste, category: Category, tried: string[]): Surprise[] {
   const food = category === "food_drinks";
-  const ids = food ? Object.keys(CUISINE_SEARCH).filter((id) => !taste.yes.includes(`cuisine_${id}`)) : Object.keys(INTEREST_SEARCH).filter((id) => !taste.answers.interests.includes(id));
+  const ids = food ? Object.keys(CUISINE_SEARCH).filter((id) => !taste.yes.includes(`cuisine_${id}`)) : Object.keys(INTEREST_SEARCH).filter((id) => !taste.answers.interests.includes(id) && !INTEREST_SEARCH[id].foodDrink && !INTEREST_SEARCH[id].drinkPlace);
   return ids
     .map((id) => ({ label: id.replace(/_/g, " "), query: (food ? CUISINE_SEARCH : INTEREST_SEARCH)[id].searches[0], why: `Something you haven't tried: ${id.replace(/_/g, " ")}.` }))
     .filter((k) => !tried.includes(k.label))

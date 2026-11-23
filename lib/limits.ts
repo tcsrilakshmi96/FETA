@@ -3,20 +3,24 @@
 // Feta is in testing, never about money). Used on the phone and the server.
 
 // The limits reset at midnight India time (the database counts the day that
-// way), said in the person's own time: "midnight", or "6:30 pm" in London.
-export function resetTime(timeZone?: string): string {
-  const ist = new Date(Date.now() + 330 * 60000);
+// way), said in the person's own time: "midnight", "6:30 pm" in London
+// before then, and "tomorrow at 6:30 pm" after it (tester, 23 Nov 2026:
+// "more from 6:30 pm" in the evening, when the reset was the next day).
+export function resetTime(timeZone?: string, now = Date.now()): string {
+  const ist = new Date(now + 330 * 60000);
   const next = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + 1) - 330 * 60000);
-  let parts: Intl.DateTimeFormatPart[];
+  let zone = timeZone ?? "Asia/Kolkata";
   try {
-    parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone }).formatToParts(next);
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
   } catch {
-    parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }).formatToParts(next);
+    zone = "Asia/Kolkata";
   }
+  const parts = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: zone }).formatToParts(next);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   const [hour, minute, period] = [get("hour"), get("minute"), get("dayPeriod").toLowerCase()];
   if (hour === "12" && minute === "00" && period === "am") return "midnight";
-  return `${hour}${minute === "00" ? "" : `:${minute}`} ${period}`;
+  const day = (d: number | Date) => new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(d);
+  return `${day(next) !== day(now) ? "tomorrow at " : ""}${hour}${minute === "00" ? "" : `:${minute}`} ${period}`;
 }
 
 export type LimitWhat = "picks" | "kept" | "style" | "ask";

@@ -6,8 +6,8 @@ import Mascot from "@/components/Mascot";
 import { useRouter } from "next/navigation";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import { loadCity, type City } from "@/lib/cities";
-import { currencyForTimeZone } from "@/lib/currency";
-import { saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
+import { currencyForTimeZone, type Currency } from "@/lib/currency";
+import { removeFromList, saveAnswersToDb, saveProfileLinesToDb, saveSwipesToDb } from "@/lib/db";
 import { categoryOf, saveBeen } from "@/lib/my-places";
 import InterestChips from "@/components/InterestChips";
 import { AVOID_OPTIONS, EMPTY_ANSWERS, QUESTIONS, isVegDiet, loadAnswers, optionsFor, saveAnswers, toggleSpend, type Answers } from "@/lib/onboarding";
@@ -58,7 +58,13 @@ export default function Questions() {
   const [anythingElse, setAnythingElse] = useState("");
   const [asking, setAsking] = useState(false); // "Recommend them to people like you?"
   const [asked, setAsked] = useState(false);
+  // The phone's own money until their city is known. Read after the page
+  // loads: the server's time zone isn't theirs, and reading it while drawing
+  // gave the server ₹ and the phone £ (React error #418, tester 23 Nov 2026).
+  const [phoneCurrency, setPhoneCurrency] = useState<Currency | null>(null);
+  const [tooMany, setTooMany] = useState(false); // a 5th cuisine was tapped
   const session = useRef("");
+  const savingLoved = useRef(new Map<string, Promise<unknown>>());
 
   // Answers from an earlier visit, and a city to work with: theirs, or a
   // guess from the phone's time zone (prices and search suggestions only;
@@ -69,6 +75,7 @@ export default function Questions() {
     setAnswers(loadAnswers());
     setSwipes(loadSwipes());
     setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
+    setPhoneCurrency(currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone));
     /* eslint-enable react-hooks/set-state-in-effect */
     const saved = loadCity();
     if (saved) setCity(saved);
@@ -85,7 +92,7 @@ export default function Questions() {
   const doing = wants.includes("do");
   const steps: Step[] = ["basics", "loves", ...(food || doing ? (["taste", "vibe"] as Step[]) : [])];
   const current = steps[Math.min(step, steps.length - 1)];
-  const currency = city?.currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const currency = city?.currency ?? phoneCurrency;
   const veg = isVegDiet(answers.diet);
 
   // Places they love: Google suggestions as they type, a moment after they stop.
@@ -109,31 +116,46 @@ export default function Questions() {
     saveAnswers(all);
   }
 
-  async function addLoved(s: AreaSuggestion) {
+  function addLoved(s: AreaSuggestion) {
     setLoved([...loved, { placeId: s.placeId, name: s.name, detail: s.detail }]);
     setTyped("");
     setSuggestions([]);
-    // Ending the suggestion session keeps it free, and says where the place
-    // is, so it's saved in the right city as a place they love.
-    const at = await locateArea(s.placeId, session.current);
+    const typing = session.current;
     session.current = "";
-    const placeCity = at
-      ? await fetch(`/api/cities?near=${at.lat},${at.lng}`)
-          .then((r) => r.json() as Promise<{ city: City | null }>)
-          .then((r) => r.city)
-          .catch(() => null)
-      : null;
-    saveBeen(s.placeId, { verdict: "loved", category: categoryOf(s.types), cityId: placeCity?.id ?? city?.id });
+    // Ending the suggestion session keeps it free, and says where the place
+    // is, so it's saved in the right city as a place they love. Kept until
+    // saved, so ✕ straight away still takes it back.
+    savingLoved.current.set(
+      s.placeId,
+      (async () => {
+        const at = await locateArea(s.placeId, typing);
+        const placeCity = at
+          ? await fetch(`/api/cities?near=${at.lat},${at.lng}`)
+              .then((r) => r.json() as Promise<{ city: City | null }>)
+              .then((r) => r.city)
+              .catch(() => null)
+          : null;
+        await saveBeen(s.placeId, { verdict: "loved", category: categoryOf(s.types), cityId: placeCity?.id ?? city?.id });
+      })(),
+    );
   }
 
+  // ✕ on a place they added by mistake (tester, 23 Nov 2026: no way to take one back).
+  async function removeLoved(placeId: string) {
+    setLoved((all) => all.filter((l) => l.placeId !== placeId));
+    await savingLoved.current.get(placeId);
+    savingLoved.current.delete(placeId);
+    await removeFromList(placeId, "been");
+  }
+
+  // Up to 4, said when a 5th is tapped (tester, 23 Nov 2026: it was silently ignored).
   function toggleCuisine(id: string) {
     const key = `cuisine_${id}`;
-    setSwipes((all) => {
-      const chosen = all.filter((s) => s.cardId.startsWith("cuisine_") && s.verdict === "yes").length;
-      const on = all.some((s) => s.cardId === key && s.verdict === "yes");
-      if (!on && chosen >= MAX_CUISINES) return all;
-      return [...all.filter((s) => s.cardId !== key), { cardId: key, verdict: on ? "no" : "yes" }];
-    });
+    const chosen = swipes.filter((s) => s.cardId.startsWith("cuisine_") && s.verdict === "yes").length;
+    const on = swipes.some((s) => s.cardId === key && s.verdict === "yes");
+    setTooMany(!on && chosen >= MAX_CUISINES);
+    if (!on && chosen >= MAX_CUISINES) return;
+    setSwipes([...swipes.filter((s) => s.cardId !== key), { cardId: key, verdict: on ? "no" : "yes" }]);
   }
 
   function chooseSide(card: PairCard, choice: "a" | "b" | "both") {
@@ -156,7 +178,7 @@ export default function Questions() {
       typed.rest && { id: "food_other", text: `Also loves ${typed.rest.slice(0, 60)}`, source: "answers" as const },
       anythingElse.trim() && { id: "loves_other", text: `Loves ${anythingElse.trim().slice(0, 100)}`, source: "answers" as const },
     ].filter(Boolean) as ProfileLine[];
-    const lines = [...pickedUpLines(answers, all, currency, city?.country), ...own];
+    const lines = [...pickedUpLines(answers, all, currency ?? currencyForTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone), city?.country), ...own];
     saveProfileLines(lines);
     saving.push(saveProfileLinesToDb(lines, []));
     await Promise.all(saving);
@@ -259,7 +281,7 @@ export default function Questions() {
           )}
           <p className={styles.label}>{food ? "Spend per person · tick all that are fine" : "Spend on a night out, per person · tick all that are fine"}</p>
           <div className={styles.chips}>
-            {optionsFor(q("spend"), currency, city?.country).map((o) => (
+            {currency && optionsFor(q("spend"), currency, city?.country).map((o) => (
               <button key={o.id} type="button" aria-pressed={answers.spend.includes(o.id)} className={answers.spend.includes(o.id) ? styles.on : ""} onClick={() => set({ spend: toggleSpend(answers.spend, o.id), spendCurrency: currency })}>
                 {o.label}
               </button>
@@ -267,7 +289,7 @@ export default function Questions() {
           </div>
           <p className={styles.label}>How far will you go?</p>
           <div className={styles.chips}>
-            {optionsFor(q("distance"), currency, city?.country).map((o) => (
+            {optionsFor(q("distance"), currency ?? "USD", city?.country).map((o) => (
               <button key={o.id} type="button" className={answers.distance === o.id ? styles.on : ""} onClick={() => set({ distance: answers.distance === o.id ? null : o.id })}>
                 {o.label}
               </button>
@@ -302,6 +324,9 @@ export default function Questions() {
                   <span>
                     <strong>{l.name}</strong> <small>{l.detail}</small>
                   </span>
+                  <button type="button" onClick={() => removeLoved(l.placeId)} aria-label={`Remove ${l.name}`}>
+                    ✕
+                  </button>
                 </li>
               ))}
             </ul>
@@ -346,6 +371,11 @@ export default function Questions() {
           {food && (
             <>
               <p className={styles.label}>To eat · up to {MAX_CUISINES}</p>
+              {tooMany && (
+                <p className={styles.count} role="status">
+                  That&apos;s {MAX_CUISINES} already. Untick one to choose another, or add more under Something else.
+                </p>
+              )}
               <div className={styles.cuisines}>
                 {cuisines.map((c) => {
                   const on = swipes.some((s) => s.cardId === `cuisine_${c.id}` && s.verdict === "yes");
@@ -360,7 +390,7 @@ export default function Questions() {
                   <span>＋ Something else</span>
                 </button>
               </div>
-              {showOther && <input className={styles.field} value={otherFood} onChange={(e) => setOtherFood(e.target.value)} placeholder="e.g. Burmese, Parsi, Goan" aria-label="Another cuisine" maxLength={60} autoFocus />}
+              {showOther && <input className={styles.field} value={otherFood} onChange={(e) => setOtherFood(e.target.value)} placeholder="e.g. Burmese, Peruvian, Ethiopian" aria-label="Another cuisine" maxLength={60} autoFocus />}
             </>
           )}
           {doing && (

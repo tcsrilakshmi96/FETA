@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, trackGemini } from "@/lib/server/costs";
-import { cityCalendar, cleanTime, eventSources, isPage, type FoundEvent } from "@/lib/server/events";
+import { cityCalendar, cleanTime, eventSources, isPage, neverSourceUrl, PLAIN_SEARCHES, searchChip, type FoundEvent, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 
 // What's on, read from her city's guides (founder, 22 Nov 2026: "if you go
@@ -18,8 +18,6 @@ import { FAKE } from "@/lib/server/fake-places";
 
 export type GuideEvent = FoundEvent & { kind: string; guide: string };
 export type GuideSet = { events: GuideEvent[]; searchHtml: string };
-
-const NEVER_READ = /district|bookmyshow|meetup|zomato|swiggy|insider/i;
 
 // Today's set for this city, or nothing yet: the first search of the day
 // starts the reading after its reply and doesn't wait (it takes a minute).
@@ -42,12 +40,10 @@ export async function guideEventsFor(db: SupabaseClient, city: City): Promise<Gu
   return null;
 }
 
-type Step = { type: string; result?: { search_suggestions?: string }[]; content?: { type: string; text?: string }[] };
-
 // Two steps: a Google search finds the posts (and gives the Search chip
 // Google requires next to what it found), then Gemini reads those posts.
 export async function readGuides(city: City): Promise<GuideSet> {
-  const sites = eventSources(city).split(", ").filter((s) => !NEVER_READ.test(s));
+  const sites = eventSources(city).split(", ");
   if (!sites.length) return { events: [], searchHtml: "" };
   const cal = cityCalendar(city.timeZone);
   const found = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
@@ -55,7 +51,7 @@ export async function readGuides(city: City): Promise<GuideSet> {
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY!, "Api-Revision": "2026-05-20" },
     body: JSON.stringify({
       model: "gemini-3.5-flash",
-      input: `Today is ${cal.today}. Find the current "what's on" posts for ${city.name}, ${city.countryName} on these local guides: ${sites.join(", ")}: roundups for this week, this weekend or this month, pop-up calendars and event listings, published in the last 3 weeks. Use at most 3 searches.
+      input: `Today is ${cal.today}. Find the current "what's on" posts for ${city.name}, ${city.countryName} on these local guides: ${sites.join(", ")}: roundups for this week, this weekend or this month, pop-up calendars and event listings, published in the last 3 weeks. Use at most 3 searches. ${PLAIN_SEARCHES}
 Reply with only a JSON array of up to 4 of them: {"url": the post's own full address (an article or listing page, never a home page or a section page), "guide": the publication}.`,
       tools: [{ type: "google_search" }],
       generation_config: { thinking_level: "low" },
@@ -66,9 +62,9 @@ Reply with only a JSON array of up to 4 of them: {"url": the post's own full add
   const search = (await found.json()) as { steps?: Step[] };
   trackGemini("gemini_search", search);
   const steps = search.steps ?? [];
-  const searchHtml = steps.flatMap((s) => (s.type === "google_search_result" ? (s.result ?? []).map((r) => r.search_suggestions ?? "") : [])).find(Boolean) ?? "";
+  const searchHtml = searchChip(steps);
   const posts = jsonArray<{ url?: string; guide?: string }>(steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join(""))
-    .filter((p) => isPage(p.url) && !NEVER_READ.test(p.url!))
+    .filter((p) => isPage(p.url) && !neverSourceUrl(p.url!))
     .slice(0, 4);
   if (!searchHtml || !posts.length) return { events: [], searchHtml: "" };
 
@@ -90,7 +86,7 @@ Reply with only a JSON array. Each item:
   trackGemini("gemini_search", data);
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
   const events = jsonArray<GuideEvent>(text)
-    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPage(e.url))
+    .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPage(e.url) && !neverSourceUrl(e.url))
     .map((e) => ({ ...e, time: cleanTime(e.time), endDate: e.endDate ?? undefined, kind: String(e.kind ?? "").slice(0, 60), guide: String(e.guide ?? "").slice(0, 60), fromList: true }))
     .slice(0, 40);
   return { events, searchHtml };

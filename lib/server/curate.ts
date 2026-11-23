@@ -185,8 +185,12 @@ export function pickFrom(found: CurateResult, opts: { room: number; small: boole
   const explicit = result.intents.filter((i) => i.explicit);
   const all = selectPicks(result.ranked, result.pool, { ...opts, explicit });
   const shown = all.filter((c) => !c.spare).length;
-  const covered = new Set(all.slice(0, shown).flatMap((c) => c.candidate.intents ?? []));
-  const missing = explicit.filter((i) => !covered.has(i.id) && i.source !== "tweak");
+  // Served by an event shown (taken) or by a place shown, by what it
+  // matched or by its Google type (tester, 23 Nov 2026: "No stand-up
+  // comedy" above a comedy club and a comedy night).
+  const placesShown = all.slice(0, shown).map((c) => c.candidate);
+  const covered = new Set([...(opts.taken ?? []), ...placesShown.flatMap((c) => c.intents ?? [])]);
+  const missing = explicit.filter((i) => !covered.has(i.id) && i.source !== "tweak" && !placesShown.some((c) => matches(c.place, i, false)));
   return { chosen: all.map(({ candidate, ranked }) => ({ candidate, ranked })) as Chosen[], shown, missing };
 }
 

@@ -21,6 +21,7 @@ export type Verdict = "Worth a detour" | "Good if you're nearby" | "Skip unless"
 export type Taste = {
   answers: Answers;
   lines: string[]; // profile lines still in use (never trip-only ones)
+  lineKeys?: string[]; // each line's key, in the same order ("cuisines", "you:do:…")
   own?: string[]; // the lines in their own words (typed, chat, You), searched for (taste-reader.ts)
   yes: string[]; // swipe card ids the user said "Yes, me" to
   no: string[];

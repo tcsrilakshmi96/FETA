@@ -210,10 +210,17 @@
   animation: var(--kf-up) 0.7s var(--ease-enter) 0.2s both;
 }
 
+/* At most two lines: a long Google name took three (tester, 23 Nov 2026);
+   the whole name is in Details. */
 .name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   font-size: 30px;
   font-weight: 300;
-  line-height: 1.02;
+  line-height: 1.06;
   letter-spacing: -0.035em;
   text-wrap: pretty;
 }
@@ -255,7 +262,11 @@
   margin-top: 9px;
 }
 
+/* A long chip wraps into even lines ("Veg options · not confirmed, /
+   check with staff"), never one word or a ✓ alone (tester, 23 Nov 2026). */
 .chips span {
+  max-width: 100%;
+  text-wrap: balance;
   padding: 5px 10px;
   border-radius: 99px;
   background: rgba(255, 243, 238, 0.16);
@@ -561,9 +572,8 @@
   color: #ffe2a3;
 }
 
-.info > span,
-.because,
-.name {
+.info > span:not(.name),
+.because {
   display: block;
 }
 
@@ -693,6 +703,11 @@
 }
 
 .rowName {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
   font-size: 16px;
   font-weight: 500;
   line-height: 1.15;

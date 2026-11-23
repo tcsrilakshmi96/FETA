@@ -3,7 +3,7 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { EMPTY_ANSWERS, withSpendRange, type Answers } from "@/lib/onboarding";
 import { scopeCounts } from "@/lib/profile-scope";
-import type { Taste } from "@/lib/server/picks";
+import type { Category, Taste } from "@/lib/server/picks";
 
 // A database client that acts as the signed-in user, so row-level
 // security applies to every query.
@@ -64,6 +64,7 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
   return {
     answers,
     lines: lines.map((l) => l.text),
+    lineKeys: lines.map((l) => String(l.line_key ?? "")),
     own: own.map((l) => l.text).slice(0, 12),
     yes: swipes.filter((s) => s.verdict === "yes").map((s) => s.card_id),
     no: swipes.filter((s) => s.verdict === "no").map((s) => s.card_id),
@@ -80,4 +81,35 @@ export async function loadTaste(db: SupabaseClient, trip?: string | null): Promi
     },
     loved: been.filter((b) => b.verdict === "loved").slice(0, 30).map((b) => ({ id: b.place_id as string, category: (b.category as string | null) ?? null })),
   };
+}
+
+// A short hash of everything that shapes one category's search, so a set is
+// searched again only when its own side changed (tester, 23 Nov 2026: a new
+// cuisine in You used a search for Things to do too). Cuisines, diet and
+// food words are food's; interests and to-do words are things to do's;
+// budget, distance, drinks, who and everything else count for both.
+const FOOD_KEYS = /^(cuisines|diet|avoid|food_other|you:food:|loved:food:)/;
+const DO_KEYS = /^(interests|loves_other|you:do:|loved:do:)/;
+
+export function tasteFingerprint(t: Taste, category: Category) {
+  const a = t.answers;
+  const food = category === "food_drinks";
+  const other = food ? DO_KEYS : FOOD_KEYS;
+  const keys = t.lineKeys ?? [];
+  const lines = t.lines.filter((_, i) => !other.test(keys[i] ?? ""));
+  const text = JSON.stringify([
+    food ? [a.diet, a.halal, a.avoid] : a.interests,
+    a.spend,
+    a.distance,
+    a.drinks,
+    a.who,
+    t.yes.filter((y) => food || !y.startsWith("cuisine_")).sort(),
+    (t.loved ?? []).filter((l) => !l.category || l.category === category).map((l) => l.id),
+    lines.sort(),
+    t.notInto ?? [],
+    (t.unlearned ?? []).filter((k) => !other.test(k)).sort(),
+  ]);
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return (h >>> 0).toString(36);
 }

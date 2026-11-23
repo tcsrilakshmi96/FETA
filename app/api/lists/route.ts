@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { distanceKm } from "@/lib/cities";
 import { askIs, overBudget, withCosts } from "@/lib/server/costs";
+import { eventOver } from "@/lib/server/events";
 import { bestPhoto, photoUri, placeDetails, type Place } from "@/lib/server/places";
 import type { StoredPick } from "@/lib/server/picks";
 
@@ -57,10 +58,12 @@ export async function GET(request: Request) {
 
   // Events were found on the web, so their listing comes from the pick set.
   const eventIds = rows.filter((r) => r.place_id.startsWith("event:")).map((r) => r.place_id);
-  const events = new Map<string, NonNullable<StoredPick["event"]>>();
+  // An event that's over leaves Want to try (tester, 23 Nov 2026: past
+  // dates shown); one they went to stays in Been.
+  const events = new Map<string, NonNullable<StoredPick["event"]> & { over: boolean }>();
   if (eventIds.length > 0) {
-    const { data: sets } = await db.from("pick_sets").select("picks").eq("category", "experiences").order("created_at", { ascending: false }).limit(50);
-    for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId)) events.set(p.placeId, p.event);
+    const { data: sets } = await db.from("pick_sets").select("picks, time_zone").eq("category", "experiences").order("created_at", { ascending: false }).limit(50);
+    for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId) && !events.has(p.placeId)) events.set(p.placeId, { ...p.event, over: eventOver(p.event, set.time_zone ?? "UTC") });
   }
 
   // Saved always shows what they saved (Round 6: a tester over the limit
@@ -71,7 +74,7 @@ export async function GET(request: Request) {
       const base = { placeId: r.place_id, list: r.action === "been" ? "been" : "want", note: r.note ?? "", savedAt: r.created_at, weekendFor: r.weekend_for ?? null, visits: r.visits ?? null, verdict: r.verdict ?? null } as const;
       const event = events.get(r.place_id);
       if (r.place_id.startsWith("event:")) {
-        if (!event) return null;
+        if (!event || (event.over && r.action !== "been")) return null;
         return {
           ...base,
           name: event.title,

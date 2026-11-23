@@ -43,11 +43,15 @@ export async function POST(request: Request) {
     const taste = body.origin.source === "city" ? { ...loaded, answers: { ...loaded.answers, distance: "city" } } : loaded;
     const exclude = new Set([...(actions.data ?? []).map((r) => r.place_id as string), ...(body.shown ?? []).slice(0, 200)]);
     const tried = (body.tried ?? []).slice(0, 12).map((t) => String(t).slice(0, 30));
+    // Said plainly when Feta couldn't think of one, or couldn't search
+    // (tester, 23 Nov 2026: it came back with nothing).
     const kinds = await readSurprise(taste, city, body.category, tried).catch((error) => {
       console.error(error);
-      return [];
+      return null;
     });
+    if (!kinds?.length) return Response.json({ notice: "Feta couldn't think of a surprise just now. Try again in a minute.", tried });
     // The first kind that finds a place; at most two searches.
+    let failed = 0;
     for (const kind of kinds.slice(0, 2)) {
       const found = await curate({
         taste,
@@ -62,7 +66,12 @@ export async function POST(request: Request) {
         need: 1,
         rotation: 0,
         searches: 1,
+      }).catch((error) => {
+        console.error(error);
+        failed++;
+        return null;
       });
+      if (!found) continue;
       const best = pickFrom(found, { room: 1, small: false, popularCap: 1 }).chosen[0];
       if (!best) {
         tried.push(kind.label);
@@ -72,6 +81,7 @@ export async function POST(request: Request) {
       const pick = buildPick(c, { placeId: c.place.id, kind: kindOf(c.place, body.category), verdict: "Good if you're nearby", because: kind.why }, { taste, when: body.when, city, wholeCity: body.origin.source === "city" });
       return Response.json({ pick, kind: kind.label });
     }
-    return Response.json({ notice: "Couldn't find a surprise that fits right now. Try again in a bit.", tried });
+    if (failed === Math.min(2, kinds.length)) return Response.json({ notice: "Couldn't reach Google Maps just now. Try again in a minute.", tried });
+    return Response.json({ notice: `Nothing new to you fits ${body.when === "tonight" ? "tonight" : "this weekend"} near you (Feta looked for ${kinds.slice(0, 2).map((k) => k.label.toLowerCase()).join(" and ")}). Try another.`, tried });
   });
 }

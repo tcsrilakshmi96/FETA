@@ -20,7 +20,7 @@ import { todayScope } from "@/lib/profile-scope";
 import { addWeekendWish, removeWeekendWish } from "@/lib/weekend-client";
 import styles from "./Ask.module.css";
 
-const PROMPTS = ["Plan my date night", "Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "I'm going to Goa next month", "Why this one?"];
+const PROMPTS = ["Plan my date night", "Something cheaper tonight", "I'm out with my parents", "Plans for this weekend", "Help me plan a trip", "Why this one?"];
 
 const WHO: Record<string, string> = { partner: "your partner", family: "your family", friends: "your friends", kids: "your kids" };
 
