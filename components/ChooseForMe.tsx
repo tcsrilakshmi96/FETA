@@ -31,12 +31,26 @@ const known = (p: Pick) => p.ratingCount ?? 500;
 const shared = (p: Pick) => (p.serves ?? []).some((s) => !s.startsWith("side_") && s !== "popular");
 const likeLoved = (p: Pick) => (p.serves ?? []).some((s) => s.startsWith("loved_"));
 
-// The order the free moods offer places in, from one list.
+// The order the free moods offer places in, from one list. Within each
+// group they take turns across what they're for (else their Google type),
+// so "Not this one" brings another kind (persona test, 23 Nov 2026: three
+// bakeries in a row).
 function inOrder(slot: Slot | undefined, mood: Mood) {
   const all = [...(slot?.picks ?? []), ...(slot?.spares ?? [])].filter(fits);
-  if (mood === "new") return [...all.filter(shared), ...all.filter((p) => !shared(p))].sort((a, b) => Number(shared(b)) - Number(shared(a)) || known(a) - known(b)).slice(0, 6);
-  const score = (p: Pick) => (likeLoved(p) ? 2 : shared(p) ? 1 : 0);
-  return all.sort((a, b) => score(b) - score(a) || known(b) * (b.rating ?? 4) - known(a) * (a.rating ?? 4)).slice(0, 6);
+  const score = mood === "new" ? (p: Pick) => (shared(p) ? 1 : 0) : (p: Pick) => (likeLoved(p) ? 2 : shared(p) ? 1 : 0);
+  const best = mood === "new" ? (a: Pick, b: Pick) => known(a) - known(b) : (a: Pick, b: Pick) => known(b) * (b.rating ?? 4) - known(a) * (a.rating ?? 4);
+  const sorted = all.sort((a, b) => score(b) - score(a) || best(a, b));
+  const turn = new Map<string, number>();
+  const nth = new Map(sorted.map((p) => {
+    const k = `${score(p)}|${p.serves?.[0] ?? p.type ?? p.placeId}`;
+    turn.set(k, (turn.get(k) ?? 0) + 1);
+    return [p, turn.get(k)!] as const;
+  }));
+  return sorted
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => score(b.p) - score(a.p) || nth.get(a.p)! - nth.get(b.p)! || a.i - b.i)
+    .map((x) => x.p)
+    .slice(0, 6);
 }
 
 export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onClose }: { mood: Mood; origin: Origin; when: When; lead: Category; lists: { category: Category; slot: Slot | undefined }[]; onGo: (p: Pick) => void; onClose: () => void }) {
