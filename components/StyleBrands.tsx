@@ -271,7 +271,11 @@ export default function StyleBrands() {
                             {checked ? `, checked ${checked}` : ""}
                           </span>
                         )}
-                        {fit === "explore" && <span className={s.small}>{b.price.price !== null ? `From ${formatMoney(b.price.price, origin.city.currency)}` : "Brand to explore · prices not checked"}</span>}
+                        {b.backup ? (
+                          <span className={s.small}>Sold in many countries · not yet checked in {country}</span>
+                        ) : (
+                          fit === "explore" && <span className={s.small}>{b.price.price !== null ? `From ${formatMoney(b.price.price, origin.city.currency)}` : "Brand to explore · prices not checked"}</span>
+                        )}
                         {fit === "above" && b.youLove && <span className={s.small}>Above your budget</span>}
                         <a className={s.link} style={{ whiteSpace: "nowrap" }} href={b.link.href} target="_blank" rel="noopener noreferrer">
                           {b.link.label}

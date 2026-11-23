@@ -388,6 +388,7 @@ export type BrandCard = {
   lovers?: number; // other people who love and recommend it
   youLove?: boolean;
   forYou?: string; // why it suits them, from the ranking
+  backup?: boolean; // sold in many countries, not yet checked in theirs
 };
 
 type Row = {
@@ -423,6 +424,11 @@ function cleanCues(t: string) {
 // so is one with no price and no price level (founder, 22 Nov 2026: shown
 // only when research puts it in their range); one they love themselves
 // stays. Priced ones come before "prices not checked" ones (`brandPrice`).
+// A style with fewer than this many brands confirmed in their country gets
+// backups: brands sold in at least GLOBAL_MARKETS countries.
+const BACKUP_MIN = 6;
+const GLOBAL_MARKETS = 4;
+
 export type BrandCity = { country: string; countryName: string; currency: Currency };
 export async function brandsFor(styles: string[], city: BrandCity, wears: Wears, budget: string[]): Promise<BrandCard[]> {
   const { country, countryName, currency } = city;
@@ -472,10 +478,33 @@ export async function brandsFor(styles: string[], city: BrandCity, wears: Wears,
     }
   }
   for (let i = cards.length - 1; i >= 0; i--) if (removed.has(`${cards[i].id}|${cards[i].style}`)) cards.splice(i, 1);
+  // Backup while their country is still being researched (founder, 23 Nov
+  // 2026: "keep a repository of brands as back up so that till searches we
+  // can show those"): for a style with few brands confirmed there, brands
+  // from the library sold in many countries, said plainly as not yet checked
+  // there, after the confirmed ones, linking to "Find it in <country>".
+  const thin = styles.filter((st) => cards.filter((c) => c.style === st).length < BACKUP_MIN);
+  if (thin.length) {
+    const { data: wide } = await supabase()
+      .from("brand_styles")
+      .select(`style_id, visible_cues, review_status, brands!inner (id, name, website, logo_url, origin_country, wears, brand_markets (${MARKET}))`)
+      .in("style_id", thin)
+      .neq("review_status", "rejected");
+    for (const r of (wide ?? []) as unknown as Row[]) {
+      const markets = r.brands.brand_markets.filter((m) => m.presence_type !== "ships from abroad");
+      if (markets.length < GLOBAL_MARKETS || !fitsWear(r.brands.wears) || cards.some((c) => c.id === r.brands.id && c.style === r.style_id)) continue;
+      if (cards.filter((c) => c.style === r.style_id).length >= BACKUP_MIN) continue;
+      // Its usual price level across the countries it was checked in.
+      const feels = markets.map((m) => m.price_feel).filter((f): f is string => !!f);
+      const feel = feels.sort((a, b) => feels.filter((x) => x === b).length - feels.filter((x) => x === a).length)[0] ?? null;
+      const market = { price_feel: feel, sample_price: null, sample_currency: null, checked_date: null };
+      cards.push({ id: r.brands.id, name: r.brands.name, website: r.brands.website, logo: r.brands.logo_url, homegrown: r.brands.origin_country === country, why: cleanCues(r.visible_cues), style: r.style_id, priceFeel: feel, price: brandPrice(market, budget, currency), link: shopLink(r.brands, { presence_url: null }, country, countryName, wears), approved: r.review_status === "approved", backup: true });
+    }
+  }
   const [love, mine] = await Promise.all([brandLove(cards.map((c) => c.id)), lovedBrandIds()]);
   const ranked: BrandCard[] = cards.map((c) => ({ ...c, ...love.get(c.id), youLove: mine.has(c.id) })).filter((c) => c.youLove || c.price.fit !== "above");
   // A stable sort keeps the order above within each group.
-  return ranked.sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0) || Number(b.price.fit === "fits") - Number(a.price.fit === "fits"));
+  return ranked.sort((a, b) => Number(!!a.backup) - Number(!!b.backup) || Number(!!b.fetaPick) - Number(!!a.fetaPick) || (b.lovers ?? 0) - (a.lovers ?? 0) || Number(b.price.fit === "fits") - Number(a.price.fit === "fits"));
 }
 
 export async function savedBrandIds(): Promise<Set<string>> {
@@ -669,7 +698,8 @@ export async function rankForMe(cards: BrandCard[], p: StyleProfile, countryName
   const why = new Map(order.map((o) => [o.id, o.why]));
   return cards
     .map((c) => ({ ...c, forYou: why.get(c.id) || undefined }))
-    .sort((a, b) => Number(!!b.fetaPick) - Number(!!a.fetaPick) || (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
+    // Confirmed in their country first; backups after, however well they rank.
+    .sort((a, b) => Number(!!a.backup) - Number(!!b.backup) || Number(!!b.fetaPick) - Number(!!a.fetaPick) || (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999));
 }
 
 // The best few across their styles, taking turns, so one style doesn't fill
