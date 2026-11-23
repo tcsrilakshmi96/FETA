@@ -242,7 +242,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const eventsTweakable = tweaks.every((t) => t === "cheaper" || t === "closer");
   const eventsFull =
     body.category === "experiences" && need > 1 && !body.trip && !body.only && eventsTweakable
-      ? eventPicks({ db, taste: effective, body, city, origin, exclude, intents: eventKinds, need }).catch((error) => {
+      ? eventPicks({ db, taste: effective, body, city, origin, exclude, intents: eventKinds, need, rotation }).catch((error) => {
           console.error(error);
           return [] as EventPick[];
         })
@@ -467,11 +467,14 @@ async function eventPicks(ctx: {
   exclude: Set<string>;
   intents: Intent[];
   need: number;
+  rotation: number;
 }): Promise<EventPick[]> {
   const { db, taste, body, city, origin } = ctx;
   const limit = distanceLimitKm(taste.answers);
   const cal = cityCalendar(city.timeZone);
-  const kinds: (Intent | null)[] = ctx.intents.length ? ctx.intents : [null];
+  // Turned by the set's rotation, so with the cap every interest gets its new search in turn.
+  const turn = ctx.rotation % Math.max(1, ctx.intents.length);
+  const kinds: (Intent | null)[] = ctx.intents.length ? [...ctx.intents.slice(turn), ...ctx.intents.slice(0, turn)] : [null];
 
   // At most EVENT_SEARCHES new web searches a set (about ₹3 each); kinds
   // already searched in the city today are free and always used. The order
