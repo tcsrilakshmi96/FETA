@@ -441,8 +441,8 @@ export default function Style() {
               <p className={k.why}>{look.why}</p>
               {onMe === false && (
                 <button type="button" className={k.onMe} onClick={() => selfieFile.current?.click()}>
-                  <b>See it on you ›</b>
-                  <span>Add one head-to-toe photo. It goes to Google&apos;s image AI only to make your looks and stays on this phone.</span>
+                  <b>See these looks on you ›</b>
+                  <span>Add one head-to-toe photo and every look is shown on you, not a sketch. It goes to Google&apos;s image AI only to make your looks and stays on this phone.</span>
                 </button>
               )}
               <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />

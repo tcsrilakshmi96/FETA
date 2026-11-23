@@ -323,7 +323,11 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
     } catch {
       // Tried again.
     }
+    // Pictures only on them (founder, 23 Nov 2026: "why was a random lady
+    // shown?"): with no photo of theirs, Feta's sketch stays, and "See it on
+    // you" offers to add one. No picture is made, so nothing is spent.
     const photo = await fromPhone("selfie");
+    if (!photo) return null;
     const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null }>("/api/style/picture", { look, wears, photo });
     if (r?.image) await keepOnPhone(key, r.image);
     if (r?.image && r.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(r.spots));
