@@ -21,6 +21,19 @@ async function lenses(db: SupabaseClient): Promise<Lens[]> {
   return (data as Lens[] | null) ?? [];
 }
 
+// What each of their styles really is, from her style workbook
+// (style_lenses), for the look-maker (founder, 23 Nov 2026: "on what basis
+// is it showing me this?": it knew only the names, so "streetwear" came back
+// as sequins and a maxi skirt).
+export async function styleGuide(db: SupabaseClient, styles: string[]): Promise<string> {
+  const all = await lenses(db);
+  return styles
+    .map((id) => all.find((l) => l.style_id === id))
+    .filter((l): l is Lens => !!l)
+    .map((l) => `- ${l.style_id} (${l.name}): ${l.definition} Looks like: ${l.visible_signals}${l.keep_separate ? ` Not to be confused with: ${l.keep_separate}` : ""}`)
+    .join("\n");
+}
+
 async function gemini(sku: Sku, model: string, parts: object[], generationConfig: object, timeoutMs: number) {
   const res = await fetch(`${GEMINI}/${model}:generateContent`, {
     method: "POST",
@@ -146,6 +159,7 @@ export type LookAsk = {
   off: string[]; // what was off before ("Too dressy")
   avoid: string[]; // looks already shown for this outing
   note?: string | null; // anything else they said (Ask Feta)
+  guide?: string; // what each of their styles is (styleGuide)
 };
 
 const WHERE_WORDS: Record<Where, string> = { day: "an everyday day: errands, coffee, whatever comes up", work: "a day at work", dinner: "going out for dinner", drinks: "going out for drinks", do: "going out to do something", else: "somewhere they describe" };
@@ -182,7 +196,15 @@ export async function makeLooks(ask: LookAsk): Promise<Look[]> {
   const mine = ask.styles.map(styleById).filter((s) => s !== null);
   if (FAKE) return fakeLooks(ask);
   const n = Math.max(1, Math.min(3, ask.count));
-  const rule = mine.length >= n
+  // Every style gets its turn (founder, 23 Nov 2026: with four styles the
+  // fourth, Maximalist, never came up): each set starts from the styles
+  // shown least recently, then the outing decides the order among them.
+  const day = Math.floor(Date.now() / 86400000);
+  const round = Math.floor(ask.avoid.length / Math.max(1, n)) + ask.worn.length + day;
+  const turn = mine.length > n ? [...mine.slice(round % mine.length), ...mine.slice(0, round % mine.length)].slice(0, n) : mine;
+  const rule = mine.length > n
+    ? `Use exactly these styles this time, one look each, best fit for this outing first: ${turn.map((s) => s.id).join(", ")}.`
+    : mine.length >= n
     ? `First decide which of their styles suit this outing best, best first. Look 1 uses the best, look ${n > 1 ? "2 the next" : ""}${n > 2 ? ", look 3 the one after" : ""}.`
     : mine.length === 1
       ? `They have one style, so give ${n} different takes on it${n > 1 ? " (one simpler, one dressed up or bolder)" : ""}.`
@@ -193,7 +215,7 @@ export async function makeLooks(ask: LookAsk): Promise<Look[]> {
   // and their own pieces built in.
   const base = `You are a sharp personal stylist in ${ask.city}, dressing one person. It is ${ask.localTime}: dress for the weather usual in ${ask.city} at this time of year. In a warm or tropical climate never suggest warm layers (velvet, wool, knits, sweaters, boots for warmth); use breathable fabrics.
 Their styles, strongest first: ${mine.map((s) => `${s.id} (${s.name})`).join(", ")}. They shop for ${ask.wears === "both" ? "womenswear and menswear" : ask.wears === "women" ? "womenswear" : "menswear"}.
-${forText(ask.for)}
+${ask.guide ? `What each of their styles is (from Feta's style guide). Every look must be unmistakably its style: its silhouettes, fabrics and signature pieces, nothing borrowed from another style:\n${ask.guide}\n` : ""}${forText(ask.for)}
 ${ask.for.own ? `They're wearing something of their own: ${ask.for.own}. Use it in every look, word for word.\n` : ""}${ask.wardrobe.length ? `Pieces they own: ${ask.wardrobe.slice(-20).join("; ")}. Build at least one look around one of these when it suits this outing, naming it exactly as written here.\n` : ""}${ask.usuals.length ? `Brands they shop from (the kind of clothes, never name them): ${ask.usuals.slice(0, 8).join(", ")}.\n` : ""}${ask.cues.length ? `What they wear in outfits they love: ${ask.cues.join("; ")}.\n` : ""}${ask.worn.length ? `Looks they chose before: ${ask.worn.slice(-6).join("; ")}.\n` : ""}${ask.off.length ? `What was off in earlier looks (fix it): ${ask.off.slice(-4).join("; ")}.\n` : ""}${ask.avoid.length ? `Already shown for this outing, give clearly different ones: ${ask.avoid.join("; ")}.\n` : ""}${ask.note ? `They also said: ${ask.note}\n` : ""}
 ${rule}
 Give ${n} complete outfit${n > 1 ? "s" : ""} a good stylist would really put together: what people dress like for this kind of place in ${ask.city}, true to the style, wearable and easy to find in shops there.

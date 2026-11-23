@@ -7,7 +7,7 @@ import { runPicks } from "@/lib/server/engine";
 import { findDestination } from "@/lib/server/places";
 import { tasteSummary, TWEAKS, type Pick, type StoredPick } from "@/lib/server/picks";
 import { planDays } from "@/lib/server/plan-days";
-import { makeLooks } from "@/lib/server/style";
+import { makeLooks, styleGuide } from "@/lib/server/style";
 import { WHERES, styleById, type Look, type Where } from "@/lib/style";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 import { veniceJson, type ChatTurn } from "@/lib/server/venice";
@@ -413,9 +413,11 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
     const where: Where = WHERES.some((x) => x.id === o.occasion) ? (o.occasion as Where) : "else";
     const cut = (v: unknown, n: number) => (v ? String(v).slice(0, n) : undefined);
     const { data: lovedNames } = await db.from("loved_brands").select("brands (name)");
+    const guide = await styleGuide(db, myStyles.length ? myStyles : ["smart-casual", "basics"]).catch(() => "");
     outfit = await withCosts(db, "ask_outfit", () =>
       makeLooks({
         styles: myStyles.length ? myStyles : ["smart-casual", "basics"],
+        guide,
         wears: styleProfile?.wears ?? "women",
         for: { key: "ask", text: cut(o.vibe, 60) ?? "Ask Feta", where, stops: [], walkKm: null, place: where === "else" ? cut(o.vibe, 60) : undefined },
         note: cut([o.vibe, o.note].filter(Boolean).join(". "), 200) ?? null,

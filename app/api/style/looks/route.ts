@@ -1,7 +1,7 @@
 import { FAKE } from "@/lib/server/fake-places";
 import { cityById } from "@/lib/server/cities";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
-import { makeLooks, swapPiece, type LookAsk } from "@/lib/server/style";
+import { makeLooks, swapPiece, type LookAsk, styleGuide } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, WHERES, styleById, type Look, type LookFor, type Slot, type Where } from "@/lib/style";
 
@@ -80,6 +80,7 @@ export async function POST(request: Request) {
     worn: ((worn ?? []) as { looks: Look[]; chosen: number }[]).map((r) => r.looks?.[r.chosen]?.title).filter((x): x is string => !!x),
     off: (p?.off_notes ?? []).slice(-6),
     avoid: (Array.isArray(body.avoid) ? body.avoid : []).slice(0, 9).map((a) => t(a, 160)),
+    guide: await styleGuide(db, styles).catch(() => ""),
   };
   if (body.swap) {
     const look = lookOf(body.swap.look);
