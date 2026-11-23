@@ -222,7 +222,7 @@ function rightCountry(href: string, country: string) {
   const named = linkCountries(href);
   return named.length === 0 || named.includes(country.toLowerCase());
 }
-export function shopLink(brand: { name: string; website: string | null }, market: { presence_url: string | null; presence_ok?: boolean | null }, country: string, countryName: string): { href: string; label: string } {
+export function shopLink(brand: { name: string; website: string | null; origin_country?: string | null }, market: { presence_url: string | null; presence_ok?: boolean | null }, country: string, countryName: string): { href: string; label: string } {
   const own = brand.website ? (() => { try { return siteName(new URL(brand.website).hostname); } catch { return null; } })() : null;
   const p = market.presence_url;
   if (p && market.presence_ok !== false && own) {
@@ -231,7 +231,10 @@ export function shopLink(brand: { name: string; website: string | null }, market
     } catch {}
   }
   if (brand.website && rightCountry(brand.website, country) && linkCountries(brand.website).includes(country.toLowerCase())) return { href: brand.website, label: `Shop in ${countryName} ↗` };
-  if (brand.website && rightCountry(brand.website, country)) return { href: brand.website, label: "Visit site ↗" };
+  // A site that names no country only for a brand from there: a global
+  // brand's plain site sends people to whatever store it guesses (testers,
+  // 23 Nov 2026: uniqlo.com opened India for someone in Lisbon).
+  if (brand.website && brand.origin_country === country && rightCountry(brand.website, country)) return { href: brand.website, label: `Shop in ${countryName} ↗` };
   return { href: `https://www.google.com/search?q=${encodeURIComponent(`${brand.name} ${countryName} official store`)}`, label: `Find it in ${countryName} ↗` };
 }
 

@@ -557,6 +557,8 @@ async function main() {
     link("https://www2.hm.com/en_au/index.html", "https://www2.hm.com/en_in/index.html", "IN", "India") !== "https://www2.hm.com/en_in/index.html" && "Mumbai H&M doesn't open India",
     /uniqlo\.com\/in/.test(link("https://www.uniqlo.com/in/en/", null, "GB", "United Kingdom")) && "London Uniqlo opens India",
     /zara\.com\/(in|my)\//.test(link("https://www.zara.com/in/", "https://www.zara.com/sg/", "MY", "Malaysia")) && "Malaysia Zara opens another country",
+    link("https://www.uniqlo.com/", null, "PT", "Portugal") === "https://www.uniqlo.com/" && "Lisbon Uniqlo opens a site that picks the country itself",
+    shopLink({ name: "B", website: "https://www.fabindia.com/", origin_country: "IN" }, { presence_url: null }, "IN", "India").href !== "https://www.fabindia.com/" && "a homegrown brand's own site is missing",
     brandPrice({ price_feel: "budget", sample_price: 2499, sample_currency: "INR", checked_date: null }, ["c1"], "INR").fit !== "above" && "a ₹2,499 piece passes an under-₹1,500 budget",
     brandPrice({ price_feel: "budget", sample_price: null, sample_currency: null, checked_date: null }, ["c1"], "INR").fit !== "explore" && "an unpriced brand claims a budget fit",
     brandPrice({ price_feel: null, sample_price: 40, sample_currency: "USD", checked_date: null }, ["c2"], "GBP").fit !== "above" && "a brand with no price level or local price is shown",
