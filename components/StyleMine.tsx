@@ -329,7 +329,7 @@ export default function StyleMine() {
               </>
             )}
             <span style={{ fontSize: 12, opacity: 0.7 }}>
-              Head to toe works best. It goes to Google&apos;s image AI only to make your looks, about ₹4 a look. Feta doesn&apos;t keep it; the photo and pictures stay on this phone. Feta never comments on your body, size or looks.
+              Head to toe works best. It goes to Google&apos;s image AI only to make your looks. Feta doesn&apos;t keep it; the photo and pictures stay on this phone. Feta never comments on your body, size or looks.
             </span>
             <input ref={file} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
           </section>

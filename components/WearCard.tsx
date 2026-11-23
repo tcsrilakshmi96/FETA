@@ -62,7 +62,8 @@ export default function WearCard({ plan, here, tile, big, fallback = null, class
         <span className={s.wearTitle}>{look ? look.title : plan ? `For ${plan.stops[0]?.name ?? "tonight"}` : "Today"}</span>
         {!tile && look && <span className={s.wearLine}>{look.pieces.map((x) => x.name).join(" · ")}</span>}
         {!tile && !look && <span className={s.wearLine}>3 looks from your styles, made for this plan.</span>}
-        <span className={s.wearLink}>{look ? "See it, or pick another ›" : "See the looks ›"}</span>
+        {/* Short on Home's small tile, where the long line was cut off (testers, 23 Nov 2026). */}
+        <span className={s.wearLink}>{look ? (tile && !big ? "See it ›" : "See it, or pick another ›") : tile && !big ? "Looks ›" : "See the looks ›"}</span>
       </span>
     </button>
   );
