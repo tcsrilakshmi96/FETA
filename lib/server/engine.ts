@@ -657,7 +657,20 @@ async function eventPicks(ctx: {
 const FETA_LOOKUPS = 3;
 const COMMUNITY_LOOKUPS = 1;
 const LOCAL_LOOKUPS = 4;
+// Featured in (founder, 24 Nov 2026: "hardly we see any featured lists"):
+// up to 4 whose tags match what they want; none that match nothing, as they
+// can't pass anyway. Someone who hasn't shared anything gets the guides' first 2.
 const FEATURED_LOOKUPS = 2;
+const FEATURED_MATCHED = 4;
+
+export function featuredToCheck(places: { id: string; name: string; tags?: string[] }[], intents: Intent[]) {
+  return places
+    .map((f, i) => ({ id: f.id, i, fit: listFit(f, intents) }))
+    .sort((a, b) => b.fit - a.fit || a.i - b.i)
+    .filter((f) => !intents.length || f.fit > 0)
+    .slice(0, intents.length ? FEATURED_MATCHED : FEATURED_LOOKUPS)
+    .map((f) => f.id);
+}
 
 async function fetaCandidates(ctx: {
   db: SupabaseClient;
@@ -707,13 +720,7 @@ async function fetaCandidates(ctx: {
   const lookups = [
     ...byFit(founder.filter((f) => !ctx.founderExclude.has(f.placeId))).slice(0, FETA_LOOKUPS),
     ...byFit(locals.filter((f) => !ctx.exclude.has(f.placeId))).slice(0, LOCAL_LOOKUPS),
-    ...[...featured.entries()]
-      .filter(([id]) => !ctx.exclude.has(id))
-      .map(([id, f], i) => ({ id, i, fit: listFit(f, ctx.intents) }))
-      .sort((a, b) => b.fit - a.fit || a.i - b.i)
-      .filter((f) => !ctx.body.search || f.fit > 0)
-      .slice(0, FEATURED_LOOKUPS)
-      .map((f) => f.id),
+    ...featuredToCheck([...featured.entries()].filter(([id]) => !ctx.exclude.has(id)).map(([id, f]) => ({ id, name: f.name, tags: f.tags })), ctx.intents),
     ...(ctx.body.search ? [] : [...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id)),
   ];
   const places = (await Promise.all([...new Set(lookups)].map((id) => placeDetails(id, ctx.needsDiet))))

@@ -29,6 +29,7 @@ import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
 import { listFit, TAG_IDS } from "@/lib/server/list-tags";
+import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
@@ -965,6 +966,8 @@ async function main() {
       listFit({ name: "L'Industrie Pizzeria", tags: ["pizza", "slices"] }, [wantItalian]) < 3 && "a list place tagged pizza doesn't fit someone who loves Italian food",
       listFit({ name: "Birdland Jazz Club", tags: ["jazz club", "live_music"] }, [wantMusic]) < 3 && "a jazz club tagged live_music doesn't fit someone into live music",
       listFit({ name: "Times Square", tags: ["landmark", "sightseeing"] }, [wantMexican, wantItalian, wantMusic]) !== 0 && "a landmark fits someone who chose food and live music",
+      featuredToCheck([{ id: "a", name: "Guggenheim", tags: ["art_culture", "museum"] }, { id: "b", name: "L'Industrie", tags: ["pizza"] }, { id: "c", name: "Stretch", tags: ["italian"] }, { id: "d", name: "Brooklyn Bowl", tags: ["live_music", "bowling"] }, { id: "e", name: "Carbone", tags: ["italian", "dressed_up"] }, { id: "f", name: "Via Carota", tags: ["italian"] }], [wantItalian, wantMusic]).join() !== "b,c,d,e" && "Featured in doesn't check the 4 places that match them (or checks one that matches nothing)",
+      featuredToCheck([{ id: "a", name: "Guggenheim", tags: ["museum"] }], [wantMexican]).length !== 0 && "a Featured in place that matches nothing they want is checked live",
       !TAG_IDS.includes("live_music") || TAG_IDS.includes("local") ? "the tag words don't follow the catalog" : false,
     ].filter(Boolean);
     if (searchFails.length) {
