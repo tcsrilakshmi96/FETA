@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
 import { later, saveEventsCache, trackGemini } from "@/lib/server/costs";
+import { cleanTags, TAG_IDS } from "@/lib/server/list-tags";
 import { eventSources, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 import { placeIdFor } from "@/lib/server/places";
@@ -15,7 +16,7 @@ import type { Category } from "@/lib/server/picks";
 // link are kept: never the guide's words or photos, never scraped. Google's
 // Search chip travels with them.
 
-export type Featured = { placeId: string; name: string; guide: string; url: string };
+export type Featured = { placeId: string; name: string; guide: string; url: string; tags?: string[] };
 export type FeaturedSet = { places: Featured[]; searchHtml: string };
 
 // Review sites, ticket sites and social media are not guides, and Zomato,
@@ -50,7 +51,7 @@ async function findFeatured(city: City, category: Category): Promise<FeaturedSet
   const input = `Search the web for specific ${what} in ${city.name}, ${city.countryName} that local guides and editorial lists recommend now, from the last two years. Look first on ${eventSources(city)}, then other reputable local guides and magazines. Not review sites (Tripadvisor, Yelp, Google) and not ticket sites; never Zomato, Swiggy, District, BookMyShow or Meetup.
 Use at most 3 searches. ${PLAIN_SEARCHES} Up to 20 different places, each a single named place you could find on Google Maps, featured in an article or list you actually found.
 
-Reply with only a JSON array. Each item: {"name": string (the place, with its neighbourhood if given), "guide": string (the publication, e.g. "Time Out"), "url": the article's real URL (not a redirect)}.`;
+Reply with only a JSON array. Each item: {"name": string (the place, with its neighbourhood if given), "guide": string (the publication, e.g. "Time Out"), "url": the article's real URL (not a redirect), "tags": 3 to 6 short lowercase tags for what the place is and is known for, from what you read (a place can have several: a taco bar with live music is ["mexican", "tacos", "live_music", "lively"]); where one fits, use these exact words: ${TAG_IDS.join(", ")}}.`;
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY!, "Api-Revision": "2026-05-20" },
@@ -63,7 +64,7 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   const steps = data.steps ?? [];
   const searchHtml = searchChip(steps);
   const text = steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join("");
-  let items: { name?: string; guide?: string; url?: string }[] = [];
+  let items: { name?: string; guide?: string; url?: string; tags?: unknown }[] = [];
   try {
     items = JSON.parse(/\[[\s\S]*\]/.exec(text)?.[0] ?? "[]");
   } catch {
@@ -82,7 +83,7 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   const places = await Promise.all(
     real.slice(0, 20).map(async (i) => {
       const placeId = await placeIdFor(`${i.name}, ${city.name}`, city).catch(() => null);
-      return placeId ? { placeId, name: i.name!.slice(0, 120), guide: (i.guide || siteName(i.url!)).slice(0, 60), url: i.url! } : null;
+      return placeId ? { placeId, name: i.name!.slice(0, 120), guide: (i.guide || siteName(i.url!)).slice(0, 60), url: i.url!, tags: cleanTags(i.tags) } as Featured : null;
     }),
   );
   const seen = new Set<string>();

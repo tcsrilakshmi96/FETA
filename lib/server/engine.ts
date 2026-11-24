@@ -15,6 +15,7 @@ import { guideEventsFor } from "@/lib/server/guide-events";
 import { feedEvents } from "@/lib/server/event-feeds";
 import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { listFit } from "@/lib/server/list-tags";
 import {
   applyHardFilters,
   whyNothing,
@@ -681,7 +682,7 @@ async function fetaCandidates(ctx: {
   // One label per place, as they're ordered: hers, then local favourite,
   // then Featured in (tester, 23 Nov 2026: "Local favourite" on the card,
   // "Featured in" in its details).
-  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name }]));
+  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name, tags: f.tags }]));
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   const onList = (id: string) => notes.has(id) || loved.has(id) || localIds.has(id) || featured.has(id);
@@ -694,13 +695,13 @@ async function fetaCandidates(ctx: {
   });
   const mark = (c: Candidate) => (onList(c.place.id) ? label(c) : null);
   if (notes.size === 0 && loved.size === 0 && localIds.size === 0 && featured.size === 0) return { looked: [], mark };
-  // Each live check costs about ₹1.7: places whose name and note say
+  // Each live check costs about ₹1.7: places whose tags, name and note say
   // nothing about what they want get at most 2 checks between them, nearest
   // first (founder, 23 Nov 2026: optimise; they rarely turn out to fit).
-  // A search checks only list places whose name and note match what was typed.
+  // A search checks only list places whose tags, name or note match what was typed.
   const UNSURE = ctx.body.search ? 0 : 1;
   const byFit = (list: typeof curated) => {
-    const scored = list.map((f, near) => ({ id: f.placeId, near, fit: fitsWanted(`${f.name} ${f.note}`, ctx.intents) })).sort((a, b) => b.fit - a.fit || a.near - b.near);
+    const scored = list.map((f, near) => ({ id: f.placeId, near, fit: listFit(f, ctx.intents) })).sort((a, b) => b.fit - a.fit || a.near - b.near);
     return ctx.intents.length ? [...scored.filter((f) => f.fit > 0), ...scored.filter((f) => f.fit === 0).slice(0, UNSURE)].map((f) => f.id) : scored.map((f) => f.id);
   };
   const lookups = [
@@ -708,7 +709,7 @@ async function fetaCandidates(ctx: {
     ...byFit(locals.filter((f) => !ctx.exclude.has(f.placeId))).slice(0, LOCAL_LOOKUPS),
     ...[...featured.entries()]
       .filter(([id]) => !ctx.exclude.has(id))
-      .map(([id, f], i) => ({ id, i, fit: fitsWanted(f.name, ctx.intents) }))
+      .map(([id, f], i) => ({ id, i, fit: listFit(f, ctx.intents) }))
       .sort((a, b) => b.fit - a.fit || a.i - b.i)
       .filter((f) => !ctx.body.search || f.fit > 0)
       .slice(0, FEATURED_LOOKUPS)
@@ -728,14 +729,6 @@ async function fetaCandidates(ctx: {
     city: ctx.city,
   });
   return { looked: passed.map(label), mark };
-}
-
-// How many of the words for what they want (a cuisine, "brunch", "wine
-// bar") are in one of the founder's places' name and note.
-function fitsWanted(text: string, intents: Intent[]) {
-  const words = new Set(intents.flatMap((i) => `${i.label} ${i.query}`.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !["restaurant", "place", "places", "food", "with", "near", "best"].includes(w)));
-  const said = text.toLowerCase();
-  return [...words].filter((w) => said.includes(w)).length;
 }
 
 // How many Feta users recommend each pick, shown on the card.

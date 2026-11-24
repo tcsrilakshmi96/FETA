@@ -528,5 +528,20 @@
   "kind": "table",
   "name": "look_pictures",
   "file": "20261123150000_look_pictures.sql"
+ },
+ {
+  "kind": "function",
+  "name": "list_places_for_tags",
+  "file": "20261124090000_list_place_tags.sql"
+ },
+ {
+  "kind": "function",
+  "name": "set_place_tags",
+  "file": "20261124090000_list_place_tags.sql"
+ },
+ {
+  "kind": "column",
+  "name": "founder_places.tags",
+  "file": "20261124090000_list_place_tags.sql"
  }
 ]

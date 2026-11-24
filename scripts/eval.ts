@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
+import { listFit, TAG_IDS } from "@/lib/server/list-tags";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
@@ -924,6 +925,10 @@ async function main() {
       { name: "Street Co", text: "Street Co oversized hoodies cargo pants" },
       { name: "Shirt Bar", text: "Shirt Bar crisp cotton shirts" },
     ];
+    const want = (id: string, label: string, query: string, def: Intent["def"]): Intent => ({ id, label, reason: "", query, def, explicit: true, source: id.startsWith("cuisine") ? "cuisine" : "interest", food: id.startsWith("cuisine") });
+    const wantMexican = want("cuisine_mexican", "Mexican", "mexican restaurant", CUISINE_SEARCH.mexican);
+    const wantItalian = want("cuisine_italian", "Italian", "italian restaurant", CUISINE_SEARCH.italian);
+    const wantMusic = want("interest_live_music", "Live music", "live music venue", INTEREST_SEARCH.live_music);
     const searchFails = [
       fork.named?.place.displayName?.text !== "The Gilded Fork" && "a place searched by name isn't kept",
       !fork.named?.outside?.includes("Above your usual budget") && "a named place above their budget doesn't say so",
@@ -955,6 +960,12 @@ async function main() {
       JSON.stringify(readSpots([[324, 252], null], 2)) !== "[[0.324,0.252],null]" && "a picture's piece positions on a 0–1000 scale are thrown away",
       JSON.stringify(readSpots([[0.3, 0.2]], 1)) !== "[[0.3,0.2]]" && "a picture's piece positions as fractions are lost",
       readSpots([[0.3, 0.2]], 2) !== null && "piece positions for the wrong number of pieces are used",
+      // List places are matched by their tags, not their names (founder, 24 Nov 2026: Tacocina never counted as Mexican)
+      listFit({ name: "Tacocina", tags: ["mexican", "tacos"] }, [wantMexican]) < 3 && "a list place tagged mexican doesn't fit someone who loves Mexican food",
+      listFit({ name: "L'Industrie Pizzeria", tags: ["pizza", "slices"] }, [wantItalian]) < 3 && "a list place tagged pizza doesn't fit someone who loves Italian food",
+      listFit({ name: "Birdland Jazz Club", tags: ["jazz club", "live_music"] }, [wantMusic]) < 3 && "a jazz club tagged live_music doesn't fit someone into live music",
+      listFit({ name: "Times Square", tags: ["landmark", "sightseeing"] }, [wantMexican, wantItalian, wantMusic]) !== 0 && "a landmark fits someone who chose food and live music",
+      !TAG_IDS.includes("live_music") || TAG_IDS.includes("local") ? "the tag words don't follow the catalog" : false,
     ].filter(Boolean);
     if (searchFails.length) {
       failed++;
