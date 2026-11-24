@@ -543,5 +543,20 @@
   "kind": "column",
   "name": "founder_places.tags",
   "file": "20261124090000_list_place_tags.sql"
+ },
+ {
+  "kind": "function",
+  "name": "mark_cost_test",
+  "file": "20261124100000_costs_remember_tests.sql"
+ },
+ {
+  "kind": "column",
+  "name": "api_costs.is_test",
+  "file": "20261124100000_costs_remember_tests.sql"
+ },
+ {
+  "kind": "column",
+  "name": "api_hits.is_test",
+  "file": "20261124100000_costs_remember_tests.sql"
  }
 ]
