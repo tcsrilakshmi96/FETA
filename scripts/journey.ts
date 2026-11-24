@@ -270,6 +270,22 @@ async function main() {
       check(korean.test(after) && !korean.test(before), `Turning on ${turnOn} in You brings Korean places to the picks`, `before: ${korean.test(before)}, after: ${korean.test(after)}`);
     }
 
+    // A reload on the picks list shows the list kept on the phone, with no new
+    // ask to the server (audit, 24 Nov 2026: the list's first save wiped it).
+    {
+      await p.goto(`${BASE}/picks?c=food_drinks`, { waitUntil: "networkidle0" });
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
+      await wait(1000);
+      let asked = 0;
+      const count = (r: { url: () => string }) => { if (r.url().includes("/api/picks")) asked++; };
+      p.on("request", count);
+      await p.reload({ waitUntil: "networkidle0" });
+      await wait(2500);
+      p.off("request", count);
+      const text = await p.evaluate(() => document.body.innerText);
+      check(asked === 0 && /★|Test Area/.test(text), "Reloading the picks list shows the list kept on the phone, without asking again", `asked ${asked}`);
+    }
+
     // Another account's things left on the phone (founder, 21 Nov 2026: "in
     // one phone even after memory deletion the data gets overlapped") go, and
     // this account's own come back.
@@ -318,6 +334,11 @@ async function main() {
     await o.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);
     await wait(4000);
     check(o.url().includes("/home"), "Choosing only Style skips the places questions", o.url());
+    // And coming back to Feta brings them Home, not Welcome (audit, 24 Nov
+    // 2026: skipping the questions also skipped finishing setup).
+    await o.goto(`${BASE}/`, { waitUntil: "networkidle0" });
+    await o.waitForFunction(() => location.pathname === "/home", { timeout: 15000 }).catch(() => null);
+    check(o.url().includes("/home"), "Someone who chose only Style comes back to Home, not Welcome", o.url());
     check(picksAsked === 0, "Home searches nothing for someone who chose only Style", `${picksAsked} searches`);
     const onlyToken = await o.evaluate(() => {
       const k = Object.keys(localStorage).find((x) => x.includes("auth-token"));
