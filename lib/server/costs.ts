@@ -86,6 +86,9 @@ export class LimitReached extends Error {
 // as Google may still bill it. The eval fails on any paid address called
 // anywhere else.
 export async function paidFetch(sku: Sku, url: string, init: RequestInit = {}): Promise<Response> {
+  // Only paid services go through here; a free fetch through it would be
+  // logged as spend (audit, 24 Nov 2026: brand link checks were).
+  if (!/^https:\/\/(places\.googleapis\.com|generativelanguage\.googleapis\.com|api\.venice\.ai)\//.test(url)) throw new Error(`${sku}: ${url.slice(0, 40)} isn't a paid service`);
   const store = calls.getStore();
   if (!store) throw new Error(`${sku}: a paid call outside withCosts would never be logged`);
   store.mayPay ??= store.limit === "route" ? Promise.resolve(true) : store.db ? budgetToday(store.db).then((b) => !b.over) : Promise.resolve(false);

@@ -65,10 +65,10 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
   useEffect(() => {
     if (!look || pics[id]) return;
     let live = true;
-    keptPicture(look).then((kept) => {
+    keptPicture(look, want).then((kept) => {
       if (!live) return;
       if (kept || !want) {
-        setPics((p) => ({ ...p, [id]: kept }));
+        setPics((p) => ({ ...p, [id]: kept?.image ?? null }));
         return;
       }
       setMaking(id);
@@ -112,7 +112,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill
   // Where the pieces are in their picture (found when it was made).
   useEffect(() => {
     let live = true;
-    if (pic) keptSpots(look).then((x) => live && setFound({ id: look.id, spots: x }));
+    if (pic) keptSpots(look, pic).then((x) => live && setFound({ id: look.id, spots: x }));
     return () => {
       live = false;
     };

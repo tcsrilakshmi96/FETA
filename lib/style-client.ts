@@ -353,25 +353,29 @@ export function takePictureNotice() {
 // no person (also kept on their account). Made only when they ask for it
 // (founder, 24 Nov 2026: library picture first, the exact look on a tap).
 export type PictureKind = "me" | "outfit";
+// One of each per look, kept apart (audit, 24 Nov 2026: with one slot, once
+// the outfit board existed "On me" showed the board again).
+const picKey = (look: Look, kind: PictureKind) => (kind === "me" ? `pic-me:${look.id}` : `pic:${look.id}`);
+const spotsKey = (look: Look, kind: PictureKind) => (kind === "me" ? `spots-me:${look.id}` : `spots:${look.id}`);
 export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promise<string | null> {
-  const key = `pic:${look.id}`;
+  const key = picKey(look, kind);
   const waiting = picturesAsked.get(key);
   if (waiting) return waiting;
   const work = (async () => {
     const kept = await fromPhone(key);
     if (kept) return kept;
     const photo = kind === "me" ? await fromPhone("selfie") : null;
-    if (!photo && (await currentUserId())) {
+    if (kind === "outfit" && (await currentUserId())) {
       const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
       if (data?.image) {
         await keepOnPhone(key, data.image);
-        if (data.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(data.spots));
+        if (data.spots) await keepOnPhone(spotsKey(look, "outfit"), JSON.stringify(data.spots));
         return data.image as string;
       }
     }
     const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null; notice?: string }>("/api/style/picture", { look, wears, photo });
     if (r?.image) await keepOnPhone(key, r.image);
-    if (r?.image && r.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(r.spots));
+    if (r?.image && r.spots) await keepOnPhone(spotsKey(look, kind), JSON.stringify(r.spots));
     if (!r?.image) {
       // Made only on a tap now, so a tap again tries again (audit, 24 Nov 2026).
       picturesAsked.delete(key);
@@ -385,10 +389,10 @@ export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promis
 // Their photo added after a look's picture was made: that picture goes, so
 // the next one is made on them.
 export async function forgetPicture(look: Look) {
-  const key = `pic:${look.id}`;
+  const key = picKey(look, "me");
   picturesAsked.delete(key);
   await keepOnPhone(key, null);
-  await keepOnPhone(`spots:${look.id}`, null);
+  await keepOnPhone(spotsKey(look, "me"), null);
   try {
     sessionStorage.removeItem(`feta.picFailed:${key}`);
   } catch {
@@ -396,9 +400,11 @@ export async function forgetPicture(look: Look) {
   }
 }
 // Where each piece sits in the look's picture (x, y as fractions), when known.
-export async function keptSpots(look: Look): Promise<([number, number] | null)[] | null> {
+// pic: the picture on screen, so the dots are that picture's.
+export async function keptSpots(look: Look, pic?: string | null): Promise<([number, number] | null)[] | null> {
   try {
-    const v = JSON.parse((await fromPhone(`spots:${look.id}`)) ?? "null");
+    const onMe = pic && (await fromPhone(picKey(look, "me"))) === pic;
+    const v = JSON.parse((await fromPhone(spotsKey(look, onMe ? "me" : "outfit"))) ?? "null");
     return Array.isArray(v) && v.length === look.pieces.length ? v : null;
   } catch {
     return null;
@@ -406,15 +412,18 @@ export async function keptSpots(look: Look): Promise<([number, number] | null)[]
 }
 // On this phone, else the outfit board kept on their account (free), so a
 // look worn on one phone shows on another (audit, 24 Nov 2026).
-export async function keptPicture(look: Look): Promise<string | null> {
-  const key = `pic:${look.id}`;
-  const kept = await fromPhone(key);
-  if (kept || !(await currentUserId())) return kept;
+// want: the kind they asked for, if any; else the one on them first.
+export async function keptPicture(look: Look, want?: PictureKind | null): Promise<{ image: string; kind: PictureKind } | null> {
+  for (const kind of want ? [want] : (["me", "outfit"] as const)) {
+    const image = await fromPhone(picKey(look, kind));
+    if (image) return { image, kind };
+  }
+  if (want === "me" || !(await currentUserId())) return null;
   const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
   if (!data?.image) return null;
-  await keepOnPhone(key, data.image);
-  if (data.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(data.spots));
-  return data.image as string;
+  await keepOnPhone(picKey(look, "outfit"), data.image);
+  if (data.spots) await keepOnPhone(spotsKey(look, "outfit"), JSON.stringify(data.spots));
+  return { image: data.image as string, kind: "outfit" };
 }
 
 // Brands for their styles that sell in their country, from the library:
@@ -695,7 +704,9 @@ async function lovedBrandIds(): Promise<Set<string>> {
 export async function loadLovedBrands(): Promise<LovedBrand[]> {
   if (!(await currentUserId())) return [];
   const { data } = await supabase().from("loved_brands").select("brands (id, name, logo_url, brand_styles (style_id, review_status))").order("created_at");
-  return ((data ?? []) as unknown as { brands: { id: string; name: string; logo_url: string | null; brand_styles: { style_id: string; review_status: string }[] } }[]).map((r) => ({
+  // A brand they can't see (one someone else typed, not yet approved) is
+  // left out rather than breaking Brands (audit, 24 Nov 2026).
+  return ((data ?? []) as unknown as { brands: { id: string; name: string; logo_url: string | null; brand_styles: { style_id: string; review_status: string }[] } | null }[]).filter((r): r is { brands: NonNullable<typeof r.brands> } => !!r.brands).map((r) => ({
     id: r.brands.id,
     name: r.brands.name,
     logo: r.brands.logo_url,

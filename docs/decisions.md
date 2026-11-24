@@ -329,3 +329,10 @@ The founder chose the clothesline intro and the lookbook card (numbered dots wit
 - Cost: a missing write key would stop the cost log silently, so Admin's health box now checks it; the ask fingerprints are keyed with the server's secret.
 - Security: shares are checked key by key, events must be ones Feta found, and Feta picks the link's name; a typed brand and where it's sold stay private until approved; tags 3 people agreed on show to no one until reviewed; Google's search chip is shown in a sealed frame (the hand-written cleaner could be got round); place names on the phone are removed once out of date.
 
+## 24 Nov 2026: Audit round 4, fixing the patterns
+Three rounds kept finding the same kinds of problem, so they were fixed as kinds (founder: "identify a pattern ... and fix those in 1 go"):
+- Rules that only fail on the real database (the share check that stopped WhatsApp, Saved events, a typed brand breaking Brands for a second person) passed every check, which ran on made-up data: `npm run db-check` now makes the app's writes on the real database with a test account, at ₹0.
+- What people or the AI write reaching what others see (share pages, the events cache, brand lookups): a share now holds only what Feta made, checked against Feta's own records (`found_events`, every event Feta found, kept for good; her note on her place; a day or a date as the title); typed words reach Gemini only as quoted data and the shared cache only as a keyed hash; a typed brand stays private (`private`) until approved, even after the account goes.
+- The same rule written in several places drifting apart (Today/Tonight, shown/seen): one night-slot rule (`nightAt`, used by `tonightMeansNow`), one open-now rule (`openTonight` with options: evening, category, fullHour), one record of what a list has shown on the phone (`shownBefore`, also filtering its backup).
+- Find-and-replace edits that changed more than meant (brand link checks logged as Gemini searches): the paid-call gate refuses any address that isn't a paid service.
+

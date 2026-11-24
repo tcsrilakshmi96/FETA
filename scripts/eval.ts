@@ -1018,9 +1018,10 @@ async function main() {
     const slotFails = [
       !openTonight(place(10, 17, morning.timeZone), morning) && "a museum open 10 to 5 doesn't fit Today at 9 am",
       openTonight(place(19, 23, morning.timeZone), morning) && "a dinner-only place fits Today at 9 am",
-      !openTonight(place(19, 23, morning.timeZone), morning, true) && "a dinner place doesn't fit an evening ask made at 9 am",
-      openTonight(place(10, 17, morning.timeZone), morning, true) && "a museum that shuts at 5 fits an evening ask",
-      !openTonight({ id: "park" } as Parameters<typeof openTonight>[0], morning) && "a park with no hours on Google doesn't fit Today",
+      !openTonight(place(19, 23, morning.timeZone), morning, { evening: true }) && "a dinner place doesn't fit an evening ask made at 9 am",
+      openTonight(place(10, 17, morning.timeZone), morning, { evening: true }) && "a museum that shuts at 5 fits an evening ask",
+      !openTonight({ id: "park" } as Parameters<typeof openTonight>[0], morning, { category: "experiences" }) && "a park with no hours on Google doesn't fit Today",
+      openTonight({ id: "cafe" } as Parameters<typeof openTonight>[0], morning, { category: "food_drinks" }) && "a café with no hours on Google fits Today",
     ].filter(Boolean);
     if (slotFails.length) {
       failed++;

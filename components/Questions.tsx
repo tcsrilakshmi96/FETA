@@ -130,7 +130,8 @@ export default function Questions() {
       (async () => {
         const at = await locateArea(s.placeId, typing);
         const placeCity = at
-          ? await fetch(`/api/cities?near=${at.lat},${at.lng}`)
+          ? // Rounded to about 100 m: a web address is kept in logs (security audit, 24 Nov 2026).
+            await fetch(`/api/cities?near=${at.lat.toFixed(3)},${at.lng.toFixed(3)}`)
               .then((r) => r.json() as Promise<{ city: City | null }>)
               .then((r) => r.city)
               .catch(() => null)

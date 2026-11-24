@@ -52,7 +52,7 @@ export default function StyleMine() {
     });
     wornLooks().then(async (list) => {
       setWorn(list);
-      const all = await Promise.all(list.map(async (w) => [w.id, await keptPicture(w.looks[w.chosen ?? 0])] as const));
+      const all = await Promise.all(list.map(async (w) => [w.id, (await keptPicture(w.looks[w.chosen ?? 0]))?.image ?? null] as const));
       setPics(Object.fromEntries(all));
     });
     loadLovedBrands().then(setUsuals);

@@ -413,7 +413,7 @@ export function emptyDrops(): DropCounts {
 // Google are usually cheap (founder's decision). Diet: dietOk. Unknown hours
 // fail. foodDrinkOk: a bar or café that Experiences keeps because it is the
 // thing to do (karaoke, a rooftop, board games).
-export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; evening?: boolean; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
+export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; evening?: boolean; fullHour?: boolean; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
 
 export function applyHardFilters(places: Place[], opts: FilterOpts, drops: DropCounts = emptyDrops()): Candidate[] {
   const out: Candidate[] = [];
@@ -464,7 +464,7 @@ export function rulesBroken(place: Place, opts: FilterOpts): Broken[] {
       ? place.regularOpeningHours?.periods?.length
         ? !openFor(place, opts.at.weekday, opts.at.start, opts.at.minutes)
         : opts.category === "food_drinks"
-      : (opts.when === "tonight" && !openTonight(place, opts.city, opts.evening)) ||
+      : (opts.when === "tonight" && !openTonight(place, opts.city, { evening: opts.evening, category: opts.category, fullHour: opts.fullHour })) ||
         (opts.when === "weekend" && !opensOnWeekend(place)) ||
         (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
   )
@@ -498,10 +498,9 @@ function cityNow(city: City) {
 }
 
 export function tonightMeansNow(city: City) {
-  const { minutes } = cityNow(city);
   // Until 5 am it's still the night (audit, 24 Nov 2026: from 3 am "Today"
   // looked at 3 to 8 am, when almost nothing is open).
-  return minutes >= 17 * 60 || minutes < 5 * 60;
+  return nightAt(city, new Date());
 }
 
 // Today's opening period that covers at least an hour of the next 5 hours
@@ -524,16 +523,30 @@ export function slotWord(when: When, city: City) {
 // Open in the first slot: now, in the evening; in the next few hours, by
 // day. evening: an ask that means this evening even by day ("dinner
 // tonight" in Ask Feta, Plan my evening): open an hour between 7 and 10 pm.
-// By day, a place Google has no hours for (a park, a trail) counts as open.
+// By day, a thing to do Google has no hours for (a park, a trail) counts as
+// open; a place to eat or drink without hours doesn't, as with a chosen time.
+// fullHour: a list made by day shown after 5 pm keeps only places open at
+// least another hour (audit, 24 Nov 2026: a café closing at 6 came back
+// under Tonight).
 const EVENING = [19 * 60, 22 * 60];
-export function openTonight(place: Place, city: City, evening = false) {
-  if (tonightMeansNow(city)) return place.currentOpeningHours?.openNow === true;
+export function openTonight(place: Place, city: City, opts: { evening?: boolean; category?: Category; fullHour?: boolean } = {}) {
+  if (tonightMeansNow(city)) {
+    if (place.currentOpeningHours?.openNow !== true) return false;
+    const close = place.currentOpeningHours?.nextCloseTime;
+    return !opts.fullHour || !close || new Date(close).getTime() - Date.now() >= 3600 * 1000;
+  }
   const week = weeklyHours(place);
-  if (evening) {
+  if (opts.evening) {
     const { day } = cityNow(city);
     return (week ?? []).some(([d, open, close]) => d === day && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60);
   }
-  return !week || hoursAhead(place, city) !== null;
+  return week ? hoursAhead(place, city) !== null : opts.category === "experiences";
+}
+
+// Whether a moment fell in the night slot (5 pm to 5 am) in the city.
+export function nightAt(city: City, at: Date) {
+  const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hourCycle: "h23", timeZone: city.timeZone }).format(at));
+  return hour >= 17 || hour < 5;
 }
 
 // "Open later": still open at 11 pm tonight (an evening wish; by day it doesn't apply).

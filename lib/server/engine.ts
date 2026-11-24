@@ -3,7 +3,8 @@ import { after } from "next/server";
 
 import { distanceKm, isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday, claimEventsCache, later, LimitReached, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
+import { createHash } from "node:crypto";
+import { budgetToday, claimEventsCache, later, LimitReached, limitNoticeHere, saveEventsCache, serverWriteKey } from "@/lib/server/costs";
 import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
@@ -30,6 +31,8 @@ import {
   tasteSummary,
   SHOW,
   slotWord,
+  nightAt,
+  tonightMeansNow,
   applyTweaks,
   TWEAKS,
   popularCap,
@@ -204,18 +207,23 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
   const live = latest && new Date(latest.expires_at) > new Date();
   const fresh = live && !body.more;
+  // A list made by day, opened after 5 pm: still shown (founder, 24 Nov
+  // 2026), keeping only places open at least another hour; one that found
+  // nothing by day searches again.
+  const crossed = !!latest && body.when === "tonight" && !nightAt(city, new Date(latest.created_at)) && tonightMeansNow(city);
   const previous = fresh ? firstShown(latest) : [];
   // A search that found nothing that fits is kept too, so opening again
   // says so without paying for the same search (backend audit, 23 Nov 2026).
-  if (fresh && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
+  if (fresh && !crossed && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
   // The phone's second ask for events found after the reply: only the
   // events, so the places aren't paid for twice 20 s apart (audit, 24 Nov 2026).
   // With no kept set it never searches afresh (audit, 24 Nov 2026: that was a
   // whole paid search).
   if (body.eventsOnly) {
     if (!fresh) return json({ picks: [] });
-    const events = previous.filter((p) => p.event);
-    const shown = events.length ? await showStored(events, null, { taste: effective, body, city, origin, exclude, needsDiet }) : null;
+    const has = new Set(Array.isArray(body.shown) ? body.shown : []);
+    const events = previous.filter((p) => p.event && !has.has(p.placeId));
+    const shown = events.length ? await showStored(events, null, { taste: effective, body, city, origin, exclude, needsDiet, fullHour: crossed }) : null;
     return json({ picks: shown?.picks ?? [] });
   }
   // "Show me more" on a kept list: its next backup places, checked live,
@@ -225,13 +233,13 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     const seen = new Set(Array.isArray(body.shown) ? body.shown.filter((id) => typeof id === "string") : []);
     const next = (latest.picks as StoredPick[]).filter((p) => p.spare && !seen.has(p.placeId) && !exclude.has(p.placeId));
     if (next.length) {
-      const more = await showStored(next.slice(0, SHOW).map((p) => ({ ...p, spare: false })), null, { taste: effective, body, city, origin, exclude, needsDiet });
+      const more = await showStored(next.slice(0, SHOW).map((p) => ({ ...p, spare: false })), null, { taste: effective, body, city, origin, exclude, needsDiet, fullHour: crossed });
       if (more.picks.length) return json({ picks: more.picks });
     }
   }
   let checked: Awaited<ReturnType<typeof showStored>> | null = null;
   if (previous.length) {
-    checked = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet });
+    checked = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet, fullHour: crossed });
     if (checked.picks.length >= Math.min(4, previous.length)) return json(checked.reply);
   }
 
@@ -242,7 +250,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     // The set just checked is shown as it is, never checked a second time
     // (audit, 24 Nov 2026: the same places were paid for twice).
     if (latest) {
-      const shown = checked ?? (await showStored(firstShown(latest), latest.banner, { taste: effective, body, city, origin, exclude, needsDiet }));
+      const shown = checked ?? (await showStored(firstShown(latest), latest.banner, { taste: effective, body, city, origin, exclude, needsDiet, fullHour: crossed }));
       if (shown.picks.length > 0) return json({ ...shown.reply, notice: await limitNoticeHere("kept"), limited: true });
     }
     return json({ picks: [], notice: await limitNoticeHere("picks"), limited: true });
@@ -385,6 +393,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     if (searchFailed) return json({ error: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
     const notice = whyNothing(result.drops, effective.answers, body.when, city.country);
+    // "Show me more" finding nothing more never replaces the list they have
+    // (audit, 24 Nov 2026: Home then said "nothing fits" for 3 hours).
+    if (body.more) return json({ picks: [], notice });
     await db.from("pick_sets").insert({ user_id: userId, category: body.category, when_slot: body.when, origin_key: setKey, city_id: city.id, country: city.country, time_zone: city.timeZone, currency: city.currency, picks: [], searched: result.intents.filter((i) => i.explicit).map((i) => i.id), banner: notice, expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString() });
     return json({ picks: [], notice });
   }
@@ -499,6 +510,7 @@ async function showStored(
     origin: { lat: number; lng: number };
     exclude: Set<string>;
     needsDiet: boolean;
+    fullHour?: boolean;
   },
 ): Promise<{ picks: Pick[]; stored: StoredPick[]; reply: Reply }> {
   const today = cityCalendar(ctx.city.timeZone).today;
@@ -522,7 +534,7 @@ async function showStored(
   // changes is whether it's open and still there (backend audit, 23 Nov
   // 2026: re-checking with their everyday distance dropped a whole-city set
   // and paid for a new search; a trip out at the weekend vanished).
-  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan, evening: !!ctx.body.evening });
+  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan, evening: !!ctx.body.evening, fullHour: ctx.fullHour });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
   const placePicks = await Promise.all(
     placeStored
@@ -584,7 +596,10 @@ async function eventPicks(ctx: {
       const kind = intent ? `${intent.label} (${intent.query})` : undefined;
       // A city's free open-data feed first, where it has one for this kind (event-feeds.ts).
       const fed = await feedEvents(city, intent, span, span === "weekend" ? cal.weekend : span === "week" ? cal.week : [cal.today]);
-      const key = [city.id, "events", span, day, intent?.query.toLowerCase() ?? "any"].join("|");
+      // What someone typed is never readable in the shared cache's key
+      // (security audit, 24 Nov 2026): a keyed hash of it instead.
+      const what = intent?.id === "asked" ? `typed:${createHash("sha256").update(`${serverWriteKey()}|${intent.query.toLowerCase()}`).digest("hex").slice(0, 24)}` : (intent?.query.toLowerCase() ?? "any");
+      const key = [city.id, "events", span, day, what].join("|");
       if (fed) {
         // Kept like searched events, so a share of one can be checked as found by Feta.
         await saveEventsCache(db, `${key}|feed`, fed, "", span === "tonight" ? 6 : 24);

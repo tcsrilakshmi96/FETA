@@ -25,7 +25,7 @@ export default function WearCard({ plan, here, tile, big, fallback = null, class
       const worn = await wornOn(cityDay());
       // On a plan, only the look chosen for that plan; Home shows today's.
       const mine = worn && worn.chosen !== null && (tile || worn.forKey === key) ? worn : null;
-      const pic = mine ? await keptPicture(mine.looks[mine.chosen!]) : null;
+      const pic = mine ? ((await keptPicture(mine.looks[mine.chosen!]))?.image ?? null) : null;
       if (live) setState({ wears: p.wears, first: p.styles[0], worn: mine, pic });
     })();
     return () => {

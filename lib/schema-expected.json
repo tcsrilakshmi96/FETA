@@ -613,5 +613,20 @@
   "kind": "column",
   "name": "brand_markets.added_by",
   "file": "20261124150000_audit_round3.sql"
+ },
+ {
+  "kind": "table",
+  "name": "found_events",
+  "file": "20261124160000_audit_round4.sql"
+ },
+ {
+  "kind": "column",
+  "name": "brands.private",
+  "file": "20261124160000_audit_round4.sql"
+ },
+ {
+  "kind": "column",
+  "name": "brand_markets.private",
+  "file": "20261124160000_audit_round4.sql"
  }
 ]

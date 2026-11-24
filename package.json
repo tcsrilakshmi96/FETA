@@ -13,7 +13,8 @@
     "style-research": "node --env-file=.env.local --conditions=react-server --import tsx scripts/style-research.ts",
     "import-brands": "node --import tsx scripts/import-brands.ts",
     "style-check": "node scripts/style-check.mjs",
-    "live-check": "node scripts/live-check.mjs"
+    "live-check": "node scripts/live-check.mjs",
+    "db-check": "node --env-file=.env.local scripts/db-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",

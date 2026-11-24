@@ -113,13 +113,16 @@ export const SLOT_EVENT = "feta:slot";
 function eventsLater(key: string, origin: Origin, when: When, category: Category, version: number) {
   setTimeout(async () => {
     if (version !== tasteVersion) return;
-    const reply = await fetchPicks(category, when, origin, false, undefined, { eventsOnly: true });
+    const had = keptSlots()[key];
+    // Only events it doesn't have yet are checked (audit, 24 Nov 2026).
+    const reply = await fetchPicks(category, when, origin, false, undefined, { eventsOnly: true, shown: (had?.picks ?? []).filter((p) => p.event).map((p) => p.placeId) });
     const was = keptSlots()[key];
     if (version !== tasteVersion || !was || !reply.picks?.some((p) => p.event)) return;
-    // The events lead; the places already on screen follow, and the ones
-    // pushed out become backup (only the events are checked again).
-    const events = reply.picks.filter((p) => p.event);
-    const places = [...was.picks, ...was.spares].filter((p) => !p.event && !events.some((e) => e.placeId === p.placeId));
+    // The new events lead, then the ones already shown; the places follow,
+    // and the ones pushed out become backup.
+    const fresh = reply.picks.filter((p) => p.event);
+    const events = [...fresh, ...was.picks.filter((p) => p.event && !fresh.some((e) => e.placeId === p.placeId))];
+    const places = [...was.picks, ...was.spares].filter((p) => !p.event);
     const all = [...events, ...places];
     const slot: Slot = { ...was, loading: false, picks: all.slice(0, SHOW), spares: all.slice(SHOW) };
     keepSlots({ ...keptSlots(), [key]: slot });
@@ -149,7 +152,10 @@ export async function nextPicks(slot: Slot, origin: Origin, when: When, category
   const seen = shownBefore.get(listKey) ?? new Set<string>();
   for (const p of slot.picks) seen.add(p.placeId);
   shownBefore.set(listKey, seen);
-  if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
+  // Backup never brings back a place already shown (audit, 24 Nov 2026:
+  // places pushed down by late events came back as "8 new picks").
+  const spares = slot.spares.filter((p) => !seen.has(p.placeId));
+  if (spares.length > 0) return { fresh: spares.slice(0, SHOW), spares: spares.slice(SHOW) };
   const reply = await fetchPicks(category, when, origin, true, search, { shown: [...seen, ...slot.saved].slice(-200) });
   return {
     fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)),
