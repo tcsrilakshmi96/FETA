@@ -102,7 +102,11 @@ export default function Home() {
     };
   }, []);
   const [planOpen, setPlanOpen] = useState(false);
-  const [wants, setWants] = useState<Want[]>(["food", "do"]);
+  // Unknown until read from the phone: nothing is searched before (user
+  // test, 24 Nov 2026: someone who chose only Style paid for two searches,
+  // made while Home still assumed food and things to do).
+  const [readWants, setWants] = useState<Want[] | null>(null);
+  const wants = readWants ?? [];
   const [name, setName] = useState("");
   const [moodOpen, setMoodOpen] = useState(false);
   const [mood, setMood] = useState<Mood | null>(null); // Choose for me's answer is open
@@ -134,8 +138,8 @@ export default function Home() {
   // chose only style, why have random food and to-do picks shown?"); its
   // tile asks its questions first.
   useEffect(() => {
-    if (!origin) return;
-    const chosen: Category[] = [...(wants.includes("food") ? ["food_drinks" as const] : []), ...(wants.includes("do") ? ["experiences" as const] : [])];
+    if (!origin || !readWants) return;
+    const chosen: Category[] = [...(readWants.includes("food") ? ["food_drinks" as const] : []), ...(readWants.includes("do") ? ["experiences" as const] : [])];
     for (const c of chosen) {
       const k = slotKey(origin, when, c);
       if (slots[k]) continue;
@@ -143,7 +147,7 @@ export default function Home() {
       setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
       loadSlot(origin, when, c).then((slot) => setSlots((s) => ({ ...s, [k]: slot })));
     }
-  }, [origin, when, slots, wants]);
+  }, [origin, when, slots, readWants]);
 
   const food = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
   const exp = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
