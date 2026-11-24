@@ -25,7 +25,7 @@ import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { keepSlot, keptSlots, loadSlot, nextPicks, outOfDate, slotKey, withLateEvents, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { tonightPlan, type TonightPlan } from "@/lib/style-client";
 import styles from "./Home.module.css";
@@ -75,7 +75,7 @@ export default function Home() {
   useEffect(() => {
     const on = (e: Event) => {
       const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
-      setSlots((s) => (s[key] ? { ...s, [key]: slot } : s));
+      setSlots((s) => withLateEvents(s, key, slot));
     };
     window.addEventListener(SLOT_EVENT, on);
     return () => window.removeEventListener(SLOT_EVENT, on);
@@ -86,7 +86,7 @@ export default function Home() {
     const check = () => {
       if (document.visibilityState !== "visible") return;
       setSlots((s) => {
-        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !v.slotName || v.slotName === firstSlotName(v.timeZone)));
+        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
         return Object.keys(keep).length === Object.keys(s).length ? s : keep;
       });
     };

@@ -193,11 +193,27 @@ export function withoutElsewhere(slots: Record<string, Slot>, key: string, place
 // The same for every list kept in memory and on the phone, including ones
 // this screen never showed (audit, 24 Nov 2026: after a reload, Home's
 // weekend list kept a place they had just saved).
+// key: the list it was acted on, which handles its own; "" for none (a save
+// from Let's go or Ask Feta), so it leaves every kept list.
 export function leaveOtherLists(key: string, placeId: string) {
   const all = kept ? kept.slots : fromPhone()?.slots;
   if (!all) return;
   kept = { slots: withoutElsewhere(all, key, placeId), at: kept?.at ?? Date.now() };
   keepSlots({});
+}
+
+// A list a screen is still showing that should be looked up again: past
+// its hour, made with an older taste, or made as "Today" when it's now
+// "Tonight" (audit, 24 Nov 2026: one rule for Home and the picks list).
+export function outOfDate(s: Slot) {
+  if (s.loading) return false;
+  return (s.slotName !== undefined && s.slotName !== firstSlotName(s.timeZone)) || (s.madeAt !== undefined && Date.now() - s.madeAt > KEEP_MS) || (s.taste !== undefined && s.taste !== tasteVersion);
+}
+
+// Late events join only the list they were found for, never a different
+// one now on screen (a Cheaper list; audit, 24 Nov 2026).
+export function withLateEvents(slots: Record<string, Slot>, key: string, slot: Slot) {
+  return slots[key] && slots[key].madeAt === slot.madeAt && !slots[key].tweaked ? { ...slots, [key]: slot } : slots;
 }
 
 // Events still being found when the list came (they take up to ~20 s, live

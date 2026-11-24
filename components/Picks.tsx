@@ -23,7 +23,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, leaveOtherLists, loadSlot, nextPicks, searchKey, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { keepSlots, keptSlots, leaveOtherLists, loadSlot, nextPicks, outOfDate, searchKey, slotKey, withLateEvents, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -109,7 +109,7 @@ export default function Picks() {
   useEffect(() => {
     const on = (e: Event) => {
       const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
-      setSlots((s) => (s[key] ? { ...s, [key]: slot } : s));
+      setSlots((s) => withLateEvents(s, key, slot));
     };
     window.addEventListener(SLOT_EVENT, on);
     return () => window.removeEventListener(SLOT_EVENT, on);
@@ -122,6 +122,28 @@ export default function Picks() {
   const [tweakNote, setTweakNote] = useState("");
   const [tweakPick, setTweakPick] = useState<string[]>([]);
   const [tweaked, setTweaked] = useState<Record<string, Tweaked>>({});
+  // A list past its hour, from an older taste or from before 5 pm is looked
+  // up again, as on Home (audit, 24 Nov 2026).
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      setSlots((s) => {
+        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
+        return Object.keys(keep).length === Object.keys(s).length ? s : keep;
+      });
+      // An old everyday list under a tweak isn't brought back by Undo.
+      setTweaked((t) => {
+        const keep = Object.fromEntries(Object.entries(t).filter(([, v]) => !outOfDate(v.base)));
+        return Object.keys(keep).length === Object.keys(t).length ? t : keep;
+      });
+    };
+    document.addEventListener("visibilitychange", check);
+    const every = setInterval(check, 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      clearInterval(every);
+    };
+  }, []);
   const [withKids, setWithKids] = useState(false);
   const [compact, setCompact] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -296,7 +318,10 @@ export default function Picks() {
   // "Not for me": it leaves the list, and Feta asks why (optional).
   function skip(pick: Pick) {
     savePickAction(pick.placeId, "skipped", { category, cityId: city!.id });
-    leaveOtherLists(key, pick.placeId);
+    // Out of every kept list, the everyday one under a Cheaper or Fancier
+    // list included, so Undo never brings it back (audit, 24 Nov 2026).
+    leaveOtherLists("", pick.placeId);
+    setTweaked((t) => (t[key] ? { ...t, [key]: { ...t[key], base: { ...t[key].base, picks: t[key].base.picks.filter((p) => p.placeId !== pick.placeId), spares: t[key].base.spares.filter((p) => p.placeId !== pick.placeId) } } } : t));
     setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet({ type: "reason", pick });
   }
@@ -305,7 +330,10 @@ export default function Picks() {
   // they don't know yet (testers: "I know Bombay, show me others").
   function been(pick: Pick) {
     savePickAction(pick.placeId, "been", { category, cityId: city!.id });
-    leaveOtherLists(key, pick.placeId);
+    // Out of every kept list, the everyday one under a Cheaper or Fancier
+    // list included, so Undo never brings it back (audit, 24 Nov 2026).
+    leaveOtherLists("", pick.placeId);
+    setTweaked((t) => (t[key] ? { ...t, [key]: { ...t[key], base: { ...t[key].base, picks: t[key].base.picks.filter((p) => p.placeId !== pick.placeId), spares: t[key].base.spares.filter((p) => p.placeId !== pick.placeId) } } } : t));
     setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet(null);
     toast("Moved to Been. Feta will show you places you don't know yet.");

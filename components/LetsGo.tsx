@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import { logEvent, savePickAction } from "@/lib/db";
+import { leaveOtherLists } from "@/lib/picks-store";
 import type { Pick } from "@/lib/picks-client";
 import styles from "./Sheet.module.css";
 
@@ -12,6 +13,7 @@ export default function LetsGo({ pick, cityId, onClose, onWhatsAfter }: { pick: 
   useEffect(() => {
     if (pick.event) return;
     savePickAction(pick.placeId, "saved", { because: pick.because, category: pick.kind === "EAT" || pick.kind === "DRINK" ? "food_drinks" : "experiences", cityId });
+    leaveOtherLists("", pick.placeId);
   }, [pick, cityId]);
 
   return (
