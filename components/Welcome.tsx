@@ -101,7 +101,11 @@ export default function Welcome() {
         {/* The cheese says hello, looks things up, then packs for a trip. */}
         <Mascot key={`cheese${slide}`} pose={slide === 1 ? "walk" : "wave"} prop={slide === 2 ? "suitcase" : undefined} size={92} pop className={styles.cheese} />
         <div className={styles.text} key={slide}>
-          <p className={styles.kick}>{s.kick}</p>
+          <p className={styles.kick}>
+            {s.kick}
+            {/* Feta is in beta for testers (founder, 24 Nov 2026). */}
+            {s.kick === "Meet Feta" && <span className={styles.beta}>BETA</span>}
+          </p>
           <h1 className={styles.headline}>
             {s.head} <em>{s.em}</em>
           </h1>

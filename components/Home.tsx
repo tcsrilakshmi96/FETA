@@ -321,7 +321,11 @@ export default function Home() {
           {/* Light or dark from Home (founder, 21 Nov 2026), the same setting as in You. */}
           <div className={styles.helloRow}>
             <span className={styles.helloLeft}>
-              {name ? <p className={styles.hello}>Hi {name}!</p> : null}
+              {name ? (
+                <p className={styles.hello}>
+                  Hi {name}!<span className={styles.beta}>BETA</span>
+                </p>
+              ) : null}
               <button type="button" className={styles.feedback} onClick={openFeedback} data-no-capture>
                 Feedback
               </button>

@@ -461,3 +461,20 @@
   font-weight: 500;
   color: rgba(var(--inkRGB), 0.8);
 }
+
+/* Feta is in beta for testers (founder, 24 Nov 2026), as Style's tag. */
+.beta {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--saffron);
+  color: var(--inkFixed);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+}
