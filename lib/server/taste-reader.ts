@@ -79,10 +79,16 @@ export function plainRead(r: Read): Read[] {
 // elegant dining", "Burmese food"; user test, 24 Nov 2026: "quiet Elegant
 // Dining", "botanical Gardens").
 const PROPER = /^(Burmese|Thai|Korean|Japanese|Italian|Mexican|Indian|Chinese|French|Greek|Lebanese|Turkish|Vietnamese|Spanish|Portuguese|South|North|East|West|Middle|Eastern|Western|Southeast|SE|Asian|African|American|European|Mediterranean|Caribbean|Persian|Peruvian|Ethiopian|Malaysian|Indonesian|Filipino|Sri|Lankan|Nepali|Tibetan|Kerala|Goan|Bengali|Punjabi|Gujarati|Andhra|Chettinad|Hyderabadi|Mughlai|Levantine|Moroccan|Brazilian|Argentinian|Georgian|Cantonese|Sichuan|Szechuan|Taiwanese|Hawaiian|Nordic|Scandinavian|British|Irish|German|Polish|Russian|Israeli|Iranian|Afghan|Pakistani|Bangladeshi|Japan|India|Italy|France|Spain|Greece|Thailand|Korea|Mexico|China)$/;
-function inSentence(label: string) {
+// One rule for reasons and banners: a word keeps its capital only for a
+// people or a place ("Pan-Asian" keeps "Asian"); what they typed themselves
+// stays as they wrote it (audit, 24 Nov 2026: "taco bell").
+export function inSentence(label: string) {
+  // A joined word ("Pan-Asian", "K-pop") stays as written when a part of it
+  // is a people, a place or a single letter.
+  const keep = (w: string) => PROPER.test(w) || /^[A-Z]{2,}$/.test(w) || (w.includes("-") && w.split("-").some((p) => PROPER.test(p) || /^[A-Z]$/.test(p)));
   return label
     .split(/\s+/)
-    .map((w) => (PROPER.test(w) || /^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase()))
+    .map((w) => (keep(w) ? w : w.toLowerCase()))
     .join(" ");
 }
 

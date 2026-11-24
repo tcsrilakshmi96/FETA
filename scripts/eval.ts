@@ -21,7 +21,7 @@ import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, dis
 import { planEvenings } from "@/lib/plan";
 import { planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
-import { plainRead, readTaste } from "@/lib/server/taste-reader";
+import { inSentence, plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readdirSync, readFileSync } from "node:fs";
@@ -1036,6 +1036,23 @@ async function main() {
       failed++;
       console.log(`✗ Today / Tonight: ${slotFails.join(", ")}`);
     } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now; evening asks keep the evening");
+  }
+  // Words in reasons and banners keep capitals only for a people or a place
+  // (founder's tester, 24 Nov 2026), joined words included.
+  {
+    const wordFails = [
+      ["Upscale Quiet Bars", "upscale quiet bars"],
+      ["Pan-Asian", "Pan-Asian"],
+      ["K-pop Nights", "K-pop nights"],
+      ["Thai & SE Asian", "Thai & SE Asian"],
+      ["Live Jazz", "live jazz"],
+    ]
+      .filter(([from, to]) => inSentence(from) !== to)
+      .map(([from, to]) => `"${from}" became "${inSentence(from)}", not "${to}"`);
+    if (wordFails.length) {
+      failed++;
+      console.log(`✗ Wording: ${wordFails.join(", ")}`);
+    } else console.log("✓ Wording: capitals only for a people or a place, in reasons and banners");
   }
   // Every database change reads as Postgres would read it (24 Nov 2026: a
   // pattern Postgres refuses stopped WhatsApp sharing; a bracket too many

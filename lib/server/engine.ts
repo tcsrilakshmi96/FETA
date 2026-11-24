@@ -9,7 +9,7 @@ import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/tas
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
 import { allIntents, intentWords, plainText, type Intent } from "@/lib/server/intents";
-import { learnedKey, readTaste } from "@/lib/server/taste-reader";
+import { inSentence, learnedKey, readTaste } from "@/lib/server/taste-reader";
 import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
 import { guideEventsFor } from "@/lib/server/guide-events";
@@ -440,7 +440,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // Said plainly when something they asked for found nothing that fits.
   // "No quiet upscale bars near you today." (user test, 24 Nov 2026: "No
   // Upscale Quiet Bars near you that fits today.")
-  const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => (i.source === "cuisine" ? i.label : i.label.toLowerCase())))} near you ${whenText}.` : null;
+  const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => (i.source === "cuisine" || i.source === "typed" || i.source === "asked" ? i.label : inSentence(i.label))))} near you ${whenText}.` : null;
   // A search for one place by name needs no "only 1 fits".
   const banner = body.search
     ? found.named && shownTotal === 1
