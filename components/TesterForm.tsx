@@ -1,5 +1,6 @@
 "use client";
 
+import { TESTER_FORM } from "@/components/Feedback";
 import { useEffect, useState } from "react";
 import Mascot from "@/components/Mascot";
 import { isSignedIn } from "@/lib/auth";
@@ -11,7 +12,7 @@ import styles from "./Sheet.module.css";
 // Firm but never a lock: Later brings it back on every visit until they
 // open it (a Google Form can't tell Feta it was sent). Replaced the five
 // tap-to-answer questions, so testers get one ask, not two.
-const FORM = "https://forms.gle/bfadwNw1mVzT3uLj8";
+const FORM = TESTER_FORM;
 const VISITS_KEY = "feta.visits";
 const OPENED_KEY = "feta.formOpened";
 

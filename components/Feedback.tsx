@@ -23,7 +23,7 @@ const DAYS = "feta.days";
 const WEEK = 7 * 24 * 3600 * 1000;
 const ASK_ON = /^\/(home|picks|lists|style|you|trip)/;
 const FACES = ["😞", "😕", "🙂", "😀", "🤩"];
-const FORM = "https://docs.google.com/forms/d/e/1FAIpQLScYVziHCVl-bIVIfBGzbNV31FTNj7AN1zU58kF05k2SFw1uQQ/viewform";
+export const TESTER_FORM = "https://docs.google.com/forms/d/e/1FAIpQLScYVziHCVl-bIVIfBGzbNV31FTNj7AN1zU58kF05k2SFw1uQQ/viewform";
 
 export default function Feedback() {
   const pathname = usePathname();
@@ -159,7 +159,7 @@ export default function Feedback() {
                   </button>
                 )}
                 {/* The testers' form, for more than a line (founder, 24 Nov 2026). */}
-                <a className={styles.form} href={FORM} target="_blank" rel="noopener noreferrer">
+                <a className={styles.form} href={TESTER_FORM} target="_blank" rel="noopener noreferrer">
                   Got 2 minutes? Fill in our short form ›
                 </a>
                 {state === "failed" && <p className={styles.error}>Couldn&apos;t send just now. Try again in a moment.</p>}
