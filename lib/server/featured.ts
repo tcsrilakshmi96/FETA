@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
-import { later, saveEventsCache, trackGemini } from "@/lib/server/costs";
+import { claimEventsCache, later, saveEventsCache, trackGemini } from "@/lib/server/costs";
 import { cleanTags, TAG_IDS } from "@/lib/server/list-tags";
 import { eventSources, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
@@ -33,8 +33,7 @@ export async function featuredFor(db: SupabaseClient, city: City, category: Cate
   // Claimed at once, so the city's other searches meanwhile don't start it
   // again; a search that finds nothing (or fails) is tried again in 6 hours,
   // not on every search all day (backend audit, 23 Nov 2026).
-  const { error } = await saveEventsCache(db, key, [], "", 10 / 60);
-  if (error) return null;
+  if (!(await claimEventsCache(db, key, 10))) return null;
   later(async () => {
     const found = await findFeatured(city, category).catch((error) => {
       console.error(error);

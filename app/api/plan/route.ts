@@ -4,7 +4,7 @@ import { runPicks } from "@/lib/server/engine";
 import type { Pick, When } from "@/lib/server/picks";
 import { loadTaste, userDb, userIdFor } from "@/lib/server/taste";
 
-export const maxDuration = 30;
+export const maxDuration = 300; // background work started here (a city's guide posts read, up to 3 min) must finish to be counted (audit, 24 Nov 2026)
 
 // Plan my evening, when the picks on screen don't pair up (experiences are
 // often across town): something to do and somewhere for after, within a

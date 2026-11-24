@@ -146,28 +146,43 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
     return await calls.run(store, work);
   } finally {
     const ms = Date.now() - started;
+    const rowsOf = (tally: Map<string, { units: number; usd: number }>) =>
+      [...tally].filter(([, t]) => t.units > 0 || t.usd > 0).map(([sku, t]) => ({ route, sku, units: t.units, est_inr: Math.round(t.usd * INR_PER_USD * 100) / 100 }));
+    // What the reply itself spent is written at once; work that finishes
+    // after the reply (slow event searches, a city's guide posts) is written
+    // when it's done, as its own rows (audit, 24 Nov 2026: waiting for it
+    // meant a request cut off by its time limit logged nothing at all).
+    const done = new Map([...store.tally].map(([sku, t]) => [sku, { ...t }]));
     const write = async () => {
-      await Promise.allSettled(store.later);
       if (!db) return;
-      const rows = [...store.tally].map(([sku, t]) => ({ route, sku, units: t.units, est_inr: Math.round(t.usd * INR_PER_USD * 100) / 100 }));
-      const total = Math.round([...store.tally.values()].reduce((n, t) => n + t.usd, 0) * INR_PER_USD * 100) / 100;
+      const rows = rowsOf(done);
+      const total = Math.round(rows.reduce((n, r) => n + r.est_inr, 0) * 100) / 100;
       const ask = store.ask;
       const hit = {
         route,
         fingerprint: ask ? createHash("sha1").update(`${route}|${JSON.stringify(ask.key)}`).digest("hex").slice(0, 20) : null,
         label: ask?.label?.slice(0, 80) ?? null,
         cost_inr: Math.min(total, 99999),
-        services: Object.fromEntries([...store.tally].map(([sku, t]) => [sku, t.units])),
+        services: Object.fromEntries(rows.map((r) => [r.sku, r.units])),
         ms,
       };
       await logCosts(db, rows, hit);
+    };
+    const writeLater = async () => {
+      if (!db || !store.later.length) return;
+      await Promise.allSettled(store.later);
+      const extra = new Map([...store.tally].map(([sku, t]) => [sku, { units: t.units - (done.get(sku)?.units ?? 0), usd: t.usd - (done.get(sku)?.usd ?? 0) }]));
+      const rows = rowsOf(extra);
+      if (rows.length) await logCosts(db, rows, null);
     };
     // Written after the reply, so no one waits for it (every photo and
     // search did); outside a request, straight away.
     try {
       after(write);
+      after(writeLater);
     } catch {
       await write();
+      await writeLater();
     }
   }
 }
@@ -249,11 +264,21 @@ export async function saveEventsCache(db: SupabaseClient, key: string, events: u
   return db.from("events_cache").upsert({ key, events, search_html: html, expires_at: new Date(Date.now() + hours * 3600 * 1000).toISOString() });
 }
 
-async function logCosts(db: SupabaseClient, rows: { route: string; sku: string; units: number; est_inr: number }[], hit: Record<string, unknown>) {
+// Claims a day's shared search for a city (Featured in, guide posts): true
+// only for the one search that gets it, so two at once never both pay
+// (audit, 24 Nov 2026). Before the database has the function, as before.
+export async function claimEventsCache(db: SupabaseClient, key: string, minutes: number): Promise<boolean> {
+  const { data, error } = await db.rpc("claim_events_cache", { p_key: SERVER_KEY(), p_cache_key: key, p_minutes: minutes });
+  if (!error) return data === true;
+  if (!notThereYet(error.message)) return false;
+  return !(await saveEventsCache(db, key, [], "", minutes / 60)).error;
+}
+
+async function logCosts(db: SupabaseClient, rows: { route: string; sku: string; units: number; est_inr: number }[], hit: Record<string, unknown> | null) {
   const { error } = await db.rpc("log_costs", { p_key: SERVER_KEY(), p_costs: rows, p_hit: hit });
   if (!error) return;
   if (!notThereYet(error.message)) return console.error("cost log", error.message);
-  const [costs, hits] = await Promise.all([rows.length ? db.from("api_costs").insert(rows) : Promise.resolve({ error: null }), db.from("api_hits").insert(hit)]);
+  const [costs, hits] = await Promise.all([rows.length ? db.from("api_costs").insert(rows) : Promise.resolve({ error: null }), hit ? db.from("api_hits").insert(hit) : Promise.resolve({ error: null })]);
   if (costs.error) console.error("cost log", costs.error.message);
   if (hits.error) console.error("hit log", hits.error.message);
 }

@@ -1,4 +1,4 @@
-import { anonDb, askIs, DAILY_BUDGET_INR, realSpendToday, withCosts } from "@/lib/server/costs";
+import { anonDb, askIs, DAILY_BUDGET_INR, overBudget, realSpendToday, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails } from "@/lib/server/places";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!signedIn) {
     const spent = await realSpendToday(asker);
     if (spent !== null && spent >= DAILY_BUDGET_INR) return Response.json({ error: "Busy" }, { status: 429 });
-  }
+  } else if (await overBudget(signedIn)) return Response.json({ error: "Busy" }, { status: 429 });
   return withCosts(asker, "place", () => {
     askIs({ key: [id, lite], label: lite ? "live check (lite)" : "live check" });
     return live(request, id);

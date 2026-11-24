@@ -16,7 +16,7 @@ import { cleanRoute, tripHeader, type RouteIn, type Trip } from "@/lib/server/tr
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
 // A slow reply plus a trip route or two searches can pass a minute (backend audit, 23 Nov 2026).
-export const maxDuration = 120;
+export const maxDuration = 300; // background work started here (a city's guide posts read, up to 3 min) must finish to be counted (audit, 24 Nov 2026)
 
 // Ask Feta. Venice understands the person (chat, profile updates, turning
 // words into a search); the picks engine (Gemini + Google Maps) finds the

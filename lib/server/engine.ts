@@ -195,17 +195,20 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // A search that found nothing that fits is kept too, so opening again
   // says so without paying for the same search (backend audit, 23 Nov 2026).
   if (fresh && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
+  let checked: Awaited<ReturnType<typeof showStored>> | null = null;
   if (previous.length) {
-    const shown = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet });
-    if (shown.picks.length >= Math.min(4, previous.length)) return json(shown.reply);
+    checked = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet });
+    if (checked.picks.length >= Math.min(4, previous.length)) return json(checked.reply);
   }
 
   // 2. Daily cost limits: searches, and today's estimated spend (costs.ts;
   //    the founder can change them in Vercel without a code change).
   const budget = await budgetToday(db);
   if (budget.left <= 0 || budget.over) {
+    // The set just checked is shown as it is, never checked a second time
+    // (audit, 24 Nov 2026: the same places were paid for twice).
     if (latest) {
-      const shown = await showStored(firstShown(latest), latest.banner, { taste: effective, body, city, origin, exclude, needsDiet });
+      const shown = checked ?? (await showStored(firstShown(latest), latest.banner, { taste: effective, body, city, origin, exclude, needsDiet }));
       if (shown.picks.length > 0) return json({ ...shown.reply, notice: await limitNoticeHere("kept"), limited: true });
     }
     return json({ picks: [], notice: await limitNoticeHere("picks"), limited: true });

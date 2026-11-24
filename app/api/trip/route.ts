@@ -4,7 +4,7 @@ import { userDb, userIdFor } from "@/lib/server/taste";
 import { cleanRoute, estimateTransport, tripTitle, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
-export const maxDuration = 60;
+export const maxDuration = 300; // background work started here (a city's guide posts read, up to 3 min) must finish to be counted (audit, 24 Nov 2026)
 
 // The trip planner's steps after the route (which comes from chat):
 // save (edited cities), transport (rough estimates), stays (hotels per city

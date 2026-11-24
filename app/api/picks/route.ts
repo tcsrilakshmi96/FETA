@@ -3,7 +3,7 @@ import { runPicks } from "@/lib/server/engine";
 import { userDb } from "@/lib/server/taste";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
-export const maxDuration = 60;
+export const maxDuration = 300; // background work started here (a city's guide posts read, up to 3 min) must finish to be counted (audit, 24 Nov 2026)
 
 export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer /, "");

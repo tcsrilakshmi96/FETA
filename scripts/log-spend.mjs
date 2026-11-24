@@ -10,17 +10,16 @@ if (!sku || !Number(units) || !(Number(inr) >= 0)) {
   console.error("Usage: log-spend.mjs <sku> <units> <rupees> [label]");
   process.exit(1);
 }
-// Rows are capped at 100 units and ₹500 each, so a big run is split.
-const rows = [];
-let leftUnits = Number(units);
-let leftInr = Number(inr);
-while (leftUnits > 0) {
-  const u = Math.min(100, leftUnits);
-  const r = Math.min(500, (leftInr * u) / leftUnits);
-  rows.push({ route: "script", sku, units: u, est_inr: Math.round(r * 100) / 100 });
-  leftUnits -= u;
-  leftInr -= r;
-}
+// Rows are capped at 100 units and ₹500 each, so a big run is split evenly
+// into as many rows as either needs (audit, 24 Nov 2026: rupees over ₹500 in
+// one row were dropped).
+const parts = Math.max(Math.ceil(Number(units) / 100), Math.ceil(Number(inr) / 500), 1);
+const rows = Array.from({ length: parts }, (_, i) => ({
+  route: "script",
+  sku,
+  units: Math.max(1, Math.floor(Number(units) / parts) + (i < Number(units) % parts ? 1 : 0)),
+  est_inr: Math.floor((Number(inr) / parts) * 100) / 100,
+}));
 const res = await fetch(`${DB}/rest/v1/rpc/log_costs`, {
   method: "POST",
   headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },

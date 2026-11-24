@@ -558,5 +558,10 @@
   "kind": "column",
   "name": "api_hits.is_test",
   "file": "20261124100000_costs_remember_tests.sql"
+ },
+ {
+  "kind": "function",
+  "name": "claim_events_cache",
+  "file": "20261124110000_audit_fixes.sql"
  }
 ]
