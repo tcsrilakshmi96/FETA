@@ -70,8 +70,16 @@ export default function Questions() {
   // guess from the phone's time zone (prices and search suggestions only;
   // they say where they are at the end).
   useEffect(() => {
+    // Only Style or a trip chosen: nothing here is about them; places ask
+    // their own questions the first time they're opened (user test, 24 Nov
+    // 2026: a Style-only person was asked what they eat and spend).
+    const chose = loadWants();
+    if (!chose.includes("food") && !chose.includes("do") && new URLSearchParams(window.location.search).get("from") !== "you") {
+      router.replace("/home");
+      return;
+    }
     /* eslint-disable react-hooks/set-state-in-effect -- saved on this phone, only readable in the browser */
-    setWants(loadWants());
+    setWants(chose);
     setAnswers(loadAnswers());
     setSwipes(loadSwipes());
     setFromYou(new URLSearchParams(window.location.search).get("from") === "you");
@@ -84,7 +92,7 @@ export default function Questions() {
         .then((r) => r.json() as Promise<{ city: City | null }>)
         .then((r) => setCity(r.city))
         .catch(() => null);
-  }, []);
+  }, [router]);
 
   // Only what they chose: a trip alone asks neither (they're asked the
   // first time they open that category on Home).

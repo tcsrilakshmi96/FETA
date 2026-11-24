@@ -25,11 +25,24 @@ export type Slot = {
   madeAt?: number; // which search made it, so late events join only that list
 };
 
-// Kept in memory while the app is open, never stored: a reload starts
-// fresh, and nothing is kept for more than an hour. A place whose closing
-// time has passed since it was checked is dropped.
+// Kept for an hour, in memory and on the phone, so a list they've seen
+// comes back free after a reload or past the day's limit (founder, 24 Nov
+// 2026: "once they hit the daily limit can we not just keep the last
+// picks?"); never longer, as Google allows. A place whose closing time has
+// passed since it was checked is dropped.
 const KEEP_MS = 60 * 60000;
+const STORE = "feta.picks.kept";
 let kept: { slots: Record<string, Slot>; at: number } | null = null;
+function fromPhone(): typeof kept {
+  try {
+    const v = JSON.parse(localStorage.getItem(STORE) ?? "null") as typeof kept;
+    if (v && Date.now() - v.at <= KEEP_MS) return v;
+    localStorage.removeItem(STORE);
+  } catch {
+    // Nothing kept.
+  }
+  return null;
+}
 const inflight = new Map<string, Promise<Slot>>();
 // Goes up whenever their taste changes, so a search that started before
 // the change is never kept (it would bring the old picks back).
@@ -48,6 +61,11 @@ export function changingTaste<T>(write: PromiseLike<T>): Promise<T> {
 
 export function forgetPicks() {
   kept = null;
+  try {
+    localStorage.removeItem(STORE);
+  } catch {
+    // Nothing kept.
+  }
   shownBefore.clear();
   tasteVersion++;
   inflight.clear();
@@ -62,7 +80,10 @@ export function searchKey(origin: Origin, when: When, category: Category, typed:
   return `${slotKey(origin, when, category)}|search:${typed.trim().toLowerCase()}`;
 }
 
-export function keptSlots(): Record<string, Slot> {
+// fromPhone: also what's kept on the phone (after a reload). Screens' first
+// draw reads memory only, so it matches the server's page.
+export function keptSlots(fromStore = false): Record<string, Slot> {
+  if (!kept && fromStore) kept = fromPhone();
   if (!kept || Date.now() - kept.at > KEEP_MS) return {};
   return Object.fromEntries(
     Object.entries(kept.slots)
@@ -73,6 +94,13 @@ export function keptSlots(): Record<string, Slot> {
 
 export function keepSlots(slots: Record<string, Slot>) {
   kept = { slots, at: kept && Object.keys(keptSlots()).length ? kept.at : Date.now() };
+  try {
+    // Only finished lists, never one that failed or hit the limit.
+    const keep = Object.fromEntries(Object.entries(slots).filter(([, s]) => !s.loading && !s.failed && !s.limited && s.picks.length));
+    localStorage.setItem(STORE, JSON.stringify({ slots: keep, at: kept.at }));
+  } catch {
+    // Kept in memory only.
+  }
 }
 
 // Loads a category's picks. Two screens asking at once share one request.
@@ -80,6 +108,9 @@ export function keepSlots(slots: Record<string, Slot>) {
 export function loadSlot(origin: Origin, when: When, category: Category, tweak?: Ask): Promise<Slot> {
   const key = tweak?.search && tweak.note ? searchKey(origin, when, category, tweak.note) : slotKey(origin, when, category);
   if (!tweak && inflight.has(key)) return inflight.get(key)!;
+  // A list seen within the hour comes back from the phone, free.
+  const onPhone = tweak ? null : keptSlots(true)[key];
+  if (onPhone?.picks.length) return Promise.resolve(onPhone);
   const version = tasteVersion;
   const p = fetchPicks(category, when, origin, false, tweak).then((reply) => {
     const slot: Slot = {

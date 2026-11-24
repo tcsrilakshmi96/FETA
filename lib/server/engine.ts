@@ -438,7 +438,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const short = shownTotal < 3;
   const whenText = slotWord(body.when, city);
   // Said plainly when something they asked for found nothing that fits.
-  const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
+  // "No quiet upscale bars near you today." (user test, 24 Nov 2026: "No
+  // Upscale Quiet Bars near you that fits today.")
+  const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => (i.source === "cuisine" ? i.label : i.label.toLowerCase())))} near you ${whenText}.` : null;
   // A search for one place by name needs no "only 1 fits".
   const banner = body.search
     ? found.named && shownTotal === 1

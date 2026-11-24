@@ -10,7 +10,8 @@ const ASKED_KEY = "feta.saveTasteAsked";
 
 // Sign-in after people have seen their picks, not before (testers: asking
 // first loses people). Asked once on Home; "Later" leaves it to You.
-export default function SaveTaste({ ready, onRestored }: { ready: boolean; onRestored: () => void }) {
+// places: they chose places to eat or things to do (else it's about Style or a trip).
+export default function SaveTaste({ ready, onRestored, places = true }: { ready: boolean; onRestored: () => void; places?: boolean }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -90,7 +91,7 @@ export default function SaveTaste({ ready, onRestored }: { ready: boolean; onRes
     <>
       <div className={styles.dim} onClick={close} />
       <div className={styles.sheet} role="dialog" aria-label="Save your taste">
-        <p className={styles.kick}>Your places are ready</p>
+        <p className={styles.kick}>{places ? "Your places are ready" : "You're all set"}</p>
         <h2 className={styles.title}>
           Save your taste so <strong>Feta remembers you</strong>
         </h2>

@@ -829,9 +829,10 @@ function chips(c: Candidate, taste: Taste, city: City, wholeCity = false): strin
   if (taste.answers.halal && c.place.types?.some((t) => t.includes("restaurant") || t.includes("food") || t === "cafe")) {
     out.push("Halal · not confirmed, check with staff");
   }
-  // The ✓ only when the price is known to be in their range, never for a much cheaper place.
-  const spend = spendRange(taste.answers) && spendText(taste.answers, city.currency);
-  if (spend && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push(`${spend} ✓`);
+  // The ✓ only when the price is known to be in their range. Said as their
+  // budget, not a price (user test, 24 Nov 2026: "£90+ ✓" on a £20 café read
+  // as what it costs).
+  if (spendRange(taste.answers) && isMainlyFoodOrDrink(c.place) && priceFit(c.place, taste.answers, city) === "fits") out.push("In your budget ✓");
   if (!wholeCity) out.push(tooFar(c.km, taste.answers) ? `${formatDistance(c.km, city.country)} away${c.outside?.length ? "" : " · a trip out"}` : `${formatDistance(c.km, city.country)} ✓`);
   return out;
 }

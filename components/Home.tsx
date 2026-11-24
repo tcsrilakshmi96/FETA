@@ -456,7 +456,7 @@ export default function Home() {
       <CheckIn />
       <RepliesPill />
       <TesterForm />
-      <SaveTaste ready={noPlaces || (!!leadSlot && !leadSlot.loading)} onRestored={() => window.location.reload()} />
+      <SaveTaste ready={noPlaces || (!!leadSlot && !leadSlot.loading)} places={!noPlaces} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
       {planOpen && (

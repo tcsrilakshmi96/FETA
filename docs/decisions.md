@@ -336,3 +336,8 @@ Three rounds kept finding the same kinds of problem, so they were fixed as kinds
 - The same rule written in several places drifting apart (Today/Tonight, shown/seen): one night-slot rule (`nightAt`, used by `tonightMeansNow`), one open-now rule (`openTonight` with options: evening, category, fullHour), one record of what a list has shown on the phone (`shownBefore`, also filtering its backup).
 - Find-and-replace edits that changed more than meant (brand link checks logged as Gemini searches): the paid-call gate refuses any address that isn't a paid service.
 
+## 24 Nov 2026: User test (Barbara, London) and its fixes
+- A live test as Barbara from the user-testing list (vegan; chic, classic, minimalist but luxurious; no loud places; tries new things; studied fashion), ₹147. Style landed (a charcoal tailored overcoat, cream cashmere high-neck, wide-leg wool trousers; ALIGNE, JOSEPH, ME+EM); food partly (vegan and quiet places right, but two Feta Picks were a loud rooftop and a casual chain: Feta Picks matched her cuisine, not her vibe).
+- Fixed: Home searched food and things to do for someone who chose only Style (two unseen searches) before it had read their choice; Style-only and trip-only setup no longer ask the places questions; reasons and banners keep capitals only for peoples and places ("quiet Elegant Dining"); the price chip says "In your budget ✓", not the range (it read as the place's price); the sign-in sheet doesn't say "Your places are ready" to someone without places.
+- Founder: "once they hit the daily limit can we not just keep the last picks?" Lists seen are kept on the phone for an hour (Google allows no longer), so they come back free after a reload or past the limit.
+

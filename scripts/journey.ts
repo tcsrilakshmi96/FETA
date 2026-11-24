@@ -293,6 +293,37 @@ async function main() {
     check(gpsPath === "/questions", "Use my location in setup leads to the questions, not Home", gpsPath);
     await gps.close();
 
+    // Someone who chose only Style (user test, 24 Nov 2026): setup skips the
+    // places questions, and Home searches nothing (it paid for two unseen searches).
+    const only = await browser.createBrowserContext();
+    const o = await only.newPage();
+    let picksAsked = 0;
+    o.on("request", (r) => r.url().includes("/api/picks") && picksAsked++);
+    await o.goto(`${BASE}/?qa=${QA}`, { waitUntil: "networkidle0" });
+    await o.evaluate(() => {
+      localStorage.setItem("feta.wants", JSON.stringify(["style"]));
+      localStorage.setItem("feta.name", "Only");
+    });
+    await o.goto(`${BASE}/location?setup=1`, { waitUntil: "networkidle0" });
+    const onlyBox = await o.waitForSelector("input[placeholder^='Type a city']", { timeout: 30000 }).catch(() => null);
+    if (onlyBox) {
+      await onlyBox.type("Bengaluru");
+      await o.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /^Bengaluru/.test((b.textContent ?? "").trim())), { timeout: 20000 }).catch(() => null);
+      await o.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Bengaluru/.test((b.textContent ?? "").trim()))?.click());
+      await o.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => /^Anywhere in /.test(b.textContent ?? "")), { timeout: 20000 }).catch(() => null);
+      await o.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Anywhere in /.test(b.textContent ?? ""))?.click());
+    }
+    await o.waitForFunction(() => location.pathname === "/home", { timeout: 20000 }).catch(() => null);
+    await wait(4000);
+    check(o.url().includes("/home"), "Choosing only Style skips the places questions", o.url());
+    check(picksAsked === 0, "Home searches nothing for someone who chose only Style", `${picksAsked} searches`);
+    const onlyToken = await o.evaluate(() => {
+      const k = Object.keys(localStorage).find((x) => x.includes("auth-token"));
+      return k ? (JSON.parse(localStorage.getItem(k)!).access_token as string) : null;
+    });
+    if (onlyToken) await fetch(`${DB}/rest/v1/rpc/delete_my_data`, { method: "POST", headers: { apikey: KEY, Authorization: `Bearer ${onlyToken}`, "Content-Type": "application/json" }, body: "{}" });
+    await only.close();
+
     check(errors.length === 0, "No errors on any screen", errors.join(" | "));
   } catch (error) {
     check(false, "The walk-through finished", String(error));

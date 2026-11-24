@@ -54,7 +54,7 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
     label: r.label,
     // What the loved places have in common, not their names (sets store only
     // Feta's words; Round 5 review: "like the places you love" read as filler).
-    reason: r.from === "said" ? `Because you said you love ${inSentence(r.label)}.` : `Because you love ${inSentence(r.label)} places like this.`,
+    reason: r.from === "said" ? `Because you said you love ${inSentence(r.label)}.` : `Because you love ${inSentence(r.label)}${/s$/i.test(r.label) ? "" : " places"}.`,
     query: r.query,
     // A thing to do that happens in a bar or café ("karaoke", "board games").
     def: { searches: [r.query], foodDrink: !food && AT_A_BAR.test(r.query) },
@@ -75,8 +75,15 @@ export function plainRead(r: Read): Read[] {
 // A label inside a sentence: only its first word lowered, so names keep
 // their capitals ("brewpubs in Bengaluru", not "bengaluru"; tester, 21 Nov
 // 2026), and a name ("Burmese", "SE Asian") keeps its own.
+// Words in a sentence keep a capital only for a people or a place ("quiet
+// elegant dining", "Burmese food"; user test, 24 Nov 2026: "quiet Elegant
+// Dining", "botanical Gardens").
+const PROPER = /^(Burmese|Thai|Korean|Japanese|Italian|Mexican|Indian|Chinese|French|Greek|Lebanese|Turkish|Vietnamese|Spanish|Portuguese|South|North|East|West|Middle|Eastern|Western|Southeast|SE|Asian|African|American|European|Mediterranean|Caribbean|Persian|Peruvian|Ethiopian|Malaysian|Indonesian|Filipino|Sri|Lankan|Nepali|Tibetan|Kerala|Goan|Bengali|Punjabi|Gujarati|Andhra|Chettinad|Hyderabadi|Mughlai|Levantine|Moroccan|Brazilian|Argentinian|Georgian|Cantonese|Sichuan|Szechuan|Taiwanese|Hawaiian|Nordic|Scandinavian|British|Irish|German|Polish|Russian|Israeli|Iranian|Afghan|Pakistani|Bangladeshi|Japan|India|Italy|France|Spain|Greece|Thailand|Korea|Mexico|China)$/;
 function inSentence(label: string) {
-  return /^[A-Z][a-z]/.test(label) && !/^(Burmese|Thai|Korean|Japanese|Italian|Mexican|Indian|Chinese|French|Greek|Lebanese|Turkish|Vietnamese|Spanish|Portuguese|South|North|Middle|Southeast|SE)\b/.test(label) ? label[0].toLowerCase() + label.slice(1) : label;
+  return label
+    .split(/\s+/)
+    .map((w) => (PROPER.test(w) || /^[A-Z]{2,}$/.test(w) ? w : w.toLowerCase()))
+    .join(" ");
 }
 
 // The You line for something picked up from loved places ("loved:food:burmese").
