@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { cityById } from "@/lib/server/cities";
-import { LIBRARY_BUDGET_INR, askIs, librarySpentToday, withCosts } from "@/lib/server/costs";
+import { LIBRARY_BUDGET_INR, askIs, librarySpentToday, serverWriteKey, withCosts } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { loadBrief, researchStyle, saveResearch } from "@/lib/server/style-research";
 import { userDb, userIdFor } from "@/lib/server/taste";
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const { data: admin } = await db.rpc("is_admin");
   if (!admin) return Response.json({ skipped: "research is done by Feta, not on open" });
   if ((await librarySpentToday(db)) >= LIBRARY_BUDGET_INR) return Response.json({ skipped: "budget" });
-  const { data: claimed, error } = await db.rpc(body.more ? "start_style_research_more" : "start_style_research", { p_key: process.env.USAGE_REPORT_KEY, p_country: city.country, p_style: style.id });
+  const { data: claimed, error } = await db.rpc(body.more ? "start_style_research_more" : "start_style_research", { p_key: serverWriteKey(), p_country: city.country, p_style: style.id });
   if (error || !claimed) return Response.json({ skipped: error ? "unavailable" : "done or running" });
 
   // The brands Feta already has here for this style, so another round looks past them.

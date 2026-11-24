@@ -1,4 +1,4 @@
-import { anonDb, askIs, DAILY_BUDGET_INR, overBudget, realSpendToday, withCosts } from "@/lib/server/costs";
+import { anonDb, askIs, DAILY_BUDGET_INR, LOOKUP_BUDGET_INR, lookupSpendToday, overBudget, realSpendToday, withCosts } from "@/lib/server/costs";
 import { bestPhoto, photoUri, placeDetails } from "@/lib/server/places";
 import { userDb, userIdFor } from "@/lib/server/taste";
 
@@ -19,8 +19,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   // and refused once the day's budget is spent.
   const asker = signedIn ?? anonDb();
   if (!signedIn) {
-    const spent = await realSpendToday(asker);
-    if (spent !== null && spent >= DAILY_BUDGET_INR) return Response.json({ error: "Busy" }, { status: 429 });
+    // Within a small daily budget of their own (security audit, 24 Nov 2026:
+    // lookups over and over could spend everyone's day), and never when
+    // spend can't be read.
+    const [spent, lookups] = await Promise.all([realSpendToday(asker), lookupSpendToday(asker)]);
+    if (spent === null || lookups === null || spent >= DAILY_BUDGET_INR || lookups >= LOOKUP_BUDGET_INR) return Response.json({ error: "Busy" }, { status: 429 });
   } else if (await overBudget(signedIn)) return Response.json({ error: "Busy" }, { status: 429 });
   return withCosts(asker, "place", () => {
     askIs({ key: [id, lite], label: lite ? "live check (lite)" : "live check" });

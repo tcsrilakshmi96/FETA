@@ -1,5 +1,6 @@
 "use client";
 
+import { safeChip } from "@/lib/chip-html";
 import PickPhoto from "@/components/PickPhoto";
 import { logEvent } from "@/lib/db";
 import { useEffect, useState } from "react";
@@ -269,7 +270,7 @@ export function SearchChip({ html, found = "events" }: { html: string; found?: "
   return (
     <div className={styles.searchWrap}>
       <span className={styles.searchLabel}>{found === "events" ? "Events" : "City guides"} found with Google Search:</span>
-      <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: html }} />
+      <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: safeChip(html) }} />
     </div>
   );
 }

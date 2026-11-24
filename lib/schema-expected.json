@@ -563,5 +563,40 @@
   "kind": "function",
   "name": "claim_events_cache",
   "file": "20261124110000_audit_fixes.sql"
+ },
+ {
+  "kind": "function",
+  "name": "check_share",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "function",
+  "name": "keep_pick_set",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "function",
+  "name": "visit_today",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "function",
+  "name": "lookup_spend_today",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "function",
+  "name": "forget_hit",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "table",
+  "name": "write_keys",
+  "file": "20261124120000_audit_round2.sql"
+ },
+ {
+  "kind": "column",
+  "name": "brand_styles.added_by",
+  "file": "20261124120000_audit_round2.sql"
  }
 ]

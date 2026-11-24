@@ -46,6 +46,7 @@ const GEMINI_USD_PER_M: Record<string, { input: number; output: number }> = {
   "gemini-3.6-flash": { input: 1.5, output: 7.5 },
 };
 const SEARCH_USD = 0.014;
+const MAPS_GROUNDING_USD = 0.025;
 
 type Tally = { units: number; usd: number };
 type Store = { tally: Map<Sku, Tally>; later: Promise<unknown>[]; ask?: Ask; db: SupabaseClient | null; limit: Limit; mayPay?: Promise<boolean> };
@@ -103,7 +104,7 @@ export async function paidFetch(sku: Sku, url: string, init: RequestInit = {}): 
     }
   } else if (url.includes("generativelanguage.googleapis.com")) {
     if (res.ok) trackGemini(sku, await res.clone().json().catch(() => null));
-  } else track(sku);
+  } else if (res.ok) track(sku); // Google doesn't bill a refused call (audit, 24 Nov 2026)
   return res;
 }
 
@@ -140,9 +141,12 @@ function usageOfInteraction(data: Record<string, unknown>): Usage | null {
 function trackGemini(sku: Sku, data: unknown) {
   const d = (data ?? {}) as Record<string, unknown>;
   const u = usageOfContent(d) ?? usageOfInteraction(d);
-  const rate = u && GEMINI_USD_PER_M[(u.model ?? "gemini-3.5-flash").replace(/^models\//, "").replace(/-preview.*$/, "")];
+  // "gemini-3.5-flash-001" is priced as gemini-3.5-flash (audit, 24 Nov 2026).
+  const rate = u && GEMINI_USD_PER_M[(u.model ?? "gemini-3.5-flash").replace(/^models\//, "").replace(/-preview.*$/, "").replace(/-\d{3}$/, "")];
   if (!u || !rate) return track(sku);
-  add(sku, 1, (u.input * rate.input + u.output * rate.output) / 1e6 + u.searches * SEARCH_USD);
+  // Grounding with Google Maps is billed per prompt, on top of the tokens
+  // (audit, 24 Nov 2026: "What to order" was logged at a tenth of its cost).
+  add(sku, 1, (u.input * rate.input + u.output * rate.output) / 1e6 + u.searches * SEARCH_USD + (sku === "gemini_maps" ? MAPS_GROUNDING_USD : 0));
 }
 
 // Venice (the founder's credits) at what each reply says it used, at
@@ -299,7 +303,11 @@ export async function librarySpentToday(db: SupabaseClient): Promise<number> {
 // Shared things only Feta's server writes (backend audit, 23 Nov 2026;
 // migration 20261123130000): functions that check the server key. Until
 // that migration runs, the old direct writes still work.
-const SERVER_KEY = () => process.env.USAGE_REPORT_KEY ?? "";
+// The key the database checks for writes only Feta's server makes. Its own
+// key since 24 Nov 2026 (security audit: the n8n report key could write
+// too); the report key until FETA_WRITE_KEY is set.
+export const serverWriteKey = () => process.env.FETA_WRITE_KEY ?? process.env.USAGE_REPORT_KEY ?? "";
+const SERVER_KEY = serverWriteKey;
 const notThereYet = (message?: string) => !!message && /could not find the function|does not exist|schema cache/i.test(message);
 
 export async function saveEventsCache(db: SupabaseClient, key: string, events: unknown, html: string, hours: number) {
@@ -337,5 +345,13 @@ export function anonDb(): SupabaseClient {
 // can't be read (before the migration runs).
 export async function realSpendToday(db: SupabaseClient): Promise<number | null> {
   const { data, error } = await db.rpc("real_spend_today", { p_key: SERVER_KEY() });
+  return error ? null : Number(data ?? 0);
+}
+
+// What friends opening shared links (no account) spent today, and their own
+// daily budget (security audit, 24 Nov 2026); null when it can't be read.
+export const LOOKUP_BUDGET_INR = Number(process.env.LOOKUP_DAILY_BUDGET_INR ?? 200);
+export async function lookupSpendToday(db: SupabaseClient): Promise<number | null> {
+  const { data, error } = await db.rpc("lookup_spend_today", { p_key: SERVER_KEY() });
   return error ? null : Number(data ?? 0);
 }

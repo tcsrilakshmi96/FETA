@@ -34,6 +34,7 @@ import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
+import { safeChip } from "@/lib/chip-html";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -992,6 +993,15 @@ async function main() {
       failed++;
       console.log("✗ Open 24 hours: a place open around the clock counts as closed on a Wednesday");
     } else console.log("✓ Open 24 hours: a place open around the clock is open every day");
+  }
+  // Google's Search chip never runs code (security audit, 24 Nov 2026).
+  {
+    const chip = safeChip(`<style>.a{color:red}</style><div class="a" onclick="x()"><a href="javascript:alert(1)">A</a><a href="https://www.google.com/search?q=x">B</a><script>alert(1)</script><img src=x onerror=alert(1)></div>`);
+    const bad = /<script|onclick|onerror|javascript:/i.test(chip) || !chip.includes("https://www.google.com/search?q=x") || !chip.includes("<style>");
+    if (bad) {
+      failed++;
+      console.log("✗ Search chip: code can run from the chip, or Google's link and styles are lost");
+    } else console.log("✓ Search chip: shown as Google gives it, minus anything that runs code");
   }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini

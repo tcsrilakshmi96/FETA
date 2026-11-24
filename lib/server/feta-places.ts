@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { distanceKm, type City } from "@/lib/cities";
 import { cityById } from "@/lib/server/cities";
+import { serverWriteKey } from "@/lib/server/costs";
 import { placeLocation } from "@/lib/server/places";
 import { tooFar, type Kind, type Taste } from "@/lib/server/picks";
 
@@ -14,6 +15,7 @@ import { tooFar, type Kind, type Taste } from "@/lib/server/picks";
 
 const LOCATE_AT_ONCE = 40;
 const DUE_MS = 25 * 24 * 3600 * 1000;
+const RETRY_MS = 24 * 3600 * 1000;
 
 export type FounderPlace = { placeId: string; name: string; note: string; tags: string[]; kind: Kind; km: number; local: boolean };
 
@@ -25,11 +27,14 @@ export type PlaceSource = "founder" | "local";
 export async function founderPlacesNear(db: SupabaseClient, opts: { city: City; kinds: Kind[]; origin: { lat: number; lng: number }; taste: Taste; sources?: PlaceSource[] }): Promise<FounderPlace[]> {
   const { data } = await db.from("founder_places").select("place_id, name, note, tags, kind, source, lat, lng, located_at").eq("city_id", opts.city.id).eq("active", true).in("kind", opts.kinds).in("source", opts.sources ?? ["founder"]).limit(500);
   const rows = data ?? [];
-  const due = rows.filter((r) => r.lat === null || !r.located_at || Date.now() - new Date(r.located_at).getTime() > DUE_MS).slice(0, LOCATE_AT_ONCE);
+  // One Google couldn't find is tried again the next day, not on every
+  // search (audit, 24 Nov 2026: up to ₹17 a search for places gone from Google).
+  const age = (r: { located_at: string | null }) => (r.located_at ? Date.now() - new Date(r.located_at).getTime() : Infinity);
+  const due = rows.filter((r) => (r.lat === null ? age(r) > RETRY_MS : age(r) > DUE_MS)).slice(0, LOCATE_AT_ONCE);
   if (due.length) {
-    const found = (await Promise.all(due.map(async (r) => ({ r, at: await placeLocation(r.place_id).catch(() => null) })))).filter((x) => x.at);
-    for (const { r, at } of found) Object.assign(r, { lat: at!.lat, lng: at!.lng });
-    if (found.length) await db.rpc("locate_founder_places", { p_key: process.env.USAGE_REPORT_KEY, p_places: found.map(({ r, at }) => ({ place_id: r.place_id, ...at })) });
+    const tried = await Promise.all(due.map(async (r) => ({ r, at: await placeLocation(r.place_id).catch(() => null) })));
+    for (const { r, at } of tried) if (at) Object.assign(r, { lat: at.lat, lng: at.lng });
+    await db.rpc("locate_founder_places", { p_key: serverWriteKey(), p_places: tried.map(({ r, at }) => ({ place_id: r.place_id, ...(at ?? {}) })) });
   }
   return rows
     .filter((r) => r.lat !== null && r.lng !== null)

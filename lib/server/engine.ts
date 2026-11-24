@@ -1,9 +1,9 @@
 import "server-only";
 import { after } from "next/server";
 
-import { isMainlandChina, type City } from "@/lib/cities";
+import { distanceKm, isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday, later, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
+import { budgetToday, claimEventsCache, later, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
 import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
@@ -576,18 +576,19 @@ async function eventPicks(ctx: {
       if (cached) return { intent, span, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
       if (freshLeft <= 0) return { intent, span, events: [] as FoundEvent[], searchHtml: "" };
       freshLeft--;
+      // One search per kind and city at a time (audit, 24 Nov 2026: two at
+      // once both paid); the other goes on without it this time.
+      if (!(await claimEventsCache(db, key, 10))) return { intent, span, events: [] as FoundEvent[], searchHtml: "" };
       const found = await findEvents({ city, when: span, kind }).catch((error) => {
         console.error(error);
         return { events: [] as FoundEvent[], searchHtml: "" };
       });
+      // Shared by everyone there into the same thing; kept longer to cut
+      // repeat searches (founder, 23 Nov 2026: ₹512 of event searches a day).
       // Google's chip must be shown with what its search found, so a search
-      // without one is kept for nothing.
-      if (found.searchHtml) {
-        // Shared by everyone there into the same thing; kept longer to cut
-        // repeat searches (founder, 23 Nov 2026: ₹512 of event searches a day).
-        const hours = span === "tonight" ? 6 : 24;
-        await saveEventsCache(db, key, found.events, found.searchHtml, hours);
-      }
+      // without one shows nothing, and is kept an hour so it isn't paid for
+      // again by every set (audit, 24 Nov 2026).
+      await saveEventsCache(db, key, found.searchHtml ? found.events : [], found.searchHtml, found.searchHtml ? (span === "tonight" ? 6 : 24) : 1);
       return { intent, span, ...found };
       }),
     ),
@@ -637,7 +638,7 @@ async function eventPicks(ctx: {
   const opens = (url: string) => (/district\.in|bookmyshow|meetup\.com|zomato|swiggy|insider\.in/.test(url) ? Promise.resolve(true) : eventLinkLands(url, 4000));
   const withVenues = (
     await Promise.all(fresh.map(async (x) => {
-        const [venue, ok] = await Promise.all([findVenue(x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined), opens(x.e.url)]);
+        const [venue, ok] = await Promise.all([venueFor(db, x.e, city, origin, x.intent?.def.far ? TRIP_OUT_KM : undefined), opens(x.e.url)]);
         return { ...x, venue, opens: ok };
       }))
   ).filter(
@@ -677,6 +678,24 @@ async function eventPicks(ctx: {
         },
       },
     }));
+}
+
+// An event's venue on Google Maps: its place ID is kept for everyone (place
+// IDs may be kept), so the next person checks it with the cheaper lookup
+// instead of searching for it again (audit, 24 Nov 2026: every person paid
+// a search per event, up to about ₹22 a set). A venue not found is kept a day.
+async function venueFor(db: SupabaseClient, e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm?: number) {
+  const key = [city.id, "venue", plainText(e.venueName).slice(0, 100)].join("|");
+  const { data } = await db.from("events_cache").select("events").eq("key", key).maybeSingle();
+  const kept = (data?.events as { placeId: string | null }[] | undefined)?.[0];
+  if (kept) {
+    if (!kept.placeId) return null;
+    const place = await placeDetails(kept.placeId, false, true);
+    return place?.location ? { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) } : null;
+  }
+  const found = await findVenue(e, city, origin, radiusKm);
+  await saveEventsCache(db, key, [{ placeId: found?.place.id ?? null }], "", found ? 24 * 30 : 24);
+  return found;
 }
 
 // Feta's lists, checked live before Google is searched (founder, 22 Nov
