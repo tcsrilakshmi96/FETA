@@ -179,7 +179,22 @@ await click(/^Wear it again/);
 ok("F: Wear it again opens it in Today, no new looks", await until(/You're wearing this/, 10000) && looksCalls === calls);
 
 ok("No page errors", errors.length === 0);
+// Its test account is deleted at the end, as the journey's is (24 Nov 2026).
+await deleteAccount(p);
 console.log(checks.join("\n"));
 if (errors.length) console.log(errors);
 await b.close();
 process.exit(checks.some((c) => c.startsWith("✗")) ? 1 : 0);
+
+async function deleteAccount(page) {
+  const env = readFileSync(".env.local", "utf8");
+  const DB = env.match(/^NEXT_PUBLIC_SUPABASE_URL=(.*)$/m)?.[1]?.trim();
+  const KEY = env.match(/^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=(.*)$/m)?.[1]?.trim();
+  const token = await page
+    .evaluate(() => {
+      const k = Object.keys(localStorage).find((x) => /^sb-.*-auth-token$/.test(x));
+      return k ? JSON.parse(localStorage.getItem(k) ?? "{}").access_token ?? null : null;
+    })
+    .catch(() => null);
+  if (DB && KEY && token) await fetch(`${DB}/rest/v1/rpc/delete_my_data`, { method: "POST", headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: "{}" }).catch(() => null);
+}

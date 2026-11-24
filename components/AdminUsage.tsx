@@ -89,7 +89,7 @@ export default function AdminUsage() {
       <button type="button" role="switch" aria-checked={realOnly} className={styles.real} onClick={() => setRealOnly(!realOnly)}>
         <span>
           Real people only
-          <small>{data.test_people ? `${data.test_people} test visitor${data.test_people === 1 ? "" : "s"} (opened with ?qa=1) ${realOnly ? "left out" : "included"}` : "No test visitors in this period"}</small>
+          <small>{data.test_people ? `${data.test_people} test visitor${data.test_people === 1 ? "" : "s"} (opened with your tester code) ${realOnly ? "left out" : "included"}` : "No test visitors in this period"}</small>
         </span>
         <span className={`switch ${realOnly ? "on" : ""}`} />
       </button>
@@ -180,7 +180,7 @@ export default function AdminUsage() {
       </div>
 
       <p className={styles.foot}>
-        A person is one Feta account: on one phone and browser until they sign in with Google, then the same on every phone. So &quot;Everyone&quot; can miss people who came back on another phone or after Safari cleared its data; &quot;Signed in&quot; is the reliable number. Opening Feta counts from 18 Nov 2026; before that, only searches, chats, saves and shares. Your own account isn&apos;t counted, nor (with Real people only) visitors who opened Feta with ?qa=1. Days are UTC.
+        A person is one Feta account: on one phone and browser until they sign in with Google, then the same on every phone. So &quot;Everyone&quot; can miss people who came back on another phone or after Safari cleared its data; &quot;Signed in&quot; is the reliable number. Opening Feta counts from 18 Nov 2026; before that, only searches, chats, saves and shares. Your own account isn&apos;t counted, nor (with Real people only) visitors who opened Feta with your tester code. Days are UTC.
       </p>
     </div>
   );

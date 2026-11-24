@@ -1,5 +1,6 @@
 "use client";
 
+import { firstSlotName } from "@/lib/slot-label";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
@@ -332,7 +333,7 @@ export default function Picks() {
           <div className={styles.segment} role="tablist" aria-label="When">
             <span className={styles.thumb} style={{ width: when === "tonight" ? 76 : 106, transform: when === "tonight" ? "none" : "translateX(76px)" }} />
             <button type="button" role="tab" aria-selected={when === "tonight"} className={`${styles.segBtn} ${when === "tonight" ? styles.segOn : ""}`} style={{ width: 76 }} onClick={() => setWhen("tonight")}>
-              Tonight
+              {firstSlotName(origin?.city.timeZone)}
             </button>
             <button type="button" role="tab" aria-selected={when === "weekend"} className={`${styles.segBtn} ${when === "weekend" ? styles.segOn : ""}`} style={{ width: 106 }} onClick={() => setWhen("weekend")}>
               This weekend
@@ -352,7 +353,7 @@ export default function Picks() {
               <>“{search}”</>
             ) : (
               <>
-                {category === "food_drinks" ? "Food & drinks" : "Things to do"} <strong>{when === "tonight" ? "tonight" : "this weekend"}</strong>
+                {category === "food_drinks" ? "Food & drinks" : "Things to do"} <strong>{when === "tonight" ? firstSlotName(origin?.city.timeZone).toLowerCase() : "this weekend"}</strong>
               </>
             )}
           </h1>

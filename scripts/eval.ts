@@ -17,7 +17,7 @@ import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
-import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -1002,6 +1002,26 @@ async function main() {
       failed++;
       console.log("✗ Search chip: code can run from the chip, or Google's link and styles are lost");
     } else console.log("✓ Search chip: shown as Google gives it, minus anything that runs code");
+  }
+  // The first slot follows the city's clock (founder, 24 Nov 2026): by day
+  // a place open in the next few hours fits (breakfast, a museum), not only
+  // ones open in the evening; from 5 pm, places open now.
+  {
+    const zoneAt = (hour: number) => {
+      const off = ((hour - new Date().getUTCHours() + 36) % 24) - 12; // -12..11
+      return off === 0 ? "UTC" : `Etc/GMT${off > 0 ? "-" : "+"}${Math.abs(off)}`;
+    };
+    const dayOf = (tz: string) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: tz }).format(new Date()));
+    const place = (open: number, close: number, tz: string) => ({ id: "x", regularOpeningHours: { periods: [{ open: { day: dayOf(tz), hour: open, minute: 0 }, close: { day: dayOf(tz), hour: close, minute: 0 } }] } }) as Parameters<typeof openTonight>[0];
+    const morning = { ...searchCities("Bengaluru", 1)[0], timeZone: zoneAt(9) };
+    const slotFails = [
+      !openTonight(place(10, 17, morning.timeZone), morning) && "a museum open 10 to 5 doesn't fit Today at 9 am",
+      openTonight(place(19, 23, morning.timeZone), morning) && "a dinner-only place fits Today at 9 am",
+    ].filter(Boolean);
+    if (slotFails.length) {
+      failed++;
+      console.log(`✗ Today / Tonight: ${slotFails.join(", ")}`);
+    } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now");
   }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini

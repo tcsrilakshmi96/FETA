@@ -468,7 +468,7 @@ export function rulesBroken(place: Place, opts: FilterOpts): Broken[] {
         (opts.when === "weekend" && !opensOnWeekend(place)) ||
         (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
   )
-    out.push({ why: "hours", line: opts.at ? "Not open at that time" : opts.when === "tonight" ? "Not open tonight" : "Not open this weekend" });
+    out.push({ why: "hours", line: opts.at ? "Not open at that time" : `Not open ${slotWord(opts.when, opts.city)}` });
   return out;
 }
 
@@ -479,11 +479,13 @@ export function spendUpperBound(answers: Answers, city: City): number | null {
   return r && r.high <= 4 ? spendBounds(city.currency)[r.high - 1] : null;
 }
 
-// "Tonight" (founder's decision, 11 Nov 2026), in the city's own time:
-// from 5 pm to 3 am it means open now; earlier in the day it means open
-// for at least an hour between 7 and 10 pm today, so a lunch café that
-// shuts at 5 isn't a pick and 4 am in New York still finds tonight's places.
-const EVENING = [19 * 60, 22 * 60];
+// The first slot follows the city's own clock (founder, 24 Nov 2026: "what
+// if someone wants to go for breakfast or lunch?"; it meant 7 to 10 pm all
+// day, so a morning in San Francisco found no museum or park). From 5 pm to
+// 3 am it's "Tonight": open now. Earlier it's "Today": open for at least an
+// hour in the next 5 hours (breakfast at 8, a museum at 10, lunch at noon).
+// The value stays "tonight" in code and in stored sets.
+const AHEAD = 5 * 60;
 
 function cityNow(city: City) {
   const parts = Object.fromEntries(
@@ -500,22 +502,31 @@ export function tonightMeansNow(city: City) {
   return minutes >= 17 * 60 || minutes < 3 * 60;
 }
 
-// Today's opening period that covers at least an hour of the evening.
-function eveningHours(place: Place, city: City): [number, number] | null {
-  const { day } = cityNow(city);
+// Today's opening period that covers at least an hour of the next 5 hours
+// (one from yesterday that runs past midnight counts too).
+function hoursAhead(place: Place, city: City): [number, number] | null {
+  const { day, minutes } = cityNow(city);
+  const to = minutes + AHEAD;
   const found = (weeklyHours(place) ?? [])
-    .filter(([d, open, close]) => d === day && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60)
-    .sort((a, b) => b[2] - a[2])[0];
-  return found ? [found[1], found[2]] : null;
+    .flatMap(([d, open, close]): [number, number][] => (d === day ? [[open, close]] : d === (day + 6) % 7 && close > 24 * 60 ? [[0, close - 24 * 60]] : []))
+    .filter(([open, close]) => Math.min(close, to) - Math.max(open, minutes) >= 60)
+    .sort((a, b) => b[1] - a[1])[0];
+  return found ?? null;
 }
 
-function openTonight(place: Place, city: City) {
-  return tonightMeansNow(city) ? place.currentOpeningHours?.openNow === true : eveningHours(place, city) !== null;
+// The first slot in words: "today" by day, "tonight" from 5 pm.
+export function slotWord(when: When, city: City) {
+  return when === "weekend" ? "this weekend" : tonightMeansNow(city) ? "tonight" : "today";
 }
 
-// "Open later": still open at 11 pm tonight.
+// Open in the first slot: now, in the evening; in the next few hours, by day.
+export function openTonight(place: Place, city: City) {
+  return tonightMeansNow(city) ? place.currentOpeningHours?.openNow === true : hoursAhead(place, city) !== null;
+}
+
+// "Open later": still open at 11 pm tonight (an evening wish; by day it doesn't apply).
 function opensLate(place: Place, city: City) {
-  if (!tonightMeansNow(city)) return (eveningHours(place, city)?.[1] ?? 0) >= 23 * 60;
+  if (!tonightMeansNow(city)) return true;
   const close = place.currentOpeningHours?.nextCloseTime;
   if (!close) return false;
   const hour = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: city.timeZone }).format(new Date(close)));
@@ -662,7 +673,7 @@ export async function chooseWithGemini(opts: {
 About them:
 ${tasteSummary(opts.taste, city)}
 
-They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${opts.dayPlan ? "on a day out exploring the place (breakfast to dinner; the sights matter as much as their usual interests)" : when === "tonight" ? "tonight" : "this weekend"}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
+They want ${category === "food_drinks" ? "somewhere to eat or drink" : "something to do"} ${opts.dayPlan ? "on a day out exploring the place (breakfast to dinner; the sights matter as much as their usual interests)" : slotWord(when, city) === "today" ? "today, in the next few hours (it's daytime there now: breakfast, lunch, cafés and daytime places fit)" : slotWord(when, city)}.${asked.length ? `\nRight now they asked for: ${asked.join(", ")}. Weigh this heavily, and mention it in "because" where it fits.` : ""}
 Every place below already fits their diet, budget, distance, drinks and opening hours, so choose on taste and fit.
 
 ${wanted.length ? `What they want most (id in brackets): ${wanted.map((i) => `[${i.id}] ${i.label}`).join("; ")}.\n` : ""}
@@ -680,7 +691,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
 ${wanted.length ? `- Cover what they want most: the best place for each id above near the top, and most of the top ${SHOW} for those things, mixed rather than one kind.\n- "serves": the ids above that this place genuinely is (a Thai restaurant is [cuisine_thai]; a karaoke bar is [interest_karaoke]). [] if none.` : "- Mix kinds of place rather than several of one kind."}
-- "because": one line, at most 110 characters, starting "Because you", naming the one thing they chose, said or love that THIS place serves (one of those in "serves"; never a this-or-that card pick, never something under "Said no to"; if it serves none, leave "because" empty) that genuinely fits THIS place and ${when === "tonight" ? "an evening out tonight" : "the weekend"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
+- "because": one line, at most 110 characters, starting "Because you", naming the one thing they chose, said or love that THIS place serves (one of those in "serves"; never a this-or-that card pick, never something under "Said no to"; if it serves none, leave "because" empty) that genuinely fits THIS place and ${when === "weekend" ? "the weekend" : slotWord(when, city) === "today" ? "going out today" : "an evening out tonight"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.
 - "verdict" must be honest, like a friend who doesn't oversell:
   - "Good if you're nearby" is the normal verdict for a solid fit. Use it for most places.
   - "Worth a detour" is rare: only for an exceptional match to what they told you. At most one place in a set.
@@ -758,11 +769,11 @@ function timeIn(iso: string, timeZone: string) {
 
 // The live Google line, always ending in the unchanged words "Google Maps".
 function googleLine(place: Place, when: When, city: City) {
-  if (when === "tonight" && !tonightMeansNow(city)) {
-    const hours = eveningHours(place, city);
+  if (when === "tonight" && !tonightMeansNow(city) && place.currentOpeningHours?.openNow !== true) {
+    const hours = hoursAhead(place, city);
     const clock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
     const until = hours && hours[1] < ALWAYS_OPEN ? ` until ${clock(hours[1])}` : "";
-    return `Open tonight${until} · checked on Google Maps`;
+    return hours ? `Opens ${clock(hours[0])}${until} · checked on Google Maps` : "Open today · checked on Google Maps";
   }
   if (when === "tonight") {
     const close = place.currentOpeningHours?.nextCloseTime;

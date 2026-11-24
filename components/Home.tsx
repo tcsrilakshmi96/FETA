@@ -1,5 +1,6 @@
 "use client";
 
+import { firstSlotName } from "@/lib/slot-label";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -314,7 +315,7 @@ export default function Home() {
               </>
             ) : (
               <>
-                {today ? "Today" : when === "tonight" ? "Tonight" : "This weekend"}, <i key={when}>made for you.</i>
+                {today ? "Today" : when === "tonight" ? firstSlotName(city.timeZone) : "This weekend"}, <i key={when}>made for you.</i>
               </>
             )}
           </h1>
@@ -347,13 +348,13 @@ export default function Home() {
                   className={when === w ? styles.segOn : ""}
                   onClick={() => setWhen(w)}
                 >
-                  {w === "tonight" ? "Tonight" : "This weekend"}
+                  {w === "tonight" ? firstSlotName(city.timeZone) : "This weekend"}
                 </button>
               ))}
             </div>
 
             {!noPlaces && (
-              <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet} aria-label={nothingYet ? "Choose for me: finding places first" : `Choose for me: one answer for ${when === "tonight" ? "tonight" : "this weekend"}`}>
+              <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet} aria-label={nothingYet ? "Choose for me: finding places first" : `Choose for me: one answer for ${when === "tonight" ? firstSlotName(city.timeZone).toLowerCase() : "this weekend"}`}>
                 <Mascot pose={late ? "sleep" : "think"} size={30} className={styles.cheese} />
                 <strong>Choose for me</strong>
               </button>

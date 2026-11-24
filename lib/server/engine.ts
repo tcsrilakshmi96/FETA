@@ -29,6 +29,7 @@ import {
   spendUpperBound,
   tasteSummary,
   SHOW,
+  slotWord,
   applyTweaks,
   TWEAKS,
   popularCap,
@@ -411,7 +412,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const stored: StoredPick[] = [...events.map((e) => e.stored), ...placeStored];
   const shownTotal = events.length + shownCount;
   const short = shownTotal < 3;
-  const whenText = body.when === "tonight" ? "tonight" : "this weekend";
+  const whenText = slotWord(body.when, city);
   // Said plainly when something they asked for found nothing that fits.
   const missing = result.missing.length ? `No ${listOf(result.missing.map((i) => i.label))} near you that fits ${whenText}.` : null;
   // A search for one place by name needs no "only 1 fits".
