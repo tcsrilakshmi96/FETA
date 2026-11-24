@@ -284,6 +284,20 @@ async function main() {
       p.off("request", count);
       const text = await p.evaluate(() => document.body.innerText);
       check(asked === 0 && /★|Test Area/.test(text), "Reloading the picks list shows the list kept on the phone, without asking again", `asked ${asked}`);
+      // A place saved here leaves every other list kept on the phone, even
+      // ones this screen never showed (audit, 24 Nov 2026).
+      type Kept = { slots?: Record<string, { picks: { placeId: string }[] }> };
+      const first = await p.evaluate(() => {
+        const kept = JSON.parse(localStorage.getItem("feta.picks.kept") ?? "{}") as Kept;
+        return Object.entries(kept.slots ?? {}).find(([k]) => k.endsWith("tonight:food_drinks"))?.[1].picks[0]?.placeId ?? null;
+      });
+      await p.evaluate(() => (document.querySelector("button[aria-label='Save']") as HTMLButtonElement | null)?.click());
+      await wait(800);
+      const elsewhere = await p.evaluate((id) => {
+        const kept = JSON.parse(localStorage.getItem("feta.picks.kept") ?? "{}") as Kept;
+        return Object.entries(kept.slots ?? {}).filter(([k]) => !k.endsWith("tonight:food_drinks")).some(([, s]) => s.picks.some((x) => x.placeId === id));
+      }, first);
+      check(!!first && !elsewhere, "A place saved on the list leaves the other lists kept on the phone", String(first));
     }
 
     // Another account's things left on the phone (founder, 21 Nov 2026: "in

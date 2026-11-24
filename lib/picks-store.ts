@@ -44,8 +44,12 @@ function fromPhone(): typeof kept {
     const v = JSON.parse(localStorage.getItem(STORE) ?? "null") as typeof kept;
     // A copy on the phone is from the taste they have now: any change to
     // it clears the copy (forgetPicks).
-    if (v && Object.values(v.slots).some((x) => Date.now() - (x.madeAt ?? v.at) <= KEEP_MS))
-      return { ...v, slots: Object.fromEntries(Object.entries(v.slots).map(([k, x]) => [k, { ...x, taste: tasteVersion }])) };
+    // Each list leaves the phone once its own hour is up (audit, 24 Nov 2026).
+    const live = v ? Object.entries(v.slots).filter(([, x]) => Date.now() - (x.madeAt ?? v.at) <= KEEP_MS) : [];
+    if (v && live.length) {
+      if (live.length < Object.keys(v.slots).length) localStorage.setItem(STORE, JSON.stringify({ ...v, slots: Object.fromEntries(live) }));
+      return { ...v, slots: Object.fromEntries(live.map(([k, x]) => [k, { ...x, taste: tasteVersion }])) };
+    }
     localStorage.removeItem(STORE);
   } catch {
     // Nothing kept.
@@ -123,7 +127,9 @@ export function keepSlots(slots: Record<string, Slot>) {
   // Only everyday lists made with the taste they have now, within their hour,
   // never half-way through finding more. Where a screen shows a tweaked list,
   // the everyday one already kept stays.
-  const keepable = (s: Slot) => (s.taste ?? tasteVersion) === tasteVersion && !s.tweaked && fresh(s, at);
+  // A list still loading never replaces a finished one (audit, 24 Nov 2026:
+  // Cheaper's placeholder pushed out the everyday list).
+  const keepable = (s: Slot) => !s.loading && (s.taste ?? tasteVersion) === tasteVersion && !s.tweaked && fresh(s, at);
   slots = Object.fromEntries(
     Object.entries({ ...kept?.slots, ...slots })
       .map(([k, s]) => [k, keepable(s) ? s : kept?.slots[k]] as const)
@@ -182,6 +188,16 @@ export function withoutElsewhere(slots: Record<string, Slot>, key: string, place
   return Object.fromEntries(
     Object.entries(slots).map(([k, s]) => [k, k === key ? s : { ...s, picks: s.picks.filter((p) => p.placeId !== placeId), spares: s.spares.filter((p) => p.placeId !== placeId) }]),
   );
+}
+
+// The same for every list kept in memory and on the phone, including ones
+// this screen never showed (audit, 24 Nov 2026: after a reload, Home's
+// weekend list kept a place they had just saved).
+export function leaveOtherLists(key: string, placeId: string) {
+  const all = kept ? kept.slots : fromPhone()?.slots;
+  if (!all) return;
+  kept = { slots: withoutElsewhere(all, key, placeId), at: kept?.at ?? Date.now() };
+  keepSlots({});
 }
 
 // Events still being found when the list came (they take up to ~20 s, live

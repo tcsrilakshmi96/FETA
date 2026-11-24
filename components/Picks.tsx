@@ -23,7 +23,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, loadSlot, nextPicks, searchKey, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { keepSlots, keptSlots, leaveOtherLists, loadSlot, nextPicks, searchKey, slotKey, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -282,6 +282,7 @@ export default function Picks() {
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;
     savePickAction(pick.placeId, "saved", { category, cityId: city!.id, because: pick.because });
+    leaveOtherLists(key, pick.placeId);
     // Saving the big one moves it to the end (ticked), so the next pick
     // takes the big card, as a "Not for me" does.
     setSlots((s) => {
@@ -295,6 +296,7 @@ export default function Picks() {
   // "Not for me": it leaves the list, and Feta asks why (optional).
   function skip(pick: Pick) {
     savePickAction(pick.placeId, "skipped", { category, cityId: city!.id });
+    leaveOtherLists(key, pick.placeId);
     setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet({ type: "reason", pick });
   }
@@ -303,6 +305,7 @@ export default function Picks() {
   // they don't know yet (testers: "I know Bombay, show me others").
   function been(pick: Pick) {
     savePickAction(pick.placeId, "been", { category, cityId: city!.id });
+    leaveOtherLists(key, pick.placeId);
     setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
     setSheet(null);
     toast("Moved to Been. Feta will show you places you don't know yet.");
