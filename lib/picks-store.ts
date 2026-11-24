@@ -170,7 +170,8 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       taste: version,
       ...(tweak && !tweak.search ? { tweaked: true } : {}),
     };
-    if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
+    // A tweaked list is never kept, so it leaves the kept everyday one alone.
+    if (version === tasteVersion && !slot.tweaked) keepSlots({ ...keptSlots(), [key]: slot });
     if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version, slot.madeAt!);
     return slot;
   });
