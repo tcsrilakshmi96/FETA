@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { stylePicture, styleById, type Look, type Wears } from "@/lib/style";
-import { cityNow, keptPicture, keptSpots, lookPicture } from "@/lib/style-client";
+import { cityNow, keptPicture, keptSpots, lookPicture, type PictureKind } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 
 // Shared parts of Style (founder, 22–23 Nov 2026, docs/style-spec.md).
@@ -52,25 +52,25 @@ export function StyleFigure({ style, wears, seed = "", className, imgStyle }: { 
   return <img className={className} src={stylePicture(lens.id, wears, seed)} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", mixBlendMode: "normal", ...imgStyle }} />;
 }
 
-// The look's picture: kept on this phone, else made now (about ₹4, only
-// when the look is on screen: founder, 22 Nov 2026), else the style's own
-// illustration while it's made or when it can't be.
-export function useLookPicture(look: Look | null, wears: Wears, make: boolean, round = 0): { pic: string | null; making: boolean } {
+// The look's picture: kept on this phone or account, else made only when
+// they ask for it (founder, 24 Nov 2026: "if we take a look from the library
+// and show, it will be fast"; about ₹4), else the style's library picture.
+export function useLookPicture(look: Look | null, wears: Wears, want: PictureKind | null, round = 0): { pic: string | null; making: boolean } {
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
-  // A new round (their photo just added) makes each look's picture again.
+  // A new round (their photo just added) looks again.
   const id = look ? `${look.id}#${round}` : "";
   useEffect(() => {
-    if (!look || id in pics) return;
+    if (!look || pics[id]) return;
     let live = true;
     keptPicture(look).then((kept) => {
       if (!live) return;
-      if (kept || !make) {
+      if (kept || !want) {
         setPics((p) => ({ ...p, [id]: kept }));
         return;
       }
       setMaking(id);
-      lookPicture(look, wears).then((img) => {
+      lookPicture(look, wears, want).then((img) => {
         if (!live) return;
         setMaking(null);
         setPics((p) => ({ ...p, [id]: img }));
@@ -80,7 +80,7 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean, r
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one look at a time, by id
-  }, [id, make]);
+  }, [id, want]);
   return { pic: pics[id] ?? null, making: making === id };
 }
 
@@ -88,10 +88,11 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean, r
 // card (on them, or an outfit board with the bag, shoes and jewellery laid
 // out beside the clothes), a numbered pulsing dot on every piece the picture
 // shows, and the pieces in one row underneath, so Wear this stays on screen.
-// A piece they own is dark, "YOURS ✓". While the picture is made, or when it
-// can't be (today's limit), a picture of a look in that style stands in,
-// said so, with no dots (founder: never a sketch).
-export function LookCard({ look, wears, pic, making, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
+// A piece they own is dark, "YOURS ✓". Until they ask for this look's own
+// picture ("See this exact look"), while it's made, or when it can't be
+// (today's limit), a picture of a look in that style stands in, said so,
+// with no dots (founder: never a sketch).
+export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; onSee?: () => void; pill?: string; children?: ReactNode }) {
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [img, setImg] = useState<{ w: number; h: number }>({ w: 4, h: 5 });
@@ -143,7 +144,12 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
           </button>
         ))}
         {pill && <span className={k.pill}>{pill}</span>}
-        {making ? <span className={k.making}>Making the picture…</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
+        {making ? <span className={k.making}>Making your look · about 10 seconds</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
+        {!pic && !making && onSee && (
+          <button type="button" className={k.seeExact} onClick={onSee}>
+            ✨ See this exact look
+          </button>
+        )}
         {children}
       </div>
       <div className={k.pieceRow}>
@@ -160,6 +166,30 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
             </button>
           );
         })}
+      </div>
+    </>
+  );
+}
+
+// "See this exact look": on them or just the outfit (founder, 24 Nov 2026).
+export function PictureChoice({ hasPhoto, onPick, onClose }: { hasPhoto: boolean; onPick: (kind: PictureKind) => void; onClose: () => void }) {
+  return (
+    <>
+      <button type="button" className={k.shade} aria-label="Close" onClick={onClose} />
+      <div className={k.sheet} role="dialog" aria-label="See this exact look">
+        <div className={k.grab} />
+        <span className={k.lookTitle} style={{ fontSize: 21 }}>
+          See this exact look
+        </span>
+        <span style={{ fontSize: 13, opacity: 0.7 }}>Ready in about 10 seconds</span>
+        <button type="button" className={k.opt} onClick={() => onPick("me")}>
+          <b>On me</b>
+          <span>{hasPhoto ? "With your photo, kept on this phone only" : "Add one head-to-toe photo. It goes to Google's image AI only to make your looks and stays on this phone."}</span>
+        </button>
+        <button type="button" className={k.opt} onClick={() => onPick("outfit")}>
+          <b>Just the outfit</b>
+          <span>These exact pieces laid out together, no person</span>
+        </button>
       </div>
     </>
   );

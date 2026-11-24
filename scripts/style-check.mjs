@@ -75,6 +75,9 @@ ok("A: two budget levels can be ticked", await buttonVisible(/^See my style/) &&
 await click(/^See my style/);
 await p.waitForFunction(() => location.pathname === "/style", { timeout: 20000 }).catch(() => null);
 
+let pictureAsks = 0;
+p.on("request", (r) => { if (r.url().includes("/api/style/picture")) pictureAsks++; });
+
 // B · No plan: Where are you going?
 ok("B: no plan asks where they're going", await until(/Where are you/));
 await shot("b-where");
@@ -88,6 +91,14 @@ const pieces = await p.evaluate(() => document.querySelectorAll("[class*=pieceRo
 ok(`C: the lookbook lists every piece (${pieces})`, pieces >= 3);
 // Never a sketch (founder, 23 Nov 2026): every picture is a real one.
 ok("C: no sketch anywhere on the look", await p.evaluate(() => ![...document.images].some((i) => /\/style\/looks\//.test(i.src)) && !/Feta's sketch/.test(document.body.innerText)));
+// Library picture first, the exact one only on a tap (founder, 24 Nov 2026).
+ok("C: no picture is made until they ask", pictureAsks === 0);
+ok("C: the look shows its style's library picture, said so", await p.evaluate(() => [...document.images].some((i) => /\/style\/boards\//.test(i.src))) && /not this exact one/.test(await text()));
+await click(/See this exact look/);
+await wait(500);
+ok("C: See this exact look offers On me or Just the outfit", await buttonVisible(/^On me/) && await buttonVisible(/^Just the outfit/));
+await p.evaluate(() => document.querySelector("[aria-label=Close]")?.click());
+await wait(400);
 ok("C: Wear this and the swipe hint show", await buttonVisible(/^Wear this$/) && /Swipe to wear/.test(await text()));
 await swipe(-120);
 ok("C: swipe left shows the next look", await until(/2 of 3/, 3000));

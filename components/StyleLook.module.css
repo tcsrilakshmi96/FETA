@@ -1046,3 +1046,23 @@
   background: var(--bg);
   color: var(--ink);
 }
+/* "See this exact look" (founder, 24 Nov 2026): the library picture shows
+   first; the look's own picture is made only when asked for. */
+.seeExact {
+  position: absolute;
+  left: 50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  z-index: 7;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--inkFixed);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}

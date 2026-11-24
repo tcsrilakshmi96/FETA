@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
-import { LookCard, PieceSheet, StyleFigure, StyleHead, useLookPicture } from "@/components/StyleKit";
+import { LookCard, PictureChoice, PieceSheet, StyleFigure, StyleHead, useLookPicture } from "@/components/StyleKit";
 import TabBar from "@/components/TabBar";
 import { FROM_KEY } from "@/components/WearCard";
 import { useToast } from "@/components/Toast";
 import WaitFun from "@/components/WaitFun";
 import { loadOrigin } from "@/lib/origin";
 import { WHERES, styleById, type LookFor, type Where } from "@/lib/style";
-import { chooseLook, chosenLookFor, cityDay, cityNow, forgetPicture, fromPhone, keepOnPhone, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, shrink, swapInSet, tonightPlan, wornOn, type LookSet, type StyleProfile } from "@/lib/style-client";
+import { chooseLook, chosenLookFor, cityDay, cityNow, forgetPicture, fromPhone, keepOnPhone, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, shrink, swapInSet, tonightPlan, wornOn, type LookSet, type PictureKind, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
@@ -43,7 +43,6 @@ export default function Style() {
   const [swapping, setSwapping] = useState(false);
   const tried = useRef<Record<string, string[]>>({});
   const [from, setFrom] = useState<"plan" | "place" | null>(null); // a plan or place card opened Style
-  const [remake, setRemake] = useState(false);
   // Where are you going?
   const [late, setLate] = useState(false);
   const [when, setWhen] = useState<"tonight" | "tomorrow" | null>(null);
@@ -56,16 +55,25 @@ export default function Style() {
 
   const wears = profile?.wears ?? "women";
   const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
-  const onScreen = mode === "looks" && li < (set?.looks.length ?? 0);
-  // Looks on them (founder, 23 Nov 2026: "can that be the actual person's
-  // image instead of random people?"): offered right under the look.
+  // A look shows its style's library picture at once; its own picture is
+  // made when they ask (founder, 24 Nov 2026): on them (their photo, kept on
+  // this phone) or just the outfit. Wearing a look makes its own picture.
   const [onMe, setOnMe] = useState<boolean | null>(null);
   const [round, setRound] = useState(0);
+  const [asked, setAsked] = useState<Record<string, PictureKind>>({});
+  const [choosing, setChoosing] = useState(false);
   const selfieFile = useRef<HTMLInputElement>(null);
   useEffect(() => {
     fromPhone("selfie").then((x) => setOnMe(!!x));
   }, []);
-  const { pic, making } = useLookPicture(look, wears, onScreen || remake || mode === "worn", round);
+  const want: PictureKind | null = look ? (asked[look.id] ?? (mode === "worn" ? (onMe ? "me" : "outfit") : null)) : null;
+  const { pic, making } = useLookPicture(look, wears, want, round);
+  function seeExact(kind: PictureKind) {
+    setChoosing(false);
+    if (!look) return;
+    if (kind === "me" && !onMe) return selfieFile.current?.click();
+    setAsked((a) => ({ ...a, [look.id]: kind }));
+  }
 
   async function openFor(next: LookFor) {
     setF(next);
@@ -219,8 +227,11 @@ export default function Style() {
     const photo = await shrink(file, 1024).catch(() => null);
     if (!photo) return toast("Couldn't open that photo.");
     await keepOnPhone("selfie", photo);
-    await Promise.all(set.looks.map(forgetPicture));
     setOnMe(true);
+    if (look) {
+      await forgetPicture(look);
+      setAsked((a) => ({ ...a, [look.id]: "me" }));
+    }
     setRound((r) => r + 1);
     const nextP = { ...p, onYou: true };
     setProfile(nextP);
@@ -421,7 +432,7 @@ export default function Style() {
                 }}
                 onPointerCancel={() => (swipeX.current = null)}
               >
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} />
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} onSee={() => setChoosing(true)} />
               </div>
               <div className={k.actions}>
                 <button type="button" className={k.round} aria-label="The last look" onClick={prev} disabled={li === 0}>
@@ -439,12 +450,6 @@ export default function Style() {
                 <span>Swipe to wear →</span>
               </div>
               <p className={k.why}>{look.why}</p>
-              {onMe === false && (
-                <button type="button" className={k.onMe} onClick={() => selfieFile.current?.click()}>
-                  <b>See these looks on you ›</b>
-                  <span>Add one head-to-toe photo and every look is shown on you, not a sketch. It goes to Google&apos;s image AI only to make your looks and stays on this phone.</span>
-                </button>
-              )}
               <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
             </>
           )}
@@ -490,13 +495,8 @@ export default function Style() {
               </div>
               <span className={k.styleLine}>{styleById(look.style)?.name ?? ""}</span>
               <div className={k.deck}>
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} onSee={() => setChoosing(true)} pill="✓ You're wearing this" />
               </div>
-              {!pic && !making && !remake && (
-                <button type="button" className={k.ghost} onClick={() => setRemake(true)}>
-                  Make the picture again
-                </button>
-              )}
               <button type="button" className={k.ghost} onClick={pickDifferent}>
                 Pick a different look
               </button>
@@ -565,6 +565,7 @@ export default function Style() {
           )}
         </div>
       </main>
+      {choosing && look && <PictureChoice hasPhoto={!!onMe} onPick={seeExact} onClose={() => setChoosing(false)} />}
       {sheet !== null && look && (
         <PieceSheet
           name={look.pieces[sheet].name}

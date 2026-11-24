@@ -22,12 +22,12 @@ export default function OutfitCard({ outfit, brands }: { outfit: Look; brands: {
       live = false;
     };
   }, []);
-  const { pic: look } = useLookPicture(wears ? outfit : null, wears ?? "women", true);
+  const { pic: look } = useLookPicture(wears ? outfit : null, wears ?? "women", null);
   return (
     <div className={`${s.vars} ${s.chatOutfit}`}>
       <div className={s.chatLook}>
         {/* eslint-disable-next-line @next/next/no-img-element -- drawn for them, kept on this phone */}
-        <img src={look ?? stylePicture(outfit.style, wears ?? "women", outfit.id)} alt={`${outfit.title}: ${outfit.pieces.map((p) => p.name).join(", ")}`} style={{ opacity: look ? 1 : 0.35 }} />
+        <img src={look ?? stylePicture(outfit.style, wears ?? "women", outfit.id)} alt={`${outfit.title}: ${outfit.pieces.map((p) => p.name).join(", ")}`}  />
         {!look && <span className={s.drawingWait} aria-hidden="true" />}
       </div>
       <div className={s.chatPieces}>

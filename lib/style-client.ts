@@ -312,14 +312,18 @@ export async function chooseLook(set: LookSet, index: number | null) {
 // also kept on their account (look_pictures) so another phone doesn't make
 // it again. A picture of them never leaves this phone.
 const picturesAsked = new Map<string, Promise<string | null>>();
-export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
+// "me": on their photo (kept on this phone only); "outfit": the board with
+// no person (also kept on their account). Made only when they ask for it
+// (founder, 24 Nov 2026: library picture first, the exact look on a tap).
+export type PictureKind = "me" | "outfit";
+export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promise<string | null> {
   const key = `pic:${look.id}`;
   const waiting = picturesAsked.get(key);
   if (waiting) return waiting;
   const work = (async () => {
     const kept = await fromPhone(key);
     if (kept) return kept;
-    const photo = await fromPhone("selfie");
+    const photo = kind === "me" ? await fromPhone("selfie") : null;
     if (!photo && (await currentUserId())) {
       const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
       if (data?.image) {
