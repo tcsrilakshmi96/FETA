@@ -8,7 +8,7 @@ import { livePlace } from "@/lib/my-places";
 import { clock } from "@/lib/plan";
 import { castVote, loadShare, loadVotes, type ChoicePayload, type ShareKind, type SharePayload, type ShareStop, type Vote } from "@/lib/share-client";
 import styles from "./GroupShare.module.css";
-import { eventLinkLabel, siteName } from "@/lib/event-links";
+import { eventLinkLabel, siteName, trustedEventLink } from "@/lib/event-links";
 
 type Live = { name: string; area: string; mapsUri: string; photo: string | null };
 
@@ -172,9 +172,16 @@ export default function GroupShare() {
                   <span className={styles.area}>{st.event ? `${st.event.venueName} · ${st.event.date} ${st.event.time}` : l?.area}</span>
                   {st.fetaNote !== undefined && <span className={styles.note}>★ Feta pick{st.fetaNote ? `: “${st.fetaNote}”` : ""}</span>}
                   {st.event ? (
-                    <a href={st.event.url} target="_blank" rel="noopener noreferrer">
-                      {eventLinkLabel(siteName(st.event.url))}
-                    </a>
+                    trustedEventLink(st.event.url) ? (
+                      <a href={st.event.url} target="_blank" rel="noopener noreferrer">
+                        {eventLinkLabel(siteName(st.event.url))}
+                      </a>
+                    ) : (
+                      // Not a site Feta knows: friends search for it instead (founder, 24 Nov 2026).
+                      <a href={`https://www.google.com/search?q=${encodeURIComponent(`${st.event.title} ${st.event.venueName}`)}`} target="_blank" rel="noopener noreferrer">
+                        Search it on Google
+                      </a>
+                    )
                   ) : (
                     l && (
                       <a href={l.mapsUri} target="_blank" rel="noopener noreferrer">

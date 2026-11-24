@@ -11,9 +11,7 @@ export function eventLinkLabel(site: string) {
 // The site an event's link is on, named from the link itself (also on share
 // pages, so a share's link always says where it really goes; security
 // audit, 24 Nov 2026).
-export function siteName(url: string) {
-  const host = new URL(url).hostname.replace(/^www\.|^in\./, "");
-  const known: Record<string, string> = {
+const KNOWN: Record<string, string> = {
     "bookmyshow.com": "BookMyShow",
     "district.in": "District",
     "skillboxes.com": "Skillboxes",
@@ -45,6 +43,24 @@ export function siteName(url: string) {
     "ticketmaster.co.uk": "Ticketmaster",
     "opentix.life": "OPENTIX",
     "whatshot.in": "WhatsHot",
-  };
-  return known[host] ?? host;
+};
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\.|^in\./, "");
+  } catch {
+    return "";
+  }
+};
+export function siteName(url: string) {
+  const host = hostOf(url);
+  return KNOWN[host] ?? host;
+}
+
+// A link a share page may open (founder, 24 Nov 2026: "trusted sites only"):
+// her guides and the known ticket and listing sites above, Instagram and
+// Google. Anything else on a share shows "Search it on Google" instead, so
+// a link Gemini was steered into can never reach a friend.
+export function trustedEventLink(url: string) {
+  const host = hostOf(url);
+  return /^https:\/\//.test(url) && (host in KNOWN || Object.keys(KNOWN).some((k) => host.endsWith(`.${k}`)) || host === "google.com" || host.endsWith(".google.com"));
 }

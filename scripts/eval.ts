@@ -35,6 +35,7 @@ import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
+import { trustedEventLink } from "@/lib/event-links";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -1044,6 +1045,21 @@ async function main() {
       failed++;
       console.log("✗ Database changes: Postgres would refuse one (above)");
     } else console.log("✓ Database changes: every migration reads as Postgres would, functions included");
+  }
+  // Share pages link out only to sites Feta knows (founder, 24 Nov 2026).
+  {
+    const linkFails = [
+      !trustedEventLink("https://in.bookmyshow.com/events/x") && "BookMyShow isn't trusted",
+      !trustedEventLink("https://www.instagram.com/p/abc") && "Instagram isn't trusted",
+      !trustedEventLink("https://www.timeout.com/london/things-to-do") && "Time Out isn't trusted",
+      trustedEventLink("https://evil.example/login") && "an unknown site is trusted",
+      trustedEventLink("https://bookmyshow.com.evil.example/x") && "a look-alike address is trusted",
+      trustedEventLink("http://www.eventbrite.com/e/1") && "a plain http link is trusted",
+    ].filter(Boolean);
+    if (linkFails.length) {
+      failed++;
+      console.log(`✗ Share links: ${linkFails.join(", ")}`);
+    } else console.log("✓ Share links: only to sites Feta knows; others say Search it on Google");
   }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini
