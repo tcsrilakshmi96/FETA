@@ -128,13 +128,8 @@ export default function Picks() {
     const check = () => {
       if (document.visibilityState !== "visible") return;
       setSlots((s) => {
-        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
+        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => v.tweaked || !outOfDate(v)));
         return Object.keys(keep).length === Object.keys(s).length ? s : keep;
-      });
-      // An old everyday list under a tweak isn't brought back by Undo.
-      setTweaked((t) => {
-        const keep = Object.fromEntries(Object.entries(t).filter(([, v]) => !outOfDate(v.base)));
-        return Object.keys(keep).length === Object.keys(t).length ? t : keep;
       });
     };
     document.addEventListener("visibilitychange", check);
@@ -229,7 +224,8 @@ export default function Picks() {
     const t = tweaked[key];
     if (!t) return;
     removeTweakLines(t.tweaks);
-    setSlots((s) => ({ ...s, [key]: t.base }));
+    // An everyday list that's out of date by now is looked up again.
+    setSlots((s) => (outOfDate(t.base) ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== key)) : { ...s, [key]: t.base }));
     setTweaked((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
   }
 

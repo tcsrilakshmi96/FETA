@@ -203,11 +203,13 @@ export function leaveOtherLists(key: string, placeId: string) {
 }
 
 // A list a screen is still showing that should be looked up again: past
-// its hour, made with an older taste, or made as "Today" when it's now
-// "Tonight" (audit, 24 Nov 2026: one rule for Home and the picks list).
+// its hour, or made as "Today" when it's now "Tonight" (audit, 24 Nov 2026:
+// one rule for Home and the picks list). A taste change isn't one: the new
+// search waits until they next open the screen, so a skip reason never pays
+// for every list at once.
 export function outOfDate(s: Slot) {
   if (s.loading) return false;
-  return (s.slotName !== undefined && s.slotName !== firstSlotName(s.timeZone)) || (s.madeAt !== undefined && Date.now() - s.madeAt > KEEP_MS) || (s.taste !== undefined && s.taste !== tasteVersion);
+  return (s.slotName !== undefined && s.slotName !== firstSlotName(s.timeZone)) || (s.madeAt !== undefined && Date.now() - s.madeAt > KEEP_MS);
 }
 
 // Late events join only the list they were found for, never a different
