@@ -23,6 +23,12 @@ export type Slot = {
   slotName?: string;
   timeZone?: string;
   madeAt?: number; // which search made it, so late events join only that list
+  // Made with this taste (tasteVersion), and whether a tweak (Cheaper,
+  // Fancier, a note) made it: only everyday lists made with the current
+  // taste are kept (audit, 24 Nov 2026: a list from before a skip, or a
+  // Cheaper one, came back after a reload as the everyday list).
+  taste?: number;
+  tweaked?: boolean;
 };
 
 // Kept for an hour, in memory and on the phone, so a list they've seen
@@ -36,7 +42,10 @@ let kept: { slots: Record<string, Slot>; at: number } | null = null;
 function fromPhone(): typeof kept {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) ?? "null") as typeof kept;
-    if (v && Date.now() - v.at <= KEEP_MS) return v;
+    // A copy on the phone is from the taste they have now: any change to
+    // it clears the copy (forgetPicks).
+    if (v && Object.values(v.slots).some((x) => Date.now() - (x.madeAt ?? v.at) <= KEEP_MS))
+      return { ...v, slots: Object.fromEntries(Object.entries(v.slots).map(([k, x]) => [k, { ...x, taste: tasteVersion }])) };
     localStorage.removeItem(STORE);
   } catch {
     // Nothing kept.
@@ -82,18 +91,46 @@ export function searchKey(origin: Origin, when: When, category: Category, typed:
 
 // fromPhone: also what's kept on the phone (after a reload). Screens' first
 // draw reads memory only, so it matches the server's page.
+// Each list is kept an hour from when it was made (madeAt), not from the
+// first list kept (audit, 24 Nov 2026).
+const fresh = (s: Slot, at: number) => Date.now() - (s.madeAt ?? at) <= KEEP_MS;
 export function keptSlots(fromStore = false): Record<string, Slot> {
   if (!kept && fromStore) kept = fromPhone();
-  if (!kept || Date.now() - kept.at > KEEP_MS) return {};
+  if (!kept) return {};
+  const at = kept.at;
+  // Past the hour nothing is left on the phone, not only ignored (audit, 24 Nov 2026).
+  if (!Object.values(kept.slots).some((x) => fresh(x, at))) {
+    kept = null;
+    try { localStorage.removeItem(STORE); } catch { /* nothing kept */ }
+    return {};
+  }
   return Object.fromEntries(
     Object.entries(kept.slots)
-      .filter(([, s]) => !s.loading && (!s.slotName || s.slotName === firstSlotName(s.timeZone)))
+      .filter(([, s]) => !s.loading && fresh(s, at) && (!s.slotName || s.slotName === firstSlotName(s.timeZone)))
       .map(([k, s]) => [k, { ...s, picks: s.picks.filter(stillOpen), spares: s.spares.filter(stillOpen) }]),
   );
 }
 
 export function keepSlots(slots: Record<string, Slot>) {
-  kept = { slots, at: kept && Object.keys(keptSlots()).length ? kept.at : Date.now() };
+  // A screen's first save after a reload never wipes the phone's copy: the
+  // lists kept there join what the screen has (audit, 24 Nov 2026: the picks
+  // list saved its empty start over it, so the hour's copy was never used).
+  if (!kept) {
+    const onPhone = fromPhone();
+    if (onPhone) slots = { ...Object.fromEntries(Object.entries(onPhone.slots).filter(([, s]) => fresh(s, onPhone.at))), ...slots };
+  }
+  const at = kept?.at ?? Date.now();
+  // Only everyday lists made with the taste they have now, within their hour,
+  // never half-way through finding more. Where a screen shows a tweaked list,
+  // the everyday one already kept stays.
+  const keepable = (s: Slot) => (s.taste ?? tasteVersion) === tasteVersion && !s.tweaked && fresh(s, at);
+  slots = Object.fromEntries(
+    Object.entries({ ...kept?.slots, ...slots })
+      .map(([k, s]) => [k, keepable(s) ? s : kept?.slots[k]] as const)
+      .filter((e): e is [string, Slot] => !!e[1] && keepable(e[1]))
+      .map(([k, s]) => [k, { ...s, more: false }]),
+  );
+  kept = { slots, at };
   try {
     // Only finished lists, never one that failed or hit the limit.
     const keep = Object.fromEntries(Object.entries(slots).filter(([, s]) => !s.loading && !s.failed && !s.limited && s.picks.length));
@@ -124,6 +161,8 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       limited: reply.limited,
       ...(when === "tonight" ? { slotName: firstSlotName(origin.city.timeZone), timeZone: origin.city.timeZone } : {}),
       madeAt: Date.now(),
+      taste: version,
+      ...(tweak && !tweak.search ? { tweaked: true } : {}),
     };
     if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
     if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version, slot.madeAt!);
