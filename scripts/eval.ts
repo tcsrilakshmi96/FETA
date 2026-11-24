@@ -30,7 +30,7 @@ import { anonDb, LimitReached, paidFetch, withCosts } from "@/lib/server/costs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
-import { listFit, listServes, TAG_IDS } from "@/lib/server/list-tags";
+import { listFit, listServes, TAG_IDS, vibeClash, vibeOf } from "@/lib/server/list-tags";
 import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
@@ -979,6 +979,13 @@ async function main() {
       listFit({ name: "Peter Luger", tags: ["steakhouse", "steak"] }, [want("interest_taste_tea", "Tea", "tea tasting", INTEREST_SEARCH.taste_tea)]) !== 0 && "a steakhouse fits a tea lover (part of a word matched)",
       listFit({ name: "Olive Garden", tags: ["italian chain"] }, [wantMusic]) !== 0 && "\"olive\" fits someone into live music",
       !TAG_IDS.includes("live_music") || TAG_IDS.includes("local") ? "the tag words don't follow the catalog" : false,
+      // Feta Picks match the vibe too (founder, 24 Nov 2026; user test: Barbara)
+      !vibeClash({ tags: ["casual", "lebanese", "mezze"] }, vibeOf({ own: ["quiet, elegant places, nothing loud"] })) && "a casual chain is a Feta Pick for someone who said elegant",
+      !vibeClash({ tags: ["buzzing", "cocktails"] }, vibeOf({ own: ["quiet, elegant places, nothing loud"] })) && "a buzzing bar is a Feta Pick for someone who said quiet",
+      vibeClash({ tags: ["dressed_up", "fine dining", "italian"] }, vibeOf({ own: ["quiet, elegant places, nothing loud"] })) && "a dressed-up restaurant is left out for someone who said elegant",
+      vibeClash({ tags: ["buzzing", "casual"] }, vibeOf({})) && "a vibe is ruled out for someone who said nothing about vibe",
+      !vibeClash({ tags: ["fine dining"] }, vibeOf({ yes: ["hole_in_wall"] })) && "fine dining is a Feta Pick for someone who picked the hole-in-the-wall",
+      !vibeClash({ tags: ["night_out", "club"] }, vibeOf({ skipped: ["Too loud and crowded"] })) && "a club is a Feta Pick after Too loud and crowded",
     ].filter(Boolean);
     if (searchFails.length) {
       failed++;

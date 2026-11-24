@@ -70,3 +70,35 @@ export function listServes(place: ListPlace, intents: Intent[]) {
 export function cleanTags(raw: unknown): string[] {
   return Array.isArray(raw) ? [...new Set(raw.filter((t): t is string => typeof t === "string").map((t) => t.toLowerCase().trim().slice(0, 40)).filter(Boolean))].slice(0, 12) : [];
 }
+
+// What kind of place they want, as tags a list place mustn't have (founder,
+// 24 Nov 2026: "Feta Picks should also match the vibe"; user test: someone
+// who said "quiet, elegant places, nothing loud" got a casual chain as a
+// Feta Pick, matched on cuisine alone). From their own words, the vibe card
+// and skips ("Too loud and crowded"); with nothing said, nothing is ruled out.
+const QUIET_WORDS = /\b(quiet|quieter|calm|peaceful|intimate|not loud|nothing loud|no loud|too loud|low[- ]key|serene)\b/i;
+const ELEGANT_WORDS = /\b(elegant|classy|upscale|luxur\w*|fine dining|refined|chic|sophisticated|dressed[- ]up)\b/i;
+const LIVELY_WORDS = /\b(lively|buzzing|buzzy|party|loud|energetic)\b/i;
+const CLASH = {
+  quiet: ["buzzing", "night_out", "nightlife", "club", "dancing", "late night", "party", "social", "loud"],
+  elegant: ["casual", "hole_in_wall", "fast food", "street_food", "food hall", "pub", "british pub", "dive"],
+  casual: ["dressed_up", "fine dining"],
+  lively: ["quiet", "quiet_cafe"],
+};
+export type Vibe = (keyof typeof CLASH)[];
+export function vibeOf(taste: { own?: string[]; lines?: string[]; yes?: string[]; no?: string[]; skipped?: string[] }): Vibe {
+  const said = [...(taste.own ?? []), ...(taste.skipped ?? [])].join(" · ");
+  const lines = (taste.lines ?? []).join(" · ");
+  const yes = new Set(taste.yes ?? []);
+  const out: Vibe = [];
+  if (QUIET_WORDS.test(said) || /Prefers quieter places/.test(lines)) out.push("quiet");
+  else if (LIVELY_WORDS.test(said) && !/\bnot (loud|buzzing)\b/i.test(said)) out.push("lively");
+  if (ELEGANT_WORDS.test(said) || (yes.has("dressed_up") && !yes.has("hole_in_wall"))) out.push("elegant");
+  else if (yes.has("hole_in_wall") && !yes.has("dressed_up")) out.push("casual");
+  return out;
+}
+export function vibeClash(place: { tags?: string[] }, vibe: Vibe) {
+  const tags = new Set((place.tags ?? []).map((t) => t.toLowerCase().trim()));
+  return vibe.some((v) => CLASH[v].some((t) => tags.has(t)));
+}
+

@@ -16,7 +16,7 @@ import { guideEventsFor } from "@/lib/server/guide-events";
 import { feedEvents } from "@/lib/server/event-feeds";
 import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, isPage, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { listFit, listServes } from "@/lib/server/list-tags";
+import { listFit, listServes, vibeClash, vibeOf } from "@/lib/server/list-tags";
 import {
   applyHardFilters,
   whyNothing,
@@ -792,17 +792,20 @@ async function fetaCandidates(ctx: {
     featuredFor(ctx.db, ctx.city, ctx.body.category, cityCalendar(ctx.city.timeZone).today),
     ctx.db.rpc("feta_favourites", { p_city: ctx.city.id, p_category: ctx.body.category }),
   ]);
-  const founder = curated.filter((f) => !f.local);
-  const locals = curated.filter((f) => f.local && !founder.some((m) => m.placeId === f.placeId));
+  // Only list places whose vibe fits theirs (founder, 24 Nov 2026), by tags.
+  const vibe = vibeOf(ctx.taste);
+  const fitting = curated.filter((f) => !vibeClash(f, vibe));
+  const founder = fitting.filter((f) => !f.local);
+  const locals = fitting.filter((f) => f.local && !founder.some((m) => m.placeId === f.placeId));
   const localIds = new Set(locals.map((f) => f.placeId));
   // One label per place, as they're ordered: hers, then local favourite,
   // then Featured in (tester, 23 Nov 2026: "Local favourite" on the card,
   // "Featured in" in its details).
-  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name, tags: f.tags }]));
+  const featured = new Map((guides?.places ?? []).filter((f) => !founder.some((m) => m.placeId === f.placeId) && !localIds.has(f.placeId) && !vibeClash(f, vibe)).map((f) => [f.placeId, { guide: f.guide, url: f.url, searchHtml: guides!.searchHtml, name: f.name, tags: f.tags }]));
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   const onList = (id: string) => notes.has(id) || loved.has(id) || localIds.has(id) || featured.has(id);
-  const tagsOf = new Map<string, { name: string; note?: string; tags?: string[] }>([...curated.map((f) => [f.placeId, f] as const), ...[...featured.entries()].map(([id, f]) => [id, f] as const)]);
+  const tagsOf = new Map<string, { name: string; note?: string; tags?: string[] }>([...fitting.map((f) => [f.placeId, f] as const), ...[...featured.entries()].map(([id, f]) => [id, f] as const)]);
   const label = (c: Candidate): Candidate => ({
     ...c,
     ...(tagsOf.has(c.place.id) ? { listServes: listServes(tagsOf.get(c.place.id)!, ctx.intents) } : {}),
