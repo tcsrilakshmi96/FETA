@@ -399,7 +399,7 @@ export function poorlyKnown(place: Place) {
 export type FeaturedIn = { guide: string; url: string; searchHtml: string };
 // outside: a place searched for by name that breaks their usual rules says
 // so on its card ("Above your usual budget"), instead of being hidden.
-export type Candidate = { place: Place; km: number; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn; outside?: string[] };
+export type Candidate = { place: Place; km: number; fetaNote?: string; intents?: string[]; lovedBy?: number; local?: boolean; featured?: FeaturedIn; outside?: string[]; listServes?: string[] };
 
 // How many places each hard filter removed, to explain an empty result.
 export type DropCounts = Record<"seen" | "far" | "price" | "diet" | "alcohol" | "hours" | "other", number>;

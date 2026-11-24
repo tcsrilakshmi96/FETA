@@ -101,7 +101,10 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // and Korean waited).
   const lists = input.favourites ? await input.favourites(intents).catch(() => null) : null;
   const listed = lists?.looked ?? [];
-  const onLists = (i: Intent) => listed.filter((c) => matches(c.place, i, false)).length;
+  // A list place counts as a choice by its Google type or by its tags (list-tags.ts).
+  const byTags = new Map(listed.map((c) => [c.place.id, c.listServes ?? []]));
+  const listMatch = (p: Place, i: Intent, from: boolean) => matches(p, i, from) || (byTags.get(p.id)?.includes(i.id) ?? false);
+  const onLists = (i: Intent) => listed.filter((c) => listMatch(c.place, i, false)).length;
   const fromLists = intents.filter((i) => i.def.types && !NOW.includes(i.source) && onLists(i) >= LIST_ENOUGH);
   const plan = planSearches(intents.filter((i) => !fromLists.includes(i)), { category, when, max: input.searches, searchedBefore: input.searchedBefore });
   // Everything looked for this set: what Google searched, and every choice
@@ -135,7 +138,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
   // 3. Hard filters, then what each place matches.
   const matched = (p: Place) => {
     const from = found.get(p.id)?.from ?? new Set<string>();
-    return looked.filter((i) => matches(p, i, from.has(i.id))).map((i) => i.id);
+    return looked.filter((i) => listMatch(p, i, from.has(i.id))).map((i) => i.id);
   };
   const filterOpts: FilterOpts = {
     taste,

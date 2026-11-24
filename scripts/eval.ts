@@ -28,7 +28,7 @@ import { readFileSync } from "node:fs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
-import { listFit, TAG_IDS } from "@/lib/server/list-tags";
+import { listFit, listServes, TAG_IDS } from "@/lib/server/list-tags";
 import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
@@ -968,6 +968,13 @@ async function main() {
       listFit({ name: "Times Square", tags: ["landmark", "sightseeing"] }, [wantMexican, wantItalian, wantMusic]) !== 0 && "a landmark fits someone who chose food and live music",
       featuredToCheck([{ id: "a", name: "Guggenheim", tags: ["art_culture", "museum"] }, { id: "b", name: "L'Industrie", tags: ["pizza"] }, { id: "c", name: "Stretch", tags: ["italian"] }, { id: "d", name: "Brooklyn Bowl", tags: ["live_music", "bowling"] }, { id: "e", name: "Carbone", tags: ["italian", "dressed_up"] }, { id: "f", name: "Via Carota", tags: ["italian"] }], [wantItalian, wantMusic]).join() !== "b,c,d,e" && "Featured in doesn't check the 4 places that match them (or checks one that matches nothing)",
       featuredToCheck([{ id: "a", name: "Guggenheim", tags: ["museum"] }], [wantMexican]).length !== 0 && "a Featured in place that matches nothing they want is checked live",
+      // A checked list place counts as their choice by its tags (audit, 24 Nov 2026), by whole words only
+      !listServes({ name: "The Back Room", tags: ["hidden_bars", "cocktails"] }, [want("interest_hidden_bars", "Hidden bars", "speakeasy bar", INTEREST_SEARCH.hidden_bars)]).length && "a speakeasy tagged hidden_bars doesn't count as a hidden bar",
+      !listServes({ name: "Smalls Jazz Club", tags: ["live_music", "jazz club"] }, [wantMusic]).length && "a jazz club tagged live_music doesn't count as live music",
+      !listServes({ name: "Tacocina", tags: ["mexican", "tacos"] }, [want("asked", "tacos", "tacos", { searches: ["tacos"] })]).length && "a list place tagged tacos doesn't count for a search for tacos",
+      listServes({ name: "Tacocina", tags: ["mexican", "tacos"] }, [wantItalian]).length !== 0 && "a Mexican list place counts as Italian",
+      listFit({ name: "Peter Luger", tags: ["steakhouse", "steak"] }, [want("interest_taste_tea", "Tea", "tea tasting", INTEREST_SEARCH.taste_tea)]) !== 0 && "a steakhouse fits a tea lover (part of a word matched)",
+      listFit({ name: "Olive Garden", tags: ["italian chain"] }, [wantMusic]) !== 0 && "\"olive\" fits someone into live music",
       !TAG_IDS.includes("live_music") || TAG_IDS.includes("local") ? "the tag words don't follow the catalog" : false,
     ].filter(Boolean);
     if (searchFails.length) {

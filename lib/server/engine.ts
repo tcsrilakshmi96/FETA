@@ -15,7 +15,7 @@ import { guideEventsFor } from "@/lib/server/guide-events";
 import { feedEvents } from "@/lib/server/event-feeds";
 import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { listFit } from "@/lib/server/list-tags";
+import { listFit, listServes } from "@/lib/server/list-tags";
 import {
   applyHardFilters,
   whyNothing,
@@ -645,13 +645,14 @@ async function eventPicks(ctx: {
 
 // Feta's lists, checked live before Google is searched (founder, 22 Nov
 // 2026: "lists first, Google to fill gaps"; curate.ts searches Google only
-// for what they don't already cover): up to six of the founder's within
-// reach, the ones whose name and note say most about what this person
-// wants first, then the nearest (feta-places.ts), eight local favourites
+// for what they don't already cover): up to 3 of the founder's within
+// reach, the ones whose tags say most about what this person wants first,
+// then the nearest (feta-places.ts, list-tags.ts), 4 local favourites
 // chosen the same way (a food one must turn out to be mainly a place to eat
-// or drink), three places the city's guides feature (featured.ts), and two
-// from people with a similar taste; about ₹1.7 each. The ones that fit come
-// before Google's (curate.ts). A list place Google's search finds anyway is
+// or drink), up to 4 places the city's guides feature that match them
+// (featured.ts), and 1 from people with a similar taste; about ₹1.7 each.
+// The ones that fit, by Google type or by their tags, come before Google's
+// (curate.ts). A list place Google's search finds anyway is
 // labelled for free (mark). Only place IDs, her notes, counts and (for up
 // to 30 days) where her places and local favourites are, are stored.
 const FETA_LOOKUPS = 3;
@@ -699,8 +700,10 @@ async function fetaCandidates(ctx: {
   const notes = new Map(founder.map((f) => [f.placeId, f.note]));
   const loved = new Map(((community.data ?? []) as { place_id: string; lovers: number; similar: number }[]).map((c) => [c.place_id, c]));
   const onList = (id: string) => notes.has(id) || loved.has(id) || localIds.has(id) || featured.has(id);
+  const tagsOf = new Map<string, { name: string; note?: string; tags?: string[] }>([...curated.map((f) => [f.placeId, f] as const), ...[...featured.entries()].map(([id, f]) => [id, f] as const)]);
   const label = (c: Candidate): Candidate => ({
     ...c,
+    ...(tagsOf.has(c.place.id) ? { listServes: listServes(tagsOf.get(c.place.id)!, ctx.intents) } : {}),
     ...(notes.has(c.place.id) ? { fetaNote: notes.get(c.place.id) } : {}),
     ...(loved.has(c.place.id) ? { lovedBy: loved.get(c.place.id)!.lovers } : {}),
     ...(localIds.has(c.place.id) ? { local: true } : {}),
