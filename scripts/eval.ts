@@ -1058,6 +1058,11 @@ async function main() {
       trustedEventLink("http://www.eventbrite.com/e/1") && "a plain http link is trusted",
       trustedEventLink("https://vertexaisearch.cloud.google.com/grounding-api-redirect/x") && "a Google redirect is trusted",
       trustedEventLink("https://sites.google.com/view/x") && "a Google-hosted page is trusted",
+      trustedEventLink("https://l.instagram.com/?u=https%3A%2F%2Fevil.example") && "Instagram's redirect is trusted",
+      trustedEventLink("https://www.eventbrite.com/redirect?url=https://evil.example") && "a link carrying another address is trusted",
+      !trustedEventLink("https://www.eventbrite.com/e/comedy-night-123") && "an Eventbrite event isn't trusted",
+      !trustedEventLink("https://www.blogto.com/events/comedy-night/") && "one of her guides (BlogTO) isn't trusted",
+      trustedEventLink("https://evil.blogto.com/x") && "a subdomain of a guide is trusted",
     ].filter(Boolean);
     if (linkFails.length) {
       failed++;

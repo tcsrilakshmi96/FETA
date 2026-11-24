@@ -1,5 +1,5 @@
 import "server-only";
-import { siteName } from "@/lib/event-links";
+import { carriesLink, siteName } from "@/lib/event-links";
 export { siteName };
 import { FAKE } from "@/lib/server/fake-places";
 
@@ -152,11 +152,12 @@ export function isPage(url?: string) {
   try {
     const u = new URL(url ?? "");
     const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
-    if (u.protocol !== "https:" || /vertexaisearch|google\./.test(u.hostname)) return false;
+    if (u.protocol !== "https:" || /vertexaisearch|google|goo\.gl|g\.co$|^l\.|^lm\./.test(u.hostname) || carriesLink(u.href)) return false;
     const parts = u.pathname.split("/").filter(Boolean);
     if (!parts.length) return u.search.length > 1;
     // Short event links (lu.ma/x7k2p) and Instagram are always a page.
-    if (/(^|\.)(instagram\.com|lu\.ma|luma\.com|dice\.fm|shotgun\.live)$/.test(u.hostname)) return true;
+    // (Exact sites: l.instagram.com forwards anywhere; security audit, 24 Nov 2026.)
+    if (/^(www\.)?(instagram\.com|lu\.ma|luma\.com|dice\.fm|shotgun\.live)$/.test(u.hostname)) return true;
     // One plain word is a section ("/miami", "/events"), not a page.
     return !(parts.length === 1 && /^[a-z]{1,15}$/i.test(last)) && !/^(events?|whats-on|things-to-do|calendar|tickets?)$/i.test(last);
   } catch {

@@ -1,3 +1,5 @@
+import guideDomains from "@/data/guide-domains.json";
+
 // What an event's link says (founder, 22 Nov 2026: London's pop-ups are
 // posted on Instagram and the guides link there, "thats cool"): "Tickets on"
 // a ticket site, else "See it on" wherever the listing is (Instagram, a
@@ -56,13 +58,39 @@ export function siteName(url: string) {
   return KNOWN[host] ?? host;
 }
 
+// Her guide sites' own addresses (data/guide-domains.json: 354 of the 645
+// guides in data/event-sites.json, matched by name and checked to exist,
+// founder 24 Nov 2026: "direct search is faster and has exact events").
+// A guide not here yet shows "Search it on Google" on a share page.
+const GUIDES = new Set<string>(guideDomains);
+
 // A link a share page may open (founder, 24 Nov 2026: "trusted sites only"):
 // her guides and the known ticket and listing sites above, and Instagram.
 // Anything else on a share shows "Search it on Google" instead, so
 // a link Gemini was steered into can never reach a friend.
+// Exact sites only (a "www.", "m." or "in." in front is fine), never a
+// subdomain (l.instagram.com forwards anywhere), and never a link carrying
+// another web address inside it, the way redirects do (security audits,
+// 24 Nov 2026: Google's and Instagram's redirects).
 export function trustedEventLink(url: string) {
-  const host = hostOf(url);
-  // Never Google's own addresses: some redirect anywhere (security audit, 24
-  // Nov 2026). "Search it on Google" is built by the share page itself.
-  return /^https:\/\//.test(url) && (host in KNOWN || Object.keys(KNOWN).some((k) => host.endsWith(`.${k}`)));
+  if (!/^https:\/\//.test(url) || carriesLink(url)) return false;
+  let raw = "";
+  try {
+    raw = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  const host = raw.replace(/^(www|m|in)\./, "");
+  return host in KNOWN || GUIDES.has(host);
+}
+
+// A link with another address inside it ("?u=https://…"), plainly or encoded.
+export function carriesLink(url: string) {
+  const at = url.indexOf("?");
+  const rest = at < 0 ? "" : url.slice(at);
+  let decoded = rest;
+  try {
+    decoded = decodeURIComponent(rest);
+  } catch {}
+  return /https?:|\/\/|www\./i.test(decoded);
 }
