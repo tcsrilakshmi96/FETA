@@ -3,7 +3,7 @@ import { FAKE } from "@/lib/server/fake-places";
 
 import eventSites from "@/data/event-sites.json";
 import { distanceKm, type City } from "@/lib/cities";
-import { trackGemini } from "@/lib/server/costs";
+import { paidFetch } from "@/lib/server/costs";
 import { searchPlaces, type Place } from "@/lib/server/places";
 
 // This week's events, found by Gemini with Grounding with Google Search,
@@ -98,7 +98,7 @@ Use at most 2 searches. ${PLAIN_SEARCHES} Your first search looks only on these 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), as the event's own page says, or "" if it gives none, "priceText": string as the listing says ("Free" if it's free), "minPrice": number in ${opts.city.currency} (0 if free) or null, "url": the event's own page (not a redirect); if it has none, the post about it on one of those sites, or the organiser's Instagram post, "fromList": true if you found it on one of those sites, else false}.`;
 
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+  const res = await paidFetch("gemini_search", "https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -117,7 +117,6 @@ Reply with only a JSON array. Each item:
   });
   if (!res.ok) throw new Error(`Event search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { steps?: Step[] };
-  trackGemini("gemini_search", data);
   const steps = data.steps ?? [];
   const searchHtml = searchChip(steps);
   const text = steps
@@ -308,7 +307,7 @@ export async function personalizeEvents(
 ): Promise<{ index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[]> {
   if (events.length === 0) return [];
   const list = events.map((e, i) => `${i}. ${e.title} · ${e.venueName} · ${e.date} ${e.time} · ${e.priceText}`).join("\n");
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+  const res = await paidFetch("gemini_rank", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({
@@ -349,7 +348,6 @@ Choose up to ${max} that genuinely suit them (none if nothing fits), best first.
   });
   if (!res.ok) throw new Error(`Choosing events failed: ${res.status}`);
   const data = await res.json();
-  trackGemini("gemini_rank", data);
   const text: string = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text ?? "{}";
   const chosen = (JSON.parse(text).chosen ?? []) as { index: number; because: string; verdict: FoundEvent["verdict"]; skipUnless?: string }[];
   return chosen.filter((c, i, all) => Number.isInteger(c.index) && c.index >= 0 && c.index < events.length && all.findIndex((x) => x.index === c.index) === i).slice(0, max);

@@ -48,7 +48,12 @@ const GEMINI_USD_PER_M: Record<string, { input: number; output: number }> = {
 const SEARCH_USD = 0.014;
 
 type Tally = { units: number; usd: number };
-type Store = { tally: Map<Sku, Tally>; later: Promise<unknown>[]; ask?: Ask };
+type Store = { tally: Map<Sku, Tally>; later: Promise<unknown>[]; ask?: Ask; db: SupabaseClient | null; limit: Limit; mayPay?: Promise<boolean> };
+// Who decides whether this request may spend: the person's daily limit
+// (everyone's, by default), or the route itself, which has already checked
+// in its own way (a friend's lookup with no account, Admin's health check,
+// Claude's scripts, logged as route "script").
+type Limit = "person" | "route";
 const calls = new AsyncLocalStorage<Store>();
 
 function add(sku: Sku, units: number, usd: number) {
@@ -58,8 +63,48 @@ function add(sku: Sku, units: number, usd: number) {
   t.set(sku, { units: was.units + units, usd: was.usd + usd });
 }
 
-export function track(sku: Sku, units = 1) {
+function track(sku: Sku, units = 1) {
   add(sku, units, units * PRICE_USD[sku]);
+}
+
+// Said when a paid call is refused because the person (or everyone) is over
+// today's limit. Routes still check first, to say so nicely; this is the
+// backstop for anything that forgot.
+export class LimitReached extends Error {
+  constructor(sku: Sku) {
+    super(`Over today's limit: ${sku} not called`);
+  }
+}
+
+// The one door every paid call goes through (founder, 24 Nov 2026: three
+// audits in a row found a new feature that spent past someone's limit or
+// wasn't written down, because each feature had to remember both). It
+// refuses outside a logged request and past the limit, and counts the call
+// itself: Gemini and Venice at what the reply says it used, Google Maps at
+// its list price. A call cut off by its time limit counts at the flat price,
+// as Google may still bill it. The eval fails on any paid address called
+// anywhere else.
+export async function paidFetch(sku: Sku, url: string, init: RequestInit = {}): Promise<Response> {
+  const store = calls.getStore();
+  if (!store) throw new Error(`${sku}: a paid call outside withCosts would never be logged`);
+  store.mayPay ??= store.limit === "route" ? Promise.resolve(true) : store.db ? budgetToday(store.db).then((b) => !b.over) : Promise.resolve(false);
+  if (!(await store.mayPay)) throw new LimitReached(sku);
+  let res: Response;
+  try {
+    res = await fetch(url, init);
+  } catch (error) {
+    track(sku);
+    throw error;
+  }
+  if (url.includes("api.venice.ai")) {
+    if (res.ok) {
+      const data = await res.clone().json().catch(() => ({}));
+      trackVenice(JSON.parse(String(init.body ?? "{}")).model ?? "", data.usage);
+    }
+  } else if (url.includes("generativelanguage.googleapis.com")) {
+    if (res.ok) trackGemini(sku, await res.clone().json().catch(() => null));
+  } else track(sku);
+  return res;
 }
 
 type Usage = { input: number; output: number; searches: number; model?: string };
@@ -92,7 +137,7 @@ function usageOfInteraction(data: Record<string, unknown>): Usage | null {
 
 // One Gemini reply, at what it really used; a reply without usage (or a
 // model with no known price) falls back to the flat guess for its kind.
-export function trackGemini(sku: Sku, data: unknown) {
+function trackGemini(sku: Sku, data: unknown) {
   const d = (data ?? {}) as Record<string, unknown>;
   const u = usageOfContent(d) ?? usageOfInteraction(d);
   const rate = u && GEMINI_USD_PER_M[(u.model ?? "gemini-3.5-flash").replace(/^models\//, "").replace(/-preview.*$/, "")];
@@ -107,7 +152,7 @@ const VENICE_USD_PER_M: Record<string, { input: number; output: number }> = {
   "claude-haiku-5-5": { input: 0.1, output: 0.5 },
   "claude-opus-5-5": { input: 4, output: 20 },
 };
-export function trackVenice(model: string, usage: { prompt_tokens?: number; completion_tokens?: number } | undefined) {
+function trackVenice(model: string, usage: { prompt_tokens?: number; completion_tokens?: number } | undefined) {
   const rate = VENICE_USD_PER_M[model];
   if (!rate || !usage) return track("venice_chat");
   add("venice_chat", 1, ((usage.prompt_tokens ?? 0) * rate.input + (usage.completion_tokens ?? 0) * rate.output) / 1e6);
@@ -139,8 +184,8 @@ export function askIs(ask: Ask) {
 // Runs a route's work and logs what it spent, as the signed-in person: one
 // api_costs row per kind of paid call, and one api_hits row for the request
 // (Admin → Costs).
-export async function withCosts<T>(db: SupabaseClient | null, route: string, work: () => Promise<T>): Promise<T> {
-  const store: Store = { tally: new Map(), later: [] };
+export async function withCosts<T>(db: SupabaseClient | null, route: string, work: () => Promise<T>, opts: { limit?: Limit } = {}): Promise<T> {
+  const store: Store = { tally: new Map(), later: [], db, limit: opts.limit ?? "person" };
   const started = Date.now();
   try {
     return await calls.run(store, work);

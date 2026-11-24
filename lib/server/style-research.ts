@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { trackGemini } from "@/lib/server/costs";
+import { paidFetch } from "@/lib/server/costs";
 
 // Style brand discovery (founder, 19–20 Nov 2026): brands people can buy
 // from in a country for one style, found with Google Search through Gemini
@@ -77,7 +77,7 @@ export async function loadBrief(db: SupabaseClient, styleId: string): Promise<Br
 type Grounded = { text: string; searchHtml: string };
 
 export async function gemini(prompt: string, tools: object[]): Promise<Grounded> {
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+  const res = await paidFetch("gemini_search", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools, generationConfig: { thinkingConfig: { thinkingLevel: "high" } } }),
@@ -85,7 +85,6 @@ export async function gemini(prompt: string, tools: object[]): Promise<Grounded>
   });
   if (!res.ok) throw new Error(`Style research failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  trackGemini("gemini_search", data);
   const cand = data.candidates?.[0];
   return {
     text: (cand?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join(""),
@@ -155,7 +154,7 @@ Reply with only a JSON array, one item per brand, in the same order:
 export async function linkAlive(url: string | null | undefined, timeoutMs = 12000) {
   if (!url || !/^https:\/\//.test(url)) return false;
   try {
-    const res = await fetch(url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(timeoutMs), headers: { "User-Agent": "Mozilla/5.0 (compatible; FetaLinkCheck/1.0)" } });
+    const res = await paidFetch("gemini_search", url, { method: "GET", redirect: "follow", signal: AbortSignal.timeout(timeoutMs), headers: { "User-Agent": "Mozilla/5.0 (compatible; FetaLinkCheck/1.0)" } });
     return res.status < 400 || [401, 403, 429].includes(res.status);
   } catch {
     return false;

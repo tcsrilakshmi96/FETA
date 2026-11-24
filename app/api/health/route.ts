@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { anonDb, track, withCosts } from "@/lib/server/costs";
+import { anonDb, paidFetch, withCosts } from "@/lib/server/costs";
 import { userDb } from "@/lib/server/taste";
 
 export const maxDuration = 20;
@@ -30,14 +30,13 @@ export async function GET(request: Request) {
   if (!(await allowed(request))) return Response.json({ error: "Not allowed" }, { status: 403 });
   // Counted like every paid call, outside everyone's daily pool (audit, 24 Nov 2026).
   const res = await withCosts(anonDb(), "admin", async () => {
-    track("gemini_rank");
-    return fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+    return paidFetch("gemini_rank", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Reply with: ok" }] }], generationConfig: { maxOutputTokens: 5, thinkingConfig: { thinkingLevel: "low" } } }),
     signal: AbortSignal.timeout(15000),
   }).catch(() => null);
-  });
+  }, { limit: "route" });
   const body: Health = !res
     ? { gemini: "failing", detail: "Gemini didn't answer in 15 seconds" }
     : res.status === 402

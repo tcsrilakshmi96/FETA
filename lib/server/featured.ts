@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
-import { claimEventsCache, later, saveEventsCache, trackGemini } from "@/lib/server/costs";
+import { claimEventsCache, later, saveEventsCache, paidFetch } from "@/lib/server/costs";
 import { cleanTags, TAG_IDS } from "@/lib/server/list-tags";
 import { eventSources, PLAIN_SEARCHES, searchChip, siteName, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
@@ -51,7 +51,7 @@ async function findFeatured(city: City, category: Category): Promise<FeaturedSet
 Use at most 3 searches. ${PLAIN_SEARCHES} Up to 20 different places, each a single named place you could find on Google Maps, featured in an article or list you actually found.
 
 Reply with only a JSON array. Each item: {"name": string (the place, with its neighbourhood if given), "guide": string (the publication, e.g. "Time Out"), "url": the article's real URL (not a redirect), "tags": 3 to 6 short lowercase tags for what the place is and is known for, from what you read (a place can have several: a taco bar with live music is ["mexican", "tacos", "live_music", "lively"]); where one fits, use these exact words: ${TAG_IDS.join(", ")}}.`;
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+  const res = await paidFetch("gemini_search", "https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY!, "Api-Revision": "2026-05-20" },
     body: JSON.stringify({ model: "gemini-3.5-flash", input, tools: [{ type: "google_search" }], generation_config: { thinking_level: "low" } }),
@@ -59,7 +59,6 @@ Reply with only a JSON array. Each item: {"name": string (the place, with its ne
   });
   if (!res.ok) throw new Error(`Featured search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { steps?: Step[] };
-  trackGemini("gemini_search", data);
   const steps = data.steps ?? [];
   const searchHtml = searchChip(steps);
   const text = steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join("");

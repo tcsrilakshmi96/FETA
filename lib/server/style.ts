@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { trackGemini, type Sku } from "@/lib/server/costs";
+import { paidFetch, type Sku } from "@/lib/server/costs";
 import { FAKE } from "@/lib/server/fake-places";
 import { SLOTS, STYLES, lookProblem, orderedPieces, pieceProblem, styleById, tooAlike, type Look, type LookFor, type Piece, type Slot, type Where, type Wears } from "@/lib/style";
 
@@ -35,7 +35,7 @@ export async function styleGuide(db: SupabaseClient, styles: string[]): Promise<
 }
 
 async function gemini(sku: Sku, model: string, parts: object[], generationConfig: object, timeoutMs: number) {
-  const res = await fetch(`${GEMINI}/${model}:generateContent`, {
+  const res = await paidFetch(sku, `${GEMINI}/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig }),
@@ -43,7 +43,6 @@ async function gemini(sku: Sku, model: string, parts: object[], generationConfig
   });
   if (!res.ok) throw new Error(`Gemini ${model} failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
   const data = await res.json();
-  trackGemini(sku, data);
   return data;
 }
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { trackVenice } from "@/lib/server/costs";
+import { paidFetch } from "@/lib/server/costs";
 
 // Venice AI (OpenAI-compatible), with the founder's credits: Ask Feta only
 // (founder, 23 Nov 2026: her Venice credits are limited; everything else is
@@ -12,7 +12,7 @@ export type ChatTurn = { role: "system" | "user" | "assistant"; content: string 
 // maxTokens: a trip route with many cities needs room (a cut-off reply
 // loses the route).
 export async function veniceJson<T>(messages: ChatTurn[], maxTokens = 1500, model = VENICE_MODEL): Promise<T> {
-  const res = await fetch("https://api.venice.ai/api/v1/chat/completions", {
+  const res = await paidFetch("venice_chat", "https://api.venice.ai/api/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.VENICE_API_KEY}` },
     body: JSON.stringify({
@@ -27,7 +27,6 @@ export async function veniceJson<T>(messages: ChatTurn[], maxTokens = 1500, mode
   });
   if (!res.ok) throw new Error(`Venice failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  trackVenice(model, data.usage);
   const text: string = data.choices?.[0]?.message?.content ?? "{}";
   // Now and then it answers in plain words instead of JSON (after a tapped
   // option, 19 Nov 2026): those words are the reply.

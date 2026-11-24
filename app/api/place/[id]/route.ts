@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   return withCosts(asker, "place", () => {
     askIs({ key: [id, lite], label: lite ? "live check (lite)" : "live check" });
     return live(request, id);
-  });
+  }, { limit: signedIn ? "person" : "route" });
 }
 
 async function live(request: Request, id: string) {

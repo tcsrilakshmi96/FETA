@@ -24,7 +24,8 @@ import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { anonDb, LimitReached, paidFetch, withCosts } from "@/lib/server/costs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
@@ -982,6 +983,31 @@ async function main() {
       console.log(`✗ Search: ${searchFails.join(", ")}`);
     } else console.log("✓ Search: a place named shows first saying which rules it breaks (never a diet promise), kinds keep their rules, clothes lead with brands, pieces match brands");
   }
+  // One door for every paid call (founder, 24 Nov 2026: three audits found
+  // features that spent past a limit or weren't logged): Google Maps, Gemini
+  // and Venice are called only through paidFetch, which checks the limit and
+  // logs the cost itself. ₹0: nothing here reaches a paid service.
+  {
+    const PAID = /places\.googleapis|generativelanguage\.googleapis|api\.venice\.ai/;
+    const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(`${dir}/${e.name}`) : /\.tsx?$/.test(e.name) ? [`${dir}/${e.name}`] : []));
+    const raw: string[] = [];
+    for (const f of [...files("lib"), ...files("app")]) {
+      if (f === "lib/server/costs.ts") continue;
+      const src = readFileSync(f, "utf8");
+      const hosts = [...src.matchAll(/const (\w+) = ["'`]https:\/\/([^"'`]+)/g)].filter((m) => PAID.test(m[2])).map((m) => m[1]);
+      for (const m of src.matchAll(/(?<![\w.])fetch\(\s*([^,)]*)/g)) if (PAID.test(m[1]) || hosts.some((h) => m[1].includes(h))) raw.push(f);
+    }
+    let refused = false;
+    await withCosts(null, "eval", () => paidFetch("places_photo", "https://places.googleapis.com/v1/none")).catch((e) => (refused = e instanceof LimitReached));
+    const gateFails = [
+      raw.length > 0 && `a paid call skips the gate in ${[...new Set(raw)].join(", ")}`,
+      !refused && "a paid call with no one to charge it to isn't refused",
+    ].filter(Boolean);
+    if (gateFails.length) {
+      failed++;
+      console.log(`✗ Paid calls: ${gateFails.join(", ")}`);
+    } else console.log("✓ Paid calls: every call to Google Maps, Gemini and Venice goes through one gate that checks the limit and logs the cost");
+  }
   // EVAL_ONLY="Founder|London" runs just the profiles whose names match (live runs cost money).
   const only = process.env.EVAL_ONLY ? new RegExp(process.env.EVAL_ONLY) : null;
   for (const p of PERSONAS.filter((x) => !only || only.test(x.name))) {
@@ -998,4 +1024,5 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main();
+// Live mode spends (about ₹50): logged as route "script", outside the daily pools.
+withCosts(LIVE ? anonDb() : null, "script", main, { limit: "route" });

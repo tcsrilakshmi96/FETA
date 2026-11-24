@@ -2,7 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { City } from "@/lib/cities";
-import { claimEventsCache, later, saveEventsCache, trackGemini } from "@/lib/server/costs";
+import { claimEventsCache, later, saveEventsCache, paidFetch } from "@/lib/server/costs";
 import { cityCalendar, cleanTime, eventSources, isPage, PLAIN_SEARCHES, searchChip, type FoundEvent, type Step } from "@/lib/server/events";
 import { FAKE } from "@/lib/server/fake-places";
 
@@ -49,7 +49,7 @@ export async function readGuides(city: City): Promise<GuideSet> {
   const sites = eventSources(city).split(", ").filter((s) => !NEVER_READ.test(s));
   if (!sites.length) return { events: [], searchHtml: "" };
   const cal = cityCalendar(city.timeZone);
-  const found = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+  const found = await paidFetch("gemini_search", "https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY!, "Api-Revision": "2026-05-20" },
     body: JSON.stringify({
@@ -63,7 +63,6 @@ Reply with only a JSON array of up to 4 of them: {"url": the post's own full add
   });
   if (!found.ok) throw new Error(`Guide search failed: ${found.status} ${await found.text()}`);
   const search = (await found.json()) as { steps?: Step[] };
-  trackGemini("gemini_search", search);
   const steps = search.steps ?? [];
   const searchHtml = searchChip(steps);
   const posts = jsonArray<{ url?: string; guide?: string }>(steps.filter((s) => s.type === "model_output").flatMap((s) => s.content ?? []).map((c) => c.text ?? "").join(""))
@@ -78,7 +77,7 @@ List every event, pop-up, market, show, class or exhibition they mention that is
 
 Reply with only a JSON array. Each item:
 {"title": string, "venueName": string (venue and neighbourhood), "date": "YYYY-MM-DD" (the first day), "endDate": "YYYY-MM-DD" (the last day) if it runs several days, else null, "time": "HH:MM" 24h when the show itself starts (not when doors open), or "" if the post gives none, "priceText": string as the post says ("Free" if it's free), "minPrice": number in ${city.currency} (0 if free) or null, "url": the link the post gives for it (tickets, booking, the organiser's site or Instagram); if none, the address of the post it is in (from the list above), never a home page, "kind": 2 to 5 plain words for what it is (e.g. "stand-up comedy", "food pop-up", "live jazz", "pottery class"), "guide": the publication (e.g. "Time Out")}`;
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
+  const res = await paidFetch("gemini_search", "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY! },
     body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ url_context: {} }], generationConfig: { thinkingConfig: { thinkingLevel: "low" } } }),
@@ -86,7 +85,6 @@ Reply with only a JSON array. Each item:
   });
   if (!res.ok) throw new Error(`Guide reading failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  trackGemini("gemini_search", data);
   const text = (data.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("");
   const events = jsonArray<GuideEvent>(text)
     .filter((e) => e?.title && e.venueName && /^\d{4}-\d{2}-\d{2}$/.test(e.date ?? "") && isPage(e.url))

@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { loadBrief, researchStyle, saveResearch } from "@/lib/server/style-research";
+import { anonDb, withCosts } from "@/lib/server/costs";
 
 const [code, name, styles, flag] = process.argv.slice(2);
 if (!code || !name || !styles) {
@@ -64,4 +65,5 @@ async function main() {
   console.log(`Written to ${file}`);
 }
 
-main();
+// Paid (about ₹30–60 a style): only with her OK, and logged as route "script".
+withCosts(anonDb(), "script", main, { limit: "route" });

@@ -5,7 +5,7 @@ import { eventLinkLabel } from "@/lib/event-links";
 import { distanceKm, formatDistance, type City } from "@/lib/cities";
 import { spendBounds } from "@/lib/currency";
 import { isVegDiet, optionsFor, QUESTIONS, spendRange, spendText, type Answers } from "@/lib/onboarding";
-import { trackGemini } from "@/lib/server/costs";
+import { paidFetch } from "@/lib/server/costs";
 import { FAKE, fakeRank } from "@/lib/server/fake-places";
 import type { Intent } from "@/lib/server/intents";
 import { photoRef } from "@/lib/server/photo-ref";
@@ -690,7 +690,8 @@ ${wanted.length ? `- Cover what they want most: the best place for each id above
 
   // Test mode: a simple ranking in code, so the rest of the steps still run.
   if (FAKE) return fakeRank(candidates, wanted);
-  const res = await fetch(
+  const res = await paidFetch(
+    "gemini_rank",
     "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
     {
       method: "POST",
@@ -730,7 +731,6 @@ ${wanted.length ? `- Cover what they want most: the best place for each id above
   );
   if (!res.ok) throw new Error(`Gemini failed: ${res.status} ${await res.text()}`);
   const data = await res.json();
-  trackGemini("gemini_rank", data);
   const text: string = data.candidates?.[0]?.content?.parts?.find((p: { text?: string }) => p.text)?.text ?? "{}";
   const parsed = JSON.parse(text) as { ranked?: Ranked[]; nonVeg?: number[] };
   // Places Gemini says are mainly meat or fish are dropped for vegetarians.

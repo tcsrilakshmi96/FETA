@@ -1,6 +1,6 @@
 import "server-only";
 import type { City } from "@/lib/cities";
-import { track } from "@/lib/server/costs";
+import { LimitReached, paidFetch } from "@/lib/server/costs";
 import { FAKE, fakeDetails, fakeNearby, fakeSearch } from "@/lib/server/fake-places";
 
 // Google Places API (New), called only from Feta's server so the key stays
@@ -30,6 +30,15 @@ export type Place = {
 };
 
 const BASE = "https://places.googleapis.com/v1";
+
+// For lookups that already answer "none" when Google fails: past today's
+// limit, they answer "none" too, so the screen says so instead of breaking.
+async function orNone(...args: Parameters<typeof paidFetch>) {
+  return paidFetch(...args).catch((error) => {
+    if (error instanceof LimitReached) return null;
+    throw error;
+  });
+}
 
 // Some names use decorative Unicode letters ("𝗟𝗮 𝗧𝗮𝘃𝗲𝗿𝗻𝗲"); show them as plain text.
 function plain(place: Place): Place {
@@ -86,7 +95,7 @@ export async function searchPlaces(opts: {
   count?: number;
 }): Promise<Place[]> {
   if (FAKE) return fakeSearch(opts.lat, opts.lng, opts.query, /food|eat|drink|cafe|bar|restaurant|dinner|brunch|dessert/i.test(opts.query)).slice(0, opts.count ?? (opts.lite ? 1 : 20));
-  const res = await fetch(`${BASE}/places:searchText`, {
+  const res = await paidFetch(opts.lite ? "places_text_pro" : opts.needsDiet ? "places_text_atmos" : "places_text", `${BASE}/places:searchText`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet, opts.lite)),
     body: JSON.stringify({
@@ -103,7 +112,6 @@ export async function searchPlaces(opts: {
       },
     }),
   });
-  track(opts.lite ? "places_text_pro" : opts.needsDiet ? "places_text_atmos" : "places_text");
   if (!res.ok) throw new Error(`Places search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
   return (data.places ?? []).map(plain);
@@ -121,7 +129,7 @@ export async function searchNearby(opts: {
   regionCode: string;
 }): Promise<Place[]> {
   if (FAKE) return fakeNearby(opts.lat, opts.lng, opts.types);
-  const res = await fetch(`${BASE}/places:searchNearby`, {
+  const res = await paidFetch(opts.needsDiet ? "places_nearby_atmos" : "places_nearby", `${BASE}/places:searchNearby`, {
     method: "POST",
     headers: headers(fieldMask("places.", opts.needsDiet)),
     body: JSON.stringify({
@@ -138,7 +146,6 @@ export async function searchNearby(opts: {
       },
     }),
   });
-  track(opts.needsDiet ? "places_nearby_atmos" : "places_nearby");
   if (!res.ok) throw new Error(`Places nearby search failed: ${res.status} ${await res.text()}`);
   const data = (await res.json()) as { places?: Place[] };
   return (data.places ?? []).map(plain);
@@ -146,35 +153,32 @@ export async function searchNearby(opts: {
 
 export async function placeDetails(id: string, needsDiet: boolean, lite = false): Promise<Place | null> {
   if (FAKE) return fakeDetails(id);
-  const res = await fetch(`${BASE}/places/${encodeURIComponent(id)}?languageCode=en`, {
+  const res = await orNone(lite ? "places_details_pro" : needsDiet ? "places_details_atmos" : "places_details", `${BASE}/places/${encodeURIComponent(id)}?languageCode=en`, {
     headers: headers(fieldMask("", needsDiet, lite)),
   });
-  track(lite ? "places_details_pro" : needsDiet ? "places_details_atmos" : "places_details");
-  if (!res.ok) return null;
+  if (!res?.ok) return null;
   return plain((await res.json()) as Place);
 }
 
 // A short-lived photo address (no key in it) for the card.
 export async function photoUri(photoName: string): Promise<string | null> {
   if (FAKE) return null;
-  const res = await fetch(`${BASE}/${photoName}/media?maxWidthPx=800&skipHttpRedirect=true`, {
+  const res = await orNone("places_photo", `${BASE}/${photoName}/media?maxWidthPx=800&skipHttpRedirect=true`, {
     headers: { "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
   });
-  track("places_photo");
-  if (!res.ok) return null;
+  if (!res?.ok) return null;
   const data = (await res.json()) as { photoUri?: string };
   return data.photoUri ?? null;
 }
 
 // Where a trip destination is ("Goa", "Tokyo"): location and country code.
 export async function findDestination(name: string): Promise<{ name: string; lat: number; lng: number; country: string } | null> {
-  const res = await fetch(`${BASE}/places:searchText`, {
+  const res = await orNone("places_text_pro", `${BASE}/places:searchText`, {
     method: "POST",
     headers: headers("places.displayName,places.location,places.addressComponents"),
     body: JSON.stringify({ textQuery: name, pageSize: 1, languageCode: "en" }),
   });
-  track("places_text_pro");
-  if (!res.ok) return null;
+  if (!res?.ok) return null;
   const place = ((await res.json()) as { places?: Place[] }).places?.[0];
   if (!place?.location) return null;
   const country = place.addressComponents?.find((c) => c.types?.includes("country"))?.shortText ?? "";
@@ -186,7 +190,7 @@ export async function findDestination(name: string): Promise<{ name: string; lat
 // details call, which uses the cheapest fields (Essentials).
 export async function suggestAreas(input: string, near: { lat: number; lng: number }, country: string, session: string) {
   if (FAKE) return [0, 1, 2].map((n) => ({ placeId: `fake_${near.lat.toFixed(4)}_${near.lng.toFixed(4)}_${n}_f`, name: `${input} (test ${n + 1})`, detail: "Test Area, Test City", types: ["restaurant", "food"] }));
-  const res = await fetch(`${BASE}/places:autocomplete`, {
+  const res = await orNone("places_autocomplete", `${BASE}/places:autocomplete`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Goog-Api-Key": process.env.GOOGLE_PLACES_API_KEY! },
     body: JSON.stringify({
@@ -201,8 +205,7 @@ export async function suggestAreas(input: string, near: { lat: number; lng: numb
       origin: { latitude: near.lat, longitude: near.lng },
     }),
   });
-  track("places_autocomplete");
-  if (!res.ok) return [];
+  if (!res?.ok) return [];
   const data = (await res.json()) as {
     suggestions?: { placePrediction?: { placeId: string; types?: string[]; distanceMeters?: number; structuredFormat?: { mainText?: { text: string }; secondaryText?: { text: string } } } }[];
   };
@@ -222,7 +225,7 @@ export async function placeIdFor(query: string, city: City): Promise<string | nu
   if (FAKE) return null;
   const dLat = 0.5;
   const dLng = 0.5 / Math.max(0.2, Math.cos((city.lat * Math.PI) / 180));
-  const res = await fetch(`${BASE}/places:searchText`, {
+  const res = await orNone("places_text_ids", `${BASE}/places:searchText`, {
     method: "POST",
     headers: headers("places.id"),
     body: JSON.stringify({
@@ -232,8 +235,7 @@ export async function placeIdFor(query: string, city: City): Promise<string | nu
       locationRestriction: { rectangle: { low: { latitude: city.lat - dLat, longitude: city.lng - dLng }, high: { latitude: city.lat + dLat, longitude: city.lng + dLng } } },
     }),
   });
-  track("places_text_ids");
-  if (!res.ok) return null;
+  if (!res?.ok) return null;
   return ((await res.json()) as { places?: { id: string }[] }).places?.[0]?.id ?? null;
 }
 
@@ -244,11 +246,10 @@ export async function placeLocation(placeId: string, session?: string): Promise<
     const p = fakeDetails(placeId);
     return p?.location ? { lat: p.location.latitude, lng: p.location.longitude } : null;
   }
-  const res = await fetch(`${BASE}/places/${encodeURIComponent(placeId)}${session ? `?sessionToken=${encodeURIComponent(session)}` : ""}`, {
+  const res = await orNone("places_details_essentials", `${BASE}/places/${encodeURIComponent(placeId)}${session ? `?sessionToken=${encodeURIComponent(session)}` : ""}`, {
     headers: headers("location"),
   });
-  track("places_details_essentials");
-  if (!res.ok) return null;
+  if (!res?.ok) return null;
   const loc = ((await res.json()) as Place).location;
   return loc ? { lat: loc.latitude, lng: loc.longitude } : null;
 }
