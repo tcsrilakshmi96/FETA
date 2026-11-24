@@ -154,6 +154,6 @@ export async function GET(request: Request) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(sat)) return Response.json({ error: "Bad date" }, { status: 400 });
   const { data, error } = await db.rpc("weekend_plan_inputs", { sat });
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  const drafts = await withCosts(db, "weekend", () => Promise.all((data as Input[]).map((i) => draft(i, sat))));
+  const drafts = await withCosts(db, "weekend", () => Promise.all((data as Input[]).map((i) => draft(i, sat))), { limit: "route" });
   return Response.json({ drafts });
 }

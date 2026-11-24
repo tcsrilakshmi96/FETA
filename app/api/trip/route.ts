@@ -79,7 +79,12 @@ export async function POST(request: Request) {
   if (body.action === "days" && city) {
     const fromDay = Math.max(0, Math.min(city.nights - 1, Math.round(Number(body.fromDay) || 0)));
     const hotel = Number.isFinite(body.hotel?.lat) && Number.isFinite(body.hotel?.lng) ? { lat: body.hotel!.lat!, lng: body.hotel!.lng! } : null;
-    const result = await withCosts(db, "trip_days", () => planCityDays({ token, trip, index, fromDay, hotel }));
+    const result = await withCosts(db, "trip_days", () => planCityDays({ token, trip, index, fromDay, hotel })).catch((error) => {
+      // A Google hiccup says so instead of breaking the card (audit, 24 Nov 2026).
+      console.error(error);
+      return null;
+    });
+    if (!result) return Response.json({ itinerary: null, notice: "Couldn't reach Google Maps just now. Try again in a minute." }, { status: 502 });
     // Kept on the trip, so it shows when they open the trip again.
     if (result.itinerary) {
       const kept: SavedDay[] = result.itinerary.days.map((d) => ({

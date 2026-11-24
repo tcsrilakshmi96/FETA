@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const id = (url.searchParams.get("id") ?? "").slice(0, 300);
   if (!id) return Response.json({ error: "No place" }, { status: 400 });
-  const place = await withCosts(db, "admin", () => placeDetails(id, false, true));
+  const place = await withCosts(db, "admin", () => placeDetails(id, false, true), { limit: "route" });
   if (!place) return Response.json({ found: false });
   // The Feta city it is in, from where Google puts it.
   const city = place.location ? cityAt({ lat: place.location.latitude, lng: place.location.longitude }) : null;

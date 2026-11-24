@@ -28,6 +28,10 @@ export type ListItem = {
   mapsUri: string;
   photo: string | null;
   event?: { when: string; url: string; site: string };
+  // The phone already has this place's live details (only what's saved about
+  // it is sent); or it couldn't be checked just now (shown plainly, not dropped).
+  cached?: true;
+  unchecked?: true;
 };
 
 const MAX_ITEMS = 30;
@@ -40,6 +44,9 @@ export async function GET(request: Request) {
   const lat = Number(url.searchParams.get("lat"));
   const lng = Number(url.searchParams.get("lng"));
   const here = Number.isFinite(lat) && Number.isFinite(lng) && (lat || lng) ? { lat, lng } : null;
+  // Places whose live details the phone already has (audit, 24 Nov 2026:
+  // every save or skip made Saved look up all 30 again, about ₹45).
+  const have = new Set((request.headers.get("x-feta-have") ?? "").split(",").filter(Boolean).slice(0, MAX_ITEMS * 2));
 
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -66,10 +73,16 @@ export async function GET(request: Request) {
   // An event that's over leaves Want to try (tester, 23 Nov 2026: past
   // dates shown); one they went to stays in Been.
   const events = new Map<string, NonNullable<StoredPick["event"]> & { over: boolean }>();
-  if (eventIds.length > 0) {
-    const { data: sets } = await db.from("pick_sets").select("picks, time_zone").eq("category", "experiences").order("created_at", { ascending: false }).limit(50);
-    for (const set of sets ?? []) for (const p of set.picks as StoredPick[]) if (p.event && eventIds.includes(p.placeId) && !events.has(p.placeId)) events.set(p.placeId, { ...p.event, over: eventOver(p.event, set.time_zone ?? "UTC") });
-  }
+  // Each from the newest set that has it, however many sets came since
+  // (audit, 24 Nov 2026: only the last 50 sets were read).
+  await Promise.all(
+    eventIds.map(async (id) => {
+      const { data: sets } = await db.from("pick_sets").select("picks, time_zone").eq("category", "experiences").contains("picks", [{ placeId: id }]).order("created_at", { ascending: false }).limit(1);
+      const set = sets?.[0];
+      const p = (set?.picks as StoredPick[] | undefined)?.find((x) => x.placeId === id);
+      if (set && p?.event) events.set(id, { ...p.event, over: eventOver(p.event, set.time_zone ?? "UTC") });
+    }),
+  );
 
   // Over today's limit (audit, 23 Nov 2026: Saved kept paying for up to 30
   // live lookups each time): nothing is looked up. The phone shows the copy
@@ -103,8 +116,10 @@ export async function GET(request: Request) {
           event: { when: [event.date, event.time].filter(Boolean).join(" "), url: event.url, site: event.site },
         };
       }
+      if (have.has(r.place_id)) return { ...base, cached: true, name: "", area: "", distanceKm: null, lat: null, lng: null, mapsUri: "", photo: null };
       const place = await placeDetails(r.place_id, false, true);
-      if (!place) return null;
+      // A Google hiccup never hides a saved place (audit, 24 Nov 2026).
+      if (!place) return { ...base, unchecked: true, name: "A place you saved", area: "Open in Google Maps", distanceKm: null, lat: null, lng: null, mapsUri: `https://www.google.com/maps/place/?q=place_id:${r.place_id}`, photo: null };
       return {
         ...base,
         name: place.displayName?.text ?? "A saved place",

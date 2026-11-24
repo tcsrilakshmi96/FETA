@@ -66,6 +66,8 @@ type Body = {
   trip?: string; // trip-only profile lines for this trip count too
   dayPlan?: boolean; // a day out or a trip city (plan-days.ts): sights and meals through the day
   more?: boolean; // "Show me more", once the backup places run out
+  shown?: string[]; // with more: what the phone has already shown from this list
+  eventsOnly?: boolean; // the phone's second ask for events found after the reply
   tweaks?: string[]; // from the Tweak sheet
   note?: string; // free text from the Tweak sheet
   // Ask Feta (founder, 18 Nov 2026: "it has to work like an AI assistant"):
@@ -137,7 +139,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
         ? `gps:${city.id}`
         : body.origin.source === "area"
           ? `area:${body.origin.areaId ?? `${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}`}`
-          : `city:${city.id}`
+          : // A hotel or a town placed in its nearest city is its own place
+            // (audit, 24 Nov 2026: day plans near the chosen hotel reused the
+            // city centre's set).
+            `city:${city.id}${body.dayPlan || Math.abs(body.origin.lat - city.lat) > 0.01 || Math.abs(body.origin.lng - city.lng) > 0.01 ? `@${body.origin.lat.toFixed(3)},${body.origin.lng.toFixed(3)}` : ""}`
     }|t:${tasteFingerprint(taste, category)}${body.dayPlan ? "|plan" : ""}`;
   const originKey = keyFor(body.category);
   const origin = { lat: body.origin.lat, lng: body.origin.lng };
@@ -151,7 +156,6 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     .eq("when_slot", body.when)
     .order("created_at", { ascending: false })
     .limit(20);
-  const latest = (recent ?? []).find((s) => s.origin_key === originKey);
   // A place in their Food & drinks list right now isn't repeated in Things
   // to do (tester, 23 Nov 2026: the same café in both lists); food owns it.
   if (body.category === "experiences" && !body.dayPlan && !only) {
@@ -175,6 +179,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const tweaked = tweaks.length > 0 || note.length > 0;
   const at: At | undefined = body.at && /^\d{4}-\d{2}-\d{2}$/.test(body.at.day) ? { weekday: new Date(`${body.at.day}T12:00:00Z`).getUTCDay(), start: Math.min(1439, Math.max(0, Math.round(body.at.start) || 0)), minutes: Math.min(720, Math.max(30, Math.round(body.at.minutes) || 60)) } : undefined;
   const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
+  // The same ask comes back the same, tweaked or typed too (audit, 24 Nov
+  // 2026: the same Ask Feta search or a reloaded search paid again).
+  const latest = (recent ?? []).find((s) => s.origin_key === setKey);
   // "Anywhere in Goa" or a trip destination means the whole place, not a
   // walk from its centre.
   // A trip's day plans cover the whole city: its famous sights are rarely
@@ -190,11 +197,30 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   //    (testers, 21 Nov 2026: every Home visit searched again, about 20 s and
   //    ₹100). If most no longer pass (closed now), it searches afresh.
   const firstShown = (s: { picks: unknown }) => (s.picks as StoredPick[]).filter((p) => !p.spare);
-  const fresh = latest && !body.more && !tweaked && new Date(latest.expires_at) > new Date();
+  const live = latest && new Date(latest.expires_at) > new Date();
+  const fresh = live && !body.more;
   const previous = fresh ? firstShown(latest) : [];
   // A search that found nothing that fits is kept too, so opening again
   // says so without paying for the same search (backend audit, 23 Nov 2026).
   if (fresh && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
+  // The phone's second ask for events found after the reply: only the
+  // events, so the places aren't paid for twice 20 s apart (audit, 24 Nov 2026).
+  if (fresh && body.eventsOnly) {
+    const events = previous.filter((p) => p.event);
+    const shown = events.length ? await showStored(events, null, { taste: effective, body, city, origin, exclude, needsDiet }) : null;
+    return json({ picks: shown?.picks ?? [] });
+  }
+  // "Show me more" on a kept list: its next backup places, checked live,
+  // before any new search (audit, 24 Nov 2026: a reused list came without
+  // them, so more paid for a new search, about ₹100 instead of about ₹14).
+  if (live && body.more && !body.eventsOnly) {
+    const seen = new Set(Array.isArray(body.shown) ? body.shown.filter((id) => typeof id === "string") : []);
+    const next = (latest.picks as StoredPick[]).filter((p) => p.spare && !seen.has(p.placeId) && !exclude.has(p.placeId));
+    if (next.length) {
+      const more = await showStored(next.slice(0, SHOW).map((p) => ({ ...p, spare: false })), null, { taste: effective, body, city, origin, exclude, needsDiet });
+      if (more.picks.length) return json({ picks: more.picks });
+    }
+  }
   let checked: Awaited<ReturnType<typeof showStored>> | null = null;
   if (previous.length) {
     checked = await showStored(previous, latest!.banner, { taste: effective, body, city, origin, exclude, needsDiet });
@@ -227,7 +253,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     }
   }
   const need = SHOW;
-  const todaysSets = (recent ?? []).filter((s) => new Date(s.created_at).toDateString() === new Date().toDateString()).length;
+  // Today in the city, not the server's (audit, 24 Nov 2026: turns reset at UTC midnight).
+  const cityDate = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: city.timeZone }).format(d);
+  const todaysSets = (recent ?? []).filter((s) => cityDate(new Date(s.created_at)) === cityDate(new Date())).length;
   // The same search words as last time, so the same places come back.
   const rotation = previous.length ? Math.max(0, todaysSets - 1) : todaysSets;
 
@@ -308,13 +336,18 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   } catch (error) {
     console.error(error);
     if (body.category === "food_drinks") {
-      return json({ picks: [], notice: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
+      // As an error, so the phone shows the failed-search screen, not an
+      // empty list (audit, 24 Nov 2026).
+      return json({ error: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     }
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
   // A meal is only served by a place mainly to eat (a brewery isn't dinner).
   if (meal) for (const c of found.pool) if (kindOf(c.place, body.category) !== "EAT") c.intents = (c.intents ?? []).filter((id) => id !== "asked");
-  const allEvents = await allEventsPromise;
+  // Events that finished while the places were found are used, even after
+  // the wait ran out (audit, 24 Nov 2026: they were dropped and, marked
+  // done, never joined the set later either).
+  const allEvents = eventsDone ? await eventsFull : await allEventsPromise;
   // At most KIND_MAX events for any one thing they're into, and places for
   // it count those (Round 6: pottery took 5 of 8 and crowded out riding).
   const events = only && !body.search ? [] : eventsFirst([...prevEvents, ...allEvents.filter((e) => !prevEvents.some((p) => p.stored.placeId === e.stored.placeId))], need);

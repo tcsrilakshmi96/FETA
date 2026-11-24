@@ -36,13 +36,15 @@ function forOf(x: unknown): LookFor | null {
 
 function lookOf(x: unknown): Look | null {
   const l = x as Partial<Look> | null;
-  if (!l || !Array.isArray(l.pieces) || !styleById(String(l.style))) return null;
+  // A piece Feta doesn't know refuses the look rather than dropping it, so
+  // the phone's piece number still points at the same piece (audit, 24 Nov 2026).
+  if (!l || !Array.isArray(l.pieces) || l.pieces.length > 12 || !styleById(String(l.style)) || l.pieces.some((p) => !SLOTS.includes(p?.slot as Slot))) return null;
   return {
     id: t(l.id, 40),
     style: String(l.style),
     title: t(l.title, 60),
     why: t(l.why, 220),
-    pieces: l.pieces.slice(0, 6).filter((p) => SLOTS.includes(p.slot as Slot)).map((p) => ({ slot: p.slot as Slot, name: t(p.name, 60) })),
+    pieces: l.pieces.map((p) => ({ slot: p.slot as Slot, name: t(p.name, 60) })),
   };
 }
 

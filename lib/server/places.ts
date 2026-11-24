@@ -173,6 +173,7 @@ export async function photoUri(photoName: string): Promise<string | null> {
 
 // Where a trip destination is ("Goa", "Tokyo"): location and country code.
 export async function findDestination(name: string): Promise<{ name: string; lat: number; lng: number; country: string } | null> {
+  if (FAKE) return null; // test mode spends nothing (audit, 24 Nov 2026)
   const res = await orNone("places_text_pro", `${BASE}/places:searchText`, {
     method: "POST",
     headers: headers("places.displayName,places.location,places.addressComponents"),

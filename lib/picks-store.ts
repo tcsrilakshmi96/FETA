@@ -112,9 +112,15 @@ export const SLOT_EVENT = "feta:slot";
 function eventsLater(key: string, origin: Origin, when: When, category: Category, version: number) {
   setTimeout(async () => {
     if (version !== tasteVersion) return;
-    const reply = await fetchPicks(category, when, origin);
-    if (version !== tasteVersion || !reply.picks?.some((p) => p.event)) return;
-    const slot: Slot = { loading: false, picks: reply.picks, spares: reply.spares ?? [], saved: keptSlots()[key]?.saved ?? [], banner: reply.banner, notice: reply.notice };
+    const reply = await fetchPicks(category, when, origin, false, undefined, { eventsOnly: true });
+    const was = keptSlots()[key];
+    if (version !== tasteVersion || !was || !reply.picks?.some((p) => p.event)) return;
+    // The events lead; the places already on screen follow, and the ones
+    // pushed out become backup (only the events are checked again).
+    const events = reply.picks.filter((p) => p.event);
+    const places = [...was.picks, ...was.spares].filter((p) => !p.event && !events.some((e) => e.placeId === p.placeId));
+    const all = [...events, ...places];
+    const slot: Slot = { ...was, loading: false, picks: all.slice(0, SHOW), spares: all.slice(SHOW) };
     keepSlots({ ...keptSlots(), [key]: slot });
     window.dispatchEvent(new CustomEvent(SLOT_EVENT, { detail: { key, slot } }));
   }, 20000);
@@ -134,7 +140,7 @@ export const SHOW = 8;
 // A search's next places are more of the same search (search).
 export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category, search?: Ask): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
   if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
-  const reply = await fetchPicks(category, when, origin, true, search);
+  const reply = await fetchPicks(category, when, origin, true, search, { shown: [...slot.picks.map((p) => p.placeId), ...slot.saved] });
   return {
     fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)),
     spares: (reply.spares ?? []),

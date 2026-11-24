@@ -32,6 +32,9 @@ export async function fetchPicks(
   origin: Origin,
   more = false,
   tweak?: Ask,
+  // shown: with more, what this list has shown, so a kept list's backup
+  // comes next; eventsOnly: the second ask for events found after the reply.
+  extra?: { shown?: string[]; eventsOnly?: boolean },
 ): Promise<PicksReply> {
   await saving;
   await currentUserId();
@@ -42,7 +45,7 @@ export async function fetchPicks(
     const res = await fetch("/api/picks", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ category, when, origin, more, ...tweak }),
+      body: JSON.stringify({ category, when, origin, more, ...tweak, ...extra }),
     });
     const reply = (await res.json()) as PicksReply;
     // The reset in their city's time (traveller, 23 Nov 2026: "more from

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
   const city = cityById(url.searchParams.get("city"));
   if (q.length < 2 || !city) return Response.json({ results: [] });
-  const places = await withCosts(db, "admin", () => searchPlaces({ query: `${q}, ${city.name}`, lat: city.lat, lng: city.lng, radiusKm: 30, openNow: false, needsDiet: false, regionCode: city.country, lite: true, count: 6 }));
+  const places = await withCosts(db, "admin", () => searchPlaces({ query: `${q}, ${city.name}`, lat: city.lat, lng: city.lng, radiusKm: 30, openNow: false, needsDiet: false, regionCode: city.country, lite: true, count: 6 }), { limit: "route" });
   return Response.json({
     results: places.map((p) => ({ placeId: p.id, name: p.displayName?.text ?? "", area: areaName(p, city) })),
   });

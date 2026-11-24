@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         // The claim lapses after 15 minutes, so the next visitor tries again.
         console.error(e);
       }
-    }),
+    }, { limit: "route" }),
   );
   return Response.json({ started: true });
 }

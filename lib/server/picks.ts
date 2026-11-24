@@ -504,8 +504,7 @@ export function tonightMeansNow(city: City) {
 function eveningHours(place: Place, city: City): [number, number] | null {
   const { day } = cityNow(city);
   const found = (weeklyHours(place) ?? [])
-    // A place open around the clock has one period with no close.
-    .filter(([d, open, close]) => (d === day || close >= 7 * 24 * 60) && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60)
+    .filter(([d, open, close]) => d === day && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60)
     .sort((a, b) => b[2] - a[2])[0];
   return found ? [found[1], found[2]] : null;
 }
@@ -762,7 +761,7 @@ function googleLine(place: Place, when: When, city: City) {
   if (when === "tonight" && !tonightMeansNow(city)) {
     const hours = eveningHours(place, city);
     const clock = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-    const until = hours && hours[1] < 7 * 24 * 60 ? ` until ${clock(hours[1])}` : "";
+    const until = hours && hours[1] < ALWAYS_OPEN ? ` until ${clock(hours[1])}` : "";
     return `Open tonight${until} · checked on Google Maps`;
   }
   if (when === "tonight") {
@@ -770,7 +769,7 @@ function googleLine(place: Place, when: When, city: City) {
     const known = close && city.timeZone !== "UTC";
     return `Open now${known ? ` · closes ${timeIn(close, city.timeZone)}` : ""} · checked on Google Maps`;
   }
-  const days = new Set(place.regularOpeningHours?.periods?.map((p) => p.open.day) ?? []);
+  const days = new Set((weeklyHours(place) ?? []).map(([d]) => d));
   const open = days.has(6) && days.has(0) ? "Open Sat and Sun" : days.has(6) ? "Open Saturday" : "Open Sunday";
   return `${open} · checked on Google Maps`;
 }
@@ -863,15 +862,19 @@ export function buildPick(
 
 // Opening periods as [day, open minute, close minute] (a close after
 // midnight counts as 24:00 + minutes), for checking a planned time.
+// A place open around the clock (Google gives one period with no close) is
+// open every day until the next day's end (audit, 24 Nov 2026: as one Sunday
+// period, day plans and Plan a night thought it closed Tuesday to Saturday).
+export const ALWAYS_OPEN = 48 * 60;
 export function weeklyHours(p: Place): [number, number, number][] | undefined {
   const periods = p.regularOpeningHours?.periods;
   if (!periods?.length) return undefined;
-  return periods.map((pe) => {
+  return periods.flatMap((pe): [number, number, number][] => {
+    if (!pe.close) return [0, 1, 2, 3, 4, 5, 6].map((d) => [d, 0, ALWAYS_OPEN]);
     const open = (pe.open.hour ?? 0) * 60 + (pe.open.minute ?? 0);
-    if (!pe.close) return [pe.open.day, 0, 24 * 60 * 7] as [number, number, number]; // open all the time
     let close = (pe.close.hour ?? 0) * 60 + (pe.close.minute ?? 0);
     if (pe.close.day !== pe.open.day) close += 24 * 60;
-    return [pe.open.day, open, close] as [number, number, number];
+    return [[pe.open.day, open, close]];
   });
 }
 

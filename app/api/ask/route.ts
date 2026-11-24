@@ -344,7 +344,9 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   }
   let itinerary: Itinerary | null = null;
   if (plan) {
-    const origin = await withCosts(db, "ask_place", () => (askIs({ key: plan.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity)));
+    // A Google hiccup says so in the chat instead of losing the reply
+    // already paid for (audit, 24 Nov 2026).
+    const origin = await withCosts(db, "ask_place", () => (askIs({ key: plan.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(plan.place ?? parsed.trip?.place ?? null, here, homeCity))).catch(noGoogle(null));
     if (!origin || isMainlandChina(origin.city)) {
       notice = origin ? `Feta can't check places in mainland China yet, so I can't plan a day there.` : `I couldn't find ${plan.place} on the map. Try a nearby city?`;
     } else {
@@ -352,13 +354,14 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
       const start = /^\d{4}-\d{2}-\d{2}$/.test(plan.start ?? "") && plan.start! >= today ? plan.start! : today;
       const planned = await withCosts(db, "ask_day_plan", () =>
         planDays(token, { origin, start, days: plan.days ?? 1, who: plan.who, focus: plan.note, trip: tripLabel ?? undefined, place: origin.source === "area" ? origin.label : origin.city.name }),
-      );
+      ).catch(noGoogle({ itinerary: null, limited: "Couldn't reach Google Maps just now. Ask me again in a minute?" }));
       itinerary = planned.itinerary;
       if (!itinerary) notice = planned.limited ?? "I couldn't find enough open places to plan a full day there. Try another area or day?";
     }
   }
   // Both at once, so an evening out takes no longer than one search.
-  const results = await Promise.all(searches.map(async (s): Promise<{ found: Pick[]; notice?: string }> => {
+  const results = await Promise.all(searches.map(async (s): Promise<{ found: Pick[]; notice?: string }> => searchFor(s).catch(noGoogle({ found: [], notice: "Couldn't reach Google Maps just now. Ask me again in a minute?" }))));
+  async function searchFor(s: (typeof searches)[number]): Promise<{ found: Pick[]; notice?: string }> {
     const origin = await withCosts(db, "ask_place", () => (askIs({ key: s.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(s.place ?? parsed.trip?.place ?? null, here, homeCity)));
     if (origin && isMainlandChina(origin.city)) {
       return { found: [], notice: `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.` };
@@ -383,15 +386,15 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         note: ((s.note ?? "").trim() || message).slice(0, 120),
         ...(tripLabel ? { trip: tripLabel } : {}),
     })));
-    const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string };
+    const data = (await res.json().catch(() => ({}))) as { picks?: Pick[]; notice?: string; error?: string };
     // Chat shows a short answer: the best 3. Nothing that matches is said plainly.
     const found = (data.picks ?? []).slice(0, 3);
     // Why nothing came back, in chat words: the engine's reason without its
     // tips for the picks screen, then what Feta can try next.
     const whenText = at ? dayText(at.day, origin.city) : s.when === "weekend" || tripLabel ? "this weekend" : "tonight";
-    const reason = data.notice?.replace(/\s*Try [^.]*\.$/, "") || `Nothing I found fits ${whenText}${s.further ? "" : " within your distance"}.`;
+    const reason = (data.notice ?? data.error)?.replace(/\s*Try [^.]*\.$/, "") || `Nothing I found fits ${whenText}${s.further ? "" : " within your distance"}.`;
     return { found, notice: found.length ? undefined : `${reason} ${s.further ? "Want to try another day, or something similar?" : "Want me to look further out, or another day?"}` };
-  }));
+  }
   for (const r of results) picks = [...picks, ...r.found.filter((p) => !picks.some((q) => q.placeId === p.placeId))];
   const notices = results.map((r) => r.notice).filter(Boolean);
   if (notices.length) notice = notices.join(" ");
@@ -569,4 +572,12 @@ async function routeFor(past: { role: string; content: string }[], message: stri
     3000,
   );
   return reply.route ?? null;
+}
+
+// A failed Google lookup inside a chat reply: logged, and the reply goes on.
+function noGoogle<T>(fallback: T) {
+  return (error: unknown): T => {
+    console.error(error);
+    return fallback;
+  };
 }

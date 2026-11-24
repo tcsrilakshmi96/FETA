@@ -2,7 +2,7 @@
 
 import type { City } from "@/lib/cities";
 import { distanceKm } from "@/lib/cities";
-import { fetchNightPlaces, loadPlans, localDay } from "@/lib/night-client";
+import { fetchNightPlaces, loadPlans } from "@/lib/night-client";
 import { loadOrigin } from "@/lib/origin";
 import { currentUserId, supabase } from "@/lib/supabase";
 import { brandPrice, shopLink, type BrandPrice, type Look, type LookFor, type Wears } from "@/lib/style";
@@ -203,10 +203,28 @@ export function planFromStops(stops: { name: string; kind: string; time?: Date }
   };
 }
 
+// Kept on the phone for an hour, per plan, like picks (audit, 24 Nov 2026:
+// Home and Style read the plan's places live, about ₹1.7 each, every time
+// they opened).
+const TONIGHT = "feta.style.tonight";
 export async function tonightPlan(): Promise<TonightPlan | null> {
-  const today = localDay(new Date());
+  // Today in their city, as the rest of Style (audit, 24 Nov 2026).
+  const today = cityDay();
   const plan = (await loadPlans()).find((p) => p.day === today);
   if (!plan) return null;
+  const key = `${today}|${plan.startMinute}|${plan.placeIds.join(",")}`;
+  try {
+    const kept = JSON.parse(localStorage.getItem(TONIGHT) ?? "null") as { key: string; at: number; plan: TonightPlan } | null;
+    if (kept?.key === key && Date.now() - kept.at < 3600 * 1000) return kept.plan;
+  } catch {}
+  const made = await readTonight(plan);
+  try {
+    if (made) localStorage.setItem(TONIGHT, JSON.stringify({ key, at: Date.now(), plan: made }));
+  } catch {}
+  return made;
+}
+
+async function readTonight(plan: { placeIds: string[]; startMinute: number }): Promise<TonightPlan | null> {
   const read = await fetchNightPlaces(plan.placeIds);
   const places = read?.places ?? [];
   if (!places.length) return null;

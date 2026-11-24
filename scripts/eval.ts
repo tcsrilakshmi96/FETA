@@ -983,6 +983,16 @@ async function main() {
       console.log(`✗ Search: ${searchFails.join(", ")}`);
     } else console.log("✓ Search: a place named shows first saying which rules it breaks (never a diet promise), kinds keep their rules, clothes lead with brands, pieces match brands");
   }
+  // A place open around the clock is open every day (audit, 24 Nov 2026:
+  // day plans and Plan a night thought it closed Tuesday to Saturday).
+  {
+    const always = weeklyHours({ id: "x", regularOpeningHours: { periods: [{ open: { day: 0, hour: 0, minute: 0 } }] } } as Parameters<typeof weeklyHours>[0]) ?? [];
+    const wed = always.find(([d]) => d === 3);
+    if (!wed || wed[1] > 19 * 60 || wed[2] < 23 * 60) {
+      failed++;
+      console.log("✗ Open 24 hours: a place open around the clock counts as closed on a Wednesday");
+    } else console.log("✓ Open 24 hours: a place open around the clock is open every day");
+  }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini
   // and Venice are called only through paidFetch, which checks the limit and
