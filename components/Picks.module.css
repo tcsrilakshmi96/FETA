@@ -275,13 +275,11 @@
   font-size: 11px;
 }
 
+/* Plain words, no coloured block (UI audit, 24 Nov 2026: plain screens). */
 .banner {
-  margin: 4px 0 10px;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: var(--turquoise);
-  color: var(--inkFixed);
-  font-size: 12.5px;
+  margin: 4px 2px 10px;
+  color: rgba(var(--inkRGB), 0.72);
+  font-size: 13px;
   line-height: 1.35;
   animation: var(--kf-up) 0.4s ease-out;
 }

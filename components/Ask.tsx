@@ -80,7 +80,6 @@ export default function Ask() {
 
   return (
     <main className={styles.screen}>
-      <div className={styles.glow} aria-hidden="true" />
       <div className={styles.head}>
         <h1 className={styles.brand}>
           <span className={styles.pop}>

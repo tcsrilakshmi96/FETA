@@ -250,7 +250,7 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
               {dayName(day)}, <i>{night.problems.length ? "almost." : "sorted."}</i>
             </h1>
             <button type="button" className={styles.when} onClick={() => setWhenOpen(true)}>
-              {night.stops.length} stops · {first ? `${minuteClock(first.at)} to ${minuteClock(night.end)}` : ""} · change
+              {night.stops.length} {night.stops.length === 1 ? "stop" : "stops"} · {first ? `${minuteClock(first.at)} to ${minuteClock(night.end)}` : ""} · change
             </button>
             {areas.length > 1 && <small>{areas[0]} → {areas[areas.length - 1]}</small>}
             <span className={styles.tools}>

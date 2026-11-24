@@ -1112,8 +1112,9 @@
   width: 100%;
   padding: 12px;
   border-radius: 20px;
-  background: #dce8e6;
-  color: #1a1616;
+  /* The app's own surface in both modes, not a fixed mint (UI audit, 24 Nov 2026). */
+  background: rgba(var(--inkRGB), 0.05);
+  color: var(--ink);
   text-align: left;
   animation: pop 0.5s ease both;
 }
