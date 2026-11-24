@@ -44,5 +44,7 @@ for (const file of files) {
     console.log(`✗ ${file}\n  ${problems.join("\n  ")}`);
   }
 }
-console.log(bad ? `\n${bad} file(s) Postgres would refuse.` : `✓ ${files.length} migration file(s) read as Postgres would: no errors.`);
-process.exit(bad ? 1 : 0);
+// The parser's exit handlers sometimes hang after the result is printed
+// (24 Nov 2026: about 1 run in 4 timed out the eval on a clean check), so
+// once the result is written the process ends without running them.
+process.stdout.write(`${bad ? `\n${bad} file(s) Postgres would refuse.` : `✓ ${files.length} migration file(s) read as Postgres would: no errors.`}\n`, () => process.reallyExit(bad ? 1 : 0));
