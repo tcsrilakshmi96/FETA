@@ -18,6 +18,7 @@ import {
   typedCuisines,
   loadSwipes,
   pairSwipes,
+  loadProfileLines,
   pickedUpLines,
   saveProfileLines,
   saveSwipes,
@@ -75,7 +76,17 @@ export default function Questions() {
     // 2026: a Style-only person was asked what they eat and spend).
     const chose = loadWants();
     if (!chose.includes("food") && !chose.includes("do") && new URLSearchParams(window.location.search).get("from") !== "you") {
-      router.replace("/home");
+      // Setup still finishes as it does for everyone (audit, 24 Nov 2026:
+      // skipping it sent them back to Welcome on every visit and left an
+      // account that couldn't be brought back on another phone).
+      // The account is made and claimed first, then the phone marks setup
+      // done (marked first, a brand-new account took it for someone else's).
+      const lines = loadProfileLines();
+      const here = loadCity();
+      void Promise.all([saveAnswersToDb(loadAnswers()), saveProfileBasicsToDb(loadName(), chose), ...(here ? [saveCityToDb(here)] : []), saveProfileLinesToDb(lines, [])]).finally(() => {
+        saveProfileLines(lines);
+        router.replace("/home");
+      });
       return;
     }
     /* eslint-disable react-hooks/set-state-in-effect -- saved on this phone, only readable in the browser */

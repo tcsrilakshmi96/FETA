@@ -324,3 +324,4 @@ function load<T>(key: string, fallback: T): T {
 export const saveSwipes = (swipes: Swipe[]) => save(SWIPES_KEY, swipes);
 export const loadSwipes = () => load<Swipe[]>(SWIPES_KEY, []);
 export const saveProfileLines = (lines: ProfileLine[]) => save(PROFILE_KEY, lines);
+export const loadProfileLines = () => load<ProfileLine[]>(PROFILE_KEY, []);
