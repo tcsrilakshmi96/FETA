@@ -22,6 +22,7 @@ export type Slot = {
   // when that changes at 5 pm, so the server re-checks it (audit, 24 Nov 2026).
   slotName?: string;
   timeZone?: string;
+  madeAt?: number; // which search made it, so late events join only that list
 };
 
 // Kept in memory while the app is open, never stored: a reload starts
@@ -91,9 +92,10 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       failed: !!reply.error,
       limited: reply.limited,
       ...(when === "tonight" ? { slotName: firstSlotName(origin.city.timeZone), timeZone: origin.city.timeZone } : {}),
+      madeAt: Date.now(),
     };
     if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
-    if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version);
+    if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version, slot.madeAt!);
     return slot;
   });
   if (!tweak) {
@@ -116,14 +118,17 @@ export function withoutElsewhere(slots: Record<string, Slot>, key: string, place
 // check 23 Nov 2026): ask once more a little later, when they've joined the
 // stored set, and tell the screens showing this list.
 export const SLOT_EVENT = "feta:slot";
-function eventsLater(key: string, origin: Origin, when: When, category: Category, version: number) {
+function eventsLater(key: string, origin: Origin, when: When, category: Category, version: number, madeAt: number) {
   setTimeout(async () => {
     if (version !== tasteVersion) return;
     const had = keptSlots()[key];
+    // A different list is there now (a Cheaper or Fancier one): the events
+    // were for the first (audit, 24 Nov 2026).
+    if (had?.madeAt !== madeAt) return;
     // Only events it doesn't have yet are checked (audit, 24 Nov 2026).
     const reply = await fetchPicks(category, when, origin, false, undefined, { eventsOnly: true, shown: (had?.picks ?? []).filter((p) => p.event).map((p) => p.placeId) });
     const was = keptSlots()[key];
-    if (version !== tasteVersion || !was || !reply.picks?.some((p) => p.event)) return;
+    if (version !== tasteVersion || !was || was.madeAt !== madeAt || !reply.picks?.some((p) => p.event)) return;
     // The new events lead, then the ones already shown; the places follow,
     // and the ones pushed out become backup.
     const fresh = reply.picks.filter((p) => p.event);

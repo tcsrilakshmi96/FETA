@@ -14,7 +14,7 @@ import { founderPlacesNear } from "@/lib/server/feta-places";
 import { featuredFor } from "@/lib/server/featured";
 import { guideEventsFor } from "@/lib/server/guide-events";
 import { feedEvents } from "@/lib/server/event-feeds";
-import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
+import { cityCalendar, eventLinkLands, eventPasses, findEvents, findVenue, isPage, personalizeEvents, siteName, type EventSpan, type FoundEvent } from "@/lib/server/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { listFit, listServes } from "@/lib/server/list-tags";
 import {
@@ -605,7 +605,7 @@ async function eventPicks(ctx: {
       const key = [city.id, "events", span, day, what].join("|");
       if (fed) {
         // Kept like searched events, so a share of one can be checked as found by Feta.
-        await saveEventsCache(db, `${key}|feed`, fed, "", span === "tonight" ? 6 : 24);
+        await saveEventsCache(db, `${key}|feed`, fed.filter((e) => isPage(e.url)), "", span === "tonight" ? 6 : 24);
         return { intent, span, events: fed, searchHtml: "", feed: true };
       }
       const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
@@ -624,7 +624,9 @@ async function eventPicks(ctx: {
       // Google's chip must be shown with what its search found, so a search
       // without one shows nothing, and is kept an hour so it isn't paid for
       // again by every set (audit, 24 Nov 2026).
-      await saveEventsCache(db, key, found.searchHtml ? found.events : [], found.searchHtml, found.searchHtml ? (span === "tonight" ? 6 : 24) : 1);
+      // Only links that could be shown are kept (security audit, 24 Nov 2026:
+      // a redirect or a Google-hosted page reached the share allow-list).
+      await saveEventsCache(db, key, found.searchHtml ? found.events.filter((e) => isPage(e.url)) : [], found.searchHtml, found.searchHtml ? (span === "tonight" ? 6 : 24) : 1);
       return { intent, span, ...found };
       }),
     ),

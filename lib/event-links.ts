@@ -57,10 +57,12 @@ export function siteName(url: string) {
 }
 
 // A link a share page may open (founder, 24 Nov 2026: "trusted sites only"):
-// her guides and the known ticket and listing sites above, Instagram and
-// Google. Anything else on a share shows "Search it on Google" instead, so
+// her guides and the known ticket and listing sites above, and Instagram.
+// Anything else on a share shows "Search it on Google" instead, so
 // a link Gemini was steered into can never reach a friend.
 export function trustedEventLink(url: string) {
   const host = hostOf(url);
-  return /^https:\/\//.test(url) && (host in KNOWN || Object.keys(KNOWN).some((k) => host.endsWith(`.${k}`)) || host === "google.com" || host.endsWith(".google.com"));
+  // Never Google's own addresses: some redirect anywhere (security audit, 24
+  // Nov 2026). "Search it on Google" is built by the share page itself.
+  return /^https:\/\//.test(url) && (host in KNOWN || Object.keys(KNOWN).some((k) => host.endsWith(`.${k}`)));
 }

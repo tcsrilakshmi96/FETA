@@ -84,6 +84,23 @@ export default function Home() {
     window.addEventListener(SLOT_EVENT, on);
     return () => window.removeEventListener(SLOT_EVENT, on);
   }, []);
+  // At 5 pm (and 5 am) "Today" becomes "Tonight": a list made before is
+  // looked up again, as on every other screen (audit, 24 Nov 2026).
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      setSlots((s) => {
+        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !v.slotName || v.slotName === firstSlotName(v.timeZone)));
+        return Object.keys(keep).length === Object.keys(s).length ? s : keep;
+      });
+    };
+    document.addEventListener("visibilitychange", check);
+    const every = setInterval(check, 60000);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      clearInterval(every);
+    };
+  }, []);
   const [planOpen, setPlanOpen] = useState(false);
   const [wants, setWants] = useState<Want[]>(["food", "do"]);
   const [name, setName] = useState("");

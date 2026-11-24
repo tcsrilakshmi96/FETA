@@ -1036,7 +1036,8 @@ async function main() {
   {
     let sqlOk = true;
     try {
-      execFileSync("node", ["scripts/sql-check.mjs"], { stdio: "pipe" });
+      // No input (the parser waits on an open one), and never more than a minute.
+      execFileSync(process.execPath, ["scripts/sql-check.mjs"], { stdio: ["ignore", "pipe", "pipe"], timeout: 60000 });
     } catch (e) {
       sqlOk = false;
       console.log(String((e as { stdout?: Buffer }).stdout ?? "").trim());
@@ -1055,6 +1056,8 @@ async function main() {
       trustedEventLink("https://evil.example/login") && "an unknown site is trusted",
       trustedEventLink("https://bookmyshow.com.evil.example/x") && "a look-alike address is trusted",
       trustedEventLink("http://www.eventbrite.com/e/1") && "a plain http link is trusted",
+      trustedEventLink("https://vertexaisearch.cloud.google.com/grounding-api-redirect/x") && "a Google redirect is trusted",
+      trustedEventLink("https://sites.google.com/view/x") && "a Google-hosted page is trusted",
     ].filter(Boolean);
     if (linkFails.length) {
       failed++;
