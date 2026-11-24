@@ -103,7 +103,7 @@ $$;
 --    (security audit: a crafted name added a brand for everyone).
 alter table public.brand_styles add column if not exists added_by uuid references auth.users (id) on delete set null;
 alter table public.brand_styles drop constraint if exists brand_styles_found_by_check;
-alter table public.brand_styles add constraint brand_styles_found_by_check check (found_by in ('import', 'feta', 'lookup'));
+alter table public.brand_styles add constraint brand_styles_found_by_check check (found_by in ('import', 'feta', 'founder', 'people', 'lookup'));
 drop policy if exists "read brand styles" on public.brand_styles;
 create policy "read brand styles" on public.brand_styles for select to authenticated
   using ((review_status <> 'rejected' and (found_by <> 'lookup' or review_status = 'approved' or added_by = auth.uid())) or public.is_admin());
