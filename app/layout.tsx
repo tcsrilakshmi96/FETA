@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   // turning its light stage dark and dark words light).
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FFF3EE" },
+    { media: "(prefers-color-scheme: light)", color: "#FCEBDA" },
     { media: "(prefers-color-scheme: dark)", color: "#161213" },
   ],
 };

@@ -1,8 +1,9 @@
 /* Design tokens from design/README.md. Auto follows the phone; a later
    Appearance setting in You can force one by setting data-theme on <html>. */
 :root {
-  --bg: #fff3ee;
-  --bgRGB: 255, 243, 238;
+  /* Warm cream-orange, now that the glows are gone (founder, 24 Nov 2026). */
+  --bg: #fcebda;
+  --bgRGB: 252, 235, 218;
   --ink: #1a1616;
   --inkRGB: 26, 22, 22;
   --sheet: #ffffff;
@@ -95,21 +96,15 @@ button {
 }
 
 /* The app is a phone-width column; on wider screens it sits in the middle. */
-/* The haze (saffron, turquoise and rose glows) is painted once as soft
-   gradients. It used to be three blurred blobs drifting forever, which a
-   phone redraws every frame, and the blurred tab bar with them: taps and
-   scrolling lagged behind it (founder, 20 Nov 2026). */
+/* A plain background on every screen (founder, 24 Nov 2026: "lets remove
+   the green, pink, yellow blobs in the bg"). */
 .app {
   position: relative;
   max-width: 430px;
   height: 100dvh;
   margin: 0 auto;
   overflow: hidden;
-  background:
-    radial-gradient(circle at calc(100% - 30px) 90px, color-mix(in srgb, var(--saffron) 45%, transparent), transparent 250px),
-    radial-gradient(circle at 10px calc(100% - 220px), color-mix(in srgb, var(--turquoise) 32%, transparent), transparent 250px),
-    radial-gradient(circle at 60px 380px, color-mix(in srgb, var(--rose) 18%, transparent), transparent 200px),
-    var(--bg);
+  background: var(--bg);
 }
 
 @keyframes fa-kb {
@@ -249,29 +244,6 @@ button {
 /* Top-right Feedback pill, on every screen. */
 /* Tucked into the corner, so screens start near the top (founder, 21 Nov
    2026: "so much white space on the top"). */
-/* A slim tab on the right edge, in the gutter, so it never sits over a
-   heading or a card's label (persona re-test, 23 Nov 2026: at the top it
-   covered "Tonight, made for you" and Style's headers). */
-.feedback-pill {
-  position: absolute;
-  top: 58%;
-  right: 0;
-  z-index: 96;
-  padding: 10px 4px;
-  /* Rounded on the left once turned. */
-  border-radius: 0 10px 10px 0;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  background: rgba(26, 22, 22, 0.5);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: var(--onPhoto);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  opacity: 0.8;
-}
-
 .toast {
   position: absolute;
   left: 50%;

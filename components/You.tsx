@@ -1,5 +1,6 @@
 "use client";
 
+import { openFeedback } from "@/components/Feedback";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -403,6 +404,12 @@ export default function You() {
         </p>
 
         <InstallFeta />
+
+        {/* Feedback lives here and as a pop-up, not as a button on every screen (founder, 24 Nov 2026). */}
+        <button type="button" className={styles.settingsHead} onClick={openFeedback}>
+          <span>Send feedback</span>
+          <span className={styles.muted}>›</span>
+        </button>
 
         <button
           type="button"

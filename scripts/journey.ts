@@ -185,12 +185,14 @@ async function main() {
     await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
     await wait(3000);
     const home = await p.evaluate(() => document.body.innerText);
-    check(/Hi Journey/.test(home), "Home says hello by name");
+    // No greeting on Home since 24 Nov 2026: their initial is on the You button.
+    check(await p.evaluate(() => (document.querySelector("button[aria-label^='You']")?.textContent ?? "").trim().startsWith("J")), "Home's You button shows their initial");
+    check(/EAT/.test(home) && /DO/.test(home) && /WEAR/.test(home) && /TRIP/.test(home), "Home shows Eat, Do, Wear and Trip side by side");
     check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
 
     // Search (founder, 23 Nov 2026): the round button on Home moves nothing,
     // a search shows its own list, and a search never changes their taste.
-    const homeBefore = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=grid] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
+    const homeBefore = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=quad] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
     const searchBtn = await p.$("button[aria-label^='Search a place']");
     check(!!searchBtn, "Home has a Search button");
     const linesBefore = token ? ((await rest(token, "profile_lines?select=line_key")) as unknown[]).length : 0;
@@ -208,7 +210,7 @@ async function main() {
       check(linesAfter === linesBefore, "A search adds nothing to their taste", `${linesBefore} → ${linesAfter} lines`);
       await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
       await wait(2500);
-      const homeAfter = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=grid] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
+      const homeAfter = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=quad] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
       check(homeBefore > 0 && homeBefore === homeAfter, "Home's tiles sit where they did before the search", `${homeBefore} → ${homeAfter}`);
     }
 
@@ -246,7 +248,7 @@ async function main() {
     const korean = /Seoul Kitchen|Hansik Bowl/;
     const turnOn = expectedCuisines.find((l) => /korean/i.test(l) && !ticked.includes(l));
     const foodList = async () => {
-      await click(p, /^See all/);
+      await p.evaluate(() => (document.querySelector("button[aria-label^='Food and drinks']") as HTMLButtonElement | null)?.click());
       await p.waitForFunction(() => location.pathname === "/picks", { timeout: 15000 }).catch(() => null);
       await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
       await wait(1500);
@@ -276,9 +278,9 @@ async function main() {
       localStorage.setItem("feta.name", "Oldname");
     });
     await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
-    await p.waitForFunction(() => location.pathname === "/home" && /Hi /.test(document.body.innerText), { timeout: 30000 }).catch(() => null);
-    const mine = await p.evaluate(() => ({ text: document.body.innerText, owner: localStorage.getItem("feta.owner") }));
-    check(/Hi Journey/.test(mine.text) && !/Oldname/.test(mine.text) && mine.owner !== "someone-else", "Another account's things on the phone are cleared and this account's come back", mine.text.slice(0, 200));
+    await p.waitForFunction(() => location.pathname === "/home" && /EAT/.test(document.body.innerText), { timeout: 30000 }).catch(() => null);
+    const mine = await p.evaluate(() => ({ text: document.body.innerText, owner: localStorage.getItem("feta.owner"), name: localStorage.getItem("feta.name") }));
+    check(mine.name === "Journey" && mine.owner !== "someone-else", "Another account's things on the phone are cleared and this account's come back", JSON.stringify({ name: mine.name, owner: mine.owner }));
 
     // "Use my location" during setup goes on to the questions (founder,
     // 23 Nov 2026: it went straight to Home, so nothing was asked).

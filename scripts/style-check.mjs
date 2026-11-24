@@ -35,7 +35,7 @@ await p.evaluate((city) => { sessionStorage.setItem("feta.origin", JSON.stringif
 await p.goto(`${BASE}/home`, { waitUntil: "networkidle0" });
 await wait(2500);
 const home = await text();
-ok("Home (only Style chosen) leads with Style", /What to wear today/.test(home));
+ok("Home (only Style chosen) shows What to wear", /What to wear/.test(home));
 ok("Home doesn't search food or things to do", !/Finding your picks/.test(home) && /Tell Feta what you like/.test(home));
 
 // A · First time: the intro, then what they shop for, then the clothesline.

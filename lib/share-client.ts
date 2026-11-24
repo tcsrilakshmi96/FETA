@@ -1,5 +1,6 @@
 "use client";
 
+import { didSomething } from "@/components/Feedback";
 import { shareSafe } from "@/lib/share-safe";
 import { currentUserId, supabase } from "@/lib/supabase";
 
@@ -37,6 +38,7 @@ export async function createShare(kind: ShareKind, payload: SharePayload | Choic
     console.error("Creating share failed", error.message);
     return null;
   }
+  didSomething();
   return `${window.location.origin}/s/${data.slug}`;
 }
 

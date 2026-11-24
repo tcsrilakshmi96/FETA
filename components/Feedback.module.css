@@ -119,3 +119,27 @@
   letter-spacing: -0.03em;
   animation: var(--kf-up) 0.4s ease-out;
 }
+
+/* "How's Feta so far?": five faces, one tap. */
+.faces {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.faces button {
+  aspect-ratio: 1;
+  border-radius: 16px;
+  background: rgba(var(--inkRGB), 0.06);
+  font-size: 24px;
+  transition: transform 0.2s var(--ease-press);
+}
+.faces button:active { transform: scale(0.92); }
+.faces .faceOn { background: var(--saffron); }
+
+.form {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--roseText);
+  text-align: center;
+  padding: 4px 0;
+}

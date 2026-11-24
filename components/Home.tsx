@@ -1,7 +1,7 @@
 "use client";
 
 import { firstSlotName } from "@/lib/slot-label";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import CheckIn from "@/components/CheckIn";
@@ -12,26 +12,22 @@ import FetaStar from "@/components/FetaStar";
 import RepliesPill from "@/components/RepliesPill";
 import FirstTime from "@/components/FirstTime";
 import IphoneInstall from "@/components/IphoneInstall";
+import PlanSheet from "@/components/PlanSheet";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
-import { openFeedback } from "@/components/Feedback";
 import PickPhoto from "@/components/PickPhoto";
-import PlanSheet from "@/components/PlanSheet";
 import SaveTaste from "@/components/SaveTaste";
 import TabBar from "@/components/TabBar";
 import TesterForm from "@/components/TesterForm";
-import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
 import type { PillPart } from "@/components/TopPill";
 import { formatDistance } from "@/lib/cities";
-import { nearMeIfAllowed, newCityName } from "@/lib/near-me";
+import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { keepSlot, keptSlots, loadSlot, nextPicks, slotKey, type Slot, SLOT_EVENT } from "@/lib/picks-store";
-import { clock, planEvenings } from "@/lib/plan";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { tonightPlan, type TonightPlan } from "@/lib/style-client";
-import ThemeToggle from "@/components/ThemeToggle";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
 
@@ -101,7 +97,6 @@ export default function Home() {
       clearInterval(every);
     };
   }, []);
-  const [planOpen, setPlanOpen] = useState(false);
   // Unknown until read from the phone: nothing is searched before (user
   // test, 24 Nov 2026: someone who chose only Style paid for two searches,
   // made while Home still assumed food and things to do).
@@ -109,6 +104,7 @@ export default function Home() {
   const wants = readWants ?? [];
   const [name, setName] = useState("");
   const [moodOpen, setMoodOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(false); // Plan my evening, from Choose for me's "What's after?"
   const [mood, setMood] = useState<Mood | null>(null); // Choose for me's answer is open
   const [going, setGoing] = useState<Pick | null>(null);
   const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you", from the star
@@ -154,12 +150,6 @@ export default function Home() {
   // Only from places they asked for: picks kept on the phone from before
   // (another account, or food they no longer want) never make a plan
   // (founder, 20 Nov 2026: "it has set up a random plan which I never set").
-  const planFood = wants.includes("food") ? food : undefined;
-  const planDo = wants.includes("do") ? exp : undefined;
-  const plans = useMemo(
-    () => ((planFood || planDo) && !planFood?.loading && !planDo?.loading ? planEvenings(planFood?.picks ?? [], planDo?.picks ?? [], when) : []),
-    [planFood, planDo, when],
-  );
   // What to wear only for a plan they chose (opened in Plan my evening or
   // saved for today), never this suggestion (founder, 21 Nov 2026).
   const [chosenPlan, setChosenPlan] = useState<TonightPlan | null>(null);
@@ -178,16 +168,12 @@ export default function Home() {
   const city = origin.city;
   const day = cityDay(city.timeZone);
   // On a Saturday or Sunday morning the weekend tab is about today.
-  const today = when === "weekend" && day.weekend && day.hour < 16;
   // Just arrived in a new city: the first evening there.
-  const arrived = when === "tonight" && newCityName() === city.name;
   const where = (p: Pick) => [p.rating ? `★ ${p.rating.toFixed(1)}` : null, p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
-  const plan = plans[0];
   const leadSlot = lead === "food_drinks" ? food : exp;
   const nothingYet = !leadSlot || leadSlot.loading;
   // Only Style (or a trip) chosen: Style leads, places wait until asked for.
   const noPlaces = !wantsFood && !wantsDo;
-  const styleLeads = noPlaces && wants.includes("style");
 
   function open(c: Category) {
     const asked = c === "food_drinks" ? wantsFood : wantsDo;
@@ -233,33 +219,34 @@ export default function Home() {
     router.push(`/picks?c=${category}${when === "weekend" ? "&w=weekend" : ""}`);
   }
 
-  function cover(c: Category, slot: Slot | undefined, wide: boolean) {
+  // Home is four equal squares: Eat, Do, Wear, Trip (founder, 24 Nov 2026:
+  // "one category shouldn't overpower the other"; option F). No mascots on
+  // Home's tiles; the cheese stays in Choose for me and Ask Feta.
+  function cover(c: Category, slot: Slot | undefined) {
     const top = slot?.picks[0];
-    const label = c === "food_drinks" ? "FOOD & DRINKS" : "THINGS TO DO";
+    const label = c === "food_drinks" ? "EAT" : "DO";
+    const tone = c === "food_drinks" ? styles.kEat : styles.kDo;
     const badge = top ? eventBadge(top, city.timeZone) : null;
     return (
-      <button type="button" className={`${styles.tile} ${styles.cover} ${wide ? styles.lead : styles.second}`} onClick={() => open(c)} aria-label={`${label.toLowerCase()}: see all`}>
+      <button type="button" className={`${styles.square} ${styles.cover}`} onClick={() => open(c)} aria-label={`${c === "food_drinks" ? "Food and drinks" : "Things to do"}: see all`}>
         {!slot || slot.loading ? (
           <>
             <span className={styles.shimmer} />
             <span className={styles.coverText}>
-              <Mascot pose="walk" size={wide ? 72 : 56} />
-              <span className={styles.kick}>{label}</span>
-              {wide ? <WaitFun kind="picks" compact /> : <span className={styles.loadingText}>Finding your picks…</span>}
+              <span className={`${styles.kick} ${tone}`}>{label}</span>
+              <span className={styles.loadingText}>Finding your picks…</span>
             </span>
           </>
         ) : !top ? (
           <span className={styles.coverText} style={{ color: "var(--ink)" }}>
-            <Mascot pose={slot.failed ? "melt" : "sorry"} size={wide ? 72 : 56} />
-            <span className={styles.kick} style={{ color: "var(--roseText)" }}>{label}</span>
-            <span className={styles.coverName}>{slot.failed ? "Feta melted. Try again" : "Nothing fits right now"}</span>
+            <span className={`${styles.kick} ${tone}`}>{label}</span>
+            <span className={styles.coverName}>{slot.failed ? "Couldn't load" : "Nothing fits right now"}</span>
             <span className={styles.coverSub}>Tap to see why</span>
           </span>
         ) : (
           <>
             <PickPhoto photo={top.photo} className="kenburns" />
             <span className={styles.shade} />
-            <span className={styles.count}>See all ›</span>
             {badge && (
               <span className={styles.date}>
                 {badge.day}
@@ -268,12 +255,9 @@ export default function Home() {
               </span>
             )}
             <span className={styles.coverText}>
-              <span className={styles.kick}>
-                {label}
-                {wide && top.fetaNote !== undefined ? " · ★ FETA PICK" : ""}
-              </span>
+              <span className={`${styles.kick} ${tone}`}>{label}</span>
               <span className={styles.coverName}>{top.name}</span>
-              {wide && <span className={styles.coverSub}>{where(top)}</span>}
+              <span className={styles.coverSub}>{top.fetaNote !== undefined ? "★ Feta Pick" : top.event ? top.chips[0] ?? where(top) : where(top)}</span>
             </span>
           </>
         )}
@@ -281,16 +265,14 @@ export default function Home() {
     );
   }
 
-  // A category they didn't choose: its questions first, no picks yet. The
-  // same photo as its tile in setup (audit, 20 Nov 2026: it was a blank card).
-  function askTile(c: Category, className: string) {
+  function askTile(c: Category) {
     const want = WANTS.find((w) => w.id === (c === "food_drinks" ? "food" : "do"))!;
     return (
-      <button type="button" className={`${styles.tile} ${styles.cover} ${className}`} onClick={() => open(c)}>
+      <button type="button" className={`${styles.square} ${styles.cover}`} onClick={() => open(c)}>
         <Image src={want.image!} alt="" fill sizes="(max-width: 430px) 50vw, 215px" className="kenburns" />
         <span className={styles.shade} />
         <span className={styles.coverText}>
-          <span className={styles.kick}>{c === "food_drinks" ? "FOOD & DRINKS" : "THINGS TO DO"}</span>
+          <span className={`${styles.kick} ${c === "food_drinks" ? styles.kEat : styles.kDo}`}>{c === "food_drinks" ? "EAT" : "DO"}</span>
           <span className={styles.coverName}>{want.label}</span>
           <span className={styles.coverSub}>Tell Feta what you like ›</span>
         </span>
@@ -310,18 +292,9 @@ export default function Home() {
               <button type="button" className={styles.area} onClick={() => router.push("/location")}>
                 {areaLabel.toUpperCase()} ▾
               </button>
+              <span className={styles.beta}>BETA</span>
             </span>
             <span className={styles.buttons}>
-              {/* Search (founder, 23 Nov 2026): a round button like You, so nothing on Home moves. */}
-              <button type="button" className="labelled" onClick={() => router.push("/search")} aria-label="Search a place, an activity or a piece">
-                <span className={styles.acct}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-4-4" />
-                  </svg>
-                </span>
-                <small aria-hidden="true">Search</small>
-              </button>
               <FetaStar cityId={city.id} cityName={city.name} onOpen={() => setFetaOpen(true)} />
               <button type="button" className="labelled" onClick={() => router.push("/you")} aria-label="You: your preferences and account">
                 <span className={styles.acct}>{name ? name[0].toUpperCase() : "◯"}</span>
@@ -329,51 +302,24 @@ export default function Home() {
               </button>
             </span>
           </div>
-          <h1 className={styles.mast}>
-            {arrived ? (
-              <>
-                First night in {city.name}, <i key={when}>sorted.</i>
-              </>
-            ) : (
-              <>
-                {today ? "Today" : when === "tonight" ? firstSlotName(city.timeZone) : "This weekend"}, <i key={when}>made for you.</i>
-              </>
-            )}
-          </h1>
-          {/* Light or dark from Home (founder, 21 Nov 2026), the same setting as in You. */}
-          <div className={styles.helloRow}>
-            <span className={styles.helloLeft}>
-              {name ? (
-                <p className={styles.hello}>
-                  Hi {name}!<span className={styles.beta}>BETA</span>
-                </p>
-              ) : null}
-              <button type="button" className={styles.feedback} onClick={openFeedback} data-no-capture>
-                Feedback
-              </button>
-            </span>
-            <ThemeToggle />
-          </div>
-          <IphoneInstall />
-          {/* Choose for me sits beside Tonight · This weekend, small, so the
-              tiles below (Things to do, Style) are on screen without
-              scrolling (founder, 23 Nov 2026: "can't see style and todos"). */}
+
+          {/* One search bar (founder, 24 Nov 2026), in place of the round button. */}
+          <button type="button" className={styles.searchBar} onClick={() => router.push("/search")} aria-label="Search a place, an activity or a piece">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-4-4" />
+            </svg>
+            <span>Search a place, a class or a piece…</span>
+          </button>
+
           <div className={styles.whenRow}>
             <div className={styles.seg} role="tablist" aria-label="When">
               {(["tonight", "weekend"] as const).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  role="tab"
-                  aria-selected={when === w}
-                  className={when === w ? styles.segOn : ""}
-                  onClick={() => setWhen(w)}
-                >
+                <button key={w} type="button" role="tab" aria-selected={when === w} className={when === w ? styles.segOn : ""} onClick={() => setWhen(w)}>
                   {w === "tonight" ? firstSlotName(city.timeZone) : "This weekend"}
                 </button>
               ))}
             </div>
-
             {!noPlaces && (
               <button type="button" className={styles.choose} onClick={() => setMoodOpen(true)} disabled={nothingYet} aria-label={nothingYet ? "Choose for me: finding places first" : `Choose for me: one answer for ${when === "tonight" ? firstSlotName(city.timeZone).toLowerCase() : "this weekend"}`}>
                 <Mascot pose={late ? "sleep" : "think"} size={30} className={styles.cheese} />
@@ -382,75 +328,36 @@ export default function Home() {
             )}
           </div>
 
-          <div className={styles.grid} key={when}>
-            {styleLeads ? (
-              // Today's chosen look once there is one (founder, 22 Nov 2026).
-              <WearCard
-                tile
-                big
-                className={`${styles.tile} ${styles.style} ${styles.styleLead}`}
-                plan={chosenPlan}
-                fallback={
-                  <button type="button" className={`${styles.tile} ${styles.style} ${styles.styleLead}`} onClick={() => router.push("/style")}>
-                    <span className={styles.kick}>STYLE · BETA</span>
-                    <span className={styles.tileTitle}>What to wear today</span>
-                    <Mascot prop="shades" size={84} className={styles.tileCheese} />
-                    <span className={styles.tileSub}>And brands for your style ›</span>
-                  </button>
-                }
-              />
-            ) : (
-              cover(lead, leadSlot, true)
-            )}
-            {noPlaces ? (
-              <>
-                {askTile("food_drinks", styles.second)}
-                {askTile("experiences", styles.planArea)}
-              </>
-            ) : (lead === "food_drinks" ? wantsDo : wantsFood) ? (
-              cover(lead === "food_drinks" ? "experiences" : "food_drinks", lead === "food_drinks" ? exp : food, false)
-            ) : (
-              askTile(lead === "food_drinks" ? "experiences" : "food_drinks", styles.second)
-            )}
-
-            {/* Always Plan my evening (testers: a weekend-morning "Plan my whole
-                day" jumped to chat, and Plan my evening seemed missing). */}
-            {!noPlaces && (
-              <button type="button" className={`${styles.tile} ${styles.plan}`} onClick={() => setPlanOpen(true)}>
-                <span className={styles.kick}>✦ {arrived ? "YOUR FIRST EVENING" : "PLAN MY EVENING"}</span>
-                <span className={styles.tileTitle}>
-                  {plan
-                    ? // Names both places (traveller, 23 Nov 2026: "Dinner 7:30, then Jam Club" didn't say where dinner was).
-                      `${plan.stops[0].pick.name} ${clock(plan.stops[0].time).replace(/ ?[ap]m/i, "")}, then ${plan.stops[1].pick.name}`
-                    : wantsFood ? "Dinner and something nearby" : "Two things to do nearby"}
-                </span>
-                <span className={styles.tileSub}>{plans.length > 1 ? `${plans.length} plans ›` : "Plan it ›"}</span>
-              </button>
-            )}
-
-            {!styleLeads &&
-              (() => {
-                const plain = (
-                  <button type="button" className={`${styles.tile} ${styles.style}`} onClick={() => router.push("/style")}>
-                    <span className={styles.kick}>STYLE · BETA</span>
-                    <span className={styles.tileTitle}>Looks for your plans</span>
-                    <Mascot prop="shades" size={44} className={styles.tileCheese} />
-                    <span className={styles.tileSub}>Have a look ›</span>
-                  </button>
-                );
-                // Today's chosen look, or What to wear for the plan they chose;
-                // the plain tile otherwise, or for someone without Style.
-                return <WearCard tile className={`${styles.tile} ${styles.style}`} plan={chosenPlan} fallback={plain} />;
-              })()}
+          <div className={styles.quad} key={when}>
+            {wantsFood ? cover("food_drinks", food) : askTile("food_drinks")}
+            {wantsDo ? cover("experiences", exp) : askTile("experiences")}
+            {(() => {
+              const plain = (
+                <button type="button" className={`${styles.square} ${styles.cover}`} onClick={() => router.push("/style")}>
+                  <Image src="/swipes/style.jpg" alt="" fill sizes="(max-width: 430px) 50vw, 215px" className="kenburns" />
+                  <span className={styles.shade} />
+                  <span className={styles.coverText}>
+                    <span className={`${styles.kick} ${styles.kWear}`}>WEAR</span>
+                    <span className={styles.coverName}>What to wear</span>
+                    <span className={styles.coverSub}>Looks and brands ›</span>
+                  </span>
+                </button>
+              );
+              // Today's chosen look, or What to wear for the plan they chose.
+              return <WearCard tile className={`${styles.square} ${styles.wearSquare}`} plan={chosenPlan} fallback={plain} />;
+            })()}
+            {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}
+            <button type="button" className={`${styles.square} ${styles.cover}`} onClick={() => router.push(`/ask?q=${encodeURIComponent("Plan a trip for me")}`)}>
+              <Image src="/swipes/trip.jpg" alt="" fill sizes="(max-width: 430px) 50vw, 215px" className="kenburns" />
+              <span className={styles.shade} />
+              <span className={styles.coverText}>
+                <span className={`${styles.kick} ${styles.kTrip}`}>TRIP</span>
+                <span className={styles.coverName}>Plan a trip</span>
+                <span className={styles.coverSub}>Day by day ›</span>
+              </span>
+            </button>
           </div>
-
-          {/* Always there: trips are part of what Feta is (founder, 14 Nov 2026). */}
-          <button type="button" className={`${styles.tile} ${styles.trip}`} onClick={() => router.push(`/ask?q=${encodeURIComponent("Plan a trip for me")}`)}>
-            <span className={styles.kick}>✈ PLAN A TRIP</span>
-            <span className={styles.tileTitle}>Where to next? Feta plans it day by day</span>
-            <span className={styles.tileSub}>Start a trip ›</span>
-            <Mascot pose="walk" prop="suitcase" size={84} className={styles.tripCheese} />
-          </button>
+          <IphoneInstall />
         </div>
       </main>
       <CheckIn />
@@ -459,9 +366,6 @@ export default function Home() {
       <SaveTaste ready={noPlaces || (!!leadSlot && !leadSlot.loading)} places={!noPlaces} onRestored={() => window.location.reload()} />
       <TabBar active="home" />
       <CheesePull scroller={scroller} onRefresh={freshSet} enabled={!nothingYet} />
-      {planOpen && (
-        <PlanSheet when={when} cityId={city.id} loading={(!planFood && !planDo) || !!planFood?.loading || !!planDo?.loading} food={planFood?.picks ?? []} experiences={planDo?.picks ?? []} onClose={() => setPlanOpen(false)} />
-      )}
       {moodOpen && (
         <>
           <div className={sheet.dim} onClick={() => setMoodOpen(false)} />
@@ -511,6 +415,9 @@ export default function Home() {
             setPlanOpen(true);
           }}
         />
+      )}
+      {planOpen && (
+        <PlanSheet when={when} cityId={city.id} loading={!!food?.loading || !!exp?.loading} food={wantsFood ? (food?.picks ?? []) : []} experiences={wantsDo ? (exp?.picks ?? []) : []} onClose={() => setPlanOpen(false)} />
       )}
       {fetaOpen && <FetaPicksSheet origin={origin} when={when} onClose={() => setFetaOpen(false)} />}
       {firstTime && <FirstTime want={firstTime} onClose={() => setFirstTime(null)} onDone={() => firstTimeDone(firstTime)} />}

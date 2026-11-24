@@ -1,5 +1,6 @@
 "use client";
 
+import { didSomething } from "@/components/Feedback";
 import type { City } from "@/lib/cities";
 import type { NightPlace } from "@/lib/night-plan";
 import { currentUserId, supabase } from "@/lib/supabase";
@@ -60,6 +61,7 @@ export async function savePlan(plan: { id?: string; day: string; startMinute: nu
   const db = supabase().from("saved_plans");
   const { data, error } = plan.id ? await db.update(row).eq("id", plan.id).select("id").single() : await db.insert(row).select("id").single();
   if (error) console.error("Saving plan failed", error.message);
+  else didSomething();
   return data?.id ?? null;
 }
 

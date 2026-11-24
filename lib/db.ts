@@ -1,5 +1,6 @@
 "use client";
 
+import { didSomething } from "@/components/Feedback";
 import { loadCity, saveCity, type City } from "@/lib/cities";
 import { forgetLists } from "@/lib/lists-client";
 import { saveAnswers, withSpendRange, type Answers } from "@/lib/onboarding";
@@ -189,6 +190,7 @@ export function savePickAction(
     };
     const upsert = (r: object) => supabase().from("pick_actions").upsert(r, { onConflict: "user_id,place_id,action" });
     const result = await upsert(extra.because ? { ...row, because: extra.because } : row);
+    if (!result.error && action !== "skipped") didSomething();
     // Before the "because" column exists, save without it.
     return result.error?.message.includes("because") ? upsert(row) : result;
   });
