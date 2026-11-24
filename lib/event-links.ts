@@ -76,7 +76,7 @@ export function trustedEventLink(url: string) {
   if (!/^https:\/\//.test(url) || carriesLink(url)) return false;
   let raw = "";
   try {
-    raw = new URL(url).hostname;
+    raw = new URL(url).hostname.replace(/\.$/, "");
   } catch {
     return false;
   }
@@ -84,13 +84,19 @@ export function trustedEventLink(url: string) {
   return host in KNOWN || GUIDES.has(host);
 }
 
-// A link with another address inside it ("?u=https://…"), plainly or encoded.
+// A link with another address inside it ("?u=https://…", "/out/https://…"),
+// plainly or encoded however many times; a bad encoding counts as one.
 export function carriesLink(url: string) {
-  const at = url.indexOf("?");
-  const rest = at < 0 ? "" : url.slice(at);
-  let decoded = rest;
-  try {
-    decoded = decodeURIComponent(rest);
-  } catch {}
-  return /https?:|\/\/|www\./i.test(decoded);
+  const after = url.replace(/^https?:\/\/[^/?#]*/i, "");
+  let text = after;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const next = decodeURIComponent(text);
+      if (next === text) break;
+      text = next;
+    } catch {
+      return true;
+    }
+  }
+  return /https?:|\/\/|\\|www\.|%[0-9a-f]{2}|=[a-z0-9-]+\.[a-z]{2,}(\/|$|&)/i.test(text);
 }

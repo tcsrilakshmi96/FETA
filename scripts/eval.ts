@@ -1063,6 +1063,11 @@ async function main() {
       !trustedEventLink("https://www.eventbrite.com/e/comedy-night-123") && "an Eventbrite event isn't trusted",
       !trustedEventLink("https://www.blogto.com/events/comedy-night/") && "one of her guides (BlogTO) isn't trusted",
       trustedEventLink("https://evil.blogto.com/x") && "a subdomain of a guide is trusted",
+      trustedEventLink("https://www.eventbrite.com/out/https://evil.example") && "a redirect path is trusted",
+      trustedEventLink("https://www.eventbrite.com/x?x=%&u=https%3A%2F%2Fevil") && "a bad encoding hides a link",
+      trustedEventLink("https://www.eventbrite.com/x?u=%2568ttps%253A%252F%252Fevil.example") && "a double-encoded link is trusted",
+      trustedEventLink("https://www.eventbrite.com/x?next=evil.example") && "a bare address in a link is trusted",
+      !trustedEventLink("https://www.eventbrite.com/e/comedy-night-123?aff=feta&ref=home") && "an ordinary event link with a tracking tag isn't trusted",
     ].filter(Boolean);
     if (linkFails.length) {
       failed++;
