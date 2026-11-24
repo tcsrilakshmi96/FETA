@@ -42,6 +42,7 @@ export function changingTaste<T>(write: PromiseLike<T>): Promise<T> {
 
 export function forgetPicks() {
   kept = null;
+  shownBefore.clear();
   tasteVersion++;
   inflight.clear();
   forgetFetaPicks();
@@ -137,10 +138,19 @@ export function keepSlot(key: string, slot: Slot) {
 // set, on the picks list and on Home.
 export const SHOW = 8;
 
+// Every place a list has shown on this phone (this session), so the next
+// places never go round the same backup again (audit, 24 Nov 2026: pulling
+// down alternated between two batches, about ₹14 a pull).
+const shownBefore = new Map<string, Set<string>>();
+
 // A search's next places are more of the same search (search).
 export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category, search?: Ask): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
+  const listKey = `${slotKey(origin, when, category)}|${search?.note ?? ""}|${(search?.tweaks ?? []).join(",")}`;
+  const seen = shownBefore.get(listKey) ?? new Set<string>();
+  for (const p of slot.picks) seen.add(p.placeId);
+  shownBefore.set(listKey, seen);
   if (slot.spares.length > 0) return { fresh: slot.spares.slice(0, SHOW), spares: slot.spares.slice(SHOW) };
-  const reply = await fetchPicks(category, when, origin, true, search, { shown: [...slot.picks.map((p) => p.placeId), ...slot.saved] });
+  const reply = await fetchPicks(category, when, origin, true, search, { shown: [...seen, ...slot.saved].slice(-200) });
   return {
     fresh: (reply.picks ?? []).filter((p) => !slot.picks.some((q) => q.placeId === p.placeId)),
     spares: (reply.spares ?? []),

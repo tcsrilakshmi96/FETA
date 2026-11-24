@@ -183,7 +183,10 @@ export function setLookFor(f: LookFor | null) {
 export function chosenLookFor(): LookFor | null {
   try {
     const kept = JSON.parse(localStorage.getItem(CHOSEN_FOR) ?? "null") as { f: LookFor; day: string } | null;
-    return kept && kept.day === cityDay() ? kept.f : null;
+    if (kept && kept.day === cityDay()) return kept.f;
+    // Gone once the day is over: it can hold place names (audit, 24 Nov 2026).
+    if (kept) localStorage.removeItem(CHOSEN_FOR);
+    return null;
   } catch {
     return null;
   }
@@ -211,11 +214,18 @@ export async function tonightPlan(): Promise<TonightPlan | null> {
   // Today in their city, as the rest of Style (audit, 24 Nov 2026).
   const today = cityDay();
   const plan = (await loadPlans()).find((p) => p.day === today);
-  if (!plan) return null;
+  if (!plan) {
+    try {
+      localStorage.removeItem(TONIGHT);
+    } catch {}
+    return null;
+  }
   const key = `${today}|${plan.startMinute}|${plan.placeIds.join(",")}`;
   try {
     const kept = JSON.parse(localStorage.getItem(TONIGHT) ?? "null") as { key: string; at: number; plan: TonightPlan } | null;
     if (kept?.key === key && Date.now() - kept.at < 3600 * 1000) return kept.plan;
+    // Place names are never kept past the hour (audit, 24 Nov 2026).
+    if (kept) localStorage.removeItem(TONIGHT);
   } catch {}
   const made = await readTonight(plan);
   try {

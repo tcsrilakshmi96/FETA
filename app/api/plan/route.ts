@@ -36,7 +36,8 @@ export async function POST(request: Request) {
   const run = (category: "experiences" | "food_drinks", note?: string) =>
     withCosts(db, "plan", () => {
       askIs({ key: [category, when, body.near?.placeId ?? origin.areaId, note ?? ""], label: `${note ? "after dinner" : category === "food_drinks" ? "dinner" : "something to do"} · ${when} · ${city.name}` });
-      return runPicks(token, { category, when, origin, reach: "walk", searches: 2, ...(note ? { note, only: "asked" } : {}) });
+      // The evening, even when planned by day (audit, 24 Nov 2026).
+      return runPicks(token, { category, when, origin, reach: "walk", searches: 2, evening: when === "tonight", ...(note ? { note, only: "asked" } : {}) });
     })
       .then((res) => res.json() as Promise<{ picks?: Pick[] }>)
       .then((r) => (r.picks ?? []).filter((p) => !exclude.has(p.placeId)).slice(0, 2))

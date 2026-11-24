@@ -41,9 +41,16 @@ export default function AdminHealth() {
   }, []);
 
   const down = gemini && gemini.gemini !== "ok";
-  if (!missing?.length && !down) return null;
+  const noWrites = gemini?.writes === "failing";
+  if (!missing?.length && !down && !noWrites) return null;
   return (
     <>
+      {noWrites && (
+        <div className={styles.health} role="alert">
+          <strong>Feta can&apos;t write its cost log</strong>
+          <span>Spending isn&apos;t being recorded, so the daily limits can&apos;t stop it. In Vercel → Settings → Environment Variables, FETA_WRITE_KEY must match the one in .env.local (Claude can copy it to your clipboard), then redeploy.</span>
+        </div>
+      )}
       {down && (
         <div className={styles.health} role="alert">
           <strong>{gemini.gemini === "no_credit" ? "Gemini has run out of credit" : "Gemini isn’t answering"}</strong>

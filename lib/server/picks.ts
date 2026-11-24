@@ -413,7 +413,7 @@ export function emptyDrops(): DropCounts {
 // Google are usually cheap (founder's decision). Diet: dietOk. Unknown hours
 // fail. foodDrinkOk: a bar or café that Experiences keeps because it is the
 // thing to do (karaoke, a rooftop, board games).
-export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
+export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; evening?: boolean; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
 
 export function applyHardFilters(places: Place[], opts: FilterOpts, drops: DropCounts = emptyDrops()): Candidate[] {
   const out: Candidate[] = [];
@@ -464,7 +464,7 @@ export function rulesBroken(place: Place, opts: FilterOpts): Broken[] {
       ? place.regularOpeningHours?.periods?.length
         ? !openFor(place, opts.at.weekday, opts.at.start, opts.at.minutes)
         : opts.category === "food_drinks"
-      : (opts.when === "tonight" && !openTonight(place, opts.city)) ||
+      : (opts.when === "tonight" && !openTonight(place, opts.city, opts.evening)) ||
         (opts.when === "weekend" && !opensOnWeekend(place)) ||
         (opts.taste.openLate && opts.when === "tonight" && !opensLate(place, opts.city)))
   )
@@ -482,7 +482,7 @@ export function spendUpperBound(answers: Answers, city: City): number | null {
 // The first slot follows the city's own clock (founder, 24 Nov 2026: "what
 // if someone wants to go for breakfast or lunch?"; it meant 7 to 10 pm all
 // day, so a morning in San Francisco found no museum or park). From 5 pm to
-// 3 am it's "Tonight": open now. Earlier it's "Today": open for at least an
+// 5 am it's "Tonight": open now. Earlier it's "Today": open for at least an
 // hour in the next 5 hours (breakfast at 8, a museum at 10, lunch at noon).
 // The value stays "tonight" in code and in stored sets.
 const AHEAD = 5 * 60;
@@ -499,7 +499,9 @@ function cityNow(city: City) {
 
 export function tonightMeansNow(city: City) {
   const { minutes } = cityNow(city);
-  return minutes >= 17 * 60 || minutes < 3 * 60;
+  // Until 5 am it's still the night (audit, 24 Nov 2026: from 3 am "Today"
+  // looked at 3 to 8 am, when almost nothing is open).
+  return minutes >= 17 * 60 || minutes < 5 * 60;
 }
 
 // Today's opening period that covers at least an hour of the next 5 hours
@@ -519,9 +521,19 @@ export function slotWord(when: When, city: City) {
   return when === "weekend" ? "this weekend" : tonightMeansNow(city) ? "tonight" : "today";
 }
 
-// Open in the first slot: now, in the evening; in the next few hours, by day.
-export function openTonight(place: Place, city: City) {
-  return tonightMeansNow(city) ? place.currentOpeningHours?.openNow === true : hoursAhead(place, city) !== null;
+// Open in the first slot: now, in the evening; in the next few hours, by
+// day. evening: an ask that means this evening even by day ("dinner
+// tonight" in Ask Feta, Plan my evening): open an hour between 7 and 10 pm.
+// By day, a place Google has no hours for (a park, a trail) counts as open.
+const EVENING = [19 * 60, 22 * 60];
+export function openTonight(place: Place, city: City, evening = false) {
+  if (tonightMeansNow(city)) return place.currentOpeningHours?.openNow === true;
+  const week = weeklyHours(place);
+  if (evening) {
+    const { day } = cityNow(city);
+    return (week ?? []).some(([d, open, close]) => d === day && Math.min(close, EVENING[1]) - Math.max(open, EVENING[0]) >= 60);
+  }
+  return !week || hoursAhead(place, city) !== null;
 }
 
 // "Open later": still open at 11 pm tonight (an evening wish; by day it doesn't apply).

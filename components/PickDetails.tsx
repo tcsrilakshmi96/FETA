@@ -1,6 +1,5 @@
 "use client";
 
-import { safeChip } from "@/lib/chip-html";
 import PickPhoto from "@/components/PickPhoto";
 import { logEvent } from "@/lib/db";
 import { useEffect, useState } from "react";
@@ -270,7 +269,17 @@ export function SearchChip({ html, found = "events" }: { html: string; found?: "
   return (
     <div className={styles.searchWrap}>
       <span className={styles.searchLabel}>{found === "events" ? "Events" : "City guides"} found with Google Search:</span>
-      <div className={styles.searchChip} dangerouslySetInnerHTML={{ __html: safeChip(html) }} />
+      {/* In a sealed frame: shown exactly as Google gives it, and nothing in
+          it can run (security audit, 24 Nov 2026: it comes from the shared
+          events cache, so a planted chip would have run on every phone).
+          Its links open in a new tab. */}
+      <iframe
+        className={styles.searchChip}
+        title="Google Search suggestions"
+        sandbox="allow-popups allow-popups-to-escape-sandbox"
+        referrerPolicy="no-referrer"
+        srcDoc={`<!doctype html><meta charset="utf-8"><base target="_blank"><style>html,body{margin:0;background:transparent}</style>${html}`}
+      />
     </div>
   );
 }

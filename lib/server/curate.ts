@@ -59,6 +59,7 @@ export type CurateInput = {
   dayPlan?: boolean; // a day out or a trip city: sights and meals, any hours (itinerary.ts checks them)
   searches?: number; // Google searches this set may run (default MAX_SEARCHES; Surprise me runs 1)
   at?: At; // a day and time asked for in chat, checked instead of tonight or the weekend
+  evening?: boolean; // means this evening even by day (Ask Feta's "tonight", Plan my evening)
   // From the Search screen (founder, 23 Nov 2026): what they typed is searched
   // as typed, and a place whose name they typed always shows, first, with
   // the rules it breaks on its card (named).
@@ -149,6 +150,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     city,
     anyHours: input.dayPlan,
     at: input.at,
+    evening: input.evening,
     foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
     untypedOk: (p) => matched(p).length > 0,
     reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),

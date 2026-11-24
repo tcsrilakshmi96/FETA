@@ -1,6 +1,6 @@
 "use client";
 
-import { safeChip } from "@/lib/chip-html";
+import { SearchChip } from "@/components/PickDetails";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
@@ -131,7 +131,7 @@ export default function Ask() {
                   </p>
                 )}
                 {m.reply.picks.find((p) => p.event)?.event?.searchHtml && (
-                  <div dangerouslySetInnerHTML={{ __html: safeChip(m.reply.picks.find((p) => p.event)!.event!.searchHtml) }} />
+                  <SearchChip html={m.reply.picks.find((p) => p.event)!.event!.searchHtml} />
                 )}
               </>
             )}

@@ -209,7 +209,8 @@ export async function withCosts<T>(db: SupabaseClient | null, route: string, wor
       const ask = store.ask;
       const hit = {
         route,
-        fingerprint: ask ? createHash("sha1").update(`${route}|${JSON.stringify(ask.key)}`).digest("hex").slice(0, 20) : null,
+        // Keyed with the server's secret, so what was asked can't be guessed back (security audit, 24 Nov 2026).
+        fingerprint: ask ? createHash("sha256").update(`${serverWriteKey()}|${route}|${JSON.stringify(ask.key)}`).digest("hex").slice(0, 20) : null,
         label: ask?.label?.slice(0, 80) ?? null,
         cost_inr: Math.min(total, 99999),
         services: Object.fromEntries(rows.map((r) => [r.sku, r.units])),
@@ -305,8 +306,8 @@ export async function librarySpentToday(db: SupabaseClient): Promise<number> {
 // that migration runs, the old direct writes still work.
 // The key the database checks for writes only Feta's server makes. Its own
 // key since 24 Nov 2026 (security audit: the n8n report key could write
-// too); the report key until FETA_WRITE_KEY is set.
-export const serverWriteKey = () => process.env.FETA_WRITE_KEY ?? process.env.USAGE_REPORT_KEY ?? "";
+// too). Admin's health box says so when it doesn't work.
+export const serverWriteKey = () => process.env.FETA_WRITE_KEY ?? "";
 const SERVER_KEY = serverWriteKey;
 const notThereYet = (message?: string) => !!message && /could not find the function|does not exist|schema cache/i.test(message);
 

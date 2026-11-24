@@ -209,7 +209,9 @@ function minutes(hhmm: string) {
 const VENUE_PLAIN = new Set(["the", "and", "bar", "club", "hall", "room", "house", "center", "centre", "theatre", "theater", "studio", "park", "cafe", "hotel", "live", "venue"]);
 const venueWords = (s: string) => (s.normalize("NFKD").toLowerCase().match(/[a-z0-9]{3,}/g) ?? []).filter((w) => !VENUE_PLAIN.has(w));
 
-export async function findVenue(e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm = 30): Promise<{ place: Place; km: number } | null> {
+// null: Google answered and nothing matched; undefined: the lookup failed
+// (kept apart so a hiccup is never remembered as "no venue").
+export async function findVenue(e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm = 30): Promise<{ place: Place; km: number } | null | undefined> {
   const wanted = venueWords(e.venueName.split(",")[0] ?? e.venueName);
   const found = await searchPlaces({
     query: `${e.venueName}, ${city.name}`,
@@ -221,7 +223,8 @@ export async function findVenue(e: FoundEvent, city: City, origin: { lat: number
     regionCode: city.country,
     lite: true,
     count: 3,
-  }).catch(() => [] as Place[]);
+  }).catch(() => null);
+  if (!found) return undefined;
   const place = found.find((p) => {
     const got = venueWords(p.displayName?.text ?? "");
     return p.location && (wanted.length === 0 || wanted.some((w) => got.includes(w)));

@@ -372,6 +372,9 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         category: s.category === "experiences" ? "experiences" : "food_drinks",
         when: s.when === "weekend" || tripLabel || (at && [0, 6].includes(new Date(`${at.day}T12:00:00Z`).getUTCDay())) ? "weekend" : "tonight",
         ...(at ? { at } : {}),
+        // "Dinner tonight" asked by day means the evening, not the next few
+        // hours (audit, 24 Nov 2026); "lunch" or "now" keeps the clock's slot.
+        ...(!at && s.when !== "weekend" && !tripLabel && (s.meal === "dinner" || /\b(tonight|this evening|evening|night|dinner|drinks)\b/i.test(`${message} ${s.note ?? ""}`)) ? { evening: true } : {}),
         // A neighbourhood they named ("near Indiranagar") means near it,
         // not their usual distance from it (tester, 21 Nov 2026).
         ...(s.further ? { reach: "day_trip" } : origin.source === "area" && s.place ? { reach: "walk" } : {}),

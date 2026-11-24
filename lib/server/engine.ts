@@ -3,7 +3,7 @@ import { after } from "next/server";
 
 import { distanceKm, isMainlandChina, type City } from "@/lib/cities";
 import { cityById, isSmallCity } from "@/lib/server/cities";
-import { budgetToday, claimEventsCache, later, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
+import { budgetToday, claimEventsCache, later, LimitReached, limitNoticeHere, saveEventsCache } from "@/lib/server/costs";
 import { loadTaste, tasteFingerprint, userDb, userIdFor } from "@/lib/server/taste";
 import { placeDetails, type Place } from "@/lib/server/places";
 import { becauseFor, curate, eventsFirst, pickFrom, type Curated, type CurateResult } from "@/lib/server/curate";
@@ -69,6 +69,7 @@ type Body = {
   more?: boolean; // "Show me more", once the backup places run out
   shown?: string[]; // with more: what the phone has already shown from this list
   eventsOnly?: boolean; // the phone's second ask for events found after the reply
+  evening?: boolean; // means this evening even by day (Ask Feta's "tonight", Plan my evening)
   tweaks?: string[]; // from the Tweak sheet
   note?: string; // free text from the Tweak sheet
   // Ask Feta (founder, 18 Nov 2026: "it has to work like an AI assistant"):
@@ -179,7 +180,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const note = meal && !new RegExp(`\\b${meal}\\b`, "i").test(asked) ? `${meal}${asked ? `, ${asked}` : ""}` : asked;
   const tweaked = tweaks.length > 0 || note.length > 0;
   const at: At | undefined = body.at && /^\d{4}-\d{2}-\d{2}$/.test(body.at.day) ? { weekday: new Date(`${body.at.day}T12:00:00Z`).getUTCDay(), start: Math.min(1439, Math.max(0, Math.round(body.at.start) || 0)), minutes: Math.min(720, Math.max(30, Math.round(body.at.minutes) || 60)) } : undefined;
-  const setKey = tweaked ? `${originKey}|${[...tweaks].sort().join(",")}|${note}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}` : originKey;
+  // A typed search, an Ask Feta search and a tweak with the same words are
+  // different asks, as is one meant for this evening (audit, 24 Nov 2026).
+  const askKind = `${body.search ? "|search" : ""}${only ? `|only:${only}` : ""}${body.evening ? "|evening" : ""}`;
+  const setKey = tweaked || askKind ? `${originKey}|${[...tweaks].sort().join(",")}|${note.toLowerCase()}${body.at ? `|${body.at.day}@${body.at.start}` : ""}${body.reach ? `|${body.reach}` : ""}${askKind}` : originKey;
   // The same ask comes back the same, tweaked or typed too (audit, 24 Nov
   // 2026: the same Ask Feta search or a reloaded search paid again).
   const latest = (recent ?? []).find((s) => s.origin_key === setKey);
@@ -206,7 +210,10 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   if (fresh && (latest.picks as StoredPick[]).length === 0 && latest.banner) return json({ picks: [], notice: latest.banner });
   // The phone's second ask for events found after the reply: only the
   // events, so the places aren't paid for twice 20 s apart (audit, 24 Nov 2026).
-  if (fresh && body.eventsOnly) {
+  // With no kept set it never searches afresh (audit, 24 Nov 2026: that was a
+  // whole paid search).
+  if (body.eventsOnly) {
+    if (!fresh) return json({ picks: [] });
     const events = previous.filter((p) => p.event);
     const shown = events.length ? await showStored(events, null, { taste: effective, body, city, origin, exclude, needsDiet }) : null;
     return json({ picks: shown?.picks ?? [] });
@@ -310,6 +317,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // (curate.ts). Events that fit first, then places to make 8; every other
   // place that passed is kept, in order, as backup.
   let found: CurateResult;
+  let searchFailed = false;
   try {
     found = await curate({
       taste: effective,
@@ -329,6 +337,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       extra,
       dayPlan: !!body.dayPlan,
       at,
+      evening: !!body.evening,
       ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : body.search ? { searches: 1 } : {}),
       ...(body.search ? { search: true } : {}),
       favourites: (intents) =>
@@ -336,11 +345,12 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
     });
   } catch (error) {
     console.error(error);
-    if (body.category === "food_drinks") {
-      // As an error, so the phone shows the failed-search screen, not an
-      // empty list (audit, 24 Nov 2026).
-      return json({ error: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
-    }
+    // Over today's limit mid-search: said as the limit, not as Google failing.
+    if (error instanceof LimitReached) return json({ picks: [], notice: await limitNoticeHere("picks"), limited: true });
+    // As an error, so the phone shows the failed-search screen, not an
+    // empty list (audit, 24 Nov 2026).
+    if (body.category === "food_drinks") return json({ error: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
+    searchFailed = true;
     found = { pool: [], ranked: [], intents: [], drops: { seen: 0, far: 0, price: 0, diet: 0, alcohol: 0, hours: 0, other: 0 } };
   }
   // A meal is only served by a place mainly to eat (a brewery isn't dinner).
@@ -370,6 +380,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   }
   const result = { ...found, ...picked };
   if (result.chosen.length === 0 && events.length === 0) {
+    // A failed search is never kept as "nothing fits" (audit, 24 Nov 2026:
+    // Things to do said so for 3 hours after a Google hiccup).
+    if (searchFailed) return json({ error: "Couldn't reach Google Maps just now. Try again in a minute." }, 502);
     console.log("No picks", { category: body.category, when: body.when, drops: result.drops });
     const notice = whyNothing(result.drops, effective.answers, body.when, city.country);
     await db.from("pick_sets").insert({ user_id: userId, category: body.category, when_slot: body.when, origin_key: setKey, city_id: city.id, country: city.country, time_zone: city.timeZone, currency: city.currency, picks: [], searched: result.intents.filter((i) => i.explicit).map((i) => i.id), banner: notice, expires_at: new Date(Date.now() + REUSE_HOURS[body.when] * 3600 * 1000).toISOString() });
@@ -509,7 +522,7 @@ async function showStored(
   // changes is whether it's open and still there (backend audit, 23 Nov
   // 2026: re-checking with their everyday distance dropped a whole-city set
   // and paid for a new search; a trip out at the weekend vanished).
-  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan });
+  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan, evening: !!ctx.body.evening });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
   const placePicks = await Promise.all(
     placeStored
@@ -571,8 +584,12 @@ async function eventPicks(ctx: {
       const kind = intent ? `${intent.label} (${intent.query})` : undefined;
       // A city's free open-data feed first, where it has one for this kind (event-feeds.ts).
       const fed = await feedEvents(city, intent, span, span === "weekend" ? cal.weekend : span === "week" ? cal.week : [cal.today]);
-      if (fed) return { intent, span, events: fed, searchHtml: "", feed: true };
       const key = [city.id, "events", span, day, intent?.query.toLowerCase() ?? "any"].join("|");
+      if (fed) {
+        // Kept like searched events, so a share of one can be checked as found by Feta.
+        await saveEventsCache(db, `${key}|feed`, fed, "", span === "tonight" ? 6 : 24);
+        return { intent, span, events: fed, searchHtml: "", feed: true };
+      }
       const { data: cached } = await db.from("events_cache").select("events, search_html").eq("key", key).maybeSingle();
       if (cached) return { intent, span, events: cached.events as FoundEvent[], searchHtml: cached.search_html as string };
       if (freshLeft <= 0) return { intent, span, events: [] as FoundEvent[], searchHtml: "" };
@@ -685,18 +702,25 @@ async function eventPicks(ctx: {
 // IDs may be kept), so the next person checks it with the cheaper lookup
 // instead of searching for it again (audit, 24 Nov 2026: every person paid
 // a search per event, up to about ₹22 a set). A venue not found is kept a day.
+// Looked up from the city's centre, so the venue kept is the same for
+// everyone (a chain's branch isn't the first person's nearest); with no
+// venue name, nothing is kept. Only a real "no match" is kept as none.
 async function venueFor(db: SupabaseClient, e: FoundEvent, city: City, origin: { lat: number; lng: number }, radiusKm?: number) {
-  const key = [city.id, "venue", plainText(e.venueName).slice(0, 100)].join("|");
+  const name = plainText(e.venueName).slice(0, 100);
+  const at = (place: Place) => (place.location ? { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) } : null);
+  if (!name) return (await findVenue(e, city, origin, radiusKm)) ?? null;
+  const key = [city.id, "venue", name].join("|");
   const { data } = await db.from("events_cache").select("events").eq("key", key).maybeSingle();
   const kept = (data?.events as { placeId: string | null }[] | undefined)?.[0];
   if (kept) {
     if (!kept.placeId) return null;
     const place = await placeDetails(kept.placeId, false, true);
-    return place?.location ? { place, km: distanceKm(origin, { lat: place.location.latitude, lng: place.location.longitude }) } : null;
+    return place ? at(place) : null;
   }
-  const found = await findVenue(e, city, origin, radiusKm);
+  const found = await findVenue(e, city, { lat: city.lat, lng: city.lng }, Math.max(radiusKm ?? 30, 30));
+  if (found === undefined) return null;
   await saveEventsCache(db, key, [{ placeId: found?.place.id ?? null }], "", found ? 24 * 30 : 24);
-  return found;
+  return found ? at(found.place) : null;
 }
 
 // Feta's lists, checked live before Google is searched (founder, 22 Nov
@@ -793,6 +817,7 @@ async function fetaCandidates(ctx: {
     origin: ctx.origin,
     exclude: new Set(places.filter((p) => !notes.has(p.id) && ctx.exclude.has(p.id)).map((p) => p.id)),
     city: ctx.city,
+    evening: !!ctx.body.evening,
   });
   return { looked: passed.map(label), mark };
 }

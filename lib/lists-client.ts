@@ -19,7 +19,8 @@ export function forgetLists() {
 }
 
 export async function fetchLists(origin: Origin | null): Promise<ListItem[] | null> {
-  const q = origin ? `?lat=${origin.lat}&lng=${origin.lng}` : "";
+  // Rounded to about 100 m, so a refreshed location still finds the copy.
+  const q = origin ? `?lat=${origin.lat.toFixed(3)}&lng=${origin.lng.toFixed(3)}` : "";
   if (kept && kept.q === q && Date.now() - kept.at < KEEP_MS) return kept.items;
   await currentUserId();
   const { data } = await supabase().auth.getSession();
@@ -31,12 +32,14 @@ export async function fetchLists(origin: Origin | null): Promise<ListItem[] | nu
     const res = await fetch(`/api/lists${q}`, { headers: { Authorization: `Bearer ${token}`, "x-feta-have": fresh.map(([id]) => id).join(",") } });
     if (!res.ok) return kept?.items ?? null;
     const body = (await res.json()) as { items: ListItem[]; notice?: string };
-    if (body.notice) return kept?.items ?? body.items;
+    // Over today's limit: what the phone already knows of each place, else
+    // the plain entry (audit, 24 Nov 2026).
+    if (body.notice) return kept?.items ?? body.items.map((it) => (live.has(it.placeId) ? { ...live.get(it.placeId)!.item, list: it.list, note: it.note, savedAt: it.savedAt, weekendFor: it.weekendFor, visits: it.visits, verdict: it.verdict } : it));
     const items = body.items.flatMap((it) => {
       if (!it.cached) return [it];
       const known = live.get(it.placeId)?.item;
       // What's saved about it is new; where it is and its photo are kept.
-      return known ? [{ ...known, list: it.list, note: it.note, savedAt: it.savedAt, weekendFor: it.weekendFor, visits: it.visits, verdict: it.verdict }] : [];
+      return [known ? { ...known, list: it.list, note: it.note, savedAt: it.savedAt, weekendFor: it.weekendFor, visits: it.visits, verdict: it.verdict } : { ...it, cached: undefined, unchecked: true as const, name: "A place you saved", area: "Open in Google Maps", mapsUri: `https://www.google.com/maps/place/?q=place_id:${it.placeId}` }];
     });
     // Only places just looked up start a new 15 minutes.
     for (const it of body.items) if (!it.event && !it.unchecked && !it.cached) live.set(it.placeId, { at: Date.now(), q, item: it });

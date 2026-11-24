@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   // (audit, 24 Nov 2026: only the last 50 sets were read).
   await Promise.all(
     eventIds.map(async (id) => {
-      const { data: sets } = await db.from("pick_sets").select("picks, time_zone").eq("category", "experiences").contains("picks", [{ placeId: id }]).order("created_at", { ascending: false }).limit(1);
+      const { data: sets } = await db.from("pick_sets").select("picks, time_zone").eq("category", "experiences").contains("picks", JSON.stringify([{ placeId: id }])).order("created_at", { ascending: false }).limit(1);
       const set = sets?.[0];
       const p = (set?.picks as StoredPick[] | undefined)?.find((x) => x.placeId === id);
       if (set && p?.event) events.set(id, { ...p.event, over: eventOver(p.event, set.time_zone ?? "UTC") });

@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { anonDb, paidFetch, withCosts } from "@/lib/server/costs";
+import { anonDb, lookupSpendToday, paidFetch, withCosts } from "@/lib/server/costs";
 import { userDb } from "@/lib/server/taste";
 
 export const maxDuration = 20;
@@ -8,7 +8,10 @@ export const maxDuration = 20;
 // third time and picks and Style failed quietly all day.) One tiny call,
 // about ₹0.15. Asked by Admin (an admin's sign-in) and by the founder's n8n
 // check (the report key in "x-report-key"), which emails her when it isn't.
-export type Health = { gemini: "ok" | "no_credit" | "failing"; detail?: string };
+// writes: whether Feta's server can write its cost log with its own key
+// (security audit, 24 Nov 2026: with a missing or wrong FETA_WRITE_KEY on
+// Vercel nothing spent would be recorded, so no limit would ever trip).
+export type Health = { gemini: "ok" | "no_credit" | "failing"; detail?: string; writes?: "ok" | "failing" };
 
 function keyOk(given: string | null) {
   const key = process.env.USAGE_REPORT_KEY;
@@ -44,5 +47,6 @@ export async function GET(request: Request) {
       : res.ok
         ? { gemini: "ok" }
         : { gemini: "failing", detail: `Gemini answered ${res.status}: ${(await res.text()).slice(0, 160)}` };
-  return Response.json(body, { headers: { "Cache-Control": "no-store" } });
+  const writes = (await lookupSpendToday(anonDb())) === null ? "failing" : "ok";
+  return Response.json({ ...body, writes }, { headers: { "Cache-Control": "no-store" } });
 }

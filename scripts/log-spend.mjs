@@ -5,8 +5,8 @@
 //   node --env-file=.env.local scripts/log-spend.mjs <sku> <units> <rupees> [label]
 //   e.g. scripts/log-spend.mjs gemini_image 72 300 "Style library pictures"
 const [sku, units, inr, label = "script"] = process.argv.slice(2);
-const { NEXT_PUBLIC_SUPABASE_URL: DB, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: KEY, FETA_WRITE_KEY, USAGE_REPORT_KEY } = process.env;
-const RK = FETA_WRITE_KEY ?? USAGE_REPORT_KEY;
+const { NEXT_PUBLIC_SUPABASE_URL: DB, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: KEY, FETA_WRITE_KEY } = process.env;
+const RK = FETA_WRITE_KEY;
 if (!sku || !Number(units) || !(Number(inr) >= 0)) {
   console.error("Usage: log-spend.mjs <sku> <units> <rupees> [label]");
   process.exit(1);

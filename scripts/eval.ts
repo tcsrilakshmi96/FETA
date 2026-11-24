@@ -34,7 +34,6 @@ import { featuredToCheck } from "@/lib/server/engine";
 import { leftNotice, limitNotice, resetTime } from "@/lib/limits";
 import { scopeCounts, todayScope } from "@/lib/profile-scope";
 import { shareSafe } from "@/lib/share-safe";
-import { safeChip } from "@/lib/chip-html";
 import { OUT, schemaJson } from "./schema";
 
 const LIVE = process.env.EVAL_LIVE === "1";
@@ -994,18 +993,20 @@ async function main() {
       console.log("✗ Open 24 hours: a place open around the clock counts as closed on a Wednesday");
     } else console.log("✓ Open 24 hours: a place open around the clock is open every day");
   }
-  // Google's Search chip never runs code (security audit, 24 Nov 2026).
+  // Google's Search chip never runs code (security audit, 24 Nov 2026): it
+  // is shown in a sealed frame, and no screen puts stored HTML into the page.
   {
-    const chip = safeChip(`<style>.a{color:red}</style><div class="a" onclick="x()"><a href="javascript:alert(1)">A</a><a href="https://www.google.com/search?q=x">B</a><script>alert(1)</script><img src=x onerror=alert(1)></div>`);
-    const bad = /<script|onclick|onerror|javascript:/i.test(chip) || !chip.includes("https://www.google.com/search?q=x") || !chip.includes("<style>");
-    if (bad) {
+    const raw = readdirSync("components").filter((f) => f.endsWith(".tsx") && readFileSync(`components/${f}`, "utf8").includes("dangerouslySetInnerHTML"));
+    const sealed = /sandbox="allow-popups allow-popups-to-escape-sandbox"/.test(readFileSync("components/PickDetails.tsx", "utf8"));
+    if (raw.length || !sealed) {
       failed++;
-      console.log("✗ Search chip: code can run from the chip, or Google's link and styles are lost");
-    } else console.log("✓ Search chip: shown as Google gives it, minus anything that runs code");
+      console.log(`✗ Search chip: ${raw.length ? `HTML put straight into ${raw.join(", ")}` : "the chip isn't in a sealed frame"}`);
+    } else console.log("✓ Search chip: shown as Google gives it, in a sealed frame where nothing can run");
   }
   // The first slot follows the city's clock (founder, 24 Nov 2026): by day
   // a place open in the next few hours fits (breakfast, a museum), not only
-  // ones open in the evening; from 5 pm, places open now.
+  // ones open in the evening; from 5 pm, places open now. An ask meant for
+  // this evening keeps the evening window.
   {
     const zoneAt = (hour: number) => {
       const off = ((hour - new Date().getUTCHours() + 36) % 24) - 12; // -12..11
@@ -1017,11 +1018,14 @@ async function main() {
     const slotFails = [
       !openTonight(place(10, 17, morning.timeZone), morning) && "a museum open 10 to 5 doesn't fit Today at 9 am",
       openTonight(place(19, 23, morning.timeZone), morning) && "a dinner-only place fits Today at 9 am",
+      !openTonight(place(19, 23, morning.timeZone), morning, true) && "a dinner place doesn't fit an evening ask made at 9 am",
+      openTonight(place(10, 17, morning.timeZone), morning, true) && "a museum that shuts at 5 fits an evening ask",
+      !openTonight({ id: "park" } as Parameters<typeof openTonight>[0], morning) && "a park with no hours on Google doesn't fit Today",
     ].filter(Boolean);
     if (slotFails.length) {
       failed++;
       console.log(`✗ Today / Tonight: ${slotFails.join(", ")}`);
-    } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now");
+    } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now; evening asks keep the evening");
   }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini
