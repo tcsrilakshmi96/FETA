@@ -2,14 +2,15 @@
    Appearance setting in You can force one by setting data-theme on <html>. */
 :root {
   /* Warm cream-orange, now that the glows are gone (founder, 24 Nov 2026). */
-  --bg: #fcebda;
-  --bgRGB: 252, 235, 218;
+  --bg: #fbe3cc;
+  --bgRGB: 251, 227, 204;
   --ink: #1a1616;
   --inkRGB: 26, 22, 22;
-  --sheet: #ffffff;
+  /* Sheets, switches and the tab bar in a lighter cream, never white (founder, 24 Nov 2026). */
+  --sheet: #fff3e6;
   --polaroid: #ffffff;
-  --surf: 255, 255, 255;
-  --field: #f7f4f2;
+  --surf: 255, 243, 230;
+  --field: #fdeadb;
   --roseText: #c81e52;
   --gBg: #ffffff;
   --gInk: #3c4043;
