@@ -60,6 +60,8 @@ try {
   ok("A share can't carry a phone number or own words", !!words.error);
   const note = await share("pick", { title: "A pick", stops: [{ placeId: place, kind: "EAT", fetaNote: "Pay at example.com" }] });
   ok("A share can't carry a made-up Feta note", !!note.error);
+  const badge = await share("pick", { title: "A pick", stops: [{ placeId: place, kind: "EAT", fetaNote: "" }] });
+  ok("A share can't put a ★ Feta pick badge on a place that isn't hers", !!badge.error);
 
   // Marking replies seen still works on a share.
   if (plan.slug) {

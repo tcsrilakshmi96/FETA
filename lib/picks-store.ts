@@ -1,5 +1,6 @@
 "use client";
 
+import { firstSlotName } from "@/lib/slot-label";
 import type { Origin } from "@/lib/origin";
 import { originKey } from "@/lib/origin";
 import { fetchPicks, forgetFetaPicks, savingTaste, type Ask, type Category, type Pick, type When } from "@/lib/picks-client";
@@ -17,6 +18,10 @@ export type Slot = {
   notice?: string;
   failed?: boolean; // the search itself went wrong, not just nothing found
   limited?: boolean; // today's limit is reached
+  // Made as "Today" or "Tonight" in this city: a list kept on the phone goes
+  // when that changes at 5 pm, so the server re-checks it (audit, 24 Nov 2026).
+  slotName?: string;
+  timeZone?: string;
 };
 
 // Kept in memory while the app is open, never stored: a reload starts
@@ -60,7 +65,7 @@ export function keptSlots(): Record<string, Slot> {
   if (!kept || Date.now() - kept.at > KEEP_MS) return {};
   return Object.fromEntries(
     Object.entries(kept.slots)
-      .filter(([, s]) => !s.loading)
+      .filter(([, s]) => !s.loading && (!s.slotName || s.slotName === firstSlotName(s.timeZone)))
       .map(([k, s]) => [k, { ...s, picks: s.picks.filter(stillOpen), spares: s.spares.filter(stillOpen) }]),
   );
 }
@@ -85,6 +90,7 @@ export function loadSlot(origin: Origin, when: When, category: Category, tweak?:
       notice: reply.notice ?? reply.error,
       failed: !!reply.error,
       limited: reply.limited,
+      ...(when === "tonight" ? { slotName: firstSlotName(origin.city.timeZone), timeZone: origin.city.timeZone } : {}),
     };
     if (version === tasteVersion) keepSlots({ ...keptSlots(), [key]: slot });
     if (reply.eventsComing && !tweak) eventsLater(key, origin, when, category, version);
@@ -124,6 +130,9 @@ function eventsLater(key: string, origin: Origin, when: When, category: Category
     const events = [...fresh, ...was.picks.filter((p) => p.event && !fresh.some((e) => e.placeId === p.placeId))];
     const places = [...was.picks, ...was.spares].filter((p) => !p.event);
     const all = [...events, ...places];
+    // Places they've already seen, pushed down by the events, never come
+    // back as new (audit, 24 Nov 2026).
+    markShown(`${key}||`, was.picks.map((p) => p.placeId));
     const slot: Slot = { ...was, loading: false, picks: all.slice(0, SHOW), spares: all.slice(SHOW) };
     keepSlots({ ...keptSlots(), [key]: slot });
     window.dispatchEvent(new CustomEvent(SLOT_EVENT, { detail: { key, slot } }));
@@ -146,12 +155,17 @@ export const SHOW = 8;
 // down alternated between two batches, about ₹14 a pull).
 const shownBefore = new Map<string, Set<string>>();
 
+function markShown(listKey: string, ids: string[]) {
+  const seen = shownBefore.get(listKey) ?? new Set<string>();
+  for (const id of ids) seen.add(id);
+  shownBefore.set(listKey, seen);
+}
+
 // A search's next places are more of the same search (search).
 export async function nextPicks(slot: Slot, origin: Origin, when: When, category: Category, search?: Ask): Promise<{ fresh: Pick[]; spares: Pick[]; notice?: string }> {
   const listKey = `${slotKey(origin, when, category)}|${search?.note ?? ""}|${(search?.tweaks ?? []).join(",")}`;
-  const seen = shownBefore.get(listKey) ?? new Set<string>();
-  for (const p of slot.picks) seen.add(p.placeId);
-  shownBefore.set(listKey, seen);
+  markShown(listKey, slot.picks.map((p) => p.placeId));
+  const seen = shownBefore.get(listKey)!;
   // Backup never brings back a place already shown (audit, 24 Nov 2026:
   // places pushed down by late events came back as "8 new picks").
   const spares = slot.spares.filter((p) => !seen.has(p.placeId));

@@ -221,7 +221,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   // whole paid search).
   if (body.eventsOnly) {
     if (!fresh) return json({ picks: [] });
-    const has = new Set(Array.isArray(body.shown) ? body.shown : []);
+    const has = new Set(Array.isArray(body.shown) ? body.shown.filter((id) => typeof id === "string").slice(0, 200) : []);
     const events = previous.filter((p) => p.event && !has.has(p.placeId));
     const shown = events.length ? await showStored(events, null, { taste: effective, body, city, origin, exclude, needsDiet, fullHour: crossed }) : null;
     return json({ picks: shown?.picks ?? [] });
@@ -598,7 +598,10 @@ async function eventPicks(ctx: {
       const fed = await feedEvents(city, intent, span, span === "weekend" ? cal.weekend : span === "week" ? cal.week : [cal.today]);
       // What someone typed is never readable in the shared cache's key
       // (security audit, 24 Nov 2026): a keyed hash of it instead.
-      const what = intent?.id === "asked" ? `typed:${createHash("sha256").update(`${serverWriteKey()}|${intent.query.toLowerCase()}`).digest("hex").slice(0, 24)}` : (intent?.query.toLowerCase() ?? "any");
+      // Anything from their own words or loved places (not one of Feta's
+      // own choices) is hashed too (security audit, 24 Nov 2026).
+      const own = intent && !/^(interest|cuisine|side|default)_/.test(intent.id);
+      const what = own ? `own:${createHash("sha256").update(`${serverWriteKey()}|${intent.query.toLowerCase()}`).digest("hex").slice(0, 24)}` : (intent?.query.toLowerCase() ?? "any");
       const key = [city.id, "events", span, day, what].join("|");
       if (fed) {
         // Kept like searched events, so a share of one can be checked as found by Feta.

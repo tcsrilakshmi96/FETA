@@ -1,4 +1,6 @@
 import "server-only";
+import { siteName } from "@/lib/event-links";
+export { siteName };
 import { FAKE } from "@/lib/server/fake-places";
 
 import eventSites from "@/data/event-sites.json";
@@ -262,43 +264,6 @@ export function eventSources(city: City) {
   return sites.length ? sites.slice(0, 15).join(", ") : "Eventbrite, Luma (lu.ma), Ticketmaster, Resident Advisor, Time Out and local ticket sites";
 }
 
-export function siteName(url: string) {
-  const host = new URL(url).hostname.replace(/^www\.|^in\./, "");
-  const known: Record<string, string> = {
-    "bookmyshow.com": "BookMyShow",
-    "district.in": "District",
-    "skillboxes.com": "Skillboxes",
-    "insider.in": "District",
-    "eventbrite.com": "Eventbrite",
-    "eventbrite.co.uk": "Eventbrite",
-    "eventbrite.de": "Eventbrite",
-    "dice.fm": "DICE",
-    "ra.co": "Resident Advisor",
-    "eventim.de": "Eventim",
-    "goout.net": "GoOut",
-    "platinumlist.net": "Platinumlist",
-    "sistic.com.sg": "SISTIC",
-    "timeout.com": "Time Out",
-    "ticketek.com.au": "Ticketek",
-    "klook.com": "Klook",
-    "shotgun.live": "Shotgun",
-    "urbanaut.app": "Urbanaut",
-    "liveyourcity.com": "Live Your City",
-    "feverup.com": "Fever",
-    "lu.ma": "Luma",
-    "luma.com": "Luma",
-    "meetup.com": "Meetup",
-    "allevents.in": "AllEvents",
-    "instagram.com": "Instagram",
-    "lbb.in": "LBB",
-    "paris.fr": "Que faire à Paris",
-    "ticketmaster.com": "Ticketmaster",
-    "ticketmaster.co.uk": "Ticketmaster",
-    "opentix.life": "OPENTIX",
-    "whatshot.in": "WhatsHot",
-  };
-  return known[host] ?? host;
-}
 
 // Chooses which events suit this person and writes their reasons (about 2 s,
 // no search). Returns indexes into the list, best first, at most 2.
