@@ -15,7 +15,7 @@ import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
-import { cityCalendar, eventOver, eventPasses, eventSources, landsOnSame, searchChip } from "@/lib/server/events";
+import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { stylePicture, styleById, type Look, type Wears } from "@/lib/style";
-import { cityNow, keptPicture, keptSpots, lookPicture, type PictureKind } from "@/lib/style-client";
+import { cityNow, keptPicture, keptSpots, lookPicture, takePictureNotice, type PictureKind } from "@/lib/style-client";
+import { useToast } from "@/components/Toast";
 import k from "./StyleLook.module.css";
 
 // Shared parts of Style (founder, 22–23 Nov 2026, docs/style-spec.md).
@@ -56,9 +57,10 @@ export function StyleFigure({ style, wears, seed = "", className, imgStyle }: { 
 // they ask for it (founder, 24 Nov 2026: "if we take a look from the library
 // and show, it will be fast"; about ₹4), else the style's library picture.
 export function useLookPicture(look: Look | null, wears: Wears, want: PictureKind | null, round = 0): { pic: string | null; making: boolean } {
+  const toast = useToast();
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
-  // A new round (their photo just added) looks again.
+  // A new round (their photo just added, or a tap to try again) looks again.
   const id = look ? `${look.id}#${round}` : "";
   useEffect(() => {
     if (!look || pics[id]) return;
@@ -74,6 +76,8 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
         if (!live) return;
         setMaking(null);
         setPics((p) => ({ ...p, [id]: img }));
+        // Couldn't be made (today's limit, a hiccup): say why; a tap tries again.
+        if (!img) toast(takePictureNotice() ?? "Couldn't make the picture just now.");
       });
     });
     return () => {

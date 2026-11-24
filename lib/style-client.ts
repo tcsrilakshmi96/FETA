@@ -37,9 +37,9 @@ async function post<T>(path: string, body: unknown): Promise<T | null> {
   if (!t) return null;
   try {
     // A stuck request gives up instead of leaving "Picking a look…" forever,
-    // but never before the server would have answered: drawings take up to
-    // 60 s there, reading photos up to 40 s.
-    const wait = path.endsWith("/draw") ? 75000 : path.endsWith("/read") ? 45000 : 35000;
+    // but never before the server would have answered: a look's picture
+    // takes up to 75 s there (picture and dots), reading photos up to 40 s.
+    const wait = path.endsWith("/picture") ? 85000 : path.endsWith("/read") ? 45000 : 35000;
     const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(wait) });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
@@ -150,6 +150,8 @@ export async function fromPhone(key: string): Promise<string | null> {
 }
 
 export async function forgetOnYou() {
+  // Pictures asked for this visit go too, so one of them never comes back.
+  picturesAsked.clear();
   try {
     const db = await idb();
     db.transaction("kept", "readwrite").objectStore("kept").clear();
@@ -312,6 +314,13 @@ export async function chooseLook(set: LookSet, index: number | null) {
 // also kept on their account (look_pictures) so another phone doesn't make
 // it again. A picture of them never leaves this phone.
 const picturesAsked = new Map<string, Promise<string | null>>();
+// Why the last picture couldn't be made (today's limit, test mode), to say so.
+let pictureNotice: string | null = null;
+export function takePictureNotice() {
+  const n = pictureNotice;
+  pictureNotice = null;
+  return n;
+}
 // "me": on their photo (kept on this phone only); "outfit": the board with
 // no person (also kept on their account). Made only when they ask for it
 // (founder, 24 Nov 2026: library picture first, the exact look on a tap).
@@ -332,22 +341,14 @@ export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promis
         return data.image as string;
       }
     }
-    // One that failed today isn't tried again on every visit (₹4 a go).
-    const failedKey = `feta.picFailed:${key}`;
-    try {
-      if (sessionStorage.getItem(failedKey)) return null;
-    } catch {
-      // Tried again.
-    }
-    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null }>("/api/style/picture", { look, wears, photo });
+    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null; notice?: string }>("/api/style/picture", { look, wears, photo });
     if (r?.image) await keepOnPhone(key, r.image);
     if (r?.image && r.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(r.spots));
-    if (!r?.image)
-      try {
-        sessionStorage.setItem(failedKey, "1");
-      } catch {
-        // Tried again next time.
-      }
+    if (!r?.image) {
+      // Made only on a tap now, so a tap again tries again (audit, 24 Nov 2026).
+      picturesAsked.delete(key);
+      pictureNotice = r?.notice ?? "Couldn't make the picture just now. Try again in a minute.";
+    }
     return r?.image ?? null;
   })();
   picturesAsked.set(key, work);
@@ -375,8 +376,17 @@ export async function keptSpots(look: Look): Promise<([number, number] | null)[]
     return null;
   }
 }
+// On this phone, else the outfit board kept on their account (free), so a
+// look worn on one phone shows on another (audit, 24 Nov 2026).
 export async function keptPicture(look: Look): Promise<string | null> {
-  return fromPhone(`pic:${look.id}`);
+  const key = `pic:${look.id}`;
+  const kept = await fromPhone(key);
+  if (kept || !(await currentUserId())) return kept;
+  const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
+  if (!data?.image) return null;
+  await keepOnPhone(key, data.image);
+  if (data.spots) await keepOnPhone(`spots:${look.id}`, JSON.stringify(data.spots));
+  return data.image as string;
 }
 
 // Brands for their styles that sell in their country, from the library:

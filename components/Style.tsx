@@ -73,6 +73,7 @@ export default function Style() {
     if (!look) return;
     if (kind === "me" && !onMe) return selfieFile.current?.click();
     setAsked((a) => ({ ...a, [look.id]: kind }));
+    setRound((r) => r + 1);
   }
 
   async function openFor(next: LookFor) {
@@ -450,7 +451,6 @@ export default function Style() {
                 <span>Swipe to wear →</span>
               </div>
               <p className={k.why}>{look.why}</p>
-              <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
             </>
           )}
 
@@ -565,6 +565,7 @@ export default function Style() {
           )}
         </div>
       </main>
+      <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
       {choosing && look && <PictureChoice hasPhoto={!!onMe} onPick={seeExact} onClose={() => setChoosing(false)} />}
       {sheet !== null && look && (
         <PieceSheet
