@@ -115,7 +115,7 @@ begin
         or length(coalesce(ev ->> 'date', '')) > 20 or length(coalesce(ev ->> 'time', '')) > 10 or length(coalesce(ev ->> 'site', '')) > 60
         or coalesce(ev ->> 'site', '') !~ '^[[:alpha:][:digit:] .&''-]{0,60}$'
         -- An event Feta found, as Feta found it (title and venue too).
-        or not exists (select 1 from found_events f where f.url = ev ->> 'url' and f.title = coalesce(ev ->> 'title', '') and f.venue_name = coalesce(ev ->> 'venueName', ''))) then
+        or not exists (select 1 from found_events f where f.url = ev ->> 'url' and f.title = coalesce(ev ->> 'title', '') and f.venue_name = coalesce(ev ->> 'venueName', '')) then
         raise exception 'Bad share';
       end if;
     elsif not (coalesce(st ->> 'placeId', '') ~ '^[A-Za-z0-9_.-]+$' and length(st ->> 'placeId') between 10 and 300) then
