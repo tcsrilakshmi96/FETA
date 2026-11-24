@@ -290,7 +290,10 @@ begin
     else coalesce(new.payload -> 'stops', '[]'::jsonb) end;
   if jsonb_array_length(stops) > 18 or jsonb_array_length(coalesce(new.payload -> 'options', '[]'::jsonb)) > 3 then raise exception 'Bad share'; end if;
   for st in select * from jsonb_array_elements(stops) loop
-    if coalesce(st ->> 'placeId', '') !~ '^(event:https?://.{1,500}|[A-Za-z0-9_.-]{10,300})$'
+    -- Lengths are checked apart: Postgres patterns allow at most {255}
+    -- (a {1,500} here refused every share, 24 Nov 2026).
+    if not ((st ->> 'placeId' ~ '^event:https?://' and length(st ->> 'placeId') <= 520)
+            or (coalesce(st ->> 'placeId', '') ~ '^[A-Za-z0-9_.-]+$' and length(st ->> 'placeId') between 10 and 300))
       or length(coalesce(st ->> 'because', '')) > 200 or length(coalesce(st ->> 'fetaNote', '')) > 1000 then
       raise exception 'Bad share';
     end if;
