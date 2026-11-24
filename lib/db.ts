@@ -5,7 +5,7 @@ import { loadCity, saveCity, type City } from "@/lib/cities";
 import { forgetLists } from "@/lib/lists-client";
 import { saveAnswers, withSpendRange, type Answers } from "@/lib/onboarding";
 import { saveName, saveWants, type Want } from "@/lib/profile";
-import { syncFetaPicks } from "@/lib/picks-client";
+import { savingTaste, syncFetaPicks } from "@/lib/picks-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 import { saveProfileLines, saveSwipes, type ProfileLine, type Swipe } from "@/lib/swipes";
 
@@ -263,23 +263,25 @@ const TWEAK_LINES: Record<string, string> = {
 export function saveTweakLines(tweaks: string[]) {
   const rows = tweaks.filter((t) => TWEAK_LINES[t]);
   if (rows.length === 0) return Promise.resolve();
-  return run("tweak lines", (userId) =>
+  // Searches wait until it's saved, so the next list reads it (audit, 24 Nov 2026).
+  return savingTaste(run("tweak lines", (userId) =>
     supabase()
       .from("profile_lines")
       .upsert(
         rows.map((t) => ({ user_id: userId, line_key: `tweak:${t}`, text: TWEAK_LINES[t], source: "tweaks", removed_at: null })),
         { onConflict: "user_id,line_key" },
       ),
-  );
+  ));
 }
 
 // Undoing a tweak takes its line back out (testers: one tap left a line for good).
 export function removeTweakLines(tweaks: string[]) {
   const keys = tweaks.filter((t) => TWEAK_LINES[t]).map((t) => `tweak:${t}`);
   if (keys.length === 0) return Promise.resolve();
-  return run("tweak lines", (userId) =>
+  // Searches wait until it's saved, so the next list reads it (audit, 24 Nov 2026).
+  return savingTaste(run("tweak lines", (userId) =>
     supabase().from("profile_lines").update({ removed_at: new Date().toISOString() }).eq("user_id", userId).in("line_key", keys),
-  );
+  ));
 }
 
 // "Acted on a pick" (directions, booking, Google Maps, website, sending it

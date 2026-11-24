@@ -122,13 +122,13 @@ export default function Picks() {
   const [tweakNote, setTweakNote] = useState("");
   const [tweakPick, setTweakPick] = useState<string[]>([]);
   const [tweaked, setTweaked] = useState<Record<string, Tweaked>>({});
-  // A list past its hour, from an older taste or from before 5 pm is looked
-  // up again, as on Home (audit, 24 Nov 2026).
+  // A list past its hour or from before 5 pm is looked up again, as on
+  // Home (audit, 24 Nov 2026).
   useEffect(() => {
     const check = () => {
       if (document.visibilityState !== "visible") return;
       setSlots((s) => {
-        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => v.tweaked || !outOfDate(v)));
+        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
         return Object.keys(keep).length === Object.keys(s).length ? s : keep;
       });
     };
@@ -268,9 +268,10 @@ export default function Picks() {
 
   // Each tab and category loads once and then keeps its own progress.
   useEffect(() => {
+    // A list looked up again keeps its tweak (Cheaper stays Cheaper).
     // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the first load for this slot
-    if (origin && !slots[key]) load(when, category);
-  }, [origin, key, slots, load, when, category]);
+    if (origin && !slots[key]) load(when, category, tweaked[key] ? { tweaks: tweaked[key].tweaks, note: tweaked[key].note } : undefined);
+  }, [origin, key, slots, load, when, category, tweaked]);
 
   // Load the other category for the same tab at the same time, quietly, so
   // switching is instant (Experiences can take 10–15 s on a first search).
