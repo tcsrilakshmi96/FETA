@@ -25,6 +25,7 @@ import { plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
 import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { anonDb, LimitReached, paidFetch, withCosts } from "@/lib/server/costs";
 import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
@@ -1027,6 +1028,22 @@ async function main() {
       failed++;
       console.log(`✗ Today / Tonight: ${slotFails.join(", ")}`);
     } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now; evening asks keep the evening");
+  }
+  // Every database change reads as Postgres would read it (24 Nov 2026: a
+  // pattern Postgres refuses stopped WhatsApp sharing; a bracket too many
+  // failed in the SQL Editor). Local only, ₹0.
+  {
+    let sqlOk = true;
+    try {
+      execFileSync("node", ["scripts/sql-check.mjs"], { stdio: "pipe" });
+    } catch (e) {
+      sqlOk = false;
+      console.log(String((e as { stdout?: Buffer }).stdout ?? "").trim());
+    }
+    if (!sqlOk) {
+      failed++;
+      console.log("✗ Database changes: Postgres would refuse one (above)");
+    } else console.log("✓ Database changes: every migration reads as Postgres would, functions included");
   }
   // One door for every paid call (founder, 24 Nov 2026: three audits found
   // features that spent past a limit or weren't logged): Google Maps, Gemini

@@ -14,7 +14,8 @@
     "import-brands": "node --import tsx scripts/import-brands.ts",
     "style-check": "node scripts/style-check.mjs",
     "live-check": "node scripts/live-check.mjs",
-    "db-check": "node --env-file=.env.local scripts/db-check.mjs"
+    "db-check": "node --env-file=.env.local scripts/db-check.mjs",
+    "sql-check": "node scripts/sql-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -30,6 +31,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
+    "libpg-query": "18.2.2",
     "puppeteer-core": "^24.43.1",
     "tsx": "^4.19.2",
     "typescript": "^5"
