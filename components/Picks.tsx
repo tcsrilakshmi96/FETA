@@ -23,7 +23,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlots, keptSlots, leaveOtherLists, loadSlot, nextPicks, outOfDate, searchKey, slotKey, withLateEvents, withoutElsewhere, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { leaveLists, morePicks, openList, reloadList, savedOn, searchKey, shown, slotKey, tweakList, undoTweaks, usePicks } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -86,10 +86,6 @@ type Sheet =
   | { type: "go"; pick: Pick }
   | null;
 
-// A tweak in force for a list, and the list from before it, so undoing the
-// last tweak brings the everyday picks straight back (no new search).
-type Tweaked = { tweaks: string[]; note?: string; base: Slot };
-
 // Cheaper and Fancier pull opposite ways, so only one at a time.
 const OPPOSITE: Record<string, string> = { cheaper: "fancier", fancier: "cheaper" };
 
@@ -104,41 +100,12 @@ export default function Picks() {
   // A search from the Search screen (/picks?q=…): the same list, for just
   // what they typed; no Tweak, Plan my evening or taste box (founder, 23 Nov 2026).
   const [search, setSearch] = useState<string | null>(null);
-  const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
-  // Events that arrived after the list did (picks-store, eventsLater).
-  useEffect(() => {
-    const on = (e: Event) => {
-      const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
-      setSlots((s) => withLateEvents(s, key, slot));
-    };
-    window.addEventListener(SLOT_EVENT, on);
-    return () => window.removeEventListener(SLOT_EVENT, on);
-  }, []);
-
-  useEffect(() => {
-    keepSlots(slots);
-  }, [slots]);
+  // Every list is held by the picks store, shared with Home (founder, 25
+  // Nov 2026: one owner, no copies to disagree).
+  const lists = usePicks();
   const [sheet, setSheet] = useState<Sheet>(null);
   const [tweakNote, setTweakNote] = useState("");
   const [tweakPick, setTweakPick] = useState<string[]>([]);
-  const [tweaked, setTweaked] = useState<Record<string, Tweaked>>({});
-  // A list past its hour or from before 5 pm is looked up again, as on
-  // Home (audit, 24 Nov 2026).
-  useEffect(() => {
-    const check = () => {
-      if (document.visibilityState !== "visible") return;
-      setSlots((s) => {
-        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
-        return Object.keys(keep).length === Object.keys(s).length ? s : keep;
-      });
-    };
-    document.addEventListener("visibilitychange", check);
-    const every = setInterval(check, 60000);
-    return () => {
-      document.removeEventListener("visibilitychange", check);
-      clearInterval(every);
-    };
-  }, []);
   const [withKids, setWithKids] = useState(false);
   const [compact, setCompact] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
@@ -189,104 +156,77 @@ export default function Picks() {
 
   // Picks are kept per place you're searching from, so a new area loads fresh.
   const keyOf = useCallback((o: Origin, w: When, c: Category) => (search ? searchKey(o, w, c, search) : slotKey(o, w, c)), [search]);
-  const searchAsk = search ? { tweaks: [], note: search, search: true } : undefined;
   const key = origin ? keyOf(origin, when, category) : "";
-  const slot = slots[key];
-
-  const load = useCallback(
-    async (w: When, c: Category, tweak?: { tweaks: string[]; note?: string }) => {
-      if (!origin) return;
-      const k = keyOf(origin, w, c);
-      setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
-      const slot = await loadSlot(origin, w, c, tweak ?? (search ? { tweaks: [], note: search, search: true } : undefined));
-      setSlots((s) => ({ ...s, [k]: slot }));
-    },
-    [origin, keyOf, search],
-  );
+  const slot = key ? shown(lists, key) : undefined;
+  const active = key ? lists.tweaked[key] : undefined;
 
   function tweak(tweaks: string[], note?: string) {
-    const base = tweaked[key]?.base ?? slots[key];
+    if (!origin) return;
     setSheet(null);
     setTweakNote("");
     if (tweaks.length === 0 && !note) {
       undoAll();
       return;
     }
-    const before = tweaked[key]?.tweaks ?? [];
+    const before = active?.tweaks ?? [];
     saveTweakLines(tweaks.filter((t) => !before.includes(t)));
     removeTweakLines(before.filter((t) => !tweaks.includes(t)));
-    if (base) setTweaked((all) => ({ ...all, [key]: { tweaks, note, base } }));
-    load(when, category, { tweaks, note });
+    tweakList(origin, when, category, tweaks, note);
   }
 
   // Back to the everyday list, as it was.
   function undoAll() {
-    const t = tweaked[key];
-    if (!t) return;
-    removeTweakLines(t.tweaks);
-    // An everyday list that's out of date by now is looked up again.
-    setSlots((s) => (outOfDate(t.base) ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== key)) : { ...s, [key]: t.base }));
-    setTweaked((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
+    if (!active) return;
+    removeTweakLines(active.tweaks);
+    undoTweaks(key);
   }
 
   function undoOne(id: string | null) {
-    const t = tweaked[key];
-    if (!t) return;
-    const tweaks = id ? t.tweaks.filter((x) => x !== id) : t.tweaks;
-    const note = id ? t.note : undefined;
+    if (!active) return;
+    const tweaks = id ? active.tweaks.filter((x) => x !== id) : active.tweaks;
+    const note = id ? active.note : undefined;
     if (tweaks.length === 0 && !note) undoAll();
     else tweak(tweaks, note);
   }
 
-  // More of the same list: a search's or a tweak's, never the everyday one
-  // (backend audit, 23 Nov 2026: Show me more after Cheaper added everyday places).
-  const moreAsk = searchAsk ?? (tweaked[key] ? { tweaks: tweaked[key].tweaks, note: tweaked[key].note } : undefined);
-
   // "Show me more": new ones go below the ones already shown.
   async function showMore() {
-    if (!origin || !slot || slot.more) return;
-    setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category, moreAsk);
+    if (!origin) return;
+    const next = await morePicks(origin, when, category, search, false);
     if (next.fresh.length === 0) toast(next.notice ?? "That's everything that fits right now. Try Tweak.");
-    setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: [...s[key].picks, ...next.fresh], spares: next.spares } }));
   }
 
   // Pull down for a fresh set (founder, 16 Nov 2026): the next places
   // replace the ones on screen, and the pill says what's new.
   async function freshSet(): Promise<PillPart[]> {
     if (!origin || !slot || slot.loading || slot.more) return [];
-    setSlots((s) => ({ ...s, [key]: { ...s[key], more: true } }));
-    const next = await nextPicks(slot, origin, when, category, moreAsk);
-    if (next.fresh.length === 0) {
-      setSlots((s) => ({ ...s, [key]: { ...s[key], more: false } }));
-      return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];
-    }
-    setSlots((s) => ({ ...s, [key]: { ...s[key], more: false, picks: next.fresh, spares: next.spares } }));
+    const next = await morePicks(origin, when, category, search, true);
+    if (next.fresh.length === 0) return [{ text: next.notice ? "Nothing new just now" : "That's everything that fits" }];
     scroller.current?.scrollTo({ top: 0 });
     return whatsNew(next.fresh);
   }
 
-  // Each tab and category loads once and then keeps its own progress.
+  // Each list is opened once it's on screen, and again if it goes (past
+  // its hour, or Today becoming Tonight).
+  const missing = !slot;
   useEffect(() => {
-    // A list looked up again keeps its tweak (Cheaper stays Cheaper).
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts the first load for this slot
-    if (origin && !slots[key]) load(when, category, tweaked[key] ? { tweaks: tweaked[key].tweaks, note: tweaked[key].note } : undefined);
-  }, [origin, key, slots, load, when, category, tweaked]);
+    if (origin) openList(origin, when, category, search);
+  }, [origin, when, category, search, missing]);
 
   // Load the other category for the same tab at the same time, quietly, so
   // switching is instant (Experiences can take 10–15 s on a first search).
+  // Only a category they chose (audit, 20 Nov 2026), and not for a search:
+  // the other list is one tap away and searches only then.
   const other: Category = category === "food_drinks" ? "experiences" : "food_drinks";
-  const otherKey = origin ? keyOf(origin, when, other) : "";
+  const otherMissing = origin ? !shown(lists, keyOf(origin, when, other)) : false;
+  const ready = !!slot && !slot.loading;
   useEffect(() => {
-    // Only a category they chose (audit, 20 Nov 2026: it searched the other one anyway, ₹12–20).
-    // Not for a search: the other list is one tap away and searches only then.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- starts a background load for the other category
-    if (origin && !search && slots[key] && !slots[otherKey] && loadWants().includes(other === "food_drinks" ? "food" : "do")) load(when, other);
-  }, [origin, key, otherKey, slots, load, when, other, search]);
+    if (origin && !search && ready && otherMissing && loadWants().includes(other === "food_drinks" ? "food" : "do")) openList(origin, when, other);
+  }, [origin, when, other, search, ready, otherMissing]);
 
   // Both categories for this tab, for Plan my evening.
-  const foodSlot = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
-  const expSlot = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
+  const foodSlot = origin ? shown(lists, slotKey(origin, when, "food_drinks")) : undefined;
+  const expSlot = origin ? shown(lists, slotKey(origin, when, "experiences")) : undefined;
 
   const city = origin?.city ?? null;
   if (!origin || !city) return null;
@@ -301,25 +241,18 @@ export default function Picks() {
   function save(pick: Pick) {
     if (slot?.saved.includes(pick.placeId)) return;
     savePickAction(pick.placeId, "saved", { category, cityId: city!.id, because: pick.because });
-    leaveOtherLists(key, pick.placeId);
-    // Saving the big one moves it to the end (ticked), so the next pick
-    // takes the big card, as a "Not for me" does.
-    setSlots((s) => {
-      const list = s[key].picks;
-      const picks = list[0]?.placeId === pick.placeId ? [...list.slice(1), list[0]] : list;
-      return { ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks, saved: [...s[key].saved, pick.placeId] } };
-    });
+    // Ticked here (the big one moves to the end, so the next pick takes the
+    // big card) and gone from every other list.
+    savedOn(key, pick.placeId);
     toast("Saved to Want to try");
   }
 
   // "Not for me": it leaves the list, and Feta asks why (optional).
   function skip(pick: Pick) {
     savePickAction(pick.placeId, "skipped", { category, cityId: city!.id });
-    // Out of every kept list, the everyday one under a Cheaper or Fancier
-    // list included, so Undo never brings it back (audit, 24 Nov 2026).
-    leaveOtherLists("", pick.placeId);
-    setTweaked((t) => (t[key] ? { ...t, [key]: { ...t[key], base: { ...t[key].base, picks: t[key].base.picks.filter((p) => p.placeId !== pick.placeId), spares: t[key].base.spares.filter((p) => p.placeId !== pick.placeId) } } } : t));
-    setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    // Off every list, the everyday one under a Cheaper or Fancier list
+    // included, so Undo never brings it back (audit, 24 Nov 2026).
+    leaveLists(pick.placeId);
     setSheet({ type: "reason", pick });
   }
 
@@ -327,11 +260,9 @@ export default function Picks() {
   // they don't know yet (testers: "I know Bombay, show me others").
   function been(pick: Pick) {
     savePickAction(pick.placeId, "been", { category, cityId: city!.id });
-    // Out of every kept list, the everyday one under a Cheaper or Fancier
-    // list included, so Undo never brings it back (audit, 24 Nov 2026).
-    leaveOtherLists("", pick.placeId);
-    setTweaked((t) => (t[key] ? { ...t, [key]: { ...t[key], base: { ...t[key].base, picks: t[key].base.picks.filter((p) => p.placeId !== pick.placeId), spares: t[key].base.spares.filter((p) => p.placeId !== pick.placeId) } } } : t));
-    setSlots((s) => ({ ...withoutElsewhere(s, key, pick.placeId), [key]: { ...s[key], picks: s[key].picks.filter((p) => p.placeId !== pick.placeId) } }));
+    // Off every list, the everyday one under a Cheaper or Fancier list
+    // included, so Undo never brings it back (audit, 24 Nov 2026).
+    leaveLists(pick.placeId);
     setSheet(null);
     toast("Moved to Been. Feta will show you places you don't know yet.");
   }
@@ -352,7 +283,6 @@ export default function Picks() {
   const isSaved = (p: Pick) => !!slot?.saved.includes(p.placeId);
   const where = (p: Pick) => [stars(p), p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
 
-  const active = tweaked[key];
   return (
     <main className={styles.screen}>
       {/* The header shrinks to one line once the list scrolls (testers: it took 40% of the screen). */}
@@ -583,7 +513,7 @@ export default function Picks() {
           </button>
 
           {/* At the end, after the places (founder, 25 Nov 2026). */}
-          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />}
+          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => reloadList(origin, when, category)} />}
         </>
       )}
       </div>

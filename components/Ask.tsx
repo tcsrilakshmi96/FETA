@@ -1,7 +1,7 @@
 "use client";
 
 import { plainReply } from "@/lib/ask-rules";
-import { leaveOtherLists } from "@/lib/picks-store";
+import { leaveLists } from "@/lib/picks-store";
 import { SearchChip } from "@/components/PickDetails";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
@@ -301,7 +301,7 @@ export default function Ask() {
               cityId: origin?.city.id ?? "",
               because: detail.because,
             });
-            leaveOtherLists("", detail.placeId);
+            leaveLists(detail.placeId);
             toast("Saved to Want to try");
           }}
           onGo={() => {

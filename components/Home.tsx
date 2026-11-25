@@ -25,7 +25,7 @@ import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { keepSlot, keptSlots, loadSlot, nextPicks, outOfDate, slotKey, withLateEvents, type Slot, SLOT_EVENT } from "@/lib/picks-store";
+import { morePicks, openList, reloadList, shown, slotKey, usePicks, type Slot } from "@/lib/picks-store";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { tonightPlan, type TonightPlan } from "@/lib/style-client";
 import styles from "./Home.module.css";
@@ -70,33 +70,10 @@ export default function Home() {
   const router = useRouter();
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [when, setWhen] = useState<When>("tonight");
-  const [slots, setSlots] = useState<Record<string, Slot>>(keptSlots);
-  // Events that arrived after the list did (picks-store, eventsLater).
-  useEffect(() => {
-    const on = (e: Event) => {
-      const { key, slot } = (e as CustomEvent<{ key: string; slot: Slot }>).detail;
-      setSlots((s) => withLateEvents(s, key, slot));
-    };
-    window.addEventListener(SLOT_EVENT, on);
-    return () => window.removeEventListener(SLOT_EVENT, on);
-  }, []);
-  // At 5 pm (and 5 am) "Today" becomes "Tonight": a list made before is
-  // looked up again, as on every other screen (audit, 24 Nov 2026).
-  useEffect(() => {
-    const check = () => {
-      if (document.visibilityState !== "visible") return;
-      setSlots((s) => {
-        const keep = Object.fromEntries(Object.entries(s).filter(([, v]) => !outOfDate(v)));
-        return Object.keys(keep).length === Object.keys(s).length ? s : keep;
-      });
-    };
-    document.addEventListener("visibilitychange", check);
-    const every = setInterval(check, 60000);
-    return () => {
-      document.removeEventListener("visibilitychange", check);
-      clearInterval(every);
-    };
-  }, []);
+  // The lists are held by the picks store, shared with the picks list
+  // (founder, 25 Nov 2026: one owner, no copies to disagree); it also looks
+  // a list up again past its hour or when Today becomes Tonight.
+  const lists = usePicks();
   // Unknown until read from the phone: nothing is searched before (user
   // test, 24 Nov 2026: someone who chose only Style paid for two searches,
   // made while Home still assumed food and things to do).
@@ -133,20 +110,21 @@ export default function Home() {
   // list. One they didn't choose isn't searched (founder, 20 Nov 2026: "I
   // chose only style, why have random food and to-do picks shown?"); its
   // tile asks its questions first.
+  const foodKey = origin ? slotKey(origin, when, "food_drinks") : "";
+  const expKey = origin ? slotKey(origin, when, "experiences") : "";
+  const food = origin ? shown(lists, foodKey) : undefined;
+  const exp = origin ? shown(lists, expKey) : undefined;
+  const wantFood = !!readWants?.includes("food");
+  const wantDo = !!readWants?.includes("do");
+  const foodMissing = !food;
+  const expMissing = !exp;
   useEffect(() => {
-    if (!origin || !readWants) return;
-    const chosen: Category[] = [...(readWants.includes("food") ? ["food_drinks" as const] : []), ...(readWants.includes("do") ? ["experiences" as const] : [])];
-    for (const c of chosen) {
-      const k = slotKey(origin, when, c);
-      if (slots[k]) continue;
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- marks the slot as loading before the request
-      setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
-      loadSlot(origin, when, c).then((slot) => setSlots((s) => ({ ...s, [k]: slot })));
-    }
-  }, [origin, when, slots, readWants]);
+    if (origin && wantFood) openList(origin, when, "food_drinks");
+  }, [origin, when, wantFood, foodMissing]);
+  useEffect(() => {
+    if (origin && wantDo) openList(origin, when, "experiences");
+  }, [origin, when, wantDo, expMissing]);
 
-  const food = origin ? slots[slotKey(origin, when, "food_drinks")] : undefined;
-  const exp = origin ? slots[slotKey(origin, when, "experiences")] : undefined;
   // Only from places they asked for: picks kept on the phone from before
   // (another account, or food they no longer want) never make a plan
   // (founder, 20 Nov 2026: "it has set up a random plan which I never set").
@@ -191,19 +169,13 @@ export default function Home() {
   // list, and the pill says what's new.
   async function freshSet(): Promise<PillPart[]> {
     if (!origin) return [];
-    const lists = (["food_drinks", "experiences"] as Category[]).map((c) => ({ c, k: slotKey(origin, when, c) })).filter(({ k }) => slots[k] && !slots[k].loading);
-    const next = await Promise.all(lists.map(async ({ c, k }) => ({ k, next: await nextPicks(slots[k], origin, when, c) })));
-    setSlots((s) => {
-      const out = { ...s };
-      for (const { k, next: n } of next) {
-        if (n.fresh.length === 0) continue;
-        out[k] = { ...s[k], picks: n.fresh, spares: n.spares };
-        keepSlot(k, out[k]);
-      }
-      return out;
+    const ready = (["food_drinks", "experiences"] as Category[]).filter((c) => {
+      const s = shown(lists, slotKey(origin, when, c));
+      return s && !s.loading;
     });
+    const next = await Promise.all(ready.map((c) => morePicks(origin, when, c, null, true)));
     scroller.current?.scrollTo({ top: 0 });
-    return whatsNew(next.flatMap((n) => n.next.fresh));
+    return whatsNew(next.flatMap((n) => n.fresh));
   }
 
   // After the first-time questions their answers count, so that category
@@ -213,9 +185,7 @@ export default function Home() {
     setWants(loadWants());
     if (!origin) return;
     const category: Category = c === "food" ? "food_drinks" : "experiences";
-    const k = slotKey(origin, when, category);
-    setSlots((s) => ({ ...s, [k]: { loading: true, picks: [], spares: [], saved: [] } }));
-    loadSlot(origin, when, category).then((slot) => setSlots((s) => ({ ...s, [k]: slot })));
+    reloadList(origin, when, category);
     router.push(`/picks?c=${category}${when === "weekend" ? "&w=weekend" : ""}`);
   }
 
