@@ -10,6 +10,8 @@ import { planFromStops } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
+import { localDay, savePlan } from "@/lib/night-client";
+import { loadOrigin } from "@/lib/origin";
 import { clock, isMeal, planEvenings, type Plan } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
 
@@ -48,6 +50,22 @@ export function directionsForBoth(first: Pick, second: Pick, mode: "walk" | "rid
   const spot = (p: Pick) => (p.lat !== undefined && p.lng !== undefined ? `${p.lat},${p.lng}` : encodeURIComponent(p.event ? `${p.event.venueName}` : p.name));
   const ids = (key: string, p: Pick) => (p.event ? "" : `&${key}=${p.placeId}`);
   return `https://www.google.com/maps/dir/?api=1&origin=${spot(first)}${ids("origin_place_id", first)}&destination=${spot(second)}${ids("destination_place_id", second)}&travelmode=${mode === "walk" ? "walking" : "driving"}`;
+}
+
+// A plan they act on (send it, or take the route) is kept in Saved → Plans,
+// so "How was tonight?" can ask about every stop after (founder, 25 Nov 2026:
+// "i finished my 7:30 plan… why has it not asked me if i went"). Once per
+// plan while the app is open; a plan with an event stays a share only.
+const keptPlans = new Map<string, Promise<string | null>>();
+function keepPlan(p: Plan): Promise<string | null> {
+  const city = loadOrigin()?.city;
+  if (!city || p.stops.some((s) => s.pick.event)) return Promise.resolve(null);
+  const first = p.stops[0].time;
+  const day = localDay(first);
+  const placeIds = p.stops.map((s) => s.pick.placeId);
+  const key = `${day}|${placeIds.join()}`;
+  if (!keptPlans.has(key)) keptPlans.set(key, savePlan({ day, startMinute: first.getHours() * 60 + first.getMinutes(), placeIds }, city).catch(() => null));
+  return keptPlans.get(key)!;
 }
 
 export default function PlanSheet({
@@ -152,6 +170,7 @@ export default function PlanSheet({
             <WearCard plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} />
             <SendToGroup
               kind="plan"
+              planId={() => keepPlan(plan)}
               message={`${plan.day}: ${a!.pick.name} at ${clock(a!.time)}, then ${b!.pick.name} at ${clock(b!.time)}.`}
               payload={{
                 title: plan.day,
@@ -190,7 +209,7 @@ export default function PlanSheet({
             <a
               className={styles.directions}
               href={directionsForBoth(a!.pick, b!.pick, plan.mode)}
-              onClick={() => logEvent("plan_directions", a!.pick.placeId)}
+              onClick={() => (logEvent("plan_directions", a!.pick.placeId), keepPlan(plan))}
               target="_blank"
               rel="noopener noreferrer"
             >
