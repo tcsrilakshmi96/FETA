@@ -256,12 +256,15 @@ export default function Home() {
       <main ref={scroller} className={styles.screen}>
         <div className={styles.page}>
           <div className={styles.dateline}>
-            <span className={styles.left}>
-              <span>{day.label}</span>
-              <span aria-hidden="true">·</span>
-              <button type="button" className={styles.area} onClick={() => router.push("/location")}>
-                {areaLabel.toUpperCase()} ▾
-              </button>
+            {/* BETA under the date (founder, 25 Nov 2026), which leaves the area its room. */}
+            <span className={styles.leftCol}>
+              <span className={styles.left}>
+                <span>{day.label}</span>
+                <span aria-hidden="true">·</span>
+                <button type="button" className={styles.area} onClick={() => router.push("/location")}>
+                  {areaLabel.toUpperCase()} ▾
+                </button>
+              </span>
               <span className={styles.beta}>BETA</span>
             </span>
             <span className={styles.buttons}>
