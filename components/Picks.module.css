@@ -592,9 +592,10 @@
 /* Tweak and Plan my evening, under the categories. */
 .tools {
   display: flex;
+  align-items: center;
   gap: 8px;
-  margin-top: 12px;
-  padding: 0 4px;
+  margin-top: 6px;
+  padding: 0 4px 0 52px;
 }
 
 .tool {
@@ -824,6 +825,30 @@
 
 .compact .tools {
   margin-top: 8px;
+}
+
+/* Tweak and Plan my evening: a quiet line of words under the title. */
+.quiet {
+  height: 32px;
+  padding: 0 10px 0 0;
+  margin-right: 8px;
+  background: none;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(var(--inkRGB), 0.72);
+}
+
+.quiet:active {
+  opacity: 0.6;
+}
+
+.compact .quiet {
+  display: none;
+}
+
+.compact .tools:not(:has(.toolOn)) {
+  display: none;
 }
 
 .tools {

@@ -397,10 +397,12 @@ export default function Picks() {
             ))}
           </div>
         ) : (
+        // Tweak and Plan my evening read as a quiet line under the title, not
+        // a third row of buttons (founder, 25 Nov 2026: "make it simpler").
         <div className={styles.tools}>
           <button
             type="button"
-            className={styles.tool}
+            className={styles.quiet}
             onClick={() => {
               setTweakPick(active?.tweaks ?? []);
               setTweakNote(active?.note ?? "");
@@ -409,7 +411,7 @@ export default function Picks() {
           >
             ⚙ Tweak
           </button>
-          <button type="button" className={styles.tool} onClick={() => setSheet({ type: "plan" })}>
+          <button type="button" className={styles.quiet} onClick={() => setSheet({ type: "plan" })}>
             ✦ Plan my evening
           </button>
           {/* Tweaks in force: tap ✕ to undo one. */}
