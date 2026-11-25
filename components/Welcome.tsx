@@ -28,6 +28,9 @@ export default function Welcome() {
   const router = useRouter();
   const toast = useToast();
   const last = slide === SLIDES.length - 1;
+  // Nothing shows until Feta knows they're new (founder, 25 Nov 2026: the
+  // installed app flashed Welcome and "Sign in" on every open before Home).
+  const [show, setShow] = useState(false);
 
   // Returning people skip the setup: straight to their picks, from this
   // phone's copy or, if this phone is already signed in, from their account.
@@ -39,11 +42,13 @@ export default function Welcome() {
     supabase()
       .auth.getSession()
       .then(async ({ data }) => {
-        if (!data.session) return;
-        if (await restoreFromAccount()) router.replace("/home");
+        if (!data.session) return setShow(true);
+        if (await restoreFromAccount()) return router.replace("/home");
+        setShow(true);
         // Back from "Sign in" with a Google account that never set up Feta.
-        else if (!data.session.user.is_anonymous) toast("No Feta yet on that Google account. Let's set you up.");
-      });
+        if (!data.session.user.is_anonymous) toast("No Feta yet on that Google account. Let's set you up.");
+      })
+      .catch(() => setShow(true));
   }, [router, toast]);
 
   async function signIn() {
@@ -60,6 +65,7 @@ export default function Welcome() {
     router.push("/start");
   }
 
+  if (!show) return <main className={styles.screen} aria-busy="true" />;
   const s = SLIDES[slide];
   return (
     <main

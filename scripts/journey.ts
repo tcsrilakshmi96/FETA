@@ -187,6 +187,24 @@ async function main() {
     const home = await p.evaluate(() => document.body.innerText);
     // No greeting on Home since 24 Nov 2026: their initial is on the You button.
     check(await p.evaluate(() => (document.querySelector("button[aria-label^='You']")?.textContent ?? "").trim().startsWith("J")), "Home's You button shows their initial");
+
+    // Opening Feta again (as the installed app does, at /) goes to Home
+    // without showing Welcome's "Sign in" first (founder, 25 Nov 2026).
+    {
+      // A plain string: the test runner's compiled helpers don't exist in the page.
+      const watcher = await p.evaluateOnNewDocument(`
+        new MutationObserver(function () {
+          if (document.body && /Already use Feta/.test(document.body.innerText)) sessionStorage.setItem("journey.welcomeShown", "1");
+        }).observe(document, { childList: true, subtree: true, characterData: true });
+      `);
+      await p.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+      await p.waitForFunction(() => location.pathname === "/home", { timeout: 15000 }).catch(() => null);
+      const flashed = await p.evaluate(() => sessionStorage.getItem("journey.welcomeShown"));
+      check(!flashed && p.url().includes("/home"), "Opening Feta again goes to Home without showing Welcome's Sign in", p.url());
+      await p.removeScriptToEvaluateOnNewDocument(watcher.identifier);
+      await p.waitForFunction(() => !document.body.innerText.includes("Finding"), { timeout: 60000 }).catch(() => null);
+      await wait(2500); // the tiles finish arriving before anything is measured
+    }
     check(/EAT/.test(home) && /DO/.test(home) && /WEAR/.test(home) && /TRIP/.test(home), "Home shows Eat, Do, Wear and Trip side by side");
     check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
 
