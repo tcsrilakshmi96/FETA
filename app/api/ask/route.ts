@@ -276,14 +276,15 @@ Write only plain words in "reply": never tags, code or tool calls; to look somet
     return match ? !homeCity || match.id !== homeCity.id : !!tripLabel;
   };
   // They asked for 2 days or more somewhere away from home, in their own
-  // words, and the model sent nothing for it (Opus/Sonnet trial, 25 Nov
+  // words in this chat's last few messages (the length often comes before
+  // a question back; re-audit, 25 Nov 2026), and the model sent nothing for it (Opus/Sonnet trial, 25 Nov
   // 2026: "3 days in Porto next month" came back as "I'll put together a
   // 3-day plan" and no card): the route is made. Never while a trip is
   // being planned (its follow-ups, "Is Kyoto worth a day?", would replace
   // its hotels and day plans; audits, 25 Nov 2026), and never on a question
   // back to them.
   const tripPlace = parsed.trip?.place ?? null;
-  const promisedTrip = !currentTrip && !!tripPlace && tripDays(message) >= 2 && !asked.length && !it && !parsed.outfit && !asksQuestion(reply) && awayFromHome(tripPlace);
+  const promisedTrip = !currentTrip && !!tripPlace && Math.max(...talk.slice(-6).map(tripDays)) >= 2 && !asked.length && !it && !parsed.outfit && !asksQuestion(reply) && awayFromHome(tripPlace);
   const wantsRoute =
     !parsed.why &&
     !parsed.route?.cities?.length &&
