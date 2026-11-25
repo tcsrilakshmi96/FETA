@@ -240,13 +240,6 @@ export function saveWhatsApp(number: string | null) {
   });
 }
 
-export async function loadWhatsApp(): Promise<string | null> {
-  const userId = await currentUserId();
-  if (!userId) return null;
-  const { data } = await supabase().from("profiles").select("whatsapp_number").eq("id", userId).maybeSingle();
-  return data?.whatsapp_number ?? null;
-}
-
 // Tweaks teach Feta: "Somewhere quieter" becomes "Likes quieter places" in
 // the profile (removable in You).
 const TWEAK_LINES: Record<string, string> = {

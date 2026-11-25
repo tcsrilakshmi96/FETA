@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
-import WhatsAppBox from "@/components/WhatsAppBox";
 import { planFromStops } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
@@ -197,8 +196,6 @@ export default function PlanSheet({
             </a>
           </>
         )}
-        {/* Only once there's a plan to send (audit, 20 Nov 2026: it asked for a number while the plan was still loading). */}
-        {plan && !loading && !searching && <WhatsAppBox />}
         <button type="button" className={styles.close} onClick={onClose}>
           Close
         </button>

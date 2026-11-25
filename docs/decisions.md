@@ -343,3 +343,4 @@ Three rounds kept finding the same kinds of problem, so they were fixed as kinds
 
 ## 25 Nov 2026
 - Founder: "in plan my look instead of showing the saved image we should directly start with showing the look whatever basis they choose." Each look's own picture is now made as it comes on screen, on them or just the outfit, asked on the first look and remembered on the phone (any look can switch). About ₹4 per look seen (₹12 if all 3 are seen), up from ₹0 unless asked; the library picture stays only before they choose or past their limit.
+- Founder: remove "Want your weekend plan on WhatsApp?" from Plan my evening "for now" (clutter on a tonight plan). Numbers already added stay, removable in You, and Admin → Weekend still lists them.
