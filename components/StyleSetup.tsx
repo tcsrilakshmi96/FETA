@@ -312,7 +312,7 @@ export default function StyleSetup() {
                 Hang up looks <i>you love</i>
               </h2>
               <p className={s.sub} style={{ marginTop: 6 }}>
-                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI reads them once, for the clothes only; the photos stay on this phone, and Feta keeps only the style words.
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI is asked to read only the clothes; the photos stay on this phone, and Feta keeps only the style words.
               </p>
             </div>
             <Line height={300} rows={[0, 150]}>
@@ -376,7 +376,7 @@ export default function StyleSetup() {
                     else toast("Keep at least one style");
                     return;
                   }
-                  if (!tapped.includes(id) && photos.length + tapped.length >= MAX_PHOTOS) return toast(`Up to ${MAX_PHOTOS} looks and photos at a time`);
+                  if (!tapped.includes(id) && photos.length + tapped.length >= MAX_PHOTOS) return toast(`Up to ${MAX_PHOTOS} photos and looks in all`);
                   setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
                 };
                 return (

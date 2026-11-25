@@ -479,7 +479,7 @@ export default function Style() {
                 Yes, where are you going?
               </button>
               <button type="button" className={k.ghost} onClick={pickDifferent}>
-                Or another of today&apos;s looks
+                Or pick another of today&apos;s looks
               </button>
             </>
           )}

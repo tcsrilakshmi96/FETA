@@ -83,8 +83,8 @@ export default function Privacy() {
             Google Maps finds places near you, and Google&apos;s Gemini AI chooses your picks, searches Google for
             events this week, and writes why. Gemini gets a short summary of your answers and likes and the name of
             your area, never your name, email or exact location. If you add inspiration photos in Style, Gemini
-            reads them once for the clothes only (never your face, body or age); Feta keeps only the style words, and
-            the photos stay on your phone.
+            reads them and is asked to describe only the clothes; Feta keeps only the style words, and the photos stay
+            on your phone.
           </li>
         </ul>
         <ul>
