@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
-import { LookCard, PictureChoice, PieceSheet, StyleFigure, StyleHead, useLookPicture } from "@/components/StyleKit";
+import { LookCard, PieceSheet, StyleFigure, StyleHead, useLookPicture } from "@/components/StyleKit";
 import TabBar from "@/components/TabBar";
 import { FROM_KEY } from "@/components/WearCard";
 import { useToast } from "@/components/Toast";
 import WaitFun from "@/components/WaitFun";
 import { loadOrigin } from "@/lib/origin";
 import { WHERES, styleById, type LookFor, type Where } from "@/lib/style";
-import { chooseLook, chosenLookFor, cityDay, cityNow, forgetPicture, fromPhone, keepOnPhone, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, shrink, swapInSet, tonightPlan, wornOn, type LookSet, type PictureKind, type StyleProfile } from "@/lib/style-client";
+import { chooseLook, chosenLookFor, cityDay, cityNow, forgetOnMe, loadSet, loadStyleProfile, lookForPlan, newSet, saveStyleProfile, setLookFor, swapInSet, tonightPlan, wornOn, type LookSet, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
@@ -26,16 +26,6 @@ import s from "./StyleScreens.module.css";
 type Mode = "loading" | "where" | "looks" | "wearing" | "worn" | "limit";
 const OFF = ["Colours", "Fit or shape", "Too dressy", "Too casual", "Costs too much", "Just not me"];
 const SETTINGS = ["Outdoors", "Indoors", "Walking there", "Standing a lot"];
-
-const SHOW_AS = "feta.style.showAs";
-function readShowAs(): PictureKind | null {
-  try {
-    const v = localStorage.getItem(SHOW_AS);
-    return v === "me" || v === "outfit" ? v : null;
-  } catch {
-    return null;
-  }
-}
 
 export default function Style() {
   const router = useRouter();
@@ -65,38 +55,18 @@ export default function Style() {
 
   const wears = profile?.wears ?? "women";
   const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
-  // Each look is made at once, the way they chose (founder, 25 Nov 2026:
-  // "directly start with showing the look whatever basis they choose"): on
-  // them (their photo, kept on this phone) or just the outfit, asked the
-  // first time and remembered on the phone; any look can switch.
-  const [onMe, setOnMe] = useState<boolean | null>(null);
-  const [round, setRound] = useState(0);
-  const [showAs, setShowAs] = useState<PictureKind | null>(readShowAs);
-  const [choosing, setChoosing] = useState(false);
-  const selfieFile = useRef<HTMLInputElement>(null);
+  // Each look's own picture (the outfit, never on them: founder, 25 Nov
+  // 2026, a look made on her photo didn't keep her face) is made as it comes
+  // on screen. Photos added for "On me" before leave the phone.
+  const { pic, making } = useLookPicture(look, wears, !!look);
   useEffect(() => {
-    fromPhone("selfie").then((x) => setOnMe(!!x));
-  }, []);
-  function chooseShowAs(kind: PictureKind) {
-    setShowAs(kind);
+    forgetOnMe();
     try {
-      localStorage.setItem(SHOW_AS, kind);
+      localStorage.removeItem("feta.style.showAs");
     } catch {
-      // Asked again next time.
+      // Nothing kept.
     }
-  }
-  // "On me" with their photo gone falls back to the outfit.
-  const usual: PictureKind | null = onMe === null ? null : showAs === "me" && !onMe ? "outfit" : showAs;
-  const want: PictureKind | null = look ? ((mode === "worn" ? (onMe ? "me" : "outfit") : usual)) : null;
-  const { pic, making } = useLookPicture(look, wears, want, round);
-  // The first look they see asks how to show it, once.
-  const askShowAs = !!look && onMe !== null && showAs === null && (mode === "looks" || mode === "wearing");
-  function showLookAs(kind: PictureKind) {
-    setChoosing(false);
-    if (!look) return;
-    if (kind === "me" && !onMe) return selfieFile.current?.click();
-    chooseShowAs(kind);
-  }
+  }, []);
 
   async function openFor(next: LookFor) {
     setF(next);
@@ -243,21 +213,6 @@ export default function Style() {
     const shown = set.looks.map((l) => `${l.title}: ${l.pieces.map((x) => x.name).join(", ")}`);
     await make(f, set.day, set.setNo + 1, shown);
     if (note) toast(`${note}: noted. 3 new looks`);
-  }
-  async function addSelfie(list: FileList | null) {
-    const file = list?.[0];
-    if (!file || !set) return;
-    const photo = await shrink(file, 1024).catch(() => null);
-    if (!photo) return toast("Couldn't open that photo.");
-    await keepOnPhone("selfie", photo);
-    setOnMe(true);
-    if (look) await forgetPicture(look);
-    chooseShowAs("me");
-    setRound((r) => r + 1);
-    const nextP = { ...p, onYou: true };
-    setProfile(nextP);
-    saveStyleProfile(nextP, origin!.city);
-    toast("Making this look on you");
   }
   function have(i: number) {
     if (!look) return;
@@ -453,7 +408,7 @@ export default function Style() {
                 }}
                 onPointerCancel={() => (swipeX.current = null)}
               >
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} onSee={() => showLookAs(want === "me" ? "outfit" : "me")} seeLabel={want === "me" ? "Show just the outfit" : "Show it on me"} />
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} />
               </div>
               <div className={k.actions}>
                 <button type="button" className={k.round} aria-label="The last look" onClick={prev} disabled={li === 0}>
@@ -515,7 +470,7 @@ export default function Style() {
               </div>
               <span className={k.styleLine}>{styleById(look.style)?.name ?? ""}</span>
               <div className={k.deck}>
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} onSee={() => showLookAs(want === "me" ? "outfit" : "me")} seeLabel={want === "me" ? "Show just the outfit" : "Show it on me"} pill="✓ You're wearing this" />
+                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
               </div>
               <button type="button" className={k.ghost} onClick={pickDifferent}>
                 Pick a different look
@@ -585,18 +540,6 @@ export default function Style() {
           )}
         </div>
       </main>
-      <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
-      {(choosing || askShowAs) && look && (
-        <PictureChoice
-          hasPhoto={!!onMe}
-          onPick={showLookAs}
-          onClose={() => {
-            setChoosing(false);
-            // Closed without choosing: the outfit, so a look still shows.
-            if (!showAs) chooseShowAs("outfit");
-          }}
-        />
-      )}
       {sheet !== null && look && (
         <PieceSheet
           name={look.pieces[sheet].name}

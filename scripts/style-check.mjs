@@ -91,17 +91,13 @@ const pieces = await p.evaluate(() => document.querySelectorAll("[class*=pieceRo
 ok(`C: the lookbook lists every piece (${pieces})`, pieces >= 3);
 // Never a sketch (founder, 23 Nov 2026): every picture is a real one.
 ok("C: no sketch anywhere on the look", await p.evaluate(() => ![...document.images].some((i) => /\/style\/looks\//.test(i.src)) && !/Feta's sketch/.test(document.body.innerText)));
-// Each look is made at once, the way they chose, asked the first time
-// (founder, 25 Nov 2026).
-await wait(800);
-ok("C: the first look asks how to show it: On me or Just the outfit", await buttonVisible(/^On me/) && await buttonVisible(/^Just the outfit/));
-ok("C: no picture is made before they choose", pictureAsks === 0);
-await click(/^Just the outfit/);
+// Each look's outfit picture is made as it comes on screen; never on their
+// photo (founder, 25 Nov 2026).
 for (let i = 0; i < 20 && pictureAsks === 0; i++) await wait(200);
-ok("C: choosing Just the outfit makes this look's picture", pictureAsks > 0);
+ok("C: the look on screen has its picture made", pictureAsks > 0);
 await wait(800);
+ok("C: no On me choice or switch", !(await buttonVisible(/^On me/)) && !(await buttonVisible(/^Show it on me$/)));
 ok("C: test mode makes no picture, so the style's library picture stands in, said so", await p.evaluate(() => [...document.images].some((i) => /\/style\/boards\//.test(i.src))) && /not this exact one/.test(await text()));
-ok("C: the look can be switched to on them", await buttonVisible(/^Show it on me$/));
 ok("C: Wear this and the swipe hint show", await buttonVisible(/^Wear this$/) && /Swipe to wear/.test(await text()));
 await swipe(-120);
 ok("C: swipe left shows the next look", await until(/2 of 3/, 3000));

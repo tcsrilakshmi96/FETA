@@ -1046,21 +1046,4 @@
   background: var(--bg);
   color: var(--ink);
 }
-/* Switches a look between on them and just the outfit (founder, 25 Nov
-   2026: each look is made at once, the way they chose). */
-.seeAs {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
-  z-index: 7;
-  border: none;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--inkFixed);
-  cursor: pointer;
-}
+

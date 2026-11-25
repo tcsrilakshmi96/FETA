@@ -149,12 +149,19 @@ export async function fromPhone(key: string): Promise<string | null> {
   }
 }
 
-export async function forgetOnYou() {
-  // Pictures asked for this visit go too, so one of them never comes back.
-  picturesAsked.clear();
+// "On me" is gone for now (founder, 25 Nov 2026: a look made on her photo
+// didn't keep her face): their photo and every picture made on it leave the
+// phone; outfit pictures stay.
+export async function forgetOnMe() {
   try {
     const db = await idb();
-    db.transaction("kept", "readwrite").objectStore("kept").clear();
+    const store = db.transaction("kept", "readwrite").objectStore("kept");
+    const keys = await new Promise<IDBValidKey[]>((resolve) => {
+      const all = store.getAllKeys();
+      all.onsuccess = () => resolve(all.result);
+      all.onerror = () => resolve([]);
+    });
+    for (const k of keys) if (k === "selfie" || /^(pic|spots)-me:/.test(String(k))) store.delete(k);
   } catch {
     // Nothing kept.
   }
@@ -337,10 +344,9 @@ export async function chooseLook(set: LookSet, index: number | null) {
 }
 
 // A look's realistic picture, made once when it's shown (about ₹4) and kept
-// on this phone under the look's id: on them when they added their photo,
-// else an outfit board (founder, 23 Nov 2026: never a sketch), which is
-// also kept on their account (look_pictures) so another phone doesn't make
-// it again. A picture of them never leaves this phone.
+// on this phone under the look's id: an outfit board (founder, 23 Nov 2026:
+// never a sketch), also kept on their account (look_pictures) so another
+// phone doesn't make it again.
 const picturesAsked = new Map<string, Promise<string | null>>();
 // Why the last picture couldn't be made (today's limit, test mode), to say so.
 let pictureNotice: string | null = null;
@@ -349,35 +355,28 @@ export function takePictureNotice() {
   pictureNotice = null;
   return n;
 }
-// "me": on their photo (kept on this phone only); "outfit": the board with
-// no person (also kept on their account). Made only when they ask for it
-// (founder, 24 Nov 2026: library picture first, the exact look on a tap).
-export type PictureKind = "me" | "outfit";
-// One of each per look, kept apart (audit, 24 Nov 2026: with one slot, once
-// the outfit board existed "On me" showed the board again).
-const picKey = (look: Look, kind: PictureKind) => (kind === "me" ? `pic-me:${look.id}` : `pic:${look.id}`);
-const spotsKey = (look: Look, kind: PictureKind) => (kind === "me" ? `spots-me:${look.id}` : `spots:${look.id}`);
-export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promise<string | null> {
-  const key = picKey(look, kind);
+// The outfit board (no person), kept on this phone and on their account.
+const picKey = (look: Look) => `pic:${look.id}`;
+const spotsKey = (look: Look) => `spots:${look.id}`;
+export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
+  const key = picKey(look);
   const waiting = picturesAsked.get(key);
   if (waiting) return waiting;
   const work = (async () => {
     const kept = await fromPhone(key);
     if (kept) return kept;
-    const photo = kind === "me" ? await fromPhone("selfie") : null;
-    if (kind === "outfit" && (await currentUserId())) {
+    if (await currentUserId()) {
       const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
       if (data?.image) {
         await keepOnPhone(key, data.image);
-        if (data.spots) await keepOnPhone(spotsKey(look, "outfit"), JSON.stringify(data.spots));
+        if (data.spots) await keepOnPhone(spotsKey(look), JSON.stringify(data.spots));
         return data.image as string;
       }
     }
-    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null; notice?: string }>("/api/style/picture", { look, wears, photo });
+    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null; notice?: string }>("/api/style/picture", { look, wears });
     if (r?.image) await keepOnPhone(key, r.image);
-    if (r?.image && r.spots) await keepOnPhone(spotsKey(look, kind), JSON.stringify(r.spots));
+    if (r?.image && r.spots) await keepOnPhone(spotsKey(look), JSON.stringify(r.spots));
     if (!r?.image) {
-      // Made only on a tap now, so a tap again tries again (audit, 24 Nov 2026).
       picturesAsked.delete(key);
       pictureNotice = r?.notice ?? "Couldn't make the picture just now. Try again in a minute.";
     }
@@ -386,25 +385,11 @@ export function lookPicture(look: Look, wears: Wears, kind: PictureKind): Promis
   picturesAsked.set(key, work);
   return work;
 }
-// Their photo added after a look's picture was made: that picture goes, so
-// the next one is made on them.
-export async function forgetPicture(look: Look) {
-  const key = picKey(look, "me");
-  picturesAsked.delete(key);
-  await keepOnPhone(key, null);
-  await keepOnPhone(spotsKey(look, "me"), null);
-  try {
-    sessionStorage.removeItem(`feta.picFailed:${key}`);
-  } catch {
-    // Nothing to clear.
-  }
-}
 // Where each piece sits in the look's picture (x, y as fractions), when known.
 // pic: the picture on screen, so the dots are that picture's.
-export async function keptSpots(look: Look, pic?: string | null): Promise<([number, number] | null)[] | null> {
+export async function keptSpots(look: Look): Promise<([number, number] | null)[] | null> {
   try {
-    const onMe = pic && (await fromPhone(picKey(look, "me"))) === pic;
-    const v = JSON.parse((await fromPhone(spotsKey(look, onMe ? "me" : "outfit"))) ?? "null");
+    const v = JSON.parse((await fromPhone(spotsKey(look))) ?? "null");
     return Array.isArray(v) && v.length === look.pieces.length ? v : null;
   } catch {
     return null;
@@ -412,18 +397,15 @@ export async function keptSpots(look: Look, pic?: string | null): Promise<([numb
 }
 // On this phone, else the outfit board kept on their account (free), so a
 // look worn on one phone shows on another (audit, 24 Nov 2026).
-// want: the kind they asked for, if any; else the one on them first.
-export async function keptPicture(look: Look, want?: PictureKind | null): Promise<{ image: string; kind: PictureKind } | null> {
-  for (const kind of want ? [want] : (["me", "outfit"] as const)) {
-    const image = await fromPhone(picKey(look, kind));
-    if (image) return { image, kind };
-  }
-  if (want === "me" || !(await currentUserId())) return null;
+export async function keptPicture(look: Look): Promise<{ image: string } | null> {
+  const image = await fromPhone(picKey(look));
+  if (image) return { image };
+  if (!(await currentUserId())) return null;
   const { data } = await supabase().from("look_pictures").select("image, spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
   if (!data?.image) return null;
-  await keepOnPhone(picKey(look, "outfit"), data.image);
-  if (data.spots) await keepOnPhone(spotsKey(look, "outfit"), JSON.stringify(data.spots));
-  return { image: data.image as string, kind: "outfit" };
+  await keepOnPhone(picKey(look), data.image);
+  if (data.spots) await keepOnPhone(spotsKey(look), JSON.stringify(data.spots));
+  return { image: data.image as string };
 }
 
 // Brands for their styles that sell in their country, from the library:

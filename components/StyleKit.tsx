@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { stylePicture, styleById, type Look, type Wears } from "@/lib/style";
-import { cityNow, keptPicture, keptSpots, lookPicture, takePictureNotice, type PictureKind } from "@/lib/style-client";
+import { cityNow, keptPicture, keptSpots, lookPicture, takePictureNotice } from "@/lib/style-client";
 import { useToast } from "@/components/Toast";
 import k from "./StyleLook.module.css";
 
@@ -56,29 +56,27 @@ export function StyleFigure({ style, wears, seed = "", className, imgStyle }: { 
 // The look's picture: kept on this phone or account, else made only when
 // they ask for it (founder, 24 Nov 2026: "if we take a look from the library
 // and show, it will be fast"; about ₹4), else the style's library picture.
-export function useLookPicture(look: Look | null, wears: Wears, want: PictureKind | null, round = 0): { pic: string | null; making: boolean } {
+export function useLookPicture(look: Look | null, wears: Wears, make: boolean): { pic: string | null; making: boolean } {
   const toast = useToast();
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
-  // A new round (their photo just added, or a tap to try again) looks again.
-  // One per look and kind, so switching On me / Just the outfit shows the
-  // other (tech audit, 25 Nov 2026); a failed one isn't tried again by itself.
-  const id = look ? `${look.id}#${want}#${round}` : "";
+  // One per look; a failed one isn't tried again by itself (cost audit, 25 Nov 2026).
+  const id = look ? `${look.id}#${make}` : "";
   useEffect(() => {
     if (!look || id in pics) return;
     let live = true;
-    keptPicture(look, want).then((kept) => {
+    keptPicture(look).then((kept) => {
       if (!live) return;
-      if (kept || !want) {
+      if (kept || !make) {
         setPics((p) => ({ ...p, [id]: kept?.image ?? null }));
         return;
       }
       setMaking(id);
-      lookPicture(look, wears, want).then((img) => {
+      lookPicture(look, wears).then((img) => {
         if (!live) return;
         setMaking(null);
         setPics((p) => ({ ...p, [id]: img }));
-        // Couldn't be made (today's limit, a hiccup): say why; a tap tries again.
+        // Couldn't be made (today's limit, a hiccup): say why.
         if (!img) toast(takePictureNotice() ?? "Couldn't make the picture just now.");
       });
     });
@@ -86,7 +84,7 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one look at a time, by id
-  }, [id, want]);
+  }, [id]);
   return { pic: pics[id] ?? null, making: making === id };
 }
 
@@ -95,11 +93,11 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
 // out beside the clothes), a numbered pulsing dot on every piece the picture
 // shows, and the pieces in one row underneath, so Wear this stays on screen.
 // A piece they own is dark, "YOURS ✓". The look's own picture is made as
-// it comes on screen, the way they chose (founder, 25 Nov 2026); while it's
+// it comes on screen (founder, 25 Nov 2026); while it's
 // made only a faint blur shows, and when it can't be (today's limit) a
 // picture of a look in that style stands in, said so, with no dots (founder:
-// never a sketch). onSee switches between on them and just the outfit.
-export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, seeLabel, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; onSee?: () => void; seeLabel?: string; pill?: string; children?: ReactNode }) {
+// never a sketch). Only the outfit, never on them (founder, 25 Nov 2026).
+export function LookCard({ look, wears, pic, making, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [img, setImg] = useState<{ w: number; h: number }>({ w: 4, h: 5 });
@@ -115,7 +113,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, seeL
   // Where the pieces are in their picture (found when it was made).
   useEffect(() => {
     let live = true;
-    if (pic) keptSpots(look, pic).then((x) => live && setFound({ id: look.id, spots: x }));
+    if (pic) keptSpots(look).then((x) => live && setFound({ id: look.id, spots: x }));
     return () => {
       live = false;
     };
@@ -152,11 +150,6 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, seeL
         ))}
         {pill && <span className={k.pill}>{pill}</span>}
         {making ? <span className={k.making}>Making your look · about 10 seconds</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
-        {!making && onSee && seeLabel && (
-          <button type="button" className={k.seeAs} onClick={onSee}>
-            {seeLabel}
-          </button>
-        )}
         {children}
       </div>
       <div className={k.pieceRow}>
@@ -173,31 +166,6 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, seeL
             </button>
           );
         })}
-      </div>
-    </>
-  );
-}
-
-// How their looks are shown, asked once (founder, 25 Nov 2026): on them or
-// just the outfit.
-export function PictureChoice({ hasPhoto, onPick, onClose }: { hasPhoto: boolean; onPick: (kind: PictureKind) => void; onClose: () => void }) {
-  return (
-    <>
-      <button type="button" className={k.shade} aria-label="Close" onClick={onClose} />
-      <div className={k.sheet} role="dialog" aria-label="How should Feta show your looks?">
-        <div className={k.grab} />
-        <span className={k.lookTitle} style={{ fontSize: 21 }}>
-          How should Feta show your looks?
-        </span>
-        <span style={{ fontSize: 13, opacity: 0.7 }}>Each look is made for you in about 10 seconds. You can switch on any look.</span>
-        <button type="button" className={k.opt} onClick={() => onPick("me")}>
-          <b>On me</b>
-          <span>{hasPhoto ? "With your photo, kept on this phone only" : "Add one head-to-toe photo. It goes to Google's image AI only to make your looks and stays on this phone."}</span>
-        </button>
-        <button type="button" className={k.opt} onClick={() => onPick("outfit")}>
-          <b>Just the outfit</b>
-          <span>These exact pieces laid out together, no person</span>
-        </button>
       </div>
     </>
   );

@@ -262,8 +262,6 @@ try {
     await shot("style-look-1");
     writeFileSync(`${OUT}/style.txt`, await text());
     await wait(600);
-    await shot("style-choice");
-    await tap(/^Just the outfit/);
     await p.waitForFunction(() => ![...document.images].some((i) => /\/style\/boards\//.test(i.src)), { timeout: 95000 }).catch(() => null);
     await wait(2000);
     await shot("style-exact");

@@ -23,7 +23,7 @@ export default function OutfitCard({ outfit, brands }: { outfit: Look; brands: {
       live = false;
     };
   }, []);
-  const { pic: look } = useLookPicture(wears ? outfit : null, wears ?? "women", null);
+  const { pic: look } = useLookPicture(wears ? outfit : null, wears ?? "women", false);
   return (
     <div className={`${s.vars} ${s.chatOutfit}`}>
       <div className={s.chatLook}>

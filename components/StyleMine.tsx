@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StyleFigure, StyleHead } from "@/components/StyleKit";
 import { Logo } from "@/components/StyleParts";
@@ -9,7 +9,7 @@ import { useToast } from "@/components/Toast";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
 import { BUDGET_LEVELS, BUDGET_NAMES, budgetLabels, styleById, type Wears } from "@/lib/style";
-import { forgetOnYou, fromPhone, keepOnPhone, keptPicture, loadLovedBrands, loadStyleProfile, lookupNewBrand, loveBrand, recommendSetting, saveStyleProfile, searchBrands, setRecommendBrands, shrink, wearAgain, wornLooks, type LookSet, type LovedBrand, type StyleProfile } from "@/lib/style-client";
+import { forgetOnMe, keptPicture, loadLovedBrands, loadStyleProfile, lookupNewBrand, loveBrand, recommendSetting, saveStyleProfile, searchBrands, setRecommendBrands, wearAgain, wornLooks, type LookSet, type LovedBrand, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
@@ -38,9 +38,7 @@ export default function StyleMine() {
   const [found, setFound] = useState<{ id: string; name: string; logo: string | null }[]>([]);
   const [looking, setLooking] = useState(false);
   const [piece, setPiece] = useState("");
-  const [selfie, setSelfie] = useState<string | null>(null);
   const [saved, setSaved] = useState(0);
-  const file = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadStyleProfile().then((x) => {
@@ -57,7 +55,8 @@ export default function StyleMine() {
     });
     loadLovedBrands().then(setUsuals);
     recommendSetting().then(setRecommend);
-    fromPhone("selfie").then(setSelfie);
+    // "On me" is gone for now (founder, 25 Nov 2026): a photo added before leaves the phone.
+    forgetOnMe();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on open
   }, []);
 
@@ -94,22 +93,6 @@ export default function StyleMine() {
     setLooking(false);
     if (r?.brand) await addBrand({ ...r.brand, logo: null });
     else toast(r?.notice ?? "Couldn't find that brand.");
-  }
-
-  async function addSelfie(list: FileList | null) {
-    const f = list?.[0];
-    if (!f) return;
-    const photo = await shrink(f, 1024).catch(() => null);
-    if (!photo) return toast("Couldn't open that photo.");
-    await keepOnPhone("selfie", photo);
-    setSelfie(photo);
-    change({ ...p!, onYou: true }, "New looks will show on you");
-  }
-
-  async function removeSelfie() {
-    await forgetOnYou();
-    setSelfie(null);
-    change({ ...p!, onYou: false }, "Your photo is gone from this phone");
   }
 
   async function again(w: LookSet) {
@@ -305,34 +288,6 @@ export default function StyleMine() {
             </button>
           </section>
 
-          <section className={k.box}>
-            <span className={k.label}>Looks on you · optional</span>
-            {selfie ? (
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <span className={k.thumbImg} style={{ width: 70, height: 90, flex: "none" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
-                  <img src={selfie} alt="Your photo" style={{ inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                </span>
-                <span style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <span style={{ fontSize: 13 }}>New looks are made on you.</span>
-                  <button type="button" className={k.mini} onClick={removeSelfie}>
-                    Remove my photo
-                  </button>
-                </span>
-              </div>
-            ) : (
-              <>
-                {p.onYou && <span style={{ fontSize: 13 }}>Your photo stays on your other phone. Add it here to see looks on you.</span>}
-                <button type="button" className={k.mini} style={{ alignSelf: "flex-start" }} onClick={() => file.current?.click()}>
-                  Add one photo of you
-                </button>
-              </>
-            )}
-            <span style={{ fontSize: 12, opacity: 0.7 }}>
-              Head to toe works best. It goes to Google&apos;s image AI only to make your looks. Feta doesn&apos;t keep it; the photo and pictures stay on this phone. Feta never comments on your body, size or looks.
-            </span>
-            <input ref={file} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
-          </section>
         </div>
       </main>
       <TabBar active="style" />
