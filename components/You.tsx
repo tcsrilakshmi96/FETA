@@ -84,7 +84,7 @@ export default function You() {
       <>
         <main className={styles.screen}>
           <h1 className={styles.title}>
-            What Feta knows <strong>about you</strong>
+            What Feta <strong>knows</strong>
           </h1>
           <p className={styles.sub}>Getting your profile…</p>
         </main>
@@ -279,7 +279,7 @@ export default function You() {
           ‹ Home
         </button>
         <h1 className={styles.title}>
-          What Feta knows <strong>about you</strong>
+          What Feta <strong>knows</strong>
         </h1>
         <p className={styles.sub}>
           Your picks and Ask Feta (the 🧀) work from this. Change anything, and picks follow.
