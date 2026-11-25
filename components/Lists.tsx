@@ -32,7 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 const MAX_PLAN = 5;
 
-type PlanCard = { key: string; title: string; when: string; stops: string[]; plan?: SavedPlan; shares: MyShare[]; past: boolean };
+type PlanCard = { key: string; title: string; when: string; stops: string[]; plan?: SavedPlan; shares: MyShare[]; past: boolean; at: number };
 
 const liveNames = new Map<string, Promise<string | null>>();
 function nameLive(placeId: string) {
@@ -88,7 +88,13 @@ export default function Lists() {
     if (items === null) return;
     const known = new Set(items.map((i) => i.placeId));
     const shared = shares.flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []))).filter((st) => !st.event).map((st) => st.placeId);
-    const missing = [...new Set([...plans.flatMap((p) => p.placeIds), ...shared])].filter((id) => !known.has(id));
+    // Each name is a paid lookup (about ₹1.5), so only plans still to come
+    // and the latest two that are done (cost audit, 26 Nov 2026); older Done
+    // cards say how many places instead.
+    const now = new Date();
+    const over = (p: SavedPlan) => !!p.checkedAt || planIsOver(p, localDay(now), now.getHours() * 60 + now.getMinutes());
+    const named = [...plans.filter((p) => !over(p)), ...plans.filter(over).slice(0, 2)];
+    const missing = [...new Set([...named.flatMap((p) => p.placeIds), ...shared])].filter((id) => !known.has(id));
     const events = Object.fromEntries(shares.flatMap((x) => (x.payload.stops ?? []).filter((st) => st.event).map((st) => [`event:${st.event!.title}`, st.event!.title])));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- event titles come with the share
     setNames((n) => ({ ...n, ...events }));
@@ -149,7 +155,7 @@ export default function Lists() {
   const cards: PlanCard[] = [
     ...plans.map((p) => {
       const past = !!p.checkedAt || isOver(p);
-      return { key: p.id, title: past ? new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(new Date(`${p.day}T12:00:00`)) : dayName(p.day), when: `${short(new Date(`${p.day}T12:00:00`))} · ${minuteClock(p.startMinute)}`, stops: p.placeIds, plan: p, shares: shares.filter((x) => x.planId === p.id), past };
+      return { at: new Date(`${p.day}T00:00:00`).getTime() + p.startMinute * 60000, key: p.id, title: past ? new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(new Date(`${p.day}T12:00:00`)) : dayName(p.day), when: `${short(new Date(`${p.day}T12:00:00`))} · ${minuteClock(p.startMinute)}`, stops: p.placeIds, plan: p, shares: shares.filter((x) => x.planId === p.id), past };
     }),
     ...shares
       .filter((x) => !x.planId || !plans.some((p) => p.id === x.planId))
@@ -163,12 +169,16 @@ export default function Lists() {
           stops: stops.map((st) => (st.event ? `event:${st.event.title}` : st.placeId)),
           shares: [x],
           past: !!first && new Date().getTime() - new Date(first).getTime() > CHECK_IN_AFTER * 60000,
+          at: new Date(first ?? x.createdAt).getTime(),
         };
       }),
   ];
 
-  const upcoming = cards.filter((c) => !c.past);
-  const done = cards.filter((c) => c.past);
+  // Soonest first; Done, latest first (design audit, 26 Nov 2026).
+  const upcoming = cards.filter((c) => !c.past).sort((a, b) => a.at - b.at);
+  const done = cards.filter((c) => c.past).sort((a, b) => b.at - a.at);
+  // A stop's name, or for an older Done plan whose names weren't looked up, how many places.
+  const stopsLine = (c: PlanCard) => (c.past && c.stops.some((id) => !names[id] && nameOf(id) === "…") ? `${c.stops.length} places` : c.stops.map((id) => names[id] ?? nameOf(id)).join(" → "));
   const FACE: Record<string, string> = { loved: "😍", fine: "🙂", not_for_me: "😕" };
   // "😍 Clay Studio · 🙂 Trattoria Nonna", from what they said in Been.
   const howItWent = (c: PlanCard) =>
@@ -303,7 +313,7 @@ export default function Lists() {
 
         {/* One saved place: the way to a plan (founder, 26 Nov 2026, return-visit walk-through). */}
         {tab === "want" && (items ?? []).filter(plannable).length === 1 && (
-          <button type="button" className={styles.planNight} style={{ opacity: 0.85 }} onClick={() => router.push("/picks")}>
+          <button type="button" className={styles.planNight} onClick={() => router.push("/picks")}>
             <span aria-hidden="true">🧀</span>
             <span>
               <strong>Save one more to plan a night</strong>
@@ -357,7 +367,7 @@ export default function Lists() {
                   const fresh = c.shares.flatMap(newReplies).length;
                   return (
                     <li key={c.key} className={styles.planRow}>
-                      <button type="button" className={`${styles.item} ${fresh ? styles.picked : ""}`} onClick={() => (replies.length || (!c.plan && c.shares.length) ? setWhos(c) : c.plan && setNight({ saved: c.plan }))}>
+                      <button type="button" className={`${styles.item} ${fresh ? styles.picked : ""}`} onClick={() => (replies.length || (!c.plan && c.shares.length) ? setWhos(c) : c.past ? setTab("been") : c.plan && setNight({ saved: c.plan }))}>
                         <span className={styles.planIcon} aria-hidden="true">
                           🧀
                         </span>
@@ -367,7 +377,7 @@ export default function Lists() {
                             <span className={styles.when}>{c.when}</span>
                           </span>
                           <span className={styles.area} style={{ display: "block" }}>
-                            {c.stops.map((id) => names[id] ?? nameOf(id)).join(" → ")}
+                            {stopsLine(c)}
                           </span>
                           {replies.length > 0 ? (
                             <span className={styles.replies}>
@@ -380,7 +390,7 @@ export default function Lists() {
                               {fresh > 0 && <span className={styles.fresh}>{fresh} new</span>}
                             </span>
                           ) : c.past ? (
-                            <span className={styles.notShared}>{howItWent(c) || "How was it? Rate the places in Been"}</span>
+                            <span className={styles.howWent}>{howItWent(c) || "How was it? Rate the places in Been"}</span>
                           ) : (
                             <span className={styles.notShared}>{c.shares.length ? "Shared · no replies yet" : "Not shared yet"}</span>
                           )}
