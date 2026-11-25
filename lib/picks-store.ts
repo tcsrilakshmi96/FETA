@@ -72,6 +72,8 @@ function owner() {
   }
 }
 function persist() {
+  // A phone with no owner yet takes the first one it sees.
+  if (ownerAtRead === null) ownerAtRead = owner();
   if (ownerAtRead && owner() !== ownerAtRead) return;
   try {
     const keep = Object.fromEntries(Object.entries(state.lists).filter(([, s]) => keepable(s)).map(([k, s]) => [k, { ...s, more: false }]));
@@ -287,6 +289,7 @@ function changeShown(key: string, change: (s: Slot) => Slot) {
   if (t) set({ tweaked: { ...state.tweaked, [key]: { ...t, slot: change(t.slot) } } });
   else if (state.lists[key]) set({ lists: { ...state.lists, [key]: change(state.lists[key]) } });
 }
+const moreRuns = new Map<string, number>();
 function listToken(key: string) {
   const t = state.tweaked[key];
   return t ? `tweak:${t.tweaks.join(",")}|${t.note ?? ""}|${t.slot.madeAt ?? "loading"}` : `list:${state.lists[key]?.madeAt ?? "none"}`;
@@ -308,6 +311,8 @@ export async function morePicks(origin: Origin, when: When, category: Category, 
   // different list there by the reply (a tweak, Undo, a reload) is left
   // alone, and nothing is left saying "Finding more…".
   const asked = listToken(key);
+  const run = (moreRuns.get(key) ?? 0) + 1;
+  moreRuns.set(key, run);
   let found: Pick[];
   let spares: Pick[];
   let notice: string | undefined;
@@ -322,6 +327,8 @@ export async function morePicks(origin: Origin, when: When, category: Category, 
     notice = reply.notice;
   }
   if (listToken(key) !== asked) {
+    // A newer Show me more on the list now there keeps its own "Finding more…".
+    if (moreRuns.get(key) !== run) return { fresh: [] };
     const t2 = state.tweaked[key];
     set({
       ...(state.lists[key] ? { lists: { ...state.lists, [key]: { ...state.lists[key], more: false } } } : {}),
