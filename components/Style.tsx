@@ -72,12 +72,11 @@ export default function Style() {
   const [onMe, setOnMe] = useState<boolean | null>(null);
   const [round, setRound] = useState(0);
   const [asked, setAsked] = useState<Record<string, PictureKind>>({});
-  const [showAs, setShowAs] = useState<PictureKind | null>(null);
+  const [showAs, setShowAs] = useState<PictureKind | null>(readShowAs);
   const [choosing, setChoosing] = useState(false);
   const selfieFile = useRef<HTMLInputElement>(null);
   useEffect(() => {
     fromPhone("selfie").then((x) => setOnMe(!!x));
-    setShowAs(readShowAs());
   }, []);
   function chooseShowAs(kind: PictureKind) {
     setShowAs(kind);
@@ -93,9 +92,6 @@ export default function Style() {
   const { pic, making } = useLookPicture(look, wears, want, round);
   // The first look they see asks how to show it, once.
   const askShowAs = !!look && onMe !== null && showAs === null && (mode === "looks" || mode === "wearing");
-  useEffect(() => {
-    if (askShowAs) setChoosing(true);
-  }, [askShowAs]);
   function showLookAs(kind: PictureKind) {
     setChoosing(false);
     if (!look) return;
@@ -596,7 +592,7 @@ export default function Style() {
         </div>
       </main>
       <input ref={selfieFile} type="file" accept="image/*" hidden onChange={(e) => addSelfie(e.target.files).then(() => (e.target.value = ""))} />
-      {choosing && look && (
+      {(choosing || askShowAs) && look && (
         <PictureChoice
           hasPhoto={!!onMe}
           onPick={showLookAs}
