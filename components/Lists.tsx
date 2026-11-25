@@ -98,7 +98,7 @@ export default function Lists() {
     const named = [...plans.filter((p) => !over(p)), ...plans.filter(over).slice(0, 2)];
     // Shares only for named plans, or on their own and not yet past.
     const sharedNow = shares
-      .filter((x) => (x.planId ? named.some((p) => p.id === x.planId) : !(x.payload.stops ?? []).some((st) => st.time && now.getTime() - new Date(st.time).getTime() > CHECK_IN_AFTER * 60000)))
+      .filter((x) => (x.planId && plans.some((p) => p.id === x.planId) ? named.some((p) => p.id === x.planId) : !(x.payload.stops ?? []).some((st) => st.time && now.getTime() - new Date(st.time).getTime() > CHECK_IN_AFTER * 60000)))
       .flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? [])))
       .filter((st) => !st.event)
       .map((st) => st.placeId);
@@ -187,7 +187,7 @@ export default function Lists() {
   const done = cards.filter((c) => c.past).sort((a, b) => b.at - a.at);
   // A stop's name, or for an older Done plan whose names weren't looked up, how many places.
   const stopsLine = (c: PlanCard) =>
-    c.past && done.indexOf(c) >= 2 && c.stops.some((id) => !names[id] && nameOf(id) === "…") ? `${c.stops.length} ${c.stops.length === 1 ? "place" : "places"}` : c.stops.map((id) => names[id] ?? nameOf(id)).join(" → ");
+    c.past && c.stops.some((id) => !names[id] && nameOf(id) === "…") ? `${c.stops.length} ${c.stops.length === 1 ? "place" : "places"}` : c.stops.map((id) => names[id] ?? nameOf(id)).join(" → ");
   const FACE: Record<string, string> = { loved: "😍", fine: "🙂", not_for_me: "😕" };
   // "😍 Clay Studio · 🙂 Trattoria Nonna", from what they said in Been.
   const howItWent = (c: PlanCard) =>
@@ -614,6 +614,7 @@ export default function Lists() {
             setRating(null);
             if (message) toast(message);
             fetchLists(loadOrigin()).then((list) => setItems(list ?? []));
+            loadPlans().then(setPlans);
           }}
         />
       )}

@@ -172,13 +172,11 @@ export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: 
   const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
 
-  function done() {
+  async function done() {
     const been = Object.entries(answers).filter((a): a is [string, Verdict] => a[1] !== "no");
-    for (const [placeId, verdict] of been) {
-      saveBeen(placeId, { verdict, visits: "once" });
-      logEvent("checkin", placeId);
-    }
-    markPlanChecked(plan.id);
+    for (const [placeId] of been) logEvent("checkin", placeId);
+    // Saved before closing, so a screen that reloads after shows the answers.
+    await Promise.all([...been.map(([placeId, verdict]) => saveBeen(placeId, { verdict, visits: "once" })), markPlanChecked(plan.id)]);
     onDone(been.length ? "Added to Been. That makes your next picks better." : undefined);
   }
 

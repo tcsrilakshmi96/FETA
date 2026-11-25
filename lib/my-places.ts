@@ -1,5 +1,6 @@
 "use client";
 
+import { forgetLists } from "@/lib/lists-client";
 import { syncFetaPicks } from "@/lib/picks-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 
@@ -44,7 +45,11 @@ export async function saveBeen(
   if (fields.recommend !== undefined) row.recommend = fields.recommend;
   const { error } = await supabase().from("pick_actions").upsert(row, { onConflict: "user_id,place_id,action" });
   if (error) console.error("Saving place failed", error.message);
-  else if (fields.verdict !== undefined || fields.note !== undefined) void syncFetaPicks();
+  else {
+    // Saved shows it straight away (round 3 audit, 26 Nov 2026).
+    forgetLists();
+    if (fields.verdict !== undefined || fields.note !== undefined) void syncFetaPicks();
+  }
   return !error;
 }
 
