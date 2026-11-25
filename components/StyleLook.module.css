@@ -1046,23 +1046,21 @@
   background: var(--bg);
   color: var(--ink);
 }
-/* "See this exact look" (founder, 24 Nov 2026): the library picture shows
-   first; the look's own picture is made only when asked for. */
-.seeExact {
+/* Switches a look between on them and just the outfit (founder, 25 Nov
+   2026: each look is made at once, the way they chose). */
+.seeAs {
   position: absolute;
-  left: 50%;
-  bottom: 34px;
-  transform: translateX(-50%);
+  left: 12px;
+  bottom: 10px;
   z-index: 7;
   border: none;
   border-radius: 999px;
-  padding: 10px 18px;
+  padding: 6px 12px;
   font: inherit;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  background: var(--inkFixed);
-  color: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--inkFixed);
   cursor: pointer;
 }

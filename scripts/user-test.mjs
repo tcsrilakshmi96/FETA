@@ -261,7 +261,6 @@ try {
     await until(/1 of 3/, 30000);
     await shot("style-look-1");
     writeFileSync(`${OUT}/style.txt`, await text());
-    await tap(/See this exact look/);
     await wait(600);
     await shot("style-choice");
     await tap(/^Just the outfit/);

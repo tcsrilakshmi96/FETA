@@ -91,14 +91,17 @@ const pieces = await p.evaluate(() => document.querySelectorAll("[class*=pieceRo
 ok(`C: the lookbook lists every piece (${pieces})`, pieces >= 3);
 // Never a sketch (founder, 23 Nov 2026): every picture is a real one.
 ok("C: no sketch anywhere on the look", await p.evaluate(() => ![...document.images].some((i) => /\/style\/looks\//.test(i.src)) && !/Feta's sketch/.test(document.body.innerText)));
-// Library picture first, the exact one only on a tap (founder, 24 Nov 2026).
-ok("C: no picture is made until they ask", pictureAsks === 0);
-ok("C: the look shows its style's library picture, said so", await p.evaluate(() => [...document.images].some((i) => /\/style\/boards\//.test(i.src))) && /not this exact one/.test(await text()));
-await click(/See this exact look/);
-await wait(500);
-ok("C: See this exact look offers On me or Just the outfit", await buttonVisible(/^On me/) && await buttonVisible(/^Just the outfit/));
-await p.evaluate(() => document.querySelector("[aria-label=Close]")?.click());
-await wait(400);
+// Each look is made at once, the way they chose, asked the first time
+// (founder, 25 Nov 2026).
+await wait(800);
+ok("C: the first look asks how to show it: On me or Just the outfit", await buttonVisible(/^On me/) && await buttonVisible(/^Just the outfit/));
+ok("C: no picture is made before they choose", pictureAsks === 0);
+await click(/^Just the outfit/);
+for (let i = 0; i < 20 && pictureAsks === 0; i++) await wait(200);
+ok("C: choosing Just the outfit makes this look's picture", pictureAsks > 0);
+await wait(800);
+ok("C: test mode makes no picture, so the style's library picture stands in, said so", await p.evaluate(() => [...document.images].some((i) => /\/style\/boards\//.test(i.src))) && /not this exact one/.test(await text()));
+ok("C: the look can be switched to on them", await buttonVisible(/^Show it on me$/));
 ok("C: Wear this and the swipe hint show", await buttonVisible(/^Wear this$/) && /Swipe to wear/.test(await text()));
 await swipe(-120);
 ok("C: swipe left shows the next look", await until(/2 of 3/, 3000));

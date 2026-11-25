@@ -92,11 +92,12 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
 // card (on them, or an outfit board with the bag, shoes and jewellery laid
 // out beside the clothes), a numbered pulsing dot on every piece the picture
 // shows, and the pieces in one row underneath, so Wear this stays on screen.
-// A piece they own is dark, "YOURS ✓". Until they ask for this look's own
-// picture ("See this exact look"), while it's made, or when it can't be
-// (today's limit), a picture of a look in that style stands in, said so,
-// with no dots (founder: never a sketch).
-export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; onSee?: () => void; pill?: string; children?: ReactNode }) {
+// A piece they own is dark, "YOURS ✓". The look's own picture is made as
+// it comes on screen, the way they chose (founder, 25 Nov 2026); while it's
+// made only a faint blur shows, and when it can't be (today's limit) a
+// picture of a look in that style stands in, said so, with no dots (founder:
+// never a sketch). onSee switches between on them and just the outfit.
+export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, seeLabel, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; onSee?: () => void; seeLabel?: string; pill?: string; children?: ReactNode }) {
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [img, setImg] = useState<{ w: number; h: number }>({ w: 4, h: 5 });
@@ -139,7 +140,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill
             // eslint-disable-next-line @next/next/no-img-element -- made for them
             <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth || 4, h: e.currentTarget.naturalHeight || 5 })} />
           ) : (
-            <StyleFigure style={look.style} wears={wears} seed={look.id} imgStyle={{ objectFit: "contain", opacity: making ? 0.45 : 1, filter: making ? "blur(2px)" : undefined }} />
+            <StyleFigure style={look.style} wears={wears} seed={look.id} imgStyle={{ objectFit: "contain", opacity: making ? 0.2 : 1, filter: making ? "blur(10px)" : undefined }} />
           )}
         </div>
         {dots.map((d, i) => d && (
@@ -149,9 +150,9 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill
         ))}
         {pill && <span className={k.pill}>{pill}</span>}
         {making ? <span className={k.making}>Making your look · about 10 seconds</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
-        {!pic && !making && onSee && (
-          <button type="button" className={k.seeExact} onClick={onSee}>
-            ✨ See this exact look
+        {!making && onSee && seeLabel && (
+          <button type="button" className={k.seeAs} onClick={onSee}>
+            {seeLabel}
           </button>
         )}
         {children}
@@ -175,17 +176,18 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, onSee, pill
   );
 }
 
-// "See this exact look": on them or just the outfit (founder, 24 Nov 2026).
+// How their looks are shown, asked once (founder, 25 Nov 2026): on them or
+// just the outfit.
 export function PictureChoice({ hasPhoto, onPick, onClose }: { hasPhoto: boolean; onPick: (kind: PictureKind) => void; onClose: () => void }) {
   return (
     <>
       <button type="button" className={k.shade} aria-label="Close" onClick={onClose} />
-      <div className={k.sheet} role="dialog" aria-label="See this exact look">
+      <div className={k.sheet} role="dialog" aria-label="How should Feta show your looks?">
         <div className={k.grab} />
         <span className={k.lookTitle} style={{ fontSize: 21 }}>
-          See this exact look
+          How should Feta show your looks?
         </span>
-        <span style={{ fontSize: 13, opacity: 0.7 }}>Ready in about 10 seconds</span>
+        <span style={{ fontSize: 13, opacity: 0.7 }}>Each look is made for you in about 10 seconds. You can switch on any look.</span>
         <button type="button" className={k.opt} onClick={() => onPick("me")}>
           <b>On me</b>
           <span>{hasPhoto ? "With your photo, kept on this phone only" : "Add one head-to-toe photo. It goes to Google's image AI only to make your looks and stays on this phone."}</span>
