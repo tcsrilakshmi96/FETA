@@ -13,7 +13,7 @@ import s from "./StyleScreens.module.css";
 // and on Home); before that, "What to wear", which opens Style on this plan.
 // No AI is spent just to show it. Nothing shows for someone without Style.
 export const FROM_KEY = "feta.style.from";
-export default function WearCard({ plan, here, tile, big, fallback = null, className = "" }: { plan: TonightPlan | null; here?: boolean; tile?: boolean; big?: boolean; fallback?: ReactNode; className?: string }) {
+export default function WearCard({ plan, here, tile, fallback = null, className = "" }: { plan: TonightPlan | null; here?: boolean; tile?: boolean; fallback?: ReactNode; className?: string }) {
   const router = useRouter();
   const [state, setState] = useState<{ wears: Wears; first: string; worn: LookSet | null; pic: string | null } | null>(null);
   const key = plan ? lookForPlan(plan).key : "";
@@ -49,7 +49,9 @@ export default function WearCard({ plan, here, tile, big, fallback = null, class
   };
   return (
     <button type="button" className={`${s.vars} ${tile ? s.wearTile : s.wearCard} ${className}`} onClick={open}>
-      <span className={s.wearPic} style={big ? { width: "44%", height: "88%", right: 14, bottom: 14, borderRadius: 18, background: "#dcdbd7" } : undefined}>
+      {/* On Home the look fills its square like the other three (founder,
+          25 Nov 2026: the old strip showed a dark box with unreadable words). */}
+      <span className={s.wearPic}>
         {state.pic ? (
           // eslint-disable-next-line @next/next/no-img-element -- kept on this phone
           <img src={state.pic} alt="" style={{ inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }} />
@@ -63,7 +65,7 @@ export default function WearCard({ plan, here, tile, big, fallback = null, class
         {!tile && look && <span className={s.wearLine}>{look.pieces.map((x) => x.name).join(" · ")}</span>}
         {!tile && !look && <span className={s.wearLine}>3 looks from your styles, made for this plan.</span>}
         {/* Short on Home's small tile, where the long line was cut off (testers, 23 Nov 2026). */}
-        <span className={s.wearLink}>{look ? (tile && !big ? "See it ›" : "See it, or pick another ›") : tile && !big ? "Looks ›" : "See the looks ›"}</span>
+        <span className={s.wearLink}>{look ? (tile ? "See it ›" : "See it, or pick another ›") : tile ? "Looks ›" : "See the looks ›"}</span>
       </span>
     </button>
   );
