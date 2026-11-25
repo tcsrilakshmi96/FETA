@@ -628,5 +628,10 @@
   "kind": "column",
   "name": "brand_markets.private",
   "file": "20261124160000_audit_round4.sql"
+ },
+ {
+  "kind": "function",
+  "name": "check_share_plan",
+  "file": "20261126090000_share_plan_owner.sql"
  }
 ]

@@ -62,6 +62,12 @@ try {
   ok("A share can't carry a made-up Feta note", !!note.error);
   const badge = await share("pick", { title: "A pick", stops: [{ placeId: place, kind: "EAT", fetaNote: "" }] });
   ok("A share can't put a ★ Feta pick badge on a place that isn't hers", !!badge.error);
+  // A share can point only at the sharer's own saved plan (migration 20261126090000).
+  const { data: mine } = await db.from("saved_plans").insert({ user_id: me, day: new Date().toISOString().slice(0, 10), start_minute: 1170, place_ids: [place, place2], country: "IN", time_zone: "Asia/Kolkata", currency: "INR" }).select("id").single();
+  const own = await db.from("shares").insert({ user_id: me, kind: "pick", payload: { title: "A pick", stops: [{ placeId: place, kind: "EAT" }] }, plan_id: mine?.id }).select("slug").single();
+  ok("A share of their own saved plan", !!mine?.id && !own.error, own.error?.message);
+  const other = await db.from("shares").insert({ user_id: me, kind: "pick", payload: { title: "A pick", stops: [{ placeId: place, kind: "EAT" }] }, plan_id: "00000000-0000-4000-8000-000000000001" }).select("slug").single();
+  ok("A share can't point at someone else's saved plan", !!other.error);
 
   // Marking replies seen still works on a share.
   if (plan.slug) {
