@@ -122,6 +122,8 @@ function sweep() {
   if (document.visibilityState !== "visible") return;
   const lists = Object.fromEntries(Object.entries(state.lists).filter(([, s]) => !outOfDate(s)));
   if (Object.keys(lists).length !== Object.keys(state.lists).length) set({ lists });
+  // A list past its hour leaves the phone too, not only at the next reload.
+  else persist();
   // A tweaked list is looked up again with its tweak (Cheaper stays Cheaper).
   for (const [key, t] of Object.entries(state.tweaked)) if (outOfDate(t.slot)) load(key, t.origin, t.when, t.category, { tweaks: t.tweaks, note: t.note }, true);
 }
