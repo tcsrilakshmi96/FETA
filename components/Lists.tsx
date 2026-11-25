@@ -15,7 +15,7 @@ import { dayName, loadPlans, localDay, removePlan, type SavedPlan } from "@/lib/
 import { clock } from "@/lib/plan";
 import { loadMyShares, newReplies, shareLink, type MyShare } from "@/lib/share-client";
 import WhosComing, { initial, replySummary } from "@/components/WhosComing";
-import { minuteClock } from "@/lib/night-plan";
+import { CHECK_IN_AFTER, minuteClock, planIsOver } from "@/lib/night-plan";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import { placeName, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { loadTrips } from "@/lib/trip-client";
@@ -32,7 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 const MAX_PLAN = 5;
 
-type PlanCard = { key: string; title: string; when: string; stops: string[]; plan?: SavedPlan; shares: MyShare[] };
+type PlanCard = { key: string; title: string; when: string; stops: string[]; plan?: SavedPlan; shares: MyShare[]; past: boolean };
 
 const liveNames = new Map<string, Promise<string | null>>();
 function nameLive(placeId: string) {
@@ -139,8 +139,18 @@ export default function Lists() {
   // Saved plans with the replies to their shares, then plans shared from
   // elsewhere (Plan my evening, a pick) on their own.
   const short = (d: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(d);
+  // Plans already been to go under Done, with how each place was (founder,
+  // 26 Nov 2026, return-visit walk-through: a rated plan still read "Tonight").
+  // The clock is read only when there are plans (never while the page is prerendered).
+  const isOver = (p: SavedPlan) => {
+    const now = new Date();
+    return planIsOver(p, localDay(now), now.getHours() * 60 + now.getMinutes());
+  };
   const cards: PlanCard[] = [
-    ...plans.map((p) => ({ key: p.id, title: dayName(p.day), when: `${short(new Date(`${p.day}T12:00:00`))} · ${minuteClock(p.startMinute)}`, stops: p.placeIds, plan: p, shares: shares.filter((x) => x.planId === p.id) })),
+    ...plans.map((p) => {
+      const past = !!p.checkedAt || isOver(p);
+      return { key: p.id, title: past ? new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(new Date(`${p.day}T12:00:00`)) : dayName(p.day), when: `${short(new Date(`${p.day}T12:00:00`))} · ${minuteClock(p.startMinute)}`, stops: p.placeIds, plan: p, shares: shares.filter((x) => x.planId === p.id), past };
+    }),
     ...shares
       .filter((x) => !x.planId || !plans.some((p) => p.id === x.planId))
       .map((x) => {
@@ -152,9 +162,23 @@ export default function Lists() {
           when: first ? `${short(new Date(first))} · ${clock(new Date(first))}` : short(new Date(x.createdAt)),
           stops: stops.map((st) => (st.event ? `event:${st.event.title}` : st.placeId)),
           shares: [x],
+          past: !!first && new Date().getTime() - new Date(first).getTime() > CHECK_IN_AFTER * 60000,
         };
       }),
   ];
+
+  const upcoming = cards.filter((c) => !c.past);
+  const done = cards.filter((c) => c.past);
+  const FACE: Record<string, string> = { loved: "😍", fine: "🙂", not_for_me: "😕" };
+  // "😍 Clay Studio · 🙂 Trattoria Nonna", from what they said in Been.
+  const howItWent = (c: PlanCard) =>
+    c.stops
+      .map((id) => {
+        const v = (items ?? []).find((i) => i.placeId === id && i.list === "been")?.verdict;
+        return v && FACE[v] ? `${FACE[v]} ${names[id] ?? nameOf(id)}` : null;
+      })
+      .filter(Boolean)
+      .join(" · ");
 
   function togglePick(item: ListItem) {
     if (!plannable(item)) {
@@ -277,6 +301,17 @@ export default function Lists() {
         {(tab === "want" || tab === "brands") && <SavedBrands.Filter on={tab === "brands"} onChange={(brands) => setTab(brands ? "brands" : "want")} />}
         {tab === "brands" && <SavedBrands />}
 
+        {/* One saved place: the way to a plan (founder, 26 Nov 2026, return-visit walk-through). */}
+        {tab === "want" && (items ?? []).filter(plannable).length === 1 && (
+          <button type="button" className={styles.planNight} style={{ opacity: 0.85 }} onClick={() => router.push("/picks")}>
+            <span aria-hidden="true">🧀</span>
+            <span>
+              <strong>Save one more to plan a night</strong>
+              <span>With 2 or more, Feta puts them in order, with a route. Find one ›</span>
+            </span>
+          </button>
+        )}
+
         {/* Plan a night (founder, 17 Nov 2026): tick 2 to 5, then plan. */}
         {tab === "want" && (items ?? []).filter(plannable).length >= 2 &&
           (picking ? (
@@ -313,8 +348,11 @@ export default function Lists() {
                 <p className={styles.emptyText}>In Want to try, tap Plan a night, tick a few places, and Feta puts them in order with a route.</p>
               </div>
             ) : (
+              [upcoming, done].map((group, gi) => group.length > 0 && (
+              <div key={gi}>
+              {gi === 1 && <p className={styles.doneHead}>Done</p>}
               <ul className={styles.items}>
-                {cards.map((c) => {
+                {group.map((c) => {
                   const replies = c.shares.flatMap((x) => x.replies);
                   const fresh = c.shares.flatMap(newReplies).length;
                   return (
@@ -341,6 +379,8 @@ export default function Lists() {
                               {replySummary(replies)}
                               {fresh > 0 && <span className={styles.fresh}>{fresh} new</span>}
                             </span>
+                          ) : c.past ? (
+                            <span className={styles.notShared}>{howItWent(c) || "How was it? Rate the places in Been"}</span>
                           ) : (
                             <span className={styles.notShared}>{c.shares.length ? "Shared · no replies yet" : "Not shared yet"}</span>
                           )}
@@ -364,6 +404,8 @@ export default function Lists() {
                   );
                 })}
               </ul>
+              </div>
+              ))
             )}
           </>
         )}

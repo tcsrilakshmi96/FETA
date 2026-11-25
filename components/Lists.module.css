@@ -643,3 +643,13 @@
   font-size: 12px;
   color: rgba(var(--inkRGB), 0.45);
 }
+
+/* Plans already been to (26 Nov 2026). */
+.doneHead {
+  margin: 22px 0 -4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--inkRGB), 0.55);
+}
