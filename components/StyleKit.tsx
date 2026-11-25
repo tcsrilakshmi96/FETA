@@ -56,7 +56,10 @@ export function StyleFigure({ style, wears, seed = "", className, imgStyle }: { 
 // The look's picture: kept on this phone or account, else made only when
 // they ask for it (founder, 24 Nov 2026: "if we take a look from the library
 // and show, it will be fast"; about ₹4), else the style's library picture.
-export function useLookPicture(look: Look | null, wears: Wears, make: boolean): { pic: string | null; making: boolean } {
+// waiting: not yet known whether it's kept or must be made, so the card shows
+// a faint blur and no words (founder, 25 Nov 2026: it said "not this exact
+// one" first, then "Making your look").
+export function useLookPicture(look: Look | null, wears: Wears, make: boolean): { pic: string | null; making: boolean; waiting: boolean } {
   const toast = useToast();
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
@@ -85,7 +88,7 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean): 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one look at a time, by id
   }, [id]);
-  return { pic: pics[id] ?? null, making: making === id };
+  return { pic: pics[id] ?? null, making: making === id, waiting: !!look && make && !(id in pics) && making !== id };
 }
 
 // The lookbook card (founder, 23 Nov 2026): the look's picture fills the
@@ -97,7 +100,7 @@ export function useLookPicture(look: Look | null, wears: Wears, make: boolean): 
 // made only a faint blur shows, and when it can't be (today's limit) a
 // picture of a look in that style stands in, said so, with no dots (founder:
 // never a sketch). Only the outfit, never on them (founder, 25 Nov 2026).
-export function LookCard({ look, wears, pic, making, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
+export function LookCard({ look, wears, pic, making, waiting, owned, onPiece, pill, children }: { look: Look; wears: Wears; pic: string | null; making?: boolean; waiting?: boolean; owned: (name: string) => boolean; onPiece?: (i: number) => void; pill?: string; children?: ReactNode }) {
   const card = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   const [img, setImg] = useState<{ w: number; h: number }>({ w: 4, h: 5 });
@@ -140,7 +143,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
             // eslint-disable-next-line @next/next/no-img-element -- made for them
             <img className={k.photo} src={pic} alt={`${look.title}: ${look.pieces.map((p) => p.name).join(", ")}`} onLoad={(e) => setImg({ w: e.currentTarget.naturalWidth || 4, h: e.currentTarget.naturalHeight || 5 })} />
           ) : (
-            <StyleFigure style={look.style} wears={wears} seed={look.id} imgStyle={{ objectFit: "contain", opacity: making ? 0.2 : 1, filter: making ? "blur(10px)" : undefined }} />
+            <StyleFigure style={look.style} wears={wears} seed={look.id} imgStyle={{ objectFit: "contain", opacity: making || waiting ? 0.2 : 1, filter: making || waiting ? "blur(10px)" : undefined }} />
           )}
         </div>
         {dots.map((d, i) => d && (
@@ -149,7 +152,7 @@ export function LookCard({ look, wears, pic, making, owned, onPiece, pill, child
           </button>
         ))}
         {pill && <span className={k.pill}>{pill}</span>}
-        {making ? <span className={k.making}>Making your look · about 10 seconds</span> : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
+        {making ? <span className={k.making}>Making your look · about 10 seconds</span> : waiting ? null : <span className={k.madeBy}>{pic ? "Made by AI" : "A look in this style · not this exact one"}</span>}
         {children}
       </div>
       <div className={k.pieceRow}>

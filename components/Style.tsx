@@ -58,7 +58,7 @@ export default function Style() {
   // Each look's own picture (the outfit, never on them: founder, 25 Nov
   // 2026, a look made on her photo didn't keep her face) is made as it comes
   // on screen. Photos added for "On me" before leave the phone.
-  const { pic, making } = useLookPicture(look, wears, !!look);
+  const { pic, making, waiting } = useLookPicture(look, wears, !!look);
   useEffect(() => {
     forgetOnMe();
     try {
@@ -408,7 +408,7 @@ export default function Style() {
                 }}
                 onPointerCancel={() => (swipeX.current = null)}
               >
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} />
+                <LookCard look={look} wears={wears} pic={pic} making={making} waiting={waiting} owned={owned} onPiece={setSheet} />
               </div>
               <div className={k.actions}>
                 <button type="button" className={k.round} aria-label="The last look" onClick={prev} disabled={li === 0}>
@@ -470,7 +470,7 @@ export default function Style() {
               </div>
               <span className={k.styleLine}>{styleById(look.style)?.name ?? ""}</span>
               <div className={k.deck}>
-                <LookCard look={look} wears={wears} pic={pic} making={making} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
+                <LookCard look={look} wears={wears} pic={pic} making={making} waiting={waiting} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
               </div>
               <button type="button" className={k.ghost} onClick={pickDifferent}>
                 Pick a different look
