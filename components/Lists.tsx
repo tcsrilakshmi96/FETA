@@ -17,6 +17,7 @@ import { loadMyShares, newReplies, shareLink, type MyShare } from "@/lib/share-c
 import WhosComing, { initial, replySummary } from "@/components/WhosComing";
 import { CHECK_IN_AFTER, minuteClock, planIsOver } from "@/lib/night-plan";
 import { loadOrigin, type Origin } from "@/lib/origin";
+import { NightCheckIn } from "@/components/CheckIn";
 import { placeName, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
 import { loadTrips } from "@/lib/trip-client";
 import { addWeekendWish, loadWishes, removeWeekendWish, thisSaturday, tickWeekend, type Wish } from "@/lib/weekend-client";
@@ -81,20 +82,27 @@ export default function Lists() {
   const [shares, setShares] = useState<MyShare[]>([]);
   const [whos, setWhos] = useState<PlanCard | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
+  // A Done plan nobody rated yet opens its "How was…?" here (round 2 audit, 26 Nov 2026: Been was empty).
+  const [rating, setRating] = useState<{ plan: SavedPlan; names: string[] } | null>(null);
 
   // Names for plans' stops that aren't in their lists, saved or shared (read
   // live, once per open of the app; a Plan my evening's places often aren't).
   useEffect(() => {
     if (items === null) return;
     const known = new Set(items.map((i) => i.placeId));
-    const shared = shares.flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []))).filter((st) => !st.event).map((st) => st.placeId);
     // Each name is a paid lookup (about ₹1.5), so only plans still to come
     // and the latest two that are done (cost audit, 26 Nov 2026); older Done
     // cards say how many places instead.
     const now = new Date();
     const over = (p: SavedPlan) => !!p.checkedAt || planIsOver(p, localDay(now), now.getHours() * 60 + now.getMinutes());
     const named = [...plans.filter((p) => !over(p)), ...plans.filter(over).slice(0, 2)];
-    const missing = [...new Set([...named.flatMap((p) => p.placeIds), ...shared])].filter((id) => !known.has(id));
+    // Shares only for named plans, or on their own and not yet past.
+    const sharedNow = shares
+      .filter((x) => (x.planId ? named.some((p) => p.id === x.planId) : !(x.payload.stops ?? []).some((st) => st.time && now.getTime() - new Date(st.time).getTime() > CHECK_IN_AFTER * 60000)))
+      .flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? [])))
+      .filter((st) => !st.event)
+      .map((st) => st.placeId);
+    const missing = [...new Set([...named.flatMap((p) => p.placeIds), ...sharedNow])].filter((id) => !known.has(id));
     const events = Object.fromEntries(shares.flatMap((x) => (x.payload.stops ?? []).filter((st) => st.event).map((st) => [`event:${st.event!.title}`, st.event!.title])));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- event titles come with the share
     setNames((n) => ({ ...n, ...events }));
@@ -178,7 +186,8 @@ export default function Lists() {
   const upcoming = cards.filter((c) => !c.past).sort((a, b) => a.at - b.at);
   const done = cards.filter((c) => c.past).sort((a, b) => b.at - a.at);
   // A stop's name, or for an older Done plan whose names weren't looked up, how many places.
-  const stopsLine = (c: PlanCard) => (c.past && c.stops.some((id) => !names[id] && nameOf(id) === "…") ? `${c.stops.length} places` : c.stops.map((id) => names[id] ?? nameOf(id)).join(" → "));
+  const stopsLine = (c: PlanCard) =>
+    c.past && done.indexOf(c) >= 2 && c.stops.some((id) => !names[id] && nameOf(id) === "…") ? `${c.stops.length} ${c.stops.length === 1 ? "place" : "places"}` : c.stops.map((id) => names[id] ?? nameOf(id)).join(" → ");
   const FACE: Record<string, string> = { loved: "😍", fine: "🙂", not_for_me: "😕" };
   // "😍 Clay Studio · 🙂 Trattoria Nonna", from what they said in Been.
   const howItWent = (c: PlanCard) =>
@@ -189,6 +198,14 @@ export default function Lists() {
       })
       .filter(Boolean)
       .join(" · ");
+
+  // A Done plan: Been when its places are rated there, else "How was…?" for it.
+  async function openDone(c: PlanCard) {
+    if (howItWent(c) || !c.plan) return setTab("been");
+    const plan = c.plan;
+    const found = await Promise.all(plan.placeIds.map(async (id) => names[id] ?? (nameOf(id) !== "…" ? nameOf(id) : await nameLive(id))));
+    setRating({ plan, names: found.map((n) => n ?? "A place you planned") });
+  }
 
   function togglePick(item: ListItem) {
     if (!plannable(item)) {
@@ -367,7 +384,7 @@ export default function Lists() {
                   const fresh = c.shares.flatMap(newReplies).length;
                   return (
                     <li key={c.key} className={styles.planRow}>
-                      <button type="button" className={`${styles.item} ${fresh ? styles.picked : ""}`} onClick={() => (replies.length || (!c.plan && c.shares.length) ? setWhos(c) : c.past ? setTab("been") : c.plan && setNight({ saved: c.plan }))}>
+                      <button type="button" className={`${styles.item} ${fresh ? styles.picked : ""}`} onClick={() => (replies.length || (!c.plan && c.shares.length) ? setWhos(c) : c.past ? openDone(c) : c.plan && setNight({ saved: c.plan }))}>
                         <span className={styles.planIcon} aria-hidden="true">
                           🧀
                         </span>
@@ -589,6 +606,17 @@ export default function Lists() {
         )}
       </main>
       <TabBar active="lists" />
+      {rating && (
+        <NightCheckIn
+          plan={rating.plan}
+          names={rating.names}
+          onDone={(message) => {
+            setRating(null);
+            if (message) toast(message);
+            fetchLists(loadOrigin()).then((list) => setItems(list ?? []));
+          }}
+        />
+      )}
       {whos && (
         <WhosComing
           title={whos.title}
