@@ -1,5 +1,6 @@
 "use client";
 
+import { plainReply } from "@/lib/ask-rules";
 import { leaveOtherLists } from "@/lib/picks-store";
 import { SearchChip } from "@/components/PickDetails";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -99,7 +100,7 @@ export default function Ask() {
       <div className={styles.list} ref={listRef} style={{ top: trip ? 134 : 104 }} aria-live="polite">
         {messages.map((m) => (
           <div key={m.id} className={styles.msg}>
-            <div className={`${styles.bubble} ${m.role === "user" ? styles.fromMe : styles.fromFeta}`}>{m.text}</div>
+            <div className={`${styles.bubble} ${m.role === "user" ? styles.fromMe : styles.fromFeta}`}>{m.role === "user" ? m.text : plainReply(m.text)}</div>
             {/* Places aren't stored (Google's details), only that they were shown. */}
             {m.role === "assistant" && !!m.earlier && (
               <p className={styles.attribution}>

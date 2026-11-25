@@ -8,7 +8,7 @@
 // for a final check before release (about ₹50; ask the founder first). In
 // live mode the expectations that name test places are skipped.
 
-import { asksQuestion, withDinner } from "@/lib/ask-rules";
+import { asksQuestion, plainReply, withDinner } from "@/lib/ask-rules";
 import { buildItinerary } from "@/lib/server/itinerary";
 import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
@@ -815,6 +815,8 @@ async function main() {
     withDinner([{ category: "food_drinks", note: "craft beer, veg and meat" }, { category: "experiences", note: "comedy" }], ["Plan my date night", "Both. Saturday. He eats meat and loves craft beer, I'm veg"])[0].meal !== "dinner" && "a date night's food search isn't a dinner",
     withDinner([{ category: "experiences", note: "live music" }], ["date night tonight"]).filter((s) => s.meal === "dinner").length !== 1 && "a date night with only something to do gets no dinner",
     withDinner([{ category: "food_drinks", note: "cocktails" }], ["date night, we already ate, just drinks"])[0].meal && "a date that's only drinks is made a dinner",
+    plainReply('Want to try something else?\n\n\n<invoke name="x">\n</invoke>\n\n<invoke name="x"></invoke>') !== "Want to try something else?" && "tool-call markup shows in a chat reply",
+    plainReply("Dinner at 8 <3 then drinks") !== "Dinner at 8 <3 then drinks" && "a chat reply's own words are cut",
     withDinner([{ category: "food_drinks", note: "cheap eats" }], ["something cheaper tonight"])[0].meal && "an everyday search is made a dinner",
     ...diet.map(([d, note, country, want]) => {
       const [c] = searchCities(country === "IN" ? "Bengaluru" : "Lisbon", 1);

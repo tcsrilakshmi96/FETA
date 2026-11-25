@@ -28,3 +28,16 @@ export function withDinner<T extends FoodSearch>(searches: T[], talk: string[]):
   if (food) return searches.map((s) => (s === food ? { ...s, meal: "dinner" } : s));
   return searches.length < 2 ? [{ ...searches[0], category: "food_drinks", meal: "dinner", note: "romantic", time: null, tweaks: [] }, ...searches] : searches;
 }
+
+// The words of a chat reply only (founder, 25 Nov 2026: a reply showed
+// `<invoke name="x"></invoke>` four times). The model now and then writes
+// tool-call markup into its words instead of filling "search"; any tag is
+// dropped, and the blank lines it leaves are closed up.
+export function plainReply(text: string): string {
+  return text
+    .replace(/<([a-z][\w:-]*)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<\/?[a-z][\w:-]*\b[^>]*\/?>/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}

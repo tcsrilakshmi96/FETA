@@ -1,4 +1,4 @@
-import { MEALS, asksQuestion, withDinner, type Meal } from "@/lib/ask-rules";
+import { MEALS, asksQuestion, plainReply, withDinner, type Meal } from "@/lib/ask-rules";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
@@ -162,7 +162,7 @@ Reply with only a JSON object:
  "trip": null, or {"place", "dates": e.g. "14–18 Dec"} while you're talking about a trip,
  "search": null or an array of 1 or 2 as above, "itinerary": null or as above, "route": null or as above, "outfit": null or as above,
  "why": true if they ask why a pick was chosen}
-Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong or Macau): no search, itinerary or route; give up to 3 ideas from what you know in "reply", saying they're less reliable than usual.`;
+Write only plain words in "reply": never tags, code or tool calls; to look something up, fill "search" (or "itinerary", "route", "outfit"). Never say you're looking for something unless you fill "search" in this same reply. Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong or Macau): no search, itinerary or route; give up to 3 ideas from what you know in "reply", saying they're less reliable than usual.`;
 
   let parsed: VeniceReply;
   try {
@@ -173,7 +173,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
         // Its own past replies in the same JSON it must answer in, with the
         // options it offered (as plain words it drifted into plain-words
         // answers and lost its buttons, 19 Nov 2026).
-        ...past.map((m) => ({ role: m.role, content: m.role === "assistant" ? JSON.stringify({ reply: m.content, options: m.extras?.options ?? [] }) : m.content }) as ChatTurn),
+        ...past.map((m) => ({ role: m.role, content: m.role === "assistant" ? JSON.stringify({ reply: plainReply(String(m.content)), options: m.extras?.options ?? [] }) : m.content }) as ChatTurn),
         { role: "user", content: message },
       ],
       3000,
@@ -187,7 +187,7 @@ Never say food is safe for an allergy or a diet. Mainland China (not Hong Kong o
   // A date night includes dinner unless they said otherwise (lib/ask-rules.ts).
   const talk = [...past.filter((m) => m.role === "user").map((m) => String(m.content)), message];
   const asked = withDinner((Array.isArray(parsed.search) ? parsed.search : parsed.search ? [parsed.search] : []).filter((x): x is Search => !!x && typeof x === "object").slice(0, 2), talk);
-  let reply = (parsed.reply ?? "").slice(0, 1200) || "Tell me a bit more?";
+  let reply = plainReply(String(parsed.reply ?? "")).slice(0, 1200) || "Tell me a bit more?";
   const tripLabel = parsed.trip?.place ? [parsed.trip.place, parsed.trip.dates].filter(Boolean).join(" · ").slice(0, 60) : null;
 
   // "Why this one?": answer from the reasons Feta already wrote.
