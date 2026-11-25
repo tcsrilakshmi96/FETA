@@ -3,6 +3,7 @@
 import type { AskReply } from "@/app/api/ask/route";
 import type { Origin } from "@/lib/origin";
 import { currentUserId, supabase } from "@/lib/supabase";
+import { loadName } from "@/lib/profile";
 
 export type { AskReply };
 
@@ -95,6 +96,19 @@ export function replyText(reply: Pick<AskReply, "reply" | "notice">, places: num
   return reply.notice && places === 0 ? `${reply.reply}\n${reply.notice}` : reply.reply;
 }
 
+// Someone coming back is greeted as someone Feta knows (founder, 26 Nov
+// 2026, return-visit walk-through: the same first line every visit).
+function welcomeBack(): string | null {
+  try {
+    if (Number(localStorage.getItem("feta.visits") ?? 0) < 2) return null;
+  } catch {
+    return null;
+  }
+  const name = loadName().trim();
+  const when = new Date().getHours() >= 17 ? "tonight" : "today";
+  return `Welcome back${name ? `, ${name}` : ""}. What are you up to ${when}? A new place, a plan with friends, anything on your mind: tell me and I'll sort it.`;
+}
+
 // Opening Ask: the kept thread (live cards older than an hour dropped),
 // else the account's chat. openTrip: a saved trip opened from Saved, its
 // card at the end.
@@ -105,7 +119,9 @@ export async function openChat(openTrip: string | null) {
       if (s.loaded) return {};
       // Anything sent while the history loaded stays after it.
       const sent = s.messages.filter((m) => m.id !== 0);
-      return { messages: past.messages.length || sent.length ? [...past.messages, ...sent] : s.messages, trip: s.trip ?? past.trip, loaded: true };
+      const back = welcomeBack();
+      const fresh = back ? s.messages.map((m) => (m.id === 0 ? { ...m, text: back } : m)) : s.messages;
+      return { messages: past.messages.length || sent.length ? [...past.messages, ...sent] : fresh, trip: s.trip ?? past.trip, loaded: true };
     });
   } else {
     const old = Date.now() - KEEP_MS;
