@@ -529,8 +529,8 @@
 .kDo { color: var(--turquoise); }
 .kWear { color: var(--rose); }
 .kTrip { color: #fff3ee; }
-/* Today's look (WearCard) as a square: its picture fills it. */
+/* Today's look (WearCard) as a square: its picture fills it, with the
+   words inset like the other squares (WearCard's .wearTile). */
 .wearSquare {
-  padding: 0;
-  background: rgba(var(--inkRGB), 0.08);
+  padding: 12px 13px;
 }
