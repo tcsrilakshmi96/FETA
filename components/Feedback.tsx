@@ -48,7 +48,7 @@ export default function Feedback() {
     const ask = (wait: number) =>
       window.setTimeout(() => {
         try {
-          if (!ASK_ON.test(location.pathname)) return;
+          if (!ASK_ON.test(location.pathname) || /^\/style\/setup/.test(location.pathname)) return;
           if (Date.now() - Number(localStorage.getItem(ASKED) ?? 0) < WEEK) return;
         } catch {
           return;
@@ -57,7 +57,7 @@ export default function Feedback() {
         // and only if they're still on a screen it may ask on.
         popUpSlot(4).ready(() => {
           try {
-            if (!ASK_ON.test(location.pathname)) return false;
+            if (!ASK_ON.test(location.pathname) || /^\/style\/setup/.test(location.pathname)) return false;
             localStorage.setItem(ASKED, String(Date.now()));
           } catch {
             // Asked again another time.
