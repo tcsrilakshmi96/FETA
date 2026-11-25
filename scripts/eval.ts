@@ -27,7 +27,7 @@ import { cuisinesFor, swipeCards } from "@/lib/swipes";
 import { readdirSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { anonDb, LimitReached, paidFetch, withCosts } from "@/lib/server/costs";
-import { brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
+import { STYLES, brandPrice, lookProblem, pieceLink, shopLink } from "@/lib/style";
 import { guessSearch, piecesMatch } from "@/lib/search";
 import { readSpots } from "@/lib/server/style";
 import { listFit, listServes, TAG_IDS, vibeClash, vibeOf } from "@/lib/server/list-tags";
@@ -1043,6 +1043,16 @@ async function main() {
       failed++;
       console.log(`✗ Today / Tonight: ${slotFails.join(", ")}`);
     } else console.log("✓ Today / Tonight: by day, places open in the next few hours; from 5 pm, places open now; evening asks keep the evening");
+  }
+  // Every style has its library picture for womenswear and menswear (founder,
+  // 25 Nov 2026: Y2K showed nothing in setup; its two were never made).
+  {
+    const boards = new Set(readdirSync("public/style/boards"));
+    const missing = STYLES.flatMap((st) => ["women", "men"].map((w) => `${st.id}-${w}.jpg`)).filter((f) => !boards.has(f));
+    if (missing.length) {
+      failed++;
+      console.log(`✗ Style pictures: missing ${missing.join(", ")}`);
+    } else console.log("✓ Style pictures: every style has one for womenswear and menswear");
   }
   // Words in reasons and banners keep capitals only for a people or a place
   // (founder's tester, 24 Nov 2026), joined words included.
