@@ -9,6 +9,7 @@
 // live mode the expectations that name test places are skipped.
 
 import { asksQuestion, plainReply, tripDays, withDinner } from "@/lib/ask-rules";
+import { kindOfPlace } from "@/lib/place-words";
 import { buildItinerary } from "@/lib/server/itinerary";
 import { hotelBudgets } from "@/lib/trip-client";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
@@ -822,6 +823,10 @@ async function main() {
     tripDays("two nights in Goa") !== 2 && "\"two nights in Goa\" isn't read as 2",
     tripDays("Is Porto rainy in December?") !== 0 && "a question about a place is read as a trip",
     tripDays("Is Kyoto worth a day?") !== 1 && "\"worth a day\" is read as a trip of 2 days or more",
+    kindOfPlace("portuguese_restaurant") !== "Portuguese restaurants" && "a people loses its capital in a skip reason",
+    kindOfPlace("south_indian_restaurant") !== "South Indian restaurants" && "\"South Indian\" loses its capitals",
+    kindOfPlace("vegan_restaurant") !== "vegan restaurants" && "\"vegan\" is capitalised like a people",
+    kindOfPlace("seafood_restaurant") !== "seafood restaurants" && "\"seafood\" is capitalised",
     withDinner([{ category: "food_drinks", note: "cheap eats" }], ["something cheaper tonight"])[0].meal && "an everyday search is made a dinner",
     ...diet.map(([d, note, country, want]) => {
       const [c] = searchCities(country === "IN" ? "Bengaluru" : "Lisbon", 1);

@@ -53,14 +53,3 @@ export async function learnFromSkip(key: string, text: string): Promise<string |
   return data?.id ?? null;
 }
 
-// "south_indian_restaurant" → "South Indian restaurants"; null for types too
-// broad to say no to ("restaurant", "bar").
-const BROAD = ["restaurant", "bar", "cafe", "food", "point_of_interest", "establishment", "tourist_attraction", "store", "meal_takeaway"];
-const CAPS = ["indian", "south", "north", "italian", "thai", "japanese", "korean", "chinese", "mexican", "middle", "eastern", "american", "french", "greek", "lebanese", "mediterranean", "asian", "vietnamese", "spanish", "turkish"];
-export function kindOfPlace(type: string | undefined): string | null {
-  if (!type || BROAD.includes(type)) return null;
-  const words = type.split("_").map((w) => (CAPS.includes(w) ? w[0].toUpperCase() + w.slice(1) : w));
-  const last = words.pop()!;
-  const plural = /[^aeiou]y$/.test(last) ? `${last.slice(0, -1)}ies` : /(s|sh|ch|x)$/.test(last) ? `${last}es` : `${last}s`;
-  return [...words, plural].join(" ");
-}

@@ -19,7 +19,8 @@ import { loadAnswers, type Answers } from "@/lib/onboarding";
 import { loadWants } from "@/lib/profile";
 import { removeLine } from "@/lib/profile-client";
 import { loadSwipes } from "@/lib/swipes";
-import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
+import { kindOfPlace } from "@/lib/place-words";
+import { learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
@@ -513,7 +514,7 @@ export default function Picks() {
           </button>
 
           {/* At the end, after the places (founder, 25 Nov 2026). */}
-          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => reloadList(origin, when, category)} />}
+          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese, rooftops" : "e.g. pickleball, open mics"} onAdded={() => reloadList(origin, when, category)} />}
         </>
       )}
       </div>
