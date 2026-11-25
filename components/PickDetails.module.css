@@ -105,6 +105,7 @@
 
 .name {
   margin-top: 4px;
+  font-family: var(--font-fraunces), serif;
   font-size: 28px;
   font-weight: 300;
   line-height: 1.05;

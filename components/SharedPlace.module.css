@@ -51,6 +51,7 @@
 }
 
 .name {
+  font-family: var(--font-fraunces), serif;
   font-size: 32px;
   font-weight: 300;
   line-height: 1.02;
@@ -95,6 +96,7 @@
 }
 
 .pitch {
+  font-family: var(--font-fraunces), serif;
   font-size: 22px;
   font-weight: 300;
   line-height: 1.15;

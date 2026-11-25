@@ -104,6 +104,7 @@
 }
 
 .title {
+  font-family: var(--font-fraunces), serif;
   font-size: 26px;
   font-weight: 300;
   line-height: 1;
@@ -218,6 +219,7 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
+  font-family: var(--font-fraunces), serif;
   font-size: 30px;
   font-weight: 300;
   line-height: 1.06;
@@ -299,6 +301,7 @@
 }
 
 .panelTitle {
+  font-family: var(--font-fraunces), serif;
   font-size: 34px;
   font-weight: 300;
   line-height: 1.02;
@@ -408,6 +411,7 @@
 }
 
 .sheetTitle {
+  font-family: var(--font-fraunces), serif;
   font-size: 26px;
   font-weight: 300;
   letter-spacing: -0.03em;

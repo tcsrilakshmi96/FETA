@@ -18,6 +18,7 @@
 
 .title {
   margin-top: 10px;
+  font-family: var(--font-fraunces), serif;
   font-size: 30px;
   font-weight: 300;
   line-height: 1.05;
