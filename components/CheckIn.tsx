@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
 import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
-import { dayName, duePlan, markPlanChecked, type SavedPlan } from "@/lib/night-client";
+import { dayName, duePlan, localDay, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./Sheet.module.css";
 import own from "./CheckIn.module.css";
@@ -23,6 +23,9 @@ const ANSWERS: { id: Verdict | "no"; face: string; label: string }[] = [
   { id: "not_for_me", face: "😕", label: "Not for me" },
   { id: "no", face: "🗓", label: "Didn't go" },
 ];
+
+// "How was tonight?" the same night, "How was Saturday?" after.
+const howWas = (day: string) => (day === localDay(new Date()) ? "tonight" : dayName(day));
 
 export default function CheckIn({ onDone }: { onDone?: () => void }) {
   const toast = useToast();
@@ -165,11 +168,11 @@ function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[
   return (
     <>
       <div className={styles.dim} onClick={() => onDone()} />
-      <div className={styles.sheet} role="dialog" aria-label={`How was ${dayName(plan.day)}?`}>
+      <div className={styles.sheet} role="dialog" aria-label={`How was ${howWas(plan.day)}?`}>
         <Mascot pose={pose} size={84} />
         <p className={styles.kick}>Your plan</p>
         <h2 className={styles.title}>
-          How was <strong>{dayName(plan.day)}?</strong>
+          How was <strong>{howWas(plan.day)}?</strong>
         </h2>
         <ul className={own.stops}>
           {plan.placeIds.map((id, i) => (

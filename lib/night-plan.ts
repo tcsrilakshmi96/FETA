@@ -178,3 +178,11 @@ export function routeUri(stops: NightStop[]) {
   const via = middle.length ? `&waypoints=${encodeURIComponent(middle.map(spot).join("|"))}&waypoint_place_ids=${encodeURIComponent(middle.map((p) => p.placeId).join("|"))}` : "";
   return `https://www.google.com/maps/dir/?api=1&origin=${spot(first)}&origin_place_id=${first.placeId}&destination=${spot(last)}&destination_place_id=${last.placeId}${via}&travelmode=${ride ? "driving" : "walking"}`;
 }
+
+// When "How was it?" may ask about a saved plan (founder, 25 Nov 2026: a 7:30
+// plan, the app opened at 11 pm, and nothing asked): an earlier day, or today
+// once 3 hours have passed since it started. now: minutes from midnight.
+export const CHECK_IN_AFTER = 180;
+export function planIsOver(plan: { day: string; startMinute: number }, today: string, now: number) {
+  return plan.day < today || (plan.day === today && now >= plan.startMinute + CHECK_IN_AFTER);
+}

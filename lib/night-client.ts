@@ -2,7 +2,7 @@
 
 import { didSomething } from "@/components/Feedback";
 import type { City } from "@/lib/cities";
-import type { NightPlace } from "@/lib/night-plan";
+import { planIsOver, type NightPlace } from "@/lib/night-plan";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // Plans made from Saved: the live details for planning, and the person's
@@ -76,8 +76,9 @@ export async function duePlan(cityId?: string): Promise<SavedPlan | null> {
   if (!(await currentUserId())) return null;
   const today = localDay(new Date());
   const weekAgo = localDay(new Date(Date.now() - 7 * 86400 * 1000));
-  const { data } = await supabase().from("saved_plans").select("id, day, start_minute, place_ids, city_id, checked_at").is("checked_at", null).lt("day", today).gte("day", weekAgo).order("day", { ascending: false }).limit(5);
-  const plan = (data ?? []).map(fromRow).find((p) => !cityId || !p.cityId || p.cityId === cityId);
+  const now = new Date();
+  const { data } = await supabase().from("saved_plans").select("id, day, start_minute, place_ids, city_id, checked_at").is("checked_at", null).lte("day", today).gte("day", weekAgo).order("day", { ascending: false }).limit(5);
+  const plan = (data ?? []).map(fromRow).find((p) => (!cityId || !p.cityId || p.cityId === cityId) && planIsOver(p, today, now.getHours() * 60 + now.getMinutes()));
   return plan ?? null;
 }
 

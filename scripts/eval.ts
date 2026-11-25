@@ -20,7 +20,7 @@ import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@
 import { allIntents, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
-import { planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
+import { planIsOver, planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
 import { inSentence, plainRead, readTaste } from "@/lib/server/taste-reader";
 import { tasteFingerprint } from "@/lib/server/taste";
@@ -923,6 +923,10 @@ async function main() {
     selectPicks([], [{ place: pl("Dishoom Covent Garden", "indian_restaurant"), km: 1, intents: ["cuisine_north_indian"] }, { place: pl("Dishoom Carnaby", "indian_restaurant"), km: 1, intents: ["cuisine_north_indian"] }] as Candidate[], { room: 8, small: false, popularCap: 2, explicit: [] }).filter((c) => !c.spare).length !== 1 && "two branches of one chain shown",
     // Plan a night: a closed day said plainly; Room for dessert never a second dinner
     !/closed on Sundays/.test(planNight([{ placeId: "x", name: "Closed Sun", area: "", kind: "DO", light: false, lat: 12.97, lng: 77.6, mapsUri: "", hours: [[1, 600, 1320]] }], 0, 18 * 60).problems[0]?.why ?? "") && "a place closed that day isn't said plainly",
+    // How was tonight? A 7:30 plan is asked about at 11 pm, not at 8 pm; yesterday's any time
+    !planIsOver({ day: "2026-11-25", startMinute: 19 * 60 + 30 }, "2026-11-25", 23 * 60) && "a 7:30 plan isn't asked about at 11 pm",
+    planIsOver({ day: "2026-11-25", startMinute: 19 * 60 + 30 }, "2026-11-25", 20 * 60) && "a plan is asked about while it's still on",
+    !planIsOver({ day: "2026-11-24", startMinute: 22 * 60 }, "2026-11-25", 9 * 60) && "yesterday's plan isn't asked about",
     roomForOne(planNight([{ placeId: "d", name: "Dinner Place", area: "", kind: "EAT", light: false, lat: 12.97, lng: 77.6, mapsUri: "" }], 5, 19 * 60), [{ placeId: "e", name: "Another Dinner", area: "", kind: "EAT", light: false, lat: 12.9701, lng: 77.6, mapsUri: "" }], 5) !== null && "Room for dessert offers a second dinner",
   ].filter(Boolean);
   if (coreFails.length) {
