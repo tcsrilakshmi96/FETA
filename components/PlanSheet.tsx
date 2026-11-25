@@ -6,11 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
 import WaitFun from "@/components/WaitFun";
 import WearCard from "@/components/WearCard";
+import { useToast } from "@/components/Toast";
 import { planFromStops } from "@/lib/style-client";
 import { formatDistance } from "@/lib/cities";
 import { fetchNearDinner, type Pick } from "@/lib/picks-client";
 import { logEvent } from "@/lib/db";
-import { localDay, savePlan } from "@/lib/night-client";
+import { loadPlans, localDay, savePlan } from "@/lib/night-client";
 import { loadOrigin } from "@/lib/origin";
 import { clock, isMeal, planEvenings, type Plan } from "@/lib/plan";
 import styles from "./PlanSheet.module.css";
@@ -57,14 +58,25 @@ export function directionsForBoth(first: Pick, second: Pick, mode: "walk" | "rid
 // "i finished my 7:30 plan… why has it not asked me if i went"). Once per
 // plan while the app is open; a plan with an event stays a share only.
 const keptPlans = new Map<string, Promise<string | null>>();
-function keepPlan(p: Plan): Promise<string | null> {
+function keepPlan(p: Plan, onKept?: () => void): Promise<string | null> {
   const city = loadOrigin()?.city;
   if (!city || p.stops.some((s) => s.pick.event)) return Promise.resolve(null);
   const first = p.stops[0].time;
   const day = localDay(first);
   const placeIds = p.stops.map((s) => s.pick.placeId);
   const key = `${day}|${placeIds.join()}`;
-  if (!keptPlans.has(key)) keptPlans.set(key, savePlan({ day, startMinute: first.getHours() * 60 + first.getMinutes(), placeIds }, city).catch(() => null));
+  if (!keptPlans.has(key))
+    keptPlans.set(
+      key,
+      (async () => {
+        // The same evening already in Plans (after a reload) is reused, never saved twice (audits, 26 Nov 2026).
+        const same = (await loadPlans()).find((x) => x.day === day && x.placeIds.join() === placeIds.join());
+        const id = same?.id ?? (await savePlan({ day, startMinute: first.getHours() * 60 + first.getMinutes(), placeIds }, city).catch(() => null));
+        if (!id) keptPlans.delete(key);
+        else if (!same) onKept?.();
+        return id;
+      })(),
+    );
   return keptPlans.get(key)!;
 }
 
@@ -83,6 +95,9 @@ export default function PlanSheet({
   when: "tonight" | "weekend";
   onClose: () => void;
 }) {
+  const toast = useToast();
+  // Said once when the plan is first kept (design audit, 26 Nov 2026).
+  const kept = () => toast("Kept in Saved → Plans");
   const onScreen = useMemo(() => (loading ? [] : planEvenings(food, experiences, when)), [loading, food, experiences, when]);
   const [choice, setChoice] = useState(0);
   const dinner = food.find((p) => isMeal(p) && p.lat !== undefined);
@@ -170,7 +185,7 @@ export default function PlanSheet({
             <WearCard plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} />
             <SendToGroup
               kind="plan"
-              planId={() => keepPlan(plan)}
+              planId={() => keepPlan(plan, kept)}
               message={`${plan.day}: ${a!.pick.name} at ${clock(a!.time)}, then ${b!.pick.name} at ${clock(b!.time)}.`}
               payload={{
                 title: plan.day,
@@ -209,7 +224,7 @@ export default function PlanSheet({
             <a
               className={styles.directions}
               href={directionsForBoth(a!.pick, b!.pick, plan.mode)}
-              onClick={() => (logEvent("plan_directions", a!.pick.placeId), keepPlan(plan))}
+              onClick={() => (logEvent("plan_directions", a!.pick.placeId), keepPlan(plan, kept))}
               target="_blank"
               rel="noopener noreferrer"
             >
