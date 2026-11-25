@@ -595,7 +595,6 @@ export default function Picks() {
           onSave={() => save(sheet.pick)}
           onSkip={() => skip(sheet.pick)}
           onGo={() => setSheet({ type: "go", pick: sheet.pick })}
-          onBeen={sheet.pick.event ? undefined : () => been(sheet.pick)}
         />
       )}
 

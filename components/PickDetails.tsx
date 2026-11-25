@@ -3,7 +3,6 @@
 import PickPhoto from "@/components/PickPhoto";
 import { logEvent } from "@/lib/db";
 import { useEffect, useState } from "react";
-import SendToGroup from "@/components/SendToGroup";
 import { formatDistance } from "@/lib/cities";
 import { fetchNotes, type Pick, type PlaceNotes } from "@/lib/picks-client";
 import styles from "./PickDetails.module.css";
@@ -52,14 +51,12 @@ export default function PickDetails({
   onSave,
   onSkip,
   onGo,
-  onBeen,
 }: {
   pick: Pick;
   onClose: () => void;
   onSave: () => void;
   onSkip?: () => void;
   onGo?: () => void;
-  onBeen?: () => void;
 }) {
   const [notes, setNotes] = useState<PlaceNotes | null>(null);
 
@@ -193,63 +190,29 @@ export default function PickDetails({
           </>
         )}
 
-        {onGo && (
+        {/* Three actions (founder, 25 Nov 2026: "3 buttons are enough"): Let's
+            go holds Directions, the booking or tickets and Send to the group;
+            Been there is one of Not for me's reasons. Google Maps stays linked
+            on the hours line above. */}
+        {onGo ? (
           <button type="button" className={`btn-primary ${styles.go}`} onClick={onGo}>
             Let&apos;s go
           </button>
-        )}
-        <div className={styles.actions}>
-          {/* Booking (India) or tickets lead; else Naver in Korea, else Google Maps. */}
-          <a className={`${styles.primary} ${onGo ? styles.quiet : ""}`} href={pick.book?.url ?? pick.naverUri ?? pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent(pick.book ? "book" : "maps", pick.placeId)}>
-            {pick.book?.label ?? (pick.naverUri ? "Open in Naver Map" : "Open in Google Maps")}
-          </a>
-          <a href={pick.directionsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("directions", pick.placeId)}>
+        ) : (
+          <a className={`btn-primary ${styles.go}`} href={pick.directionsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("directions", pick.placeId)}>
             Directions
           </a>
-          <button type="button" onClick={onSave}>
+        )}
+        <div className={styles.actions}>
+          <button type="button" className={onSkip ? "" : styles.wide} onClick={onSave}>
             ♥ Save
           </button>
-          {(pick.book || pick.naverUri) && (
-            <a className={pick.website && !pick.event ? "" : styles.wide} href={pick.mapsUri} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("maps", pick.placeId)}>
-              <span translate="no">Google Maps</span>
-            </a>
-          )}
-          {pick.website && !pick.event && (
-            <a className={pick.book || pick.naverUri ? "" : styles.wide} href={pick.website} target="_blank" rel="noopener noreferrer" onClick={() => logEvent("website", pick.placeId)}>
-              Website
-            </a>
+          {onSkip && (
+            <button type="button" onClick={onSkip}>
+              Not for me
+            </button>
           )}
         </div>
-        <div className={styles.group}>
-          {/* Shares never include the personal reason (it can mention diet). */}
-          <SendToGroup
-            kind="pick"
-            message={`${pick.name}, ${pick.area}. Picked by Feta.`}
-            payload={{
-              title: pick.event ? pick.chips[0] ?? "Soon" : "A pick",
-              stops: [
-                {
-                  placeId: pick.placeId,
-                  kind: pick.kind,
-                  ...(pick.fetaNote !== undefined ? { fetaNote: pick.fetaNote } : {}),
-                  ...(pick.event
-                    ? { event: { title: pick.event.title, venueName: pick.event.venueName, date: pick.event.date, time: pick.event.time, url: pick.event.url, site: pick.event.site } }
-                    : {}),
-                },
-              ],
-            }}
-          />
-        </div>
-        {onBeen && (
-          <button type="button" className={styles.close} onClick={onBeen}>
-            Been there
-          </button>
-        )}
-        {onSkip && (
-          <button type="button" className={styles.close} onClick={onSkip}>
-            Not for me
-          </button>
-        )}
         <button type="button" className={styles.close} onClick={onClose}>
           Close
         </button>
