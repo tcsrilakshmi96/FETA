@@ -41,3 +41,19 @@ export function plainReply(text: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+// How many days a message asks for ("3 days in Porto", "a week in Japan",
+// "two nights in Goa", "a weekend away"), or 0 when it names none. Code's
+// own reading of their words, for trips the model talks about without
+// making (founder's Opus trial, 25 Nov 2026).
+const WORD_NUMBERS: Record<string, number> = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, couple: 2, few: 3 };
+export function tripDays(message: string): number {
+  const text = message.toLowerCase();
+  if (/\b(long )?weekend (away|trip|getaway)\b|\bweekend in\b/.test(text)) return 2;
+  let most = 0;
+  for (const m of text.matchAll(/\b(\d{1,2}|a|an|one|two|three|four|five|six|seven|eight|nine|ten|couple|few)(?: of)?[ -](days?|nights?|weeks?)\b/g)) {
+    const n = /\d/.test(m[1]) ? Number(m[1]) : WORD_NUMBERS[m[1]];
+    most = Math.max(most, m[2].startsWith("week") ? n * 7 : n);
+  }
+  return most;
+}

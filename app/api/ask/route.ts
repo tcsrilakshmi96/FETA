@@ -1,4 +1,4 @@
-import { MEALS, asksQuestion, plainReply, withDinner, type Meal } from "@/lib/ask-rules";
+import { MEALS, asksQuestion, plainReply, tripDays, withDinner, type Meal } from "@/lib/ask-rules";
 import { isMainlandChina, type City } from "@/lib/cities";
 import { cityAt, cityById, isCountryName, searchCities } from "@/lib/server/cities";
 import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
@@ -275,12 +275,15 @@ Write only plain words in "reply": never tags, code or tool calls; to look somet
     // away only when they're talking about a trip.
     return match ? !homeCity || match.id !== homeCity.id : !!tripLabel;
   };
-  // A trip somewhere away from home it said it would plan but sent nothing
-  // for (Opus/Sonnet trial, 25 Nov 2026: "3 days in Porto next month" came
-  // back as "I'll put together a 3-day plan" and no card): the route is made.
+  // They asked for 2 days or more somewhere away from home, in their own
+  // words, and the model sent nothing for it (Opus/Sonnet trial, 25 Nov
+  // 2026: "3 days in Porto next month" came back as "I'll put together a
+  // 3-day plan" and no card): the route is made. Never while a trip is
+  // being planned (its follow-ups, "Is Kyoto worth a day?", would replace
+  // its hotels and day plans; audits, 25 Nov 2026), and never on a question
+  // back to them.
   const tripPlace = parsed.trip?.place ?? null;
-  const knownTrip = !!currentTrip && !!tripPlace && (currentTrip.title.toLowerCase().includes(tripPlace.toLowerCase()) || currentTrip.cities.some((c) => tripPlace.toLowerCase().includes(c.name.toLowerCase())));
-  const promisedTrip = !!tripPlace && !knownTrip && !asked.length && !it && !parsed.outfit && !asksQuestion(reply) && awayFromHome(tripPlace);
+  const promisedTrip = !currentTrip && !!tripPlace && tripDays(message) >= 2 && !asked.length && !it && !parsed.outfit && !asksQuestion(reply) && awayFromHome(tripPlace);
   const wantsRoute =
     !parsed.why &&
     !parsed.route?.cities?.length &&
