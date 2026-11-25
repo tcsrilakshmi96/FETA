@@ -150,18 +150,6 @@ export default function PlanSheet({
             </p>
             {/* What to wear for this plan (founder, 20 Nov 2026). */}
             <WearCard plan={planFromStops(plan.stops.map((st) => ({ name: st.pick.name, kind: st.pick.kind, time: st.time })), plan.mode === "walk" ? plan.km : null)} />
-            {plans.length > 1 && (
-              <SendToGroup
-                kind="choice"
-                label={plans.length > 3 ? "Let the group choose (the top 3 plans)" : `Let the group choose (${plans.length} plans)`}
-                message={`${plan.day}: ${Math.min(3, plans.length)} plans from Feta.`}
-                payload={{
-                  title: plan.day,
-                  country: plan.stops[0].pick.country,
-                  options: plans.slice(0, 3).map((p) => sharePlan(p)),
-                }}
-              />
-            )}
             <SendToGroup
               kind="plan"
               message={`${plan.day}: ${a!.pick.name} at ${clock(a!.time)}, then ${b!.pick.name} at ${clock(b!.time)}.`}
@@ -180,6 +168,20 @@ export default function PlanSheet({
                 })),
               }}
             />
+            {/* Sending this plan leads; letting the group choose sits under it (founder, 25 Nov 2026). */}
+            {plans.length > 1 && (
+              <SendToGroup
+                kind="choice"
+                quiet
+                label={plans.length > 3 ? "Let the group choose (the top 3 plans)" : `Let the group choose (${plans.length} plans)`}
+                message={`${plan.day}: ${Math.min(3, plans.length)} plans from Feta.`}
+                payload={{
+                  title: plan.day,
+                  country: plan.stops[0].pick.country,
+                  options: plans.slice(0, 3).map((p) => sharePlan(p)),
+                }}
+              />
+            )}
             {plans.length > 1 && (
               <button type="button" className={styles.another} onClick={() => setChoice((choice + 1) % plans.length)}>
                 Not this one? See plan {((plans.indexOf(plan) + 1) % plans.length) + 1}

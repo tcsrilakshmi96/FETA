@@ -8,6 +8,13 @@
   font-weight: 500;
 }
 
+/* The second way to share, under the main one (founder, 25 Nov 2026). */
+.quiet {
+  background: rgba(var(--inkRGB), 0.07);
+  color: var(--ink);
+  margin-top: 8px;
+}
+
 .send:disabled {
   opacity: 0.6;
 }

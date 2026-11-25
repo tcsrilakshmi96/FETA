@@ -15,12 +15,14 @@ export default function SendToGroup({
   message,
   label = "Send to the group",
   planId,
+  quiet = false,
 }: {
   kind: ShareKind;
   payload: SharePayload | ChoicePayload;
   message: string;
   label?: string;
   planId?: () => Promise<string | null>; // the saved plan it's shared from, saved first if needed
+  quiet?: boolean; // a second, lighter button under the main one
 }) {
   const toast = useToast();
   const [link, setLink] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export default function SendToGroup({
 
   if (!link) {
     return (
-      <button type="button" className={styles.send} onClick={make} disabled={making}>
+      <button type="button" className={`${styles.send} ${quiet ? styles.quiet : ""}`} onClick={make} disabled={making}>
         {making ? "Making a link…" : label}
       </button>
     );
