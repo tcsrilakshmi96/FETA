@@ -6,6 +6,7 @@ import Mascot from "@/components/Mascot";
 import { isSignedIn } from "@/lib/auth";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Sheet.module.css";
+import { whenNoPopUp } from "@/lib/popups";
 
 // The tester form (founder, 18 Nov 2026): once someone has really tried
 // Feta (their second visit), a card asks them to fill in the Google Form.
@@ -36,6 +37,7 @@ export default function TesterForm() {
     // After Home has settled, never on top of another pop-up, and only once
     // "Save your taste" has had its turn (it asks first).
     let live = true;
+    let cancel = () => {};
     const t = setTimeout(async () => {
       let asked = false;
       try {
@@ -44,11 +46,12 @@ export default function TesterForm() {
         // Treated as not asked yet.
       }
       if (!asked && !(await isSignedIn())) return;
-      if (live && !document.querySelector('[role="dialog"]')) setOpen(true);
+      if (live) cancel = whenNoPopUp(() => setOpen(true));
     }, 2500);
     return () => {
       live = false;
       clearTimeout(t);
+      cancel();
     };
   }, []);
 

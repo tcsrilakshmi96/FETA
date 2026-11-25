@@ -253,6 +253,36 @@ async function main() {
     });
     check(steady.changes === 1 && steady.end >= 60, "The picks header shrinks once and the list stays still", JSON.stringify(steady));
 
+    // Coming back after a plan (walk-through, 25 Nov 2026): "How was
+    // tonight?" asks about a plan that started hours ago, the same night, and
+    // never opens on top of another pop-up.
+    if (token) {
+      const sets = (await rest(token, "pick_sets?select=picks&category=eq.food_drinks&order=created_at.desc&limit=3")) as { picks: { placeId: string }[] }[];
+      const ids = sets.flatMap((x) => x.picks.map((y) => y.placeId)).slice(0, 2);
+      const me = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString()).sub as string;
+      // 200 minutes ago, on yesterday's date just after midnight.
+      const d = new Date(Date.now() - 200 * 60000);
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const started = d.getHours() * 60 + d.getMinutes();
+      await fetch(`${DB}/rest/v1/saved_plans`, { method: "POST", headers: { apikey: KEY, Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ user_id: me, day, start_minute: started, place_ids: ids, city_id: await p.evaluate(() => (JSON.parse(localStorage.getItem("feta.city") ?? "null") as { id: string } | null)?.id ?? null), country: "IN", time_zone: "Asia/Kolkata", currency: "INR" }) });
+      // Sign-in has had its turn, so the testers' form is due too and the two race.
+      await p.evaluate(() => localStorage.setItem("feta.saveTasteAsked", "1"));
+      const again = await browser.newPage(); // a new visit: a fresh tab session, same phone
+      await again.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, hasTouch: true, isMobile: true });
+      await again.goto(`${BASE}/home`, { waitUntil: "domcontentloaded" });
+      let most = 0;
+      let asked = false;
+      for (let i = 0; i < 24; i++) {
+        await wait(500);
+        const seen = await again.evaluate(() => ({ n: document.querySelectorAll('[role="dialog"]').length, how: /How was (tonight|\w+day)\?/.test(document.body.innerText) }));
+        most = Math.max(most, seen.n);
+        asked ||= seen.how;
+      }
+      check(asked, "Coming back asks how a plan went once it started hours ago");
+      check(most <= 1, "Coming back, pop-ups open one at a time", `${most} at once`);
+      await again.close();
+    }
+
     // You shows what they shared.
     await p.goto(`${BASE}/you`, { waitUntil: "networkidle0" });
     await wait(2000);
