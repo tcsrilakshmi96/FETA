@@ -23,7 +23,7 @@ import { kindOfPlace, learnFromSkip, saveTaste } from "@/lib/taste-client";
 import { formatDistance } from "@/lib/cities";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { leaveLists, morePicks, openList, reloadList, savedOn, searchKey, shown, slotKey, tweakList, undoTweaks, usePicks } from "@/lib/picks-store";
+import { leaveLists, morePicks, openList, outOfDate, reloadList, savedOn, searchKey, shown, slotKey, tweakList, undoTweaks, usePicks } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
 
 const CATEGORY_KEY = "feta.category";
@@ -208,7 +208,7 @@ export default function Picks() {
 
   // Each list is opened once it's on screen, and again if it goes (past
   // its hour, or Today becoming Tonight).
-  const missing = !slot;
+  const missing = !slot || outOfDate(slot);
   useEffect(() => {
     if (origin) openList(origin, when, category, search);
   }, [origin, when, category, search, missing]);

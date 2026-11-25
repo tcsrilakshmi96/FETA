@@ -25,7 +25,7 @@ import { formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
-import { morePicks, openList, reloadList, shown, slotKey, usePicks, type Slot } from "@/lib/picks-store";
+import { morePicks, openList, outOfDate, reloadList, shown, slotKey, usePicks, type Slot } from "@/lib/picks-store";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
 import { tonightPlan, type TonightPlan } from "@/lib/style-client";
 import styles from "./Home.module.css";
@@ -116,8 +116,8 @@ export default function Home() {
   const exp = origin ? shown(lists, expKey) : undefined;
   const wantFood = !!readWants?.includes("food");
   const wantDo = !!readWants?.includes("do");
-  const foodMissing = !food;
-  const expMissing = !exp;
+  const foodMissing = !food || outOfDate(food);
+  const expMissing = !exp || outOfDate(exp);
   useEffect(() => {
     if (origin && wantFood) openList(origin, when, "food_drinks");
   }, [origin, when, wantFood, foodMissing]);
