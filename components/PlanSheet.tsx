@@ -70,7 +70,7 @@ function keepPlan(p: Plan, onKept?: () => void): Promise<string | null> {
       key,
       (async () => {
         // The same evening already in Plans (after a reload) is reused, never saved twice (audits, 26 Nov 2026).
-        const same = (await loadPlans()).find((x) => x.day === day && x.placeIds.join() === placeIds.join());
+        const same = (await loadPlans().catch(() => [])).find((x) => x.day === day && x.placeIds.join() === placeIds.join());
         const id = same?.id ?? (await savePlan({ day, startMinute: first.getHours() * 60 + first.getMinutes(), placeIds }, city).catch(() => null));
         if (!id) keptPlans.delete(key);
         else if (!same) onKept?.();
