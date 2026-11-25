@@ -356,3 +356,7 @@ Three rounds kept finding the same kinds of problem, so they were fixed as kinds
 - Setup's look tiles show all 37 styles, theirs ticked first, and the inspiration photos they hung up are kept on the phone only (founder: "why can i only see 9 styles?", "my previous styles and photos should be saved"). The promise reads "Your photos stay on this phone; Feta keeps only the style words."
 - A saved plan is asked about 3 hours after it starts, the same night (founder: finished a 7:30 plan, opened at 11 pm, nothing asked). Plan my evening was never stored, so it couldn't be asked about: sending or routing it now saves it to Plans.
 - After saving a plan, the Ready sheet asks "Decide your outfit for it?" (founder: "only then its a wholistic experience").
+
+## 26 Nov 2026 — Return visits (from the 2nd/3rd-visit walk-through)
+- Bugs fixed: "How was tonight?" and "Help shape Feta" opened on top of each other; Saved → Plans showed "…" for stops not in their lists.
+- Founder: "make all the changes": at most one pop-up a visit, most important first; NEW on Home's tiles and "New" in the list for places the phone hasn't shown before; Ask greets returning people by name; past plans under Done with how each place was; one saved place shows "Save one more to plan a night"; the Wear tile says "Finish setting up · 1 min" for someone who chose What to wear without setting Style up.
