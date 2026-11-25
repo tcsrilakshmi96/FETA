@@ -72,7 +72,7 @@ function owner() {
   }
 }
 function persist() {
-  if (ownerAtRead !== undefined && owner() !== ownerAtRead) return;
+  if (ownerAtRead && owner() !== ownerAtRead) return;
   try {
     const keep = Object.fromEntries(Object.entries(state.lists).filter(([, s]) => keepable(s)).map(([k, s]) => [k, { ...s, more: false }]));
     if (Object.keys(keep).length) localStorage.setItem(STORE, JSON.stringify({ slots: keep, at: Date.now() }));
@@ -131,13 +131,17 @@ export function outOfDate(s: Slot) {
   if (s.loading) return false;
   return !sameSlotName(s) || (s.madeAt !== undefined && Date.now() - s.madeAt > KEEP_MS);
 }
+const told = new WeakSet<Slot>();
 function sweep() {
   if (document.visibilityState !== "visible") return;
   const lists = Object.fromEntries(Object.entries(state.lists).filter(([, s]) => !outOfDate(s)));
   // A tweaked list out of date is looked up again with its tweak only by a
   // screen showing it (openList), never in the background (cost audit, 25
   // Nov 2026): the screens hear of it here.
-  if (Object.keys(lists).length !== Object.keys(state.lists).length || Object.values(state.tweaked).some((t) => outOfDate(t.slot))) set({ lists });
+  // Told once per tweaked list, not every minute (re-audit, 25 Nov 2026).
+  const stale = Object.values(state.tweaked).filter((t) => outOfDate(t.slot) && !told.has(t.slot));
+  for (const t of stale) told.add(t.slot);
+  if (Object.keys(lists).length !== Object.keys(state.lists).length || stale.length) set({ lists });
   // A list past its hour leaves the phone too, not only at the next reload.
   else persist();
 }
@@ -283,6 +287,10 @@ function changeShown(key: string, change: (s: Slot) => Slot) {
   if (t) set({ tweaked: { ...state.tweaked, [key]: { ...t, slot: change(t.slot) } } });
   else if (state.lists[key]) set({ lists: { ...state.lists, [key]: change(state.lists[key]) } });
 }
+function listToken(key: string) {
+  const t = state.tweaked[key];
+  return t ? `tweak:${t.tweaks.join(",")}|${t.note ?? ""}|${t.slot.madeAt ?? "loading"}` : `list:${state.lists[key]?.madeAt ?? "none"}`;
+}
 export async function morePicks(origin: Origin, when: When, category: Category, typed: string | null | undefined, replace: boolean): Promise<{ fresh: Pick[]; notice?: string }> {
   const key = typed ? searchKey(origin, when, category, typed) : slotKey(origin, when, category);
   const slot = shown(state, key);
@@ -295,9 +303,11 @@ export async function morePicks(origin: Origin, when: When, category: Category, 
   markShown(listKey, slot.picks.map((p) => p.placeId));
   const seen = shownBefore.get(listKey)!;
   changeShown(key, (s) => ({ ...s, more: true }));
-  // The list asked for more; a newer one in its place by the reply (a tweak,
-  // Undo, a reload) is left alone (tech audit, 25 Nov 2026).
-  const asked = shown(state, key);
+  // Which list asked for more: by the search that made it, not the object,
+  // since a save, a skip or late events copy it (re-audit, 25 Nov 2026). A
+  // different list there by the reply (a tweak, Undo, a reload) is left
+  // alone, and nothing is left saying "Finding more…".
+  const asked = listToken(key);
   let found: Pick[];
   let spares: Pick[];
   let notice: string | undefined;
@@ -311,7 +321,14 @@ export async function morePicks(origin: Origin, when: When, category: Category, 
     spares = reply.spares ?? [];
     notice = reply.notice;
   }
-  if (shown(state, key) !== asked) return { fresh: [] };
+  if (listToken(key) !== asked) {
+    const t2 = state.tweaked[key];
+    set({
+      ...(state.lists[key] ? { lists: { ...state.lists, [key]: { ...state.lists[key], more: false } } } : {}),
+      ...(t2 ? { tweaked: { ...state.tweaked, [key]: { ...t2, slot: { ...t2.slot, more: false } } } } : {}),
+    });
+    return { fresh: [] };
+  }
   changeShown(key, (s) => (found.length === 0 ? { ...s, more: false } : { ...s, more: false, picks: replace ? found : [...s.picks, ...found], spares }));
   return { fresh: found, notice };
 }
