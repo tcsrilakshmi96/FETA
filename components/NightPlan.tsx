@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Mascot from "@/components/Mascot";
-import WearCard from "@/components/WearCard";
+import WearCard, { FROM_KEY } from "@/components/WearCard";
 import NightTrail from "@/components/NightTrail";
 import SendToGroup from "@/components/SendToGroup";
 import { useToast } from "@/components/Toast";
@@ -10,7 +11,7 @@ import { logEvent } from "@/lib/db";
 import { dayName, fetchNightPlaces, localDay, savePlan, type SavedPlan } from "@/lib/night-client";
 import { minuteClock, planNight, roomForOne, routeUri, timeOrder, type Night, type NightPlace } from "@/lib/night-plan";
 import type { Origin } from "@/lib/origin";
-import { planFromStops } from "@/lib/style-client";
+import { planFromStops, setWearFor } from "@/lib/style-client";
 import sheet from "./Sheet.module.css";
 import styles from "./NightPlan.module.css";
 
@@ -55,6 +56,7 @@ const weekdayOf = (day: string) => new Date(`${day}T12:00:00`).getDay();
 
 export default function NightPlan({ start, origin, onClose, onSaved }: { start: NightStart; origin: Origin; onClose: () => void; onSaved: (plan: SavedPlan) => void }) {
   const toast = useToast();
+  const router = useRouter();
   const saved = "saved" in start ? start.saved : null;
   const [phase, setPhase] = useState<"when" | "rolling" | "trail" | "edit">(saved ? "rolling" : "when");
   const [day, setDay] = useState(saved?.day ?? dayOptions()[0]);
@@ -110,6 +112,21 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
   const betterDay = night.problems.length && betterStart === undefined ? dayOptions().find((d) => d !== day && fitsAll(d, startAt)) : undefined;
   const first = night.stops[0];
   const areas = [...new Set(night.stops.map((s) => s.place.area).filter(Boolean))];
+
+  const wearPlan = planFromStops(
+    night.stops.map((st) => ({ name: st.place.name, kind: st.place.kind, time: new Date(`${day}T${String(Math.floor(st.at / 60) % 24).padStart(2, "0")}:${String(st.at % 60).padStart(2, "0")}:00`) })),
+    null,
+  );
+  // Someone without Style yet sets it up, then lands on this plan's looks.
+  function styleThisPlan() {
+    setWearFor(wearPlan);
+    try {
+      sessionStorage.setItem(FROM_KEY, "plan");
+    } catch {
+      // Style opens from Home.
+    }
+    router.push("/style/setup");
+  }
 
   async function save(quiet = false) {
     if (isSaved) return planId;
@@ -292,14 +309,7 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
           </div>
           {idea && <Idea idea={idea} onAdd={addIdea} onNo={() => setNoIdea(true)} />}
           {/* What to wear for this plan, straight away (founder, 21 Nov 2026). */}
-          {night.stops.length > 0 && (
-            <WearCard
-              plan={planFromStops(
-                night.stops.map((st) => ({ name: st.place.name, kind: st.place.kind, time: new Date(`${day}T${String(Math.floor(st.at / 60) % 24).padStart(2, "0")}:${String(st.at % 60).padStart(2, "0")}:00`) })),
-                null,
-              )}
-            />
-          )}
+          {night.stops.length > 0 && <WearCard plan={wearPlan} />}
           <p className={styles.credit}>
             Places: <span translate="no">Google Maps</span> · times are rough
           </p>
@@ -377,6 +387,21 @@ export default function NightPlan({ start, origin, onClose, onSaved }: { start: 
               />
             )}
             <p className={sheet.sub}>Friends see the places, times and route. Nothing about your diet or taste.</p>
+            {/* Once it's saved, the outfit for it (founder, 25 Nov 2026: "only
+                then it's a wholistic experience"). */}
+            {isSaved && night.stops.length > 0 && (
+              <div className={styles.outfit}>
+                <p className={styles.outfitAsk}>Decide your outfit for it?</p>
+                <WearCard
+                  plan={wearPlan}
+                  fallback={
+                    <button type="button" className={styles.saveBtn} onClick={styleThisPlan}>
+                      What should I wear? ›
+                    </button>
+                  }
+                />
+              </div>
+            )}
             <button type="button" className={sheet.ghost} onClick={() => setReady(false)}>
               Back to the plan
             </button>

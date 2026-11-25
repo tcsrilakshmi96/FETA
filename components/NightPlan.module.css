@@ -428,6 +428,16 @@
   font-weight: 600;
 }
 
+.outfit {
+  margin: 14px 0 4px;
+}
+
+.outfitAsk {
+  margin-bottom: 8px;
+  font-family: var(--font-fraunces), serif;
+  font-size: 17px;
+}
+
 .saveBtn:disabled {
   color: rgba(var(--inkRGB), 0.6);
 }
