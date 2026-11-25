@@ -3,9 +3,11 @@ import { paidFetch } from "@/lib/server/costs";
 
 // Venice AI (OpenAI-compatible), with the founder's credits: Ask Feta only
 // (founder, 23 Nov 2026: her Venice credits are limited; everything else is
-// on Gemini). Claude Sonnet 5.5 (Haiku was too weak for judgement), about
-// ₹1.5–2 a reply. It never receives Google Maps or Places content.
-export const VENICE_MODEL = "claude-sonnet-5-5";
+// on Gemini). Claude Opus 5.5 since 25 Nov 2026 (founder, after the same 10
+// chats on both: Sonnet searched anyway after "we can skip that" and promised
+// a Porto plan it never made), about ₹2 a reply, double Sonnet; Haiku was
+// too weak for judgement. It never receives Google Maps or Places content.
+export const VENICE_MODEL = "claude-opus-5-5";
 
 export type ChatTurn = { role: "system" | "user" | "assistant"; content: string };
 

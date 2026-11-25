@@ -275,12 +275,19 @@ Write only plain words in "reply": never tags, code or tool calls; to look somet
     // away only when they're talking about a trip.
     return match ? !homeCity || match.id !== homeCity.id : !!tripLabel;
   };
+  // A trip somewhere away from home it said it would plan but sent nothing
+  // for (Opus/Sonnet trial, 25 Nov 2026: "3 days in Porto next month" came
+  // back as "I'll put together a 3-day plan" and no card): the route is made.
+  const tripPlace = parsed.trip?.place ?? null;
+  const knownTrip = !!currentTrip && !!tripPlace && (currentTrip.title.toLowerCase().includes(tripPlace.toLowerCase()) || currentTrip.cities.some((c) => tripPlace.toLowerCase().includes(c.name.toLowerCase())));
+  const promisedTrip = !!tripPlace && !knownTrip && !asked.length && !it && !parsed.outfit && !asksQuestion(reply) && awayFromHome(tripPlace);
   const wantsRoute =
     !parsed.why &&
     !parsed.route?.cities?.length &&
+    (promisedTrip ||
     // Only once a place is named: a trip with no destination asks where first.
     ((it && !!it.place && ((it.days ?? 1) > 3 || isCountryName(it.place) || ((it.days ?? 1) >= 2 && awayFromHome(it.place)))) ||
-      (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? "")));
+      (asked.length && tripLabel && isCountryName(asked[0].place ?? parsed.trip?.place ?? ""))));
   if (wantsRoute) {
     const route = await withCosts(db, "ask_trip_route", () => (askIs({ key: message, label: "trip route" }), routeFor(past, message, system))).catch((error) => {
       console.error(error);
