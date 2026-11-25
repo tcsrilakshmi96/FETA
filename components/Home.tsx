@@ -115,8 +115,10 @@ export default function Home() {
   const expKey = origin ? slotKey(origin, when, "experiences") : "";
   const food = origin ? shown(lists, foodKey) : undefined;
   const exp = origin ? shown(lists, expKey) : undefined;
-  // The top picks on the tiles count as seen, so the next visit marks what's new.
-  const tops = [food, exp].map((s) => (s && !s.loading ? s.picks[0]?.placeId : undefined)).filter(Boolean).join("\n");
+  // The lists behind the tiles count as seen, so the next visit marks only
+  // what's really new (design audit, 26 Nov 2026: marking only the two tops
+  // made nearly every pick "New" on visit 2).
+  const tops = [food, exp].flatMap((s) => (s && !s.loading ? s.picks.map((p) => p.placeId) : [])).join("\n");
   useEffect(() => {
     if (tops) markSeen(tops.split("\n"));
   }, [tops]);
@@ -328,7 +330,7 @@ export default function Home() {
                   <span className={styles.coverText}>
                     <span className={`${styles.kick} ${styles.kWear}`}>WEAR</span>
                     <span className={styles.coverName}>What to wear</span>
-                    <span className={styles.coverSub}>{choseStyle && styleSetUp === false ? "Finish setting up · 1 min ›" : "Looks and brands ›"}</span>
+                    <span className={styles.coverSub}>{choseStyle && styleSetUp === false ? "Finish setup ›" : "Looks and brands ›"}</span>
                   </span>
                 </button>
               );
