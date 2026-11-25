@@ -11,7 +11,11 @@
 const SHOWN = "feta.popupShown";
 const MAX_WAIT = 6000;
 
-type Slot = { rank: number; state: "pending" | "ready" | "none"; open?: () => void };
+// open says whether it really opened (a lookup may fail, or they left the
+// screen); if not, the visit's pop-up isn't used up. notBefore: ready, but
+// waiting its moment (Save your taste lets people see their picks first).
+type Opener = () => boolean | void | Promise<boolean | void>;
+type Slot = { rank: number; state: "pending" | "ready" | "none"; open?: Opener; notBefore?: number };
 let slots: Slot[] = [];
 let timer = 0;
 let firstAt = 0;
@@ -31,13 +35,14 @@ function decide() {
     slots = [];
     return;
   }
-  const ready = slots.filter((s) => s.state === "ready");
-  const waiting = slots.some((s) => s.state === "pending");
-  // Someone more important is still finding out whether it has something to ask.
-  const best = ready.reduce<Slot | null>((a, b) => (!a || b.rank < a.rank ? b : a), null);
-  const betterPending = slots.some((s) => s.state === "pending" && (!best || s.rank < best.rank));
-  if (!best || (betterPending && Date.now() - firstAt < MAX_WAIT) || document.querySelector('[role="dialog"]')) {
-    if (best || waiting) timer = window.setTimeout(decide, best && !betterPending ? 2000 : 500);
+  const now = Date.now();
+  const due = (s: Slot) => s.state === "ready" && (s.notBefore ?? 0) <= now;
+  const best = slots.filter(due).reduce<Slot | null>((a, b) => (!a || b.rank < a.rank ? b : a), null);
+  // Someone more important is still finding out whether it has something to
+  // ask (for up to 6 s), or is ready and waiting its moment (always waited for).
+  const betterWaiting = slots.some((s) => (!best || s.rank < best.rank) && ((s.state === "pending" && now - firstAt < MAX_WAIT) || (s.state === "ready" && !due(s))));
+  if (!best || betterWaiting || document.querySelector('[role="dialog"]')) {
+    if (slots.some((s) => s.state !== "none")) timer = window.setTimeout(decide, best && !betterWaiting ? 2000 : 500);
     return;
   }
   try {
@@ -45,8 +50,20 @@ function decide() {
   } catch {
     // Then the next one may ask; that's all.
   }
-  slots = [];
-  best.open!();
+  slots = slots.filter((s) => s !== best);
+  Promise.resolve(best.open!()).then((opened) => {
+    if (opened !== false) {
+      slots = [];
+      return;
+    }
+    // Nothing opened after all: the visit's pop-up is still free.
+    try {
+      sessionStorage.removeItem(SHOWN);
+    } catch {
+      // Fine.
+    }
+    if (slots.length) decide();
+  });
 }
 
 export function popUpSlot(rank: number) {
@@ -56,10 +73,11 @@ export function popUpSlot(rank: number) {
     slots.push(slot);
   }
   return {
-    ready(open: () => void) {
+    ready(open: Opener, notBefore?: number) {
       if (slot.state !== "pending") return;
       slot.state = "ready";
       slot.open = open;
+      slot.notBefore = notBefore;
       decide();
     },
     none() {

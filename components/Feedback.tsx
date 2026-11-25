@@ -57,7 +57,7 @@ export default function Feedback() {
         // and only if they're still on a screen it may ask on.
         popUpSlot(4).ready(() => {
           try {
-            if (!ASK_ON.test(location.pathname)) return;
+            if (!ASK_ON.test(location.pathname)) return false;
             localStorage.setItem(ASKED, String(Date.now()));
           } catch {
             // Asked again another time.

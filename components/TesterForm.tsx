@@ -46,7 +46,7 @@ export default function TesterForm() {
         // Treated as not asked yet.
       }
       if (!asked && !(await isSignedIn())) return slot.none();
-      if (live) slot.ready(() => setOpen(true));
+      if (live) slot.ready(() => live && (setOpen(true), true));
     }, 2500);
     return () => {
       live = false;

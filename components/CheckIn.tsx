@@ -25,8 +25,8 @@ const ANSWERS: { id: Verdict | "no"; face: string; label: string }[] = [
   { id: "no", face: "🗓", label: "Didn't go" },
 ];
 
-// "How was tonight?" (or "today" for a daytime plan) the same day, "How was Saturday?" after.
-const howWas = (day: string) => (day === localDay(new Date()) ? (new Date().getHours() >= 16 ? "tonight" : "today") : dayName(day));
+// "How was tonight?" (or "today" for a plan that started before 5 pm, as Home's Today / Tonight) the same day, "How was Saturday?" after.
+const howWas = (plan: SavedPlan) => (plan.day === localDay(new Date()) ? (plan.startMinute >= 17 * 60 ? "tonight" : "today") : dayName(plan.day));
 
 export default function CheckIn({ onDone }: { onDone?: () => void }) {
   const toast = useToast();
@@ -49,7 +49,9 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
         placeSlot.none();
         slot.ready(async () => {
           const names = await Promise.all(plan.placeIds.map(placeName));
-          if (live) setNight({ plan, names: names.map((n) => n ?? "A place you planned") });
+          if (!live) return false;
+          setNight({ plan, names: names.map((n) => n ?? "A place you planned") });
+          return true;
         });
         return;
       }
@@ -59,7 +61,9 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
       if (!next) return placeSlot.none();
       placeSlot.ready(async () => {
         const name = await placeName(next.placeId);
-        if (name && live) setAsk({ ...next, name });
+        if (!name || !live) return false;
+        setAsk({ ...next, name });
+        return true;
       });
     }, 1500);
     return () => {
@@ -164,7 +168,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
   );
 }
 
-function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void }) {
+export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void }) {
   const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
 
@@ -185,11 +189,11 @@ function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[
   return (
     <>
       <div className={styles.dim} onClick={() => onDone()} />
-      <div className={styles.sheet} role="dialog" aria-label={`How was ${howWas(plan.day)}?`}>
+      <div className={styles.sheet} role="dialog" aria-label={`How was ${howWas(plan)}?`}>
         <Mascot pose={pose} size={84} />
         <p className={styles.kick}>Your plan</p>
         <h2 className={styles.title}>
-          How was <strong>{howWas(plan.day)}?</strong>
+          How was <strong>{howWas(plan)}?</strong>
         </h2>
         <ul className={own.stops}>
           {plan.placeIds.map((id, i) => (

@@ -53,14 +53,13 @@ export default function SaveTaste({ ready, onRestored, places = true }: { ready:
     // Choose for me or another sheet (Round 5 review: two sheets stacked).
     let live = true;
     const slot = popUpSlot(2);
-    let t = 0;
+    // Ready at once (so less important pop-ups wait for it), opening 8 s in.
     isSignedIn().then((signedIn) => {
       if (signedIn) return slot.none();
-      t = window.setTimeout(() => live && slot.ready(() => setOpen(true)), 8000);
+      if (live) slot.ready(() => live && (setOpen(true), true), Date.now() + 8000);
     });
     return () => {
       live = false;
-      clearTimeout(t);
       slot.cancel();
     };
   }, [ready]);

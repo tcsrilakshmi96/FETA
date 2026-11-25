@@ -185,6 +185,11 @@ async function main() {
     await p.waitForFunction(() => !document.body.innerText.includes("Finding") && !document.querySelector("[data-waiting]"), { timeout: 60000 }).catch(() => null);
     await wait(3000);
     const home = await p.evaluate(() => document.body.innerText);
+    // The first visit's one pop-up is "Save your taste", once the picks have had a moment (26 Nov 2026).
+    const asked = await p.waitForSelector("[role=dialog][aria-label='Save your taste']", { timeout: 15000 }).then(() => true).catch(() => false);
+    check(asked, "The first visit asks to Save your taste");
+    await click(p, /^Later$/);
+    await wait(500);
     // No greeting on Home since 24 Nov 2026: their initial is on the You button.
     check(await p.evaluate(() => (document.querySelector("button[aria-label^='You']")?.textContent ?? "").trim().startsWith("J")), "Home's You button shows their initial");
 
