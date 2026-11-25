@@ -136,7 +136,12 @@ const calls = looksCalls;
 await p.goto(`${BASE}/style`, { waitUntil: "networkidle0" });
 ok("D: coming back opens on the look they're wearing", await until(/You're wearing this/, 10000));
 ok("D: coming back asks for no new looks", looksCalls === calls);
-await click(/^Pick a different look/);
+ok("D: coming back asks whether to change the outfit", /Changing your outfit\?/.test(await text()));
+await click(/^Yes, where are you going/);
+ok("D: yes asks where they're going again", await until(/Where are you going/, 5000));
+await click(/^Keep what I'm wearing/);
+ok("D: keeping it goes back to the look", await until(/You're wearing this/, 5000));
+await click(/^Or pick another of today/);
 ok("D: Pick a different look goes back to the 3", await until(/of 3/, 5000) && looksCalls === calls);
 // Where to buy keeps the look.
 await swipe(-120);

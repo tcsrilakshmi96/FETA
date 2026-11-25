@@ -352,7 +352,7 @@ export default function Style() {
               </button>
               {set && f && (
                 <button type="button" className={k.ghost} onClick={() => setMode(set.chosen !== null ? "wearing" : "looks")}>
-                  Back to {f.text.toLowerCase().startsWith("tomorrow") ? f.text : `“${f.text}”`}
+                  {set.chosen !== null ? "Keep what I'm wearing" : <>Back to {f.text.toLowerCase().startsWith("tomorrow") ? f.text : `“${f.text}”`}</>}
                 </button>
               )}
             </>
@@ -472,8 +472,14 @@ export default function Style() {
               <div className={k.deck}>
                 <LookCard look={look} wears={wears} pic={pic} making={making} waiting={waiting} owned={owned} onPiece={setSheet} pill="✓ You're wearing this" />
               </div>
+              {/* Coming back, Feta asks before changing anything (founder, 25 Nov
+                  2026: "it should ideally ask me if i wanna change my outfit"). */}
+              <p className={k.why} style={{ textAlign: "center" }}>Changing your outfit?</p>
+              <button type="button" className={k.primary} onClick={changeWhere}>
+                Yes, where are you going?
+              </button>
               <button type="button" className={k.ghost} onClick={pickDifferent}>
-                Pick a different look
+                Or pick another of today&apos;s 3
               </button>
             </>
           )}
