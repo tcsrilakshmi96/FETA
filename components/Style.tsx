@@ -71,7 +71,6 @@ export default function Style() {
   // first time and remembered on the phone; any look can switch.
   const [onMe, setOnMe] = useState<boolean | null>(null);
   const [round, setRound] = useState(0);
-  const [asked, setAsked] = useState<Record<string, PictureKind>>({});
   const [showAs, setShowAs] = useState<PictureKind | null>(readShowAs);
   const [choosing, setChoosing] = useState(false);
   const selfieFile = useRef<HTMLInputElement>(null);
@@ -88,7 +87,7 @@ export default function Style() {
   }
   // "On me" with their photo gone falls back to the outfit.
   const usual: PictureKind | null = onMe === null ? null : showAs === "me" && !onMe ? "outfit" : showAs;
-  const want: PictureKind | null = look ? (asked[look.id] ?? (mode === "worn" ? (onMe ? "me" : "outfit") : usual)) : null;
+  const want: PictureKind | null = look ? ((mode === "worn" ? (onMe ? "me" : "outfit") : usual)) : null;
   const { pic, making } = useLookPicture(look, wears, want, round);
   // The first look they see asks how to show it, once.
   const askShowAs = !!look && onMe !== null && showAs === null && (mode === "looks" || mode === "wearing");
@@ -97,11 +96,6 @@ export default function Style() {
     if (!look) return;
     if (kind === "me" && !onMe) return selfieFile.current?.click();
     chooseShowAs(kind);
-    setAsked((a) => {
-      const rest = { ...a };
-      delete rest[look.id];
-      return rest;
-    });
   }
 
   async function openFor(next: LookFor) {

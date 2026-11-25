@@ -61,9 +61,11 @@ export function useLookPicture(look: Look | null, wears: Wears, want: PictureKin
   const [pics, setPics] = useState<Record<string, string | null>>({});
   const [making, setMaking] = useState<string | null>(null);
   // A new round (their photo just added, or a tap to try again) looks again.
-  const id = look ? `${look.id}#${round}` : "";
+  // One per look and kind, so switching On me / Just the outfit shows the
+  // other (tech audit, 25 Nov 2026); a failed one isn't tried again by itself.
+  const id = look ? `${look.id}#${want}#${round}` : "";
   useEffect(() => {
-    if (!look || pics[id]) return;
+    if (!look || id in pics) return;
     let live = true;
     keptPicture(look, want).then((kept) => {
       if (!live) return;
