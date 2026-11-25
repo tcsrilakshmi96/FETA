@@ -11,7 +11,7 @@ import { useToast } from "@/components/Toast";
 import { markBeen, removeFromList, saveListNote } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { distanceKm, formatDistance } from "@/lib/cities";
-import { dayName, loadPlans, removePlan, type SavedPlan } from "@/lib/night-client";
+import { dayName, loadPlans, localDay, removePlan, type SavedPlan } from "@/lib/night-client";
 import { clock } from "@/lib/plan";
 import { loadMyShares, newReplies, shareLink, type MyShare } from "@/lib/share-client";
 import WhosComing, { initial, replySummary } from "@/components/WhosComing";
@@ -120,6 +120,18 @@ export default function Lists() {
   }, []);
 
   const shown = (items ?? []).filter((i) => i.list === tab);
+  // A place in a saved plan still to come (not yet asked "How was it?"):
+  // it stays in Want to try until then, tagged with the plan's day.
+  // Plans are read on the phone, so today's date is read only once they're there.
+  const planFor = (i: ListItem) => {
+    if (i.list !== "want" || !plans.length) return undefined;
+    const today = localDay(new Date());
+    return plans.find((p) => !p.checkedAt && p.day >= today && p.placeIds.includes(i.placeId));
+  };
+  const planTag = (p: SavedPlan) => {
+    const name = dayName(p.day);
+    return name === "Tonight" || name === "Today" ? `In ${name.toLowerCase()}'s plan` : `In ${name}'s plan`;
+  };
   const plannable = (i: ListItem) => i.list === "want" && !i.event && i.lat !== null && i.lng !== null;
   const nameOf = (id: string) => (items ?? []).find((i) => i.placeId === id)?.name ?? "…";
 
@@ -479,7 +491,8 @@ export default function Lists() {
                       <span className={styles.row}>
                         <span className={styles.name}>{item.name}</span>
                         <span className={styles.when}>
-                          {isTicked(item) ? "This weekend ✓" : savedLabel(item)}
+                          {/* In a plan still to come: why it's still here (founder, 25 Nov 2026). */}
+                          {planFor(item) ? <span className={styles.planTag}>{planTag(planFor(item)!)}</span> : isTicked(item) ? "This weekend ✓" : savedLabel(item)}
                           {/* Saved over a month ago: the cheese (never the place) has gone mouldy. */}
                           {!isTicked(item) && isOld(item) && <Mascot pose="mould" size={26} limbs={false} className={styles.old} />}
                         </span>
