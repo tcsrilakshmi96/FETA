@@ -26,6 +26,7 @@ import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { leaveLists, morePicks, openList, outOfDate, reloadList, savedOn, searchKey, shown, slotKey, tweakList, undoTweaks, usePicks } from "@/lib/picks-store";
 import styles from "./Picks.module.css";
+import { isNew, markSeen } from "@/lib/seen";
 
 const CATEGORY_KEY = "feta.category";
 // Not my vibe (founder, 18 Nov 2026, mock-up https://claude.ai/artifact/NxTQsfZQQQk63TYVz5BcF5):
@@ -229,6 +230,12 @@ export default function Picks() {
   const foodSlot = origin ? shown(lists, slotKey(origin, when, "food_drinks")) : undefined;
   const expSlot = origin ? shown(lists, slotKey(origin, when, "experiences")) : undefined;
 
+  // What's shown is remembered on the phone, so the next visit marks what's new.
+  const shownIds = slot && !slot.loading ? slot.picks.map((p) => p.placeId).join("\n") : "";
+  useEffect(() => {
+    if (shownIds) markSeen(shownIds.split("\n"));
+  }, [shownIds]);
+
   const city = origin?.city ?? null;
   if (!origin || !city) return null;
 
@@ -423,7 +430,10 @@ export default function Picks() {
               <span className={styles.info}>
                 <span className={styles.name}>{hero.name}</span>
                 <span className={styles.meta}>
-                  <span className={styles.where}>{where(hero)}</span>
+                  <span className={styles.where}>
+                    {isNew(hero.placeId) && <span className={styles.newTag}>New</span>}
+                    {where(hero)}
+                  </span>
                   <span className={styles.verdict}>{verdictLabel(hero)}</span>
                 </span>
                 {hero.because && <span className={styles.because}>{hero.because}</span>}
@@ -474,6 +484,7 @@ export default function Picks() {
                     {p.because && <span className={styles.rowWhy}>{p.because}</span>}
                     {curatedLabel(p) && <span className={styles.rowLoved}>{curatedLabel(p)}</span>}
                     <span className={styles.rowMeta}>
+                      {isNew(p.placeId) && <span className={styles.newTag}>New</span>}
                       {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
                       {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>{verdictLabel(p)}</span>}
                     </span>
