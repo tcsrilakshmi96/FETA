@@ -82,10 +82,13 @@ export default function StyleSetup() {
     setFromMe(q.get("from") === "me");
     /* eslint-enable react-hooks/set-state-in-effect */
     loadInspiration().then((k) => {
+      // Photos already read stay read (the count lives with the photos on
+      // this phone, not the account), so nothing is sent to the AI twice.
       if (k) {
         setPhotos(k.photos);
         setPhotoReads(k.reads);
       }
+      setReadCount(k ? Math.min(k.reads.length, k.photos.length) : 0);
       setPhotosRead(true);
     });
     loadStyleProfile().then((p) => {
@@ -99,7 +102,6 @@ export default function StyleSetup() {
       setBudget(p.budget);
       setHomegrown(p.homegrownOnly);
       setVotes(p.votes);
-      setReadCount(p.readFromPhotos);
       setCues(p.cues);
     });
   }, []);
@@ -310,7 +312,7 @@ export default function StyleSetup() {
                 Hang up looks <i>you love</i>
               </h2>
               <p className={s.sub} style={{ marginTop: 6 }}>
-                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Your photos stay on this phone; Feta keeps only the style words.
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI reads them once, for the clothes only; the photos stay on this phone, and Feta keeps only the style words.
               </p>
             </div>
             <Line height={300} rows={[0, 150]}>
@@ -330,7 +332,7 @@ export default function StyleSetup() {
                         <span className={s.polaroid}>
                           {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
                           <img src={photo} alt={`Inspiration photo ${i + 1}`} />
-                          <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => { setPhotos((p) => p.filter((_, j) => j !== i)); setPhotoReads((r) => r.filter((_, j) => j !== i)); }}>
+                          <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => { setPhotos((p) => p.filter((_, j) => j !== i)); setPhotoReads((r) => r.filter((_, j) => j !== i)); if (i < readCount) setReadCount((n) => n - 1); }}>
                             ✕
                           </button>
                         </span>
@@ -362,15 +364,20 @@ export default function StyleSetup() {
             </div>
             <input ref={files} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ""))} />
             {editing && <p className={s.small}>Your styles are ticked below. Add photos or tap more looks.</p>}
-            <span style={{ fontSize: 15, fontWeight: 600 }}>{editing ? "All 37 of Feta's looks" : "No photos? Tap Feta's looks"}</span>
+            <span style={{ fontSize: 15, fontWeight: 600 }}>{editing ? `All ${STYLES.length} of Feta's looks` : "No photos? Tap Feta's looks"}</span>
             {/* Every style, theirs first (founder, 25 Nov 2026: "why can i only see 9 styles?"). */}
             <div className={k.tiles}>
               {[...styles, ...STYLES.map((l) => l.id).filter((id) => !styles.includes(id))].map((id) => {
                 const mine = styles.includes(id);
                 const on = mine || tapped.includes(id);
                 const toggle = () => {
-                  if (mine) return styles.length > 1 && setStyles((cur) => cur.filter((x) => x !== id));
-                  setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : photos.length + cur.length >= MAX_PHOTOS ? cur : [...cur, id]));
+                  if (mine) {
+                    if (styles.length > 1) setStyles((cur) => cur.filter((x) => x !== id));
+                    else toast("Keep at least one style");
+                    return;
+                  }
+                  if (!tapped.includes(id) && photos.length + tapped.length >= MAX_PHOTOS) return toast(`Up to ${MAX_PHOTOS} looks and photos at a time`);
+                  setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
                 };
                 return (
                   <button key={id} type="button" className={`${k.tile} ${on ? k.tileOn : ""}`} aria-pressed={on} onClick={toggle}>
