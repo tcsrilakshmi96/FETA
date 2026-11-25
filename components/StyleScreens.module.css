@@ -802,25 +802,6 @@
   gap: 12px 6px;
 }
 
-/* "See it on you": their one photo. */
-.selfie {
-  height: 300px;
-  border-radius: 20px;
-  border: 1.5px dashed rgba(var(--inkRGB), 0.3);
-  background: var(--sheet);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  overflow: hidden;
-  position: relative;
-}
-.selfie img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 .note {
   padding: 14px 16px;
   border-radius: 16px;
