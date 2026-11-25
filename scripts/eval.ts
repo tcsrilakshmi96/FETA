@@ -534,8 +534,17 @@ async function planCheck() {
   return { fails, lines };
 }
 
+// A time zone where it's this hour now, so a check doesn't depend on when
+// the eval runs (25 Nov 2026: at 9:40 am in Bengaluru, "Today" rightly left
+// out bars that open at 6, and four evening personas failed).
+function zoneAt(hour: number) {
+  const off = ((hour - new Date().getUTCHours() + 36) % 24) - 12; // -12..11
+  return off === 0 ? "UTC" : `Etc/GMT${off > 0 ? "-" : "+"}${Math.abs(off)}`;
+}
+
 async function run(p: Persona) {
-  const [city] = searchCities(p.city, 1);
+  // The personas are written for the evening: their city at 8 pm.
+  const city = { ...searchCities(p.city, 1)[0], timeZone: zoneAt(20) };
   const taste: Taste = {
     answers: { ...base, ...p.answers },
     lines: p.lines ?? [],
@@ -1017,10 +1026,6 @@ async function main() {
   // ones open in the evening; from 5 pm, places open now. An ask meant for
   // this evening keeps the evening window.
   {
-    const zoneAt = (hour: number) => {
-      const off = ((hour - new Date().getUTCHours() + 36) % 24) - 12; // -12..11
-      return off === 0 ? "UTC" : `Etc/GMT${off > 0 ? "-" : "+"}${Math.abs(off)}`;
-    };
     const dayOf = (tz: string) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: tz }).format(new Date()));
     const place = (open: number, close: number, tz: string) => ({ id: "x", regularOpeningHours: { periods: [{ open: { day: dayOf(tz), hour: open, minute: 0 }, close: { day: dayOf(tz), hour: close, minute: 0 } }] } }) as Parameters<typeof openTonight>[0];
     const morning = { ...searchCities("Bengaluru", 1)[0], timeZone: zoneAt(9) };
