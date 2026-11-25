@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
 import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
-import { askToOpen } from "@/lib/popups";
+import { popUpSlot, shownThisVisit } from "@/lib/popups";
 import { dayName, duePlan, localDay, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./Sheet.module.css";
@@ -25,8 +25,8 @@ const ANSWERS: { id: Verdict | "no"; face: string; label: string }[] = [
   { id: "no", face: "🗓", label: "Didn't go" },
 ];
 
-// "How was tonight?" the same night, "How was Saturday?" after.
-const howWas = (day: string) => (day === localDay(new Date()) ? "tonight" : dayName(day));
+// "How was tonight?" (or "today" for a daytime plan) the same day, "How was Saturday?" after.
+const howWas = (day: string) => (day === localDay(new Date()) ? (new Date().getHours() >= 16 ? "tonight" : "today") : dayName(day));
 
 export default function CheckIn({ onDone }: { onDone?: () => void }) {
   const toast = useToast();
@@ -34,25 +34,39 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
   const [step, setStep] = useState<"how" | "diet" | "loved">("how");
   const [night, setNight] = useState<{ plan: SavedPlan; names: string[] } | null>(null);
 
+  // Takes its pop-up slot first, so a slower lookup never loses to a less
+  // important pop-up; names are looked up (paid) only once it's chosen to open
+  // (tech and cost audits, 26 Nov 2026).
   useEffect(() => {
+    if (shownThisVisit()) return;
     let live = true;
-    let cancel = () => {};
+    const slot = popUpSlot(0);
+    const placeSlot = popUpSlot(1);
     const t = setTimeout(async () => {
       const plan = await duePlan(loadCity()?.id);
-      if (plan && live) {
-        const names = await Promise.all(plan.placeIds.map(placeName));
-        if (live) cancel = askToOpen(0, () => setNight({ plan, names: names.map((n) => n ?? "A place you planned") }));
+      if (!live) return;
+      if (plan) {
+        placeSlot.none();
+        slot.ready(async () => {
+          const names = await Promise.all(plan.placeIds.map(placeName));
+          if (live) setNight({ plan, names: names.map((n) => n ?? "A place you planned") });
+        });
         return;
       }
+      slot.none();
       const next = await nextCheckin(loadCity()?.id);
-      if (!next || !live) return;
-      const name = await placeName(next.placeId);
-      if (name && live) cancel = askToOpen(1, () => setAsk({ ...next, name }));
+      if (!live) return;
+      if (!next) return placeSlot.none();
+      placeSlot.ready(async () => {
+        const name = await placeName(next.placeId);
+        if (name && live) setAsk({ ...next, name });
+      });
     }, 1500);
     return () => {
       live = false;
       clearTimeout(t);
-      cancel();
+      slot.cancel();
+      placeSlot.cancel();
     };
   }, []);
 

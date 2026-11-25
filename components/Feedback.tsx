@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { askToOpen } from "@/lib/popups";
+import { popUpSlot } from "@/lib/popups";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Feedback.module.css";
 
@@ -53,9 +53,11 @@ export default function Feedback() {
         } catch {
           return;
         }
-        // One pop-up a visit (lib/popups.ts): marked asked only when it opens.
-        askToOpen(4, () => {
+        // One pop-up a visit (lib/popups.ts): marked asked only when it opens,
+        // and only if they're still on a screen it may ask on.
+        popUpSlot(4).ready(() => {
           try {
+            if (!ASK_ON.test(location.pathname)) return;
             localStorage.setItem(ASKED, String(Date.now()));
           } catch {
             // Asked again another time.
