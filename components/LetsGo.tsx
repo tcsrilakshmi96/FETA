@@ -70,7 +70,7 @@ export default function LetsGo({ pick, cityId, onClose, onWhatsAfter }: { pick: 
             }}
           />
         </div>
-        {!pick.event && <p className={styles.note}>Saved in Saved. Tomorrow Feta asks how it was, and adds it to Been if you went.</p>}
+        {!pick.event && <p className={styles.note}>Added to Want to try. Tomorrow Feta asks how it was, and adds it to Been if you went.</p>}
         <button type="button" className={`btn-primary ${styles.go}`} onClick={onClose}>
           Done
         </button>
