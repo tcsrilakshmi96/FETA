@@ -6,7 +6,7 @@ import Mascot from "@/components/Mascot";
 import { isSignedIn } from "@/lib/auth";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Sheet.module.css";
-import { whenNoPopUp } from "@/lib/popups";
+import { askToOpen } from "@/lib/popups";
 
 // The tester form (founder, 18 Nov 2026): once someone has really tried
 // Feta (their second visit), a card asks them to fill in the Google Form.
@@ -46,7 +46,7 @@ export default function TesterForm() {
         // Treated as not asked yet.
       }
       if (!asked && !(await isSignedIn())) return;
-      if (live) cancel = whenNoPopUp(() => setOpen(true));
+      if (live) cancel = askToOpen(3, () => setOpen(true));
     }, 2500);
     return () => {
       live = false;

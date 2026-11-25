@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { askToOpen } from "@/lib/popups";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Feedback.module.css";
 
@@ -49,14 +50,20 @@ export default function Feedback() {
         try {
           if (!ASK_ON.test(location.pathname)) return;
           if (Date.now() - Number(localStorage.getItem(ASKED) ?? 0) < WEEK) return;
-          if (document.querySelector("[role=dialog]")) return;
-          localStorage.setItem(ASKED, String(Date.now()));
         } catch {
           return;
         }
-        setAsking(true);
-        setAttach(false);
-        setOpen(true);
+        // One pop-up a visit (lib/popups.ts): marked asked only when it opens.
+        askToOpen(4, () => {
+          try {
+            localStorage.setItem(ASKED, String(Date.now()));
+          } catch {
+            // Asked again another time.
+          }
+          setAsking(true);
+          setAttach(false);
+          setOpen(true);
+        });
       }, wait);
     const timers: number[] = [];
     const onDid = () => timers.push(ask(1500));

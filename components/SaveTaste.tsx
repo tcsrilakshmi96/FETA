@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { isSignedIn, readGoogleReturn, signInToExistingAccount, startGoogleSignIn } from "@/lib/auth";
 import { restoreFromAccount } from "@/lib/db";
+import { askToOpen } from "@/lib/popups";
 import styles from "./SaveTaste.module.css";
 
 const ASKED_KEY = "feta.saveTasteAsked";
@@ -51,19 +52,14 @@ export default function SaveTaste({ ready, onRestored, places = true }: { ready:
     // on arrival), then only when nothing else is open: never on top of
     // Choose for me or another sheet (Round 5 review: two sheets stacked).
     let live = true;
-    let t = 0;
-    const tryOpen = async () => {
-      if (!live) return;
-      if (document.querySelector('[role="dialog"]')) {
-        t = window.setTimeout(tryOpen, 2000);
-        return;
-      }
-      if (!(await isSignedIn()) && live) setOpen(true);
-    };
-    t = window.setTimeout(tryOpen, 8000);
+    let cancel = () => {};
+    const t = window.setTimeout(async () => {
+      if (!(await isSignedIn()) && live) cancel = askToOpen(2, () => setOpen(true));
+    }, 8000);
     return () => {
       live = false;
       clearTimeout(t);
+      cancel();
     };
   }, [ready]);
 

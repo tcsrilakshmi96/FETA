@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
 import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
-import { whenNoPopUp } from "@/lib/popups";
+import { askToOpen } from "@/lib/popups";
 import { dayName, duePlan, localDay, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./Sheet.module.css";
@@ -41,13 +41,13 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
       const plan = await duePlan(loadCity()?.id);
       if (plan && live) {
         const names = await Promise.all(plan.placeIds.map(placeName));
-        if (live) cancel = whenNoPopUp(() => setNight({ plan, names: names.map((n) => n ?? "A place you planned") }));
+        if (live) cancel = askToOpen(0, () => setNight({ plan, names: names.map((n) => n ?? "A place you planned") }));
         return;
       }
       const next = await nextCheckin(loadCity()?.id);
       if (!next || !live) return;
       const name = await placeName(next.placeId);
-      if (name && live) cancel = whenNoPopUp(() => setAsk({ ...next, name }));
+      if (name && live) cancel = askToOpen(1, () => setAsk({ ...next, name }));
     }, 1500);
     return () => {
       live = false;
