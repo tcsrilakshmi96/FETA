@@ -104,7 +104,7 @@ export default function Home() {
   const wants = readWants ?? [];
   const [name, setName] = useState("");
   const [moodOpen, setMoodOpen] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false); // Plan my evening, from Choose for me's "What's after?"
+  const [planOpen, setPlanOpen] = useState(false); // Plan my evening, from "What's after?" (Choose for me, Favourites)
   const [mood, setMood] = useState<Mood | null>(null); // Choose for me's answer is open
   const [going, setGoing] = useState<Pick | null>(null);
   const [fetaOpen, setFetaOpen] = useState(false); // "Feta Picks near you", from the star
@@ -419,7 +419,17 @@ export default function Home() {
       {planOpen && (
         <PlanSheet when={when} cityId={city.id} loading={!!food?.loading || !!exp?.loading} food={wantsFood ? (food?.picks ?? []) : []} experiences={wantsDo ? (exp?.picks ?? []) : []} onClose={() => setPlanOpen(false)} />
       )}
-      {fetaOpen && <FetaPicksSheet origin={origin} when={when} onClose={() => setFetaOpen(false)} />}
+      {fetaOpen && (
+        <FetaPicksSheet
+          origin={origin}
+          when={when}
+          onClose={() => setFetaOpen(false)}
+          onPlan={() => {
+            setFetaOpen(false);
+            setPlanOpen(true);
+          }}
+        />
+      )}
       {firstTime && <FirstTime want={firstTime} onClose={() => setFirstTime(null)} onDone={() => firstTimeDone(firstTime)} />}
     </>
   );

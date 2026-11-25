@@ -21,7 +21,7 @@ import styles from "./FetaPicksSheet.module.css";
 // The founder's notes, handwritten.
 const hand = Caveat({ subsets: ["latin"], weight: ["600"] });
 
-export default function FetaPicksSheet({ origin, when, onClose }: { origin: Origin; when: When; onClose: () => void }) {
+export default function FetaPicksSheet({ origin, when, onClose, onPlan }: { origin: Origin; when: When; onClose: () => void; onPlan: () => void }) {
   const toast = useToast();
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [notice, setNotice] = useState<string | undefined>();
@@ -94,7 +94,12 @@ export default function FetaPicksSheet({ origin, when, onClose }: { origin: Orig
         </button>
       </div>
       {open && <PickDetails pick={open} onClose={() => setOpen(null)} onSave={() => save(open)} onGo={() => (setGoing(open), setOpen(null))} />}
-      {going && <LetsGo pick={going} cityId={origin.city.id} onClose={() => setGoing(null)} onWhatsAfter={() => setGoing(null)} />}
+      {going && <LetsGo pick={going} cityId={origin.city.id} onClose={() => setGoing(null)} onWhatsAfter={() => {
+            // Plan my evening, as from Choose for me (founder, 25 Nov 2026).
+            setGoing(null);
+            onPlan();
+          }}
+        />}
     </>
   );
 }
