@@ -311,6 +311,16 @@
   display: flex;
   gap: 6px;
   overflow-x: auto;
+  scrollbar-width: none;
+  /* The row fades at the right, so it reads as one that scrolls (design
+     audit, 25 Nov 2026). */
+  mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+  padding-right: 40px;
+}
+
+.prompts::-webkit-scrollbar {
+  display: none;
 }
 
 .prompts button {
