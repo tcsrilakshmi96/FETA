@@ -67,8 +67,10 @@ export async function forgetPhone(opts: { keepSignIn?: boolean } = {}) {
   }
   try {
     await new Promise<void>((done) => {
+      // Wait for it to finish (photos live here), up to 3 s if something holds it open.
       const req = indexedDB.deleteDatabase("feta-style");
-      req.onsuccess = req.onerror = req.onblocked = () => done();
+      req.onsuccess = req.onerror = () => done();
+      setTimeout(done, 3000);
     });
   } catch {
     // No IndexedDB here.

@@ -120,17 +120,25 @@ function idb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const open = indexedDB.open(DB_NAME, 1);
     open.onupgradeneeded = () => open.result.createObjectStore("kept");
-    open.onsuccess = () => resolve(open.result);
+    open.onsuccess = () => {
+      // Another tab deleting the phone's copy is never held up by this one.
+      open.result.onversionchange = () => open.result.close();
+      resolve(open.result);
+    };
     open.onerror = () => reject(open.error);
   });
 }
 
+// Each use closes its connection when done, so deleting the phone's copy
+// (another account, sign-out, delete; forgetPhone) is never held up by an
+// open one (security audit, 26 Nov 2026: their own photos live here).
 export async function keepOnPhone(key: string, value: string | null) {
   try {
     const db = await idb();
     const tx = db.transaction("kept", "readwrite");
     if (value === null) tx.objectStore("kept").delete(key);
     else tx.objectStore("kept").put(value, key);
+    tx.oncomplete = tx.onerror = tx.onabort = () => db.close();
   } catch {
     // Private browsing: the drawings simply aren't kept.
   }
@@ -143,7 +151,7 @@ export async function fromPhone(key: string): Promise<string | null> {
       const get = db.transaction("kept").objectStore("kept").get(key);
       get.onsuccess = () => resolve((get.result as string) ?? null);
       get.onerror = () => resolve(null);
-    });
+    }).finally(() => db.close()) as string | null;
   } catch {
     return null;
   }
@@ -180,6 +188,7 @@ export async function forgetOnMe() {
       all.onerror = () => resolve([]);
     });
     for (const k of keys) if (k === "selfie" || /^(pic|spots)-me:/.test(String(k))) store.delete(k);
+    store.transaction.oncomplete = store.transaction.onerror = () => db.close();
   } catch {
     // Nothing kept.
   }
