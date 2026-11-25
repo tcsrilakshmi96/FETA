@@ -82,21 +82,22 @@ export default function Lists() {
   const [whos, setWhos] = useState<PlanCard | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
 
-  // Names for shared plans' stops that aren't in their lists (read live,
-  // once per open of the app).
+  // Names for plans' stops that aren't in their lists, saved or shared (read
+  // live, once per open of the app; a Plan my evening's places often aren't).
   useEffect(() => {
     if (items === null) return;
     const known = new Set(items.map((i) => i.placeId));
-    const missing = [...new Set(shares.flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []))))].filter((st) => !st.event && !known.has(st.placeId));
+    const shared = shares.flatMap((x) => (x.kind === "choice" ? (x.payload.options ?? []).flatMap((o) => o.stops) : (x.payload.stops ?? []))).filter((st) => !st.event).map((st) => st.placeId);
+    const missing = [...new Set([...plans.flatMap((p) => p.placeIds), ...shared])].filter((id) => !known.has(id));
     const events = Object.fromEntries(shares.flatMap((x) => (x.payload.stops ?? []).filter((st) => st.event).map((st) => [`event:${st.event!.title}`, st.event!.title])));
     // eslint-disable-next-line react-hooks/set-state-in-effect -- event titles come with the share
     setNames((n) => ({ ...n, ...events }));
     let live = true;
-    Promise.all(missing.slice(0, 12).map(async (st) => [st.placeId, await nameLive(st.placeId)] as const)).then((found) => live && setNames((n) => ({ ...n, ...Object.fromEntries(found.filter(([, v]) => v)) as Record<string, string> })));
+    Promise.all(missing.slice(0, 12).map(async (id) => [id, await nameLive(id)] as const)).then((found) => live && setNames((n) => ({ ...n, ...Object.fromEntries(found.filter(([, v]) => v)) as Record<string, string> })));
     return () => {
       live = false;
     };
-  }, [items, shares]);
+  }, [items, shares, plans]);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
