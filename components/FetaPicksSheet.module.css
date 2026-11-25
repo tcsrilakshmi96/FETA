@@ -107,3 +107,9 @@
   line-height: 1.35;
   color: rgba(var(--inkRGB), 0.55);
 }
+
+/* "Recommend a place you love" (founder, 25 Nov 2026). */
+.recommend {
+  width: 100%;
+  margin-top: 14px;
+}

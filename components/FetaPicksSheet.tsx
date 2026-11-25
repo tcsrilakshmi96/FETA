@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Caveat } from "next/font/google";
+import AddPlace from "@/components/AddPlace";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
 import PickDetails, { lovedLabel } from "@/components/PickDetails";
@@ -27,6 +28,7 @@ export default function FetaPicksSheet({ origin, when, onClose, onPlan }: { orig
   const [notice, setNotice] = useState<string | undefined>();
   const [open, setOpen] = useState<Pick | null>(null);
   const [going, setGoing] = useState<Pick | null>(null);
+  const [recommending, setRecommending] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -48,7 +50,8 @@ export default function FetaPicksSheet({ origin, when, onClose, onPlan }: { orig
   return (
     <>
       <div className={sheet.dim} onClick={onClose} />
-      <div className={`${sheet.sheet} ${styles.sheet}`} role="dialog" aria-label="Feta Picks near you">
+      {/* Hidden while they recommend one, so the two sheets never stack. */}
+      <div className={`${sheet.sheet} ${styles.sheet}`} role="dialog" aria-label="Feta Picks near you" hidden={recommending}>
         <p className={sheet.kick}>★ Feta Picks</p>
         <h2 className={sheet.title}>
           Near you, <strong>loved by Feta</strong>
@@ -60,7 +63,13 @@ export default function FetaPicksSheet({ origin, when, onClose, onPlan }: { orig
             <p className={styles.empty}>Finding them…</p>
           </div>
         )}
-        {picks?.length === 0 && <p className={styles.empty}>{notice ?? `No Feta Picks within your distance in ${origin.city.name} yet.`}</p>}
+        {/* Nothing near them yet: sorry, and a way to add one themselves (founder, 25 Nov 2026). */}
+        {picks?.length === 0 && (
+          <div className={styles.finding}>
+            <Mascot pose="sorry" size={96} />
+            <p className={styles.empty}>{notice ?? `Sorry, no Feta Picks within your distance in ${origin.city.name} yet.`}</p>
+          </div>
+        )}
         {/* Polaroids, swiped sideways (founder, 16 Nov 2026): the founder's
             note in handwriting, so they read like a friend's recommendations. */}
         <ul className={styles.deck}>
@@ -89,10 +98,26 @@ export default function FetaPicksSheet({ origin, when, onClose, onPlan }: { orig
             );
           })}
         </ul>
+        {picks !== null && (
+          <button type="button" className={`btn-primary ${styles.recommend}`} onClick={() => setRecommending(true)}>
+            ＋ Recommend a place you love
+          </button>
+        )}
         <button type="button" className={sheet.ghost} onClick={onClose}>
           Close
         </button>
       </div>
+      {recommending && (
+        <AddPlace
+          city={origin.city}
+          recommending
+          onClose={() => setRecommending(false)}
+          onAdded={() => {
+            setRecommending(false);
+            toast("Thank you! People with a taste like yours will see it.");
+          }}
+        />
+      )}
       {open && <PickDetails pick={open} onClose={() => setOpen(null)} onSave={() => save(open)} onGo={() => (setGoing(open), setOpen(null))} />}
       {going && <LetsGo pick={going} cityId={origin.city.id} onClose={() => setGoing(null)} onWhatsAfter={() => {
             // Plan my evening, as from Choose for me (founder, 25 Nov 2026).

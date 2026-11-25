@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
+import { isSignedIn } from "@/lib/auth";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import type { City } from "@/lib/cities";
 import { categoryOf, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
@@ -12,15 +13,22 @@ import styles from "./AddPlace.module.css";
 // from it and never suggests it as a new pick.
 export type AddedPlace = { placeId: string; name: string; detail: string; visits: Visits; verdict: Verdict; note: string };
 
-export default function AddPlace({ city, onClose, onAdded }: { city: City; onClose: () => void; onAdded: (place: AddedPlace) => void }) {
+// recommending: from Favourites' "Recommend a place" (founder, 25 Nov 2026:
+// "add a button where they can recommend and add a Feta pick themselves"):
+// a place they love, shared with people of a similar taste, never their name.
+export default function AddPlace({ city, onClose, onAdded, recommending = false }: { city: City; onClose: () => void; onAdded: (place: AddedPlace) => void; recommending?: boolean }) {
   const toast = useToast();
   const [typed, setTyped] = useState("");
   const [suggestions, setSuggestions] = useState<AreaSuggestion[]>([]);
   const [chosen, setChosen] = useState<AreaSuggestion | null>(null);
   const [visits, setVisits] = useState<Visits | null>(null);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
+  const [verdict, setVerdict] = useState<Verdict | null>(recommending ? "loved" : null);
   const [note, setNote] = useState("");
-  const [recommend, setRecommend] = useState<boolean | null>(null); // Feta Favourites
+  const [recommend, setRecommend] = useState<boolean | null>(recommending ? true : null); // Feta Favourites
+  const [signedIn, setSignedIn] = useState(true);
+  useEffect(() => {
+    if (recommending) isSignedIn().then(setSignedIn);
+  }, [recommending]);
   const [saving, setSaving] = useState(false);
   const session = useRef("");
 
@@ -59,13 +67,26 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
   return (
     <>
       <div className={styles.dim} onClick={onClose} />
-      <div className={styles.sheet} role="dialog" aria-label="Add a place you've been">
+      <div className={styles.sheet} role="dialog" aria-label={recommending ? "Recommend a place" : "Add a place you've been"}>
         <h2 className={styles.title}>
-          A place <strong>you&apos;ve been</strong>
+          {recommending ? (
+            <>
+              Recommend <strong>a place</strong>
+            </>
+          ) : (
+            <>
+              A place <strong>you&apos;ve been</strong>
+            </>
+          )}
         </h2>
         {!chosen ? (
           <>
-            <p className={styles.sub}>Your favourites, your regulars, or ones that weren&apos;t for you. Feta learns from all of them.</p>
+            <p className={styles.sub}>
+              {recommending
+                ? "A place you love. Feta shows it to people with a taste like yours, never your name."
+                : "Your favourites, your regulars, or ones that weren't for you. Feta learns from all of them."}
+            </p>
+            {recommending && !signedIn && <p className={styles.small}>It reaches other people once you&apos;re signed in with Google (You → Settings and privacy).</p>}
             <input
               className={styles.search}
               type="search"
@@ -103,15 +124,19 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
                 Change
               </button>
             </p>
-            <p className={styles.label}>HOW WAS IT?</p>
-            <div className={styles.chips}>
-              {VERDICTS.map((v) => (
-                <button key={v.id} type="button" className={verdict === v.id ? styles.on : ""} onClick={() => setVerdict(v.id)}>
-                  {v.label}
-                </button>
-              ))}
-            </div>
-            {verdict === "loved" && (
+            {!recommending && (
+              <>
+                <p className={styles.label}>HOW WAS IT?</p>
+                <div className={styles.chips}>
+                  {VERDICTS.map((v) => (
+                    <button key={v.id} type="button" className={verdict === v.id ? styles.on : ""} onClick={() => setVerdict(v.id)}>
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {verdict === "loved" && !recommending && (
               <>
                 <p className={styles.label}>RECOMMEND IT TO PEOPLE LIKE YOU?</p>
                 <div className={styles.chips}>
@@ -137,12 +162,12 @@ export default function AddPlace({ city, onClose, onAdded }: { city: City; onClo
               className={styles.note}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder={verdict === "not_for_me" ? "What didn't work? e.g. too loud, pricey" : "What do you love? e.g. the ghee roast, sit upstairs"}
+              placeholder={recommending ? "Why should people go? e.g. the ghee roast, sit upstairs" : verdict === "not_for_me" ? "What didn't work? e.g. too loud, pricey" : "What do you love? e.g. the ghee roast, sit upstairs"}
               aria-label="Your note"
               maxLength={300}
             />
             <button type="button" className="btn-primary" disabled={!verdict || saving} onClick={save}>
-              {saving ? "Saving…" : "Add to my places"}
+              {saving ? "Saving…" : recommending ? "Recommend it" : "Add to my places"}
             </button>
           </>
         )}
