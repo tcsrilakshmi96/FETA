@@ -4,6 +4,8 @@ import type { AskReply } from "@/app/api/ask/route";
 import type { Origin } from "@/lib/origin";
 import { currentUserId, supabase } from "@/lib/supabase";
 import { loadName } from "@/lib/profile";
+import { loadOrigin } from "@/lib/origin";
+import { firstSlotName } from "@/lib/slot-label";
 
 export type { AskReply };
 
@@ -105,7 +107,9 @@ function welcomeBack(): string | null {
     return null;
   }
   const name = loadName().trim();
-  const when = new Date().getHours() >= 17 ? "tonight" : "today";
+  // The city's clock, as Home's Today / Tonight (design audit, 26 Nov 2026).
+  const zone = loadOrigin()?.city.timeZone;
+  const when = (zone ? firstSlotName(zone) : new Date().getHours() >= 17 ? "Tonight" : "Today").toLowerCase();
   return `Welcome back${name ? `, ${name}` : ""}. What are you up to ${when}? A new place, a plan with friends, anything on your mind: tell me and I'll sort it.`;
 }
 
