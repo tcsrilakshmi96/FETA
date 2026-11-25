@@ -521,8 +521,6 @@ export default function Picks() {
             </div>
           </div>
 
-          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />}
-
           {rest.length > 0 && <p className={styles.section}>{rest.length} MORE THAT FIT</p>}
           <ul className={styles.rows}>
             {rest.map((p, i) => (
@@ -581,6 +579,9 @@ export default function Picks() {
           <button type="button" className={styles.more} disabled={slot?.more} onClick={showMore}>
             {slot?.more ? "Finding more…" : "Show me more"}
           </button>
+
+          {/* At the end, after the places (founder, 25 Nov 2026). */}
+          {!search && <TellFeta hint={category === "food_drinks" ? "e.g. Burmese food, rooftop dinners" : "e.g. pickleball, open mics"} onAdded={() => load(when, category)} />}
         </>
       )}
       </div>
