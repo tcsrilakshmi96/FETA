@@ -542,3 +542,8 @@
 .wearSquare {
   padding: 12px 13px;
 }
+
+/* A top pick this phone hasn't shown before (26 Nov 2026). */
+.kNew {
+  color: var(--rose);
+}

@@ -27,9 +27,10 @@ import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
 import { morePicks, openList, outOfDate, reloadList, shown, slotKey, usePicks, type Slot } from "@/lib/picks-store";
 import { loadName, loadWants, WANTS, type Want } from "@/lib/profile";
-import { tonightPlan, type TonightPlan } from "@/lib/style-client";
+import { loadStyleProfile, tonightPlan, type TonightPlan } from "@/lib/style-client";
 import styles from "./Home.module.css";
 import sheet from "./Sheet.module.css";
+import { isNew, markSeen } from "@/lib/seen";
 
 // Home (founder's design, 12 Nov 2026; redesign 14 Nov 2026): a magazine
 // headline, "Choose for me" (one answer for tonight, after "something new or
@@ -114,6 +115,11 @@ export default function Home() {
   const expKey = origin ? slotKey(origin, when, "experiences") : "";
   const food = origin ? shown(lists, foodKey) : undefined;
   const exp = origin ? shown(lists, expKey) : undefined;
+  // The top picks on the tiles count as seen, so the next visit marks what's new.
+  const tops = [food, exp].map((s) => (s && !s.loading ? s.picks[0]?.placeId : undefined)).filter(Boolean).join("\n");
+  useEffect(() => {
+    if (tops) markSeen(tops.split("\n"));
+  }, [tops]);
   const wantFood = !!readWants?.includes("food");
   const wantDo = !!readWants?.includes("do");
   const foodMissing = !food || outOfDate(food);
@@ -134,6 +140,13 @@ export default function Home() {
   useEffect(() => {
     tonightPlan().then(setChosenPlan);
   }, []);
+  // Chose What to wear but never set Style up: the tile says what's left
+  // (founder, 26 Nov 2026, return-visit walk-through).
+  const choseStyle = !!readWants?.includes("style");
+  const [styleSetUp, setStyleSetUp] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (choseStyle) loadStyleProfile().then((p) => setStyleSetUp(!!p?.styles.length));
+  }, [choseStyle]);
 
   // A trip alone doesn't count as wanting either (founder, 15 Nov 2026:
   // "I didn't choose things to do but it asked"): those questions come the
@@ -225,7 +238,10 @@ export default function Home() {
               </span>
             )}
             <span className={styles.coverText}>
-              <span className={`${styles.kick} ${tone}`}>{label}</span>
+              <span className={`${styles.kick} ${tone}`}>
+                {label}
+                {isNew(top.placeId) && <span className={styles.kNew}> · NEW</span>}
+              </span>
               <span className={styles.coverName}>{top.name}</span>
               <span className={styles.coverSub}>{top.fetaNote !== undefined ? "★ Feta Pick" : top.event ? top.chips[0] ?? where(top) : where(top)}</span>
             </span>
@@ -312,7 +328,7 @@ export default function Home() {
                   <span className={styles.coverText}>
                     <span className={`${styles.kick} ${styles.kWear}`}>WEAR</span>
                     <span className={styles.coverName}>What to wear</span>
-                    <span className={styles.coverSub}>Looks and brands ›</span>
+                    <span className={styles.coverSub}>{choseStyle && styleSetUp === false ? "Finish setting up · 1 min ›" : "Looks and brands ›"}</span>
                   </span>
                 </button>
               );
