@@ -10,7 +10,7 @@ import WaitFun from "@/components/WaitFun";
 import { knownCurrency } from "@/lib/currency";
 import { loadOrigin } from "@/lib/origin";
 import { BUDGET_LEVELS, BUDGET_NAMES, STYLES, budgetLabels, stylePicture, styleById, type Wears } from "@/lib/style";
-import { loadStyleProfile, readStylePhotos, saveStyleProfile, shrink, styleLimit, type StyleProfile } from "@/lib/style-client";
+import { keepInspiration, loadInspiration, loadStyleProfile, readStylePhotos, saveStyleProfile, shrink, styleLimit, type StyleProfile } from "@/lib/style-client";
 import k from "./StyleLook.module.css";
 import s from "./StyleScreens.module.css";
 
@@ -30,8 +30,6 @@ const FLOW: Step[] = [1, 3, 5];
 const NEXT: Record<Step, Step> = { 0: 1, 1: 3, 3: 5, 5: 5 };
 const PREV: Record<Step, Step> = { 0: 0, 1: 0, 3: 1, 5: 3 };
 const MAX_PHOTOS = 8;
-// Feta's looks to tap with no photos handy, a spread of everyday styles.
-const TAP_LOOKS = ["minimalist", "smart-casual", "polished-minimal", "streetwear", "basics", "athleisure", "bohemian", "modest", "indian-fusion"];
 
 // How far down the rope sags at a point across the screen (0–1).
 const sag = (f: number) => 10 + 48 * f * (1 - f);
@@ -53,6 +51,7 @@ export default function StyleSetup() {
   const [front, setFront] = useState<string | null>(null); // the style standing in front of the lineup
   const [cues, setCues] = useState<string[]>([]);
   const [editing, setEditing] = useState(false); // they have a style already: any step can be opened
+  const [photosRead, setPhotosRead] = useState(false); // their kept photos are back, so saving them can't wipe them
   const swipe = useRef<number | null>(null);
   const [reading, setReading] = useState(false);
   const [readCount, setReadCount] = useState(0); // photos already read into the styles
@@ -82,6 +81,13 @@ export default function StyleSetup() {
     if (asked === 1 || asked === 3 || asked === 5) setStep(asked as Step);
     setFromMe(q.get("from") === "me");
     /* eslint-enable react-hooks/set-state-in-effect */
+    loadInspiration().then((k) => {
+      if (k) {
+        setPhotos(k.photos);
+        setPhotoReads(k.reads);
+      }
+      setPhotosRead(true);
+    });
     loadStyleProfile().then((p) => {
       if (!p?.styles.length) styleLimit().then((r) => r?.notice && setResting(r.notice));
       if (!p) return;
@@ -97,6 +103,11 @@ export default function StyleSetup() {
       setCues(p.cues);
     });
   }, []);
+
+  // Their photos stay on this phone for next time.
+  useEffect(() => {
+    if (photosRead) keepInspiration({ photos, reads: photoReads });
+  }, [photosRead, photos, photoReads]);
 
   async function addPhotos(list: FileList | null) {
     if (!list) return;
@@ -144,7 +155,8 @@ export default function StyleSetup() {
   // Next from the clothesline: photos are read on the styles step; looks
   // they tapped need no AI and go straight there.
   function lineNext() {
-    if (!photos.length && tapped.length) {
+    // Photos already read need no new read, so looks tapped since go straight in.
+    if (tapped.length && (!photos.length || readCount === photos.length)) {
       setStyles((cur) => [...tapped, ...cur.filter((id) => !tapped.includes(id))].slice(0, 6));
       setFront(tapped[0]);
       setReadFailed(null);
@@ -298,7 +310,7 @@ export default function StyleSetup() {
                 Hang up looks <i>you love</i>
               </h2>
               <p className={s.sub} style={{ marginTop: 6 }}>
-                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta keeps only the style words, never the photos.
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Your photos stay on this phone; Feta keeps only the style words.
               </p>
             </div>
             <Line height={300} rows={[0, 150]}>
@@ -318,7 +330,7 @@ export default function StyleSetup() {
                         <span className={s.polaroid}>
                           {/* eslint-disable-next-line @next/next/no-img-element -- their photo, only on this phone */}
                           <img src={photo} alt={`Inspiration photo ${i + 1}`} />
-                          <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => setPhotos((p) => p.filter((_, j) => j !== i))}>
+                          <button type="button" className={s.unpin} aria-label={`Remove photo ${i + 1}`} onClick={() => { setPhotos((p) => p.filter((_, j) => j !== i)); setPhotoReads((r) => r.filter((_, j) => j !== i)); }}>
                             ✕
                           </button>
                         </span>
@@ -349,13 +361,19 @@ export default function StyleSetup() {
               </span>
             </div>
             <input ref={files} type="file" accept="image/*" multiple hidden onChange={(e) => addPhotos(e.target.files).then(() => (e.target.value = ""))} />
-            {editing && !photos.length && <p className={s.small}>Your styles are saved. Add photos or tap looks to add more.</p>}
-            <span style={{ fontSize: 15, fontWeight: 600 }}>No photos? Tap Feta&apos;s looks</span>
+            {editing && <p className={s.small}>Your styles are ticked below. Add photos or tap more looks.</p>}
+            <span style={{ fontSize: 15, fontWeight: 600 }}>{editing ? "All 37 of Feta's looks" : "No photos? Tap Feta's looks"}</span>
+            {/* Every style, theirs first (founder, 25 Nov 2026: "why can i only see 9 styles?"). */}
             <div className={k.tiles}>
-              {TAP_LOOKS.map((id) => {
-                const on = tapped.includes(id);
+              {[...styles, ...STYLES.map((l) => l.id).filter((id) => !styles.includes(id))].map((id) => {
+                const mine = styles.includes(id);
+                const on = mine || tapped.includes(id);
+                const toggle = () => {
+                  if (mine) return styles.length > 1 && setStyles((cur) => cur.filter((x) => x !== id));
+                  setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : photos.length + cur.length >= MAX_PHOTOS ? cur : [...cur, id]));
+                };
                 return (
-                  <button key={id} type="button" className={`${k.tile} ${on ? k.tileOn : ""}`} aria-pressed={on} onClick={() => setTapped((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : photos.length + cur.length >= MAX_PHOTOS ? cur : [...cur, id]))}>
+                  <button key={id} type="button" className={`${k.tile} ${on ? k.tileOn : ""}`} aria-pressed={on} onClick={toggle}>
                     <StyleFigure style={id} wears={wears} />
                     <span className={k.tileName}>{styleById(id)?.short}</span>
                     {on && <span className={k.tick} aria-hidden="true">✓</span>}

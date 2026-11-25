@@ -149,6 +149,24 @@ export async function fromPhone(key: string): Promise<string | null> {
   }
 }
 
+// Their inspiration photos and what Feta saw in each, kept on this phone
+// only (founder, 25 Nov 2026: "when we go back my previous styles and photos
+// should be saved"); never sent anywhere again, cleared with the phone's copy.
+const INSPO = "inspo";
+export type KeptInspiration = { photos: string[]; reads: { saw: string; styles: string[] }[] };
+export async function keepInspiration(k: KeptInspiration) {
+  await keepOnPhone(INSPO, k.photos.length ? JSON.stringify(k) : null);
+}
+export async function loadInspiration(): Promise<KeptInspiration | null> {
+  try {
+    const raw = await fromPhone(INSPO);
+    const k = raw ? (JSON.parse(raw) as KeptInspiration) : null;
+    return Array.isArray(k?.photos) ? { photos: k.photos.slice(0, 8), reads: Array.isArray(k.reads) ? k.reads : [] } : null;
+  } catch {
+    return null;
+  }
+}
+
 // "On me" is gone for now (founder, 25 Nov 2026: a look made on her photo
 // didn't keep her face): their photo and every picture made on it leave the
 // phone; outfit pictures stay.

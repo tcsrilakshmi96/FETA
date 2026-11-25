@@ -152,7 +152,7 @@ export default function StyleMine() {
               ))}
             </div>
             <button type="button" className={k.mini} style={{ alignSelf: "flex-start" }} onClick={() => router.push("/style/setup?step=1&from=me")}>
-              + Hang up more looks
+              + Add styles or photos
             </button>
           </section>
 
