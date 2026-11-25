@@ -171,8 +171,11 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
 export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void }) {
   const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
+  const [saving, setSaving] = useState(false);
 
   async function done() {
+    if (saving) return;
+    setSaving(true);
     const been = Object.entries(answers).filter((a): a is [string, Verdict] => a[1] !== "no");
     for (const [placeId] of been) logEvent("checkin", placeId);
     // Saved before closing, so a screen that reloads after shows the answers.
@@ -186,7 +189,7 @@ export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: 
 
   return (
     <>
-      <div className={styles.dim} onClick={() => onDone()} />
+      <div className={styles.dim} onClick={() => !saving && onDone()} />
       <div className={styles.sheet} role="dialog" aria-label={`How was ${howWas(plan)}?`}>
         <Mascot pose={pose} size={84} />
         <p className={styles.kick}>Your plan</p>
@@ -208,10 +211,10 @@ export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: 
           ))}
         </ul>
         <p className={styles.sub}>Feta remembers this for your next picks.</p>
-        <button type="button" className={`btn-primary ${styles.go}`} onClick={done}>
-          Done
+        <button type="button" className={`btn-primary ${styles.go}`} onClick={done} disabled={saving}>
+          {saving ? "Saving…" : "Done"}
         </button>
-        <button type="button" className={styles.ghost} onClick={() => onDone()}>
+        <button type="button" className={styles.ghost} onClick={() => !saving && onDone()}>
           Ask me later
         </button>
       </div>
