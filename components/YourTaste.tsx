@@ -325,7 +325,7 @@ export default function YourTaste({ lines, onChange }: { lines: Line[]; onChange
         {foodWords.length > 0 && <p className={styles.label}>In your words</p>}
         {wordList(foodWords, "food")}
         <form className={styles.add} onSubmit={typeFood}>
-          <input value={typed.food} onChange={(e) => setTyped({ ...typed, food: e.target.value })} maxLength={80} placeholder="Add to food, e.g. Burmese, no mushrooms" aria-label="Add to food and drinks" />
+          <input value={typed.food} onChange={(e) => setTyped({ ...typed, food: e.target.value })} maxLength={80} placeholder="e.g. Burmese, no mushrooms" aria-label="Add to food and drinks" />
           <button type="submit" disabled={!typed.food.trim()}>
             Add
           </button>

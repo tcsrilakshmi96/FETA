@@ -319,6 +319,14 @@ button {
 
 /* Every search box in the app's own font, with no browser border or ✕
    (UI audit, 24 Nov 2026: Search and Brands showed the browser's defaults). */
+/* Every text box in the app's own font, never the browser's (design audit,
+   25 Nov 2026: "Add to your taste" showed the system font). */
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
 input[type="search"] {
   font: inherit;
   border: 0;

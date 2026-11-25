@@ -73,7 +73,8 @@
 }
 
 .chip {
-  padding: 6px 11px;
+  min-height: 38px;
+  padding: 6px 12px;
   border-radius: 99px;
   border: 1.5px solid rgba(var(--inkRGB), 0.14);
   color: var(--ink);
