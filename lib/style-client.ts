@@ -167,32 +167,58 @@ const INSPO = "inspo";
 export type KeptInspiration = { photos: string[]; reads: { saw: string; styles: string[] }[] };
 const tidy = (k: Partial<KeptInspiration> | null): KeptInspiration | null =>
   Array.isArray(k?.photos) && k.photos.length ? { photos: k.photos.slice(0, 8), reads: Array.isArray(k.reads) ? k.reads.slice(0, 8) : [] } : null;
-export async function keepInspiration(k: KeptInspiration) {
-  const kept = tidy(k);
-  await keepOnPhone(INSPO, kept ? JSON.stringify(kept) : null);
-  try {
-    const db = supabase().from("style_inspiration");
-    const { error } = kept ? await db.upsert({ photos: kept.photos, reads: kept.reads, updated_at: new Date().toISOString() }) : await db.delete().eq("user_id", (await currentUserId()) ?? "");
-    if (error) console.warn("Inspiration photos not kept on the account", error.message);
-  } catch {
-    // Kept on this phone at least.
+// The account's copy is the one that counts (audits, 26 Nov 2026: a phone's
+// old copy could come back, or reach another account on a shared phone);
+// the phone's is a copy for when the account can't be read. The phone is
+// claimed first (`currentUserId`), so another account's copy is gone before
+// anything is read or written. Account writes go one at a time, only the
+// latest waiting, so a quick add and remove never lands out of order.
+let waiting: { k: KeptInspiration | null } | null = null;
+let writing = false;
+async function writeAccount() {
+  writing = true;
+  while (waiting) {
+    const { k } = waiting;
+    waiting = null;
+    try {
+      const me = await currentUserId();
+      if (!me) continue;
+      const db = supabase().from("style_inspiration");
+      const { error } = k ? await db.upsert({ user_id: me, photos: k.photos, reads: k.reads, updated_at: new Date().toISOString() }) : await db.delete().eq("user_id", me);
+      if (error) console.warn("Inspiration photos not kept on the account", error.message);
+    } catch {
+      // Kept on this phone at least.
+    }
   }
+  writing = false;
 }
-// null: none kept; throws when the account couldn't be read (so a screen
-// that saves what it shows never wipes photos it couldn't load).
-export async function loadInspiration(): Promise<KeptInspiration | null> {
+// phoneOnly: the account's copy couldn't be read, so it isn't overwritten.
+export async function keepInspiration(k: KeptInspiration, opts: { phoneOnly?: boolean } = {}) {
+  const kept = tidy(k);
+  await currentUserId();
+  await keepOnPhone(INSPO, kept ? JSON.stringify(kept) : null);
+  if (opts.phoneOnly) return;
+  waiting = { k: kept };
+  if (!writing) void writeAccount();
+}
+// synced: read from the account (false: the phone's copy, the account
+// couldn't be read).
+export async function loadInspiration(): Promise<{ kept: KeptInspiration | null; synced: boolean }> {
+  await currentUserId();
   try {
-    const raw = await fromPhone(INSPO);
-    const here = raw ? tidy(JSON.parse(raw) as KeptInspiration) : null;
-    if (here) return here;
+    const { data, error } = await supabase().from("style_inspiration").select("photos, reads").maybeSingle();
+    if (error) throw new Error(error.message);
+    const kept = tidy(data as KeptInspiration | null);
+    await keepOnPhone(INSPO, kept ? JSON.stringify(kept) : null);
+    return { kept, synced: true };
   } catch {
-    // Read from the account instead.
+    try {
+      const raw = await fromPhone(INSPO);
+      return { kept: raw ? tidy(JSON.parse(raw) as KeptInspiration) : null, synced: false };
+    } catch {
+      return { kept: null, synced: false };
+    }
   }
-  const { data, error } = await supabase().from("style_inspiration").select("photos, reads").maybeSingle();
-  if (error) throw new Error(error.message);
-  const kept = tidy(data as KeptInspiration | null);
-  if (kept) await keepOnPhone(INSPO, JSON.stringify(kept));
-  return kept;
 }
 
 // "On me" is gone for now (founder, 25 Nov 2026: a look made on her photo

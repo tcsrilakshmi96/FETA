@@ -52,6 +52,7 @@ export default function StyleSetup() {
   const [cues, setCues] = useState<string[]>([]);
   const [editing, setEditing] = useState(false); // they have a style already: any step can be opened
   const lastKept = useRef<{ photos: string[]; reads: typeof photoReads } | null>(null); // what's kept now
+  const phoneOnly = useRef(false); // the account's photos couldn't be read, so they aren't overwritten
   const [photosRead, setPhotosRead] = useState(false); // their kept photos are back, so saving them can't wipe them
   const swipe = useRef<number | null>(null);
   const [reading, setReading] = useState(false);
@@ -83,7 +84,8 @@ export default function StyleSetup() {
     setFromMe(q.get("from") === "me");
     /* eslint-enable react-hooks/set-state-in-effect */
     loadInspiration()
-      .then((k) => {
+      .then(({ kept: k, synced }) => {
+        phoneOnly.current = !synced;
         // Photos already read stay read (the count is kept with the photos),
         // so nothing is sent to the AI twice.
         if (k) {
@@ -117,7 +119,7 @@ export default function StyleSetup() {
     const was = lastKept.current;
     if (was ? photos === was.photos && photoReads === was.reads : !photos.length) return;
     lastKept.current = { photos, reads: photoReads };
-    keepInspiration({ photos, reads: photoReads });
+    keepInspiration({ photos, reads: photoReads }, { phoneOnly: phoneOnly.current });
   }, [photosRead, photos, photoReads]);
 
   async function addPhotos(list: FileList | null) {
@@ -355,7 +357,7 @@ export default function StyleSetup() {
                           </button>
                         </span>
                       ) : (
-                        <button type="button" className={s.polaroidEmpty} aria-label="Add photos" onClick={() => files.current?.click()}>
+                        <button type="button" className={s.polaroidEmpty} aria-label="Add photos" disabled={!photosRead} onClick={() => files.current?.click()}>
                           +
                         </button>
                       )}
