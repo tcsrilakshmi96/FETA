@@ -143,11 +143,17 @@ export function planSearches(intents: Intent[], opts: { category: Category; when
     const k = before.findIndex((ids) => ids.includes(i.id));
     return k < 0 ? Infinity : k;
   };
-  const turn = chosen
+  // What Feta read from places they love takes one search a set before
+  // their other choices have theirs, so it never crowds those out; more
+  // only when there's room left.
+  const order = chosen
     .map((i, n) => ({ i, n, ago: setsAgo(i) }))
     .sort((a, b) => (a.ago === b.ago ? a.n - b.n : b.ago - a.ago))
-    .slice(0, room)
     .map((x) => x.i);
+  const firstLoved = order.find((i) => i.source === "loved");
+  const first = order.filter((i) => i.source !== "loved" || i === firstLoved);
+  const turn = [...first, ...order.filter((i) => !first.includes(i))].slice(0, room);
+  turn.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   const searched = [...now.slice(0, max), ...turn];
   const food = opts.category === "food_drinks";
   const broad = searched.length < max;

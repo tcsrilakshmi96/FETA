@@ -17,7 +17,7 @@ import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catal
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
-import { allIntents, type Intent } from "@/lib/server/intents";
+import { allIntents, planSearches, type Intent } from "@/lib/server/intents";
 import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { planIsOver, planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
@@ -599,7 +599,13 @@ async function run(p: Persona) {
   const fails: string[] = [];
   const names = shown.map((c) => c.candidate.place.displayName?.text ?? "?");
   const covered = new Set(shown.flatMap((c) => c.candidate.intents ?? []));
-  for (const id of p.covers ?? []) if (!covered.has(id)) fails.push(`nothing for ${id}`);
+  // "said_0", "loved_1": the first or second of what they typed or love
+  // (those are named by what they are, not by number).
+  const coverId = (id: string) => {
+    const m = /^(said|loved)_(\d+)$/.exec(id);
+    return m ? (found.intents.filter((i) => i.source === (m[1] === "said" ? "typed" : "loved"))[Number(m[2])]?.id ?? id) : id;
+  };
+  for (const id of p.covers ?? []) if (!covered.has(coverId(id))) fails.push(`nothing for ${id}`);
   const explicit = found.intents.filter((i) => i.explicit).map((i) => i.id);
   const isFor = (c: { intents?: string[] }) => (c.intents ?? []).some((id) => explicit.includes(id));
   const forChoices = shown.filter((c) => isFor(c.candidate)).length;
@@ -901,6 +907,13 @@ async function main() {
     !rulesBroken({ ...(pl("Kebab Corner") as object), location: { latitude: 12.97, longitude: 77.6 } } as never, { taste: { answers: withDiet("vegetarian"), lines: [], yes: [], no: [] } as unknown as Taste, category: "experiences", when: "weekend", origin: { lat: 12.97, lng: 77.6 }, exclude: new Set(), city: searchCities("Bengaluru", 1)[0], anyHours: true, foodDrinkOk: () => true }).some((b) => b.why === "diet") && "a meat place under things to do skips the diet",
     !dietOk(pl("Udupi Grand", "south_indian_restaurant", null), withDiet("vegetarian"), "IN") && "vegetarian in India: a place with no answer is dropped",
     dietOk(pl("Trattoria Roma", "italian_restaurant", null), withDiet("vegetarian"), "GB") && "vegetarian abroad: a place with no answer passes",
+    // One loved place never takes every search (testers, 26 Nov 2026)
+    (() => {
+      const mk = (id: string, source: "loved" | "cuisine"): Intent => ({ id, label: id, reason: "", query: id, def: { searches: [id] }, explicit: true, source, food: true });
+      const picked = planSearches([mk("loved_a", "loved"), mk("loved_b", "loved"), mk("loved_c", "loved"), mk("loved_d", "loved"), mk("cuisine_thai", "cuisine"), mk("cuisine_korean", "cuisine")], { category: "food_drinks", when: "tonight" });
+      const ids = JSON.stringify(picked);
+      return !(ids.includes("cuisine_thai") && ids.includes("cuisine_korean")) && "places they love crowd out their cuisines";
+    })(),
     // Limits never mention money
     ...(["picks", "kept", "style", "ask"] as const).map((w) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(limitNotice(w, "Asia/Kolkata")) && `limit text "${w}" mentions money`),
     ...[0, 1, 3].map((n) => /[₹$€£]|money|budget|credit|cost|spend|rupee/i.test(leftNotice(n, "Europe/Lisbon")) && `searches-left text mentions money (${n})`),

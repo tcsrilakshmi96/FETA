@@ -50,7 +50,10 @@ export async function readTaste(taste: Taste, city: City, category: Category): P
   // places brought tasting menus to someone who said hole-in-the-wall.
   reads = reads.flatMap((r) => (r.from === "loved" ? plainRead(r) : [r]));
   return reads.filter((r) => r.from === "said" || !unlearned.has(learnedKey(category, r.label))).slice(0, 5).map((r, i) => ({
-    id: `${r.from}_${i}`,
+    // Named by what it is, not its place in the list, so a new loved place
+    // doesn't make every read "never searched" and take all the searches
+    // (testers, 26 Nov 2026: after one like, everything was that).
+    id: `${r.from}_${r.label.toLowerCase().trim().replace(/[^\p{L}\p{N}]+/gu, "_").slice(0, 40) || i}`,
     label: r.label,
     // What the loved places have in common, not their names (sets store only
     // Feta's words; Round 5 review: "like the places you love" read as filler).
