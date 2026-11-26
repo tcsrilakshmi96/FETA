@@ -54,9 +54,11 @@ export async function loadStyleProfile(): Promise<StyleProfile | null> {
   return { wears: data.wears, styles: data.styles ?? [], readFromPhotos: data.read_from_photos ?? 0, budget: data.budget ?? [], homegrownOnly: !!data.homegrown_only, onYou: !!data.on_you, votes: data.outfit_votes ?? [], cues: data.cues ?? [], wardrobe: data.wardrobe ?? [], offNotes: data.off_notes ?? [] };
 }
 
-export async function saveStyleProfile(p: StyleProfile, city: City | null) {
-  const userId = await currentUserId();
-  if (!userId) return;
+// True once it's saved, so a screen moves on only then (testers, 26 Nov
+// 2026: setup stuck on "Saving…" after the budget). Gives up after 12 s.
+export async function saveStyleProfile(p: StyleProfile, city: City | null): Promise<boolean> {
+  const userId = await Promise.race([currentUserId(), new Promise<null>((r) => setTimeout(() => r(null), 12000))]);
+  if (!userId) return false;
   const row = {
       user_id: userId,
       wears: p.wears,
@@ -75,12 +77,9 @@ export async function saveStyleProfile(p: StyleProfile, city: City | null) {
       currency: city?.currency ?? null,
       updated_at: new Date().toISOString(),
     };
-  let { error } = await supabase().from("style_profiles").upsert(row);
-  // Before the wardrobe columns exist (migration 20261123100000), save the rest.
-  if (error && /wardrobe|off_notes/.test(error.message)) {
-    ({ error } = await supabase().from("style_profiles").upsert({ ...row, wardrobe: undefined, off_notes: undefined }));
-  }
+  const { error } = await supabase().from("style_profiles").upsert(row).abortSignal(AbortSignal.timeout(12000));
   if (error) console.error("Saving style failed", error.message);
+  return !error;
 }
 
 // A photo made small (longest side 900 px, JPEG) so reading is quick and cheap.
@@ -409,11 +408,17 @@ export async function swapInSet(set: LookSet, f: LookFor, cityId: string, lookIn
 }
 
 // Wear this: one look a day (any earlier choice that day is let go).
-export async function chooseLook(set: LookSet, index: number | null) {
-  if (!set.id) return;
-  if (index !== null) await supabase().from("style_sets").update({ chosen: null, chosen_at: null }).eq("day", set.day).not("chosen", "is", null);
-  const { error } = await supabase().from("style_sets").update({ chosen: index, chosen_at: index === null ? null : new Date().toISOString() }).eq("id", set.id);
+// True once saved; each write gives up after 12 s.
+export async function chooseLook(set: LookSet, index: number | null): Promise<boolean> {
+  if (!set.id) return true;
+  const t = () => AbortSignal.timeout(12000);
+  if (index !== null) {
+    const { error } = await supabase().from("style_sets").update({ chosen: null, chosen_at: null }).eq("day", set.day).not("chosen", "is", null).abortSignal(t());
+    if (error) return (console.error("Saving the look failed", error.message), false);
+  }
+  const { error } = await supabase().from("style_sets").update({ chosen: index, chosen_at: index === null ? null : new Date().toISOString() }).eq("id", set.id).abortSignal(t());
   if (error) console.error("Saving the look failed", error.message);
+  return !error;
 }
 
 // A look's realistic picture, made once when it's shown (about ₹4) and kept

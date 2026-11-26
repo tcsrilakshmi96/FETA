@@ -159,7 +159,14 @@ export default function StyleSetup() {
 
   async function finish() {
     setSaving(true);
-    await saveStyleProfile({ wears: wears ?? "women", styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou, votes, cues, ...kept }, origin?.city ?? null);
+    const ok = await saveStyleProfile({ wears: wears ?? "women", styles, readFromPhotos: readCount, budget, homegrownOnly: homegrown, onYou, votes, cues, ...kept }, origin?.city ?? null);
+    // Not saved: say so and let them try again, never stuck on "Saving…" or
+    // sent back to the start (testers, 26 Nov 2026).
+    if (!ok) {
+      setSaving(false);
+      toast("Couldn't save that just now. Check your connection and tap again.");
+      return;
+    }
     // An in-app move once the save is done, so Home keeps its picks
     // (founder, 23 Nov 2026: "every time I go back home it's refreshing").
     router.replace(fromMe ? "/style/me" : "/style");

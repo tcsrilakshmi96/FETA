@@ -54,7 +54,8 @@ export default function YourStyle() {
 
   function change(p: StyleProfile) {
     setProfile(p);
-    saveStyleProfile(p, origin?.city ?? null).then(() => {
+    saveStyleProfile(p, origin?.city ?? null).then((ok) => {
+      if (!ok) return;
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     });

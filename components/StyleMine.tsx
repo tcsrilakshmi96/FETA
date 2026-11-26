@@ -71,7 +71,7 @@ export default function StyleMine() {
 
   function change(next: StyleProfile, note?: string) {
     setP(next);
-    saveStyleProfile(next, origin!.city).then(() => setSaved((n) => n + 1));
+    saveStyleProfile(next, origin!.city).then((ok) => (ok ? setSaved((n) => n + 1) : toast("Couldn't save that just now. Try again in a moment.")));
     if (note) toast(note);
   }
 
