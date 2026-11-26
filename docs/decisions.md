@@ -360,3 +360,10 @@ Three rounds kept finding the same kinds of problem, so they were fixed as kinds
 ## 26 Nov 2026 — Return visits (from the 2nd/3rd-visit walk-through)
 - Bugs fixed: "How was tonight?" and "Help shape Feta" opened on top of each other; Saved → Plans showed "…" for stops not in their lists.
 - Founder: "make all the changes": at most one pop-up a visit, most important first; NEW on Home's tiles and "New" in the list for places the phone hasn't shown before; Ask greets returning people by name; past plans under Done with how each place was; one saved place shows "Save one more to plan a night"; the Wear tile says "Finish setting up · 1 min" for someone who chose What to wear without setting Style up.
+
+## 26 Nov 2026 — Founder's answers after the night's audits
+- "Changing your outfit?" gets a "No, I'm set" button (it stops asking; "Have a great day in it.").
+- A visit ends after 30 minutes away, not only when the app is closed (an installed iPhone app can stay open for days).
+- The phone's clock for "tonight" and check-ins is fine for now.
+- The rose NEW tag beside the tiles' colours is fine.
+- Inspiration photos are kept on the account, so they come back after signing out and in or on another phone ("I think we should keep the photos").

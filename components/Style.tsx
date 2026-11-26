@@ -52,6 +52,7 @@ export default function Style() {
   const [avoid, setAvoid] = useState("");
   const [own, setOwn] = useState("");
   const swipeX = useRef<number | null>(null);
+  const [settled, setSettled] = useState(false); // said "No, I'm set" to changing the outfit
 
   const wears = profile?.wears ?? "women";
   const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
@@ -474,13 +475,23 @@ export default function Style() {
               </div>
               {/* Coming back, Feta asks before changing anything (founder, 25 Nov
                   2026: "it should ideally ask me if i wanna change my outfit"). */}
-              <p className={k.why} style={{ textAlign: "center" }}>Changing your outfit?</p>
-              <button type="button" className={k.primary} onClick={changeWhere}>
-                Yes, where are you going?
-              </button>
-              <button type="button" className={k.ghost} onClick={pickDifferent}>
-                Or pick another of today&apos;s looks
-              </button>
+              {/* "No, I'm set" says so out loud (founder, 26 Nov 2026). */}
+              {settled ? (
+                <p className={k.why} style={{ textAlign: "center" }}>Have a great day in it.</p>
+              ) : (
+                <>
+                  <p className={k.why} style={{ textAlign: "center" }}>Changing your outfit?</p>
+                  <button type="button" className={k.primary} onClick={changeWhere}>
+                    Yes, where are you going?
+                  </button>
+                  <button type="button" className={k.ghost} onClick={() => setSettled(true)}>
+                    No, I&apos;m set
+                  </button>
+                  <button type="button" className={k.ghost} onClick={pickDifferent}>
+                    Or pick another of today&apos;s looks
+                  </button>
+                </>
+              )}
             </>
           )}
 
