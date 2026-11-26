@@ -20,7 +20,7 @@ export default function Privacy() {
       <h1 className={styles.title}>
         Your privacy, <strong>plainly.</strong>
       </h1>
-      <p className={styles.updated}>Last updated 11 November 2026 · Friends test</p>
+      <p className={styles.updated}>Last updated 26 November 2026 · Friends test</p>
 
       <section>
         <h2>Who we are</h2>
@@ -83,8 +83,8 @@ export default function Privacy() {
             Google Maps finds places near you, and Google&apos;s Gemini AI chooses your picks, searches Google for
             events this week, and writes why. Gemini gets a short summary of your answers and likes and the name of
             your area, never your name, email or exact location. If you add inspiration photos in Style, Gemini
-            reads them and is asked to describe only the clothes; Feta keeps only the style words, and the photos stay
-            on your phone.
+            reads them and is asked to describe only the clothes; the photos are kept on your account, seen only by you
+            (so they come back when you sign in again), and deleted when you remove them or delete your account.
           </li>
         </ul>
         <ul>

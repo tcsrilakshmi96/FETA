@@ -51,6 +51,7 @@ export default function StyleSetup() {
   const [front, setFront] = useState<string | null>(null); // the style standing in front of the lineup
   const [cues, setCues] = useState<string[]>([]);
   const [editing, setEditing] = useState(false); // they have a style already: any step can be opened
+  const lastKept = useRef<{ photos: string[]; reads: typeof photoReads } | null>(null); // what's kept now
   const [photosRead, setPhotosRead] = useState(false); // their kept photos are back, so saving them can't wipe them
   const swipe = useRef<number | null>(null);
   const [reading, setReading] = useState(false);
@@ -81,16 +82,19 @@ export default function StyleSetup() {
     if (asked === 1 || asked === 3 || asked === 5) setStep(asked as Step);
     setFromMe(q.get("from") === "me");
     /* eslint-enable react-hooks/set-state-in-effect */
-    loadInspiration().then((k) => {
-      // Photos already read stay read (the count lives with the photos on
-      // this phone, not the account), so nothing is sent to the AI twice.
-      if (k) {
-        setPhotos(k.photos);
-        setPhotoReads(k.reads);
-      }
-      setReadCount(k ? Math.min(k.reads.length, k.photos.length) : 0);
-      setPhotosRead(true);
-    });
+    loadInspiration()
+      .then((k) => {
+        // Photos already read stay read (the count is kept with the photos),
+        // so nothing is sent to the AI twice.
+        if (k) {
+          setPhotos(k.photos);
+          setPhotoReads(k.reads);
+          lastKept.current = { photos: k.photos, reads: k.reads };
+        }
+        setReadCount(k ? Math.min(k.reads.length, k.photos.length) : 0);
+      })
+      .catch(() => null)
+      .finally(() => setPhotosRead(true));
     loadStyleProfile().then((p) => {
       if (!p?.styles.length) styleLimit().then((r) => r?.notice && setResting(r.notice));
       if (!p) return;
@@ -106,9 +110,14 @@ export default function StyleSetup() {
     });
   }, []);
 
-  // Their photos stay on this phone for next time.
+  // Their photos are kept for next time, only when they change (and never
+  // emptied when the kept ones couldn't be read).
   useEffect(() => {
-    if (photosRead) keepInspiration({ photos, reads: photoReads });
+    if (!photosRead) return;
+    const was = lastKept.current;
+    if (was ? photos === was.photos && photoReads === was.reads : !photos.length) return;
+    lastKept.current = { photos, reads: photoReads };
+    keepInspiration({ photos, reads: photoReads });
   }, [photosRead, photos, photoReads]);
 
   async function addPhotos(list: FileList | null) {
@@ -312,7 +321,7 @@ export default function StyleSetup() {
                 Hang up looks <i>you love</i>
               </h2>
               <p className={s.sub} style={{ marginTop: 6 }}>
-                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI is asked to read only the clothes; the photos stay on this phone, and Feta keeps only the style words.
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI is asked to read only the clothes. Your photos are kept on your account for you alone, so they come back on any phone, and are deleted with it.
               </p>
             </div>
             <Line height={300} rows={[0, 150]}>

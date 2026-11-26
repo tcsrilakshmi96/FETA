@@ -108,6 +108,14 @@ try {
   ok("Brands can be read", !brands, brands?.message);
   const { error: loved } = await db.from("loved_brands").select("brands (id, name, logo_url, brand_styles (style_id, review_status))").limit(5);
   ok("Usual brands can be read", !loved, loved?.message);
+  // Inspiration photos kept on the account (26 Nov 2026), as Style setup writes them.
+  const photo = "data:image/jpeg;base64,/9j/" + "A".repeat(200000);
+  const { error: inspo } = await db.from("style_inspiration").upsert({ photos: [photo, photo], reads: [{ saw: "linen shirt", styles: ["minimal"] }], updated_at: new Date().toISOString() });
+  ok("Inspiration photos can be kept on the account", !inspo, inspo?.message);
+  const { data: back, error: inspoRead } = await db.from("style_inspiration").select("photos, reads").maybeSingle();
+  ok("Inspiration photos come back", !inspoRead && back?.photos?.length === 2, inspoRead?.message);
+  const { error: tooMany } = await db.from("style_inspiration").upsert({ photos: Array(9).fill("data:x"), reads: [] });
+  ok("More than 8 inspiration photos are refused", !!tooMany);
 
   // Server-only things stay server-only.
   const { error: cache } = await db.from("events_cache").insert({ key: "db-check", events: [], search_html: "", expires_at: new Date().toISOString() });

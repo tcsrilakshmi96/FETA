@@ -157,22 +157,42 @@ export async function fromPhone(key: string): Promise<string | null> {
   }
 }
 
-// Their inspiration photos and what Feta saw in each, kept on this phone
-// only (founder, 25 Nov 2026: "when we go back my previous styles and photos
-// should be saved"); never sent anywhere again, cleared with the phone's copy.
+// Their inspiration photos and what Feta saw in each (founder, 25 Nov 2026:
+// "when we go back my previous styles and photos should be saved"), kept on
+// their account so they come back after signing out and in or on another
+// phone (founder, 26 Nov 2026: "I think we should keep the photos";
+// `style_inspiration`, only they can read it, deleted with the account), and
+// on the phone so Style setup opens with them at once. Never sent to the AI again.
 const INSPO = "inspo";
 export type KeptInspiration = { photos: string[]; reads: { saw: string; styles: string[] }[] };
+const tidy = (k: Partial<KeptInspiration> | null): KeptInspiration | null =>
+  Array.isArray(k?.photos) && k.photos.length ? { photos: k.photos.slice(0, 8), reads: Array.isArray(k.reads) ? k.reads.slice(0, 8) : [] } : null;
 export async function keepInspiration(k: KeptInspiration) {
-  await keepOnPhone(INSPO, k.photos.length ? JSON.stringify(k) : null);
+  const kept = tidy(k);
+  await keepOnPhone(INSPO, kept ? JSON.stringify(kept) : null);
+  try {
+    const db = supabase().from("style_inspiration");
+    const { error } = kept ? await db.upsert({ photos: kept.photos, reads: kept.reads, updated_at: new Date().toISOString() }) : await db.delete().eq("user_id", (await currentUserId()) ?? "");
+    if (error) console.warn("Inspiration photos not kept on the account", error.message);
+  } catch {
+    // Kept on this phone at least.
+  }
 }
+// null: none kept; throws when the account couldn't be read (so a screen
+// that saves what it shows never wipes photos it couldn't load).
 export async function loadInspiration(): Promise<KeptInspiration | null> {
   try {
     const raw = await fromPhone(INSPO);
-    const k = raw ? (JSON.parse(raw) as KeptInspiration) : null;
-    return Array.isArray(k?.photos) ? { photos: k.photos.slice(0, 8), reads: Array.isArray(k.reads) ? k.reads : [] } : null;
+    const here = raw ? tidy(JSON.parse(raw) as KeptInspiration) : null;
+    if (here) return here;
   } catch {
-    return null;
+    // Read from the account instead.
   }
+  const { data, error } = await supabase().from("style_inspiration").select("photos, reads").maybeSingle();
+  if (error) throw new Error(error.message);
+  const kept = tidy(data as KeptInspiration | null);
+  if (kept) await keepOnPhone(INSPO, JSON.stringify(kept));
+  return kept;
 }
 
 // "On me" is gone for now (founder, 25 Nov 2026: a look made on her photo

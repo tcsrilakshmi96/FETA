@@ -633,5 +633,10 @@
   "kind": "function",
   "name": "check_share_plan",
   "file": "20261126090000_share_plan_owner.sql"
+ },
+ {
+  "kind": "table",
+  "name": "style_inspiration",
+  "file": "20261126120000_style_inspiration.sql"
  }
 ]
