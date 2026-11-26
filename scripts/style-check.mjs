@@ -170,6 +170,9 @@ await click(/Back to your look/);
 ok("E: back to the same look", await until(/2 of 3/, 10000) && looksCalls === calls);
 await swipe(140);
 ok("D: wearing another one replaces the day's look", await until(/You're wearing/, 5000));
+// The look is saved just after the screen moves on (testers, 26 Nov 2026:
+// Wear this sat still while it saved); leaving waits for "Saved".
+ok("D: the worn look says it's saved", await until(/Saved to your Looks/, 15000));
 
 // E · Brands: For you, a ♥ asks once about recommending.
 await p.goto(`${BASE}/style/brands`, { waitUntil: "networkidle0" });
@@ -187,7 +190,7 @@ ok("E: Brands scrolls", sb.scrolls ? sb.moved : true);
 
 // F · My style: one page.
 await p.goto(`${BASE}/style/me`, { waitUntil: "networkidle0" });
-ok("F: My style shows the wardrobe and looks worn", await until(/Your wardrobe · 1/, 8000) && /Wear it again/.test(await text()));
+ok("F: My style shows the wardrobe and looks worn", (await until(/Your wardrobe · 1/, 8000)) && (await until(/Wear it again/, 8000)));
 await shot("f-me");
 await click(/^Menswear$/);
 ok("F: changing what they shop for says so", await until(/Every look now shows menswear/, 4000));
@@ -195,7 +198,7 @@ await click(/^Womenswear$/);
 const sm = await scrollEnd();
 ok("F: My style scrolls", sm.scrolls ? sm.moved : true);
 await click(/^Wear it again/);
-ok("F: Wear it again opens it in Today, no new looks", await until(/You're wearing this/, 10000) && looksCalls === calls);
+ok("F: Wear it again opens it in Today, no new looks", (await until(/You're wearing this/, 10000)) && looksCalls === calls);
 
 // G · Inspiration photos are kept on the account (founder, 26 Nov 2026:
 // "I think we should keep the photos"): a photo hung up comes back after the

@@ -208,20 +208,19 @@ export default function Style() {
     setLi((i) => i - 1);
     setAnim("back");
   }
-  // On to "Which of these do you have?" at once, saved meanwhile (testers,
-  // 26 Nov 2026: twice nothing happened while a slow save waited).
+  // Saved, then on to "Which of these do you have?"; a save that doesn't
+  // answer gives up after 12 s, is tried once more, and moves on all the same
+  // with a message (testers, 26 Nov 2026: twice nothing happened).
   function wear() {
-    if (!set || li >= set.looks.length || mode === "worn") return;
+    if (!set || li >= set.looks.length || anim === "wear") return;
     const chosen = li;
     setAnim("wear");
-    setTimeout(() => {
+    setTimeout(async () => {
+      const ok = (await chooseLook(set, chosen)) || (await chooseLook(set, chosen));
       setSet({ ...set, chosen });
       setMode("worn");
       setAnim("in");
-      // One quiet retry before saying so.
-      chooseLook(set, chosen)
-        .then((ok) => ok || chooseLook(set, chosen))
-        .then((ok) => toast(ok ? "Saved to your Looks" : "Couldn't save your look just now, so it may not show on Home. Check your connection."));
+      toast(ok ? "Saved to your Looks" : "Couldn't save your look just now, so it may not show on Home. Check your connection.");
     }, 300);
   }
   async function more(note: string | null) {
