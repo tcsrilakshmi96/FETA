@@ -130,10 +130,9 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
   const [taste, actionsRes] = await Promise.all([loadTaste(db, body.trip), db.from("pick_actions").select("place_id, action")]);
   const answers = taste.answers;
   const exclude = new Set((actionsRes.data ?? []).map((r) => r.place_id as string));
-  // The founder's own places may come back even if they've been or saved
-  // them (founder, 16 Nov 2026); only a skip keeps one away.
-  const skipped = new Set((actionsRes.data ?? []).filter((r) => r.action === "skipped").map((r) => r.place_id as string));
-  const keptOnly = new Set((actionsRes.data ?? []).filter((r) => r.action !== "skipped").map((r) => r.place_id as string));
+  // Places they've been to, saved or skipped never come back as picks, the
+  // founder's own included (testers, 26 Nov 2026: a place she'd added to
+  // Been came back first; before, her places came back unless skipped).
   // Place IDs and rounded coordinates only: no Google text in the database.
   // The taste fingerprint means a changed taste (a new line, new answers)
   // searches that category again instead of showing the last picks; day
@@ -349,7 +348,7 @@ export async function runPicks(token: string | undefined, input: unknown): Promi
       ...(body.searches ? { searches: Math.min(4, Math.max(1, body.searches)) } : body.search ? { searches: 1 } : {}),
       ...(body.search ? { search: true } : {}),
       favourites: (intents) =>
-        fetaCandidates({ db, taste: effective, body, city, origin, exclude, founderExclude: new Set([...exclude].filter((id) => skipped.has(id) || !keptOnly.has(id))), needsDiet, intents: body.search ? intents.filter((i) => i.id === "asked") : intents }),
+        fetaCandidates({ db, taste: effective, body, city, origin, exclude, needsDiet, intents: body.search ? intents.filter((i) => i.id === "asked") : intents }),
     });
   } catch (error) {
     console.error(error);
@@ -782,7 +781,6 @@ async function fetaCandidates(ctx: {
   city: City;
   origin: { lat: number; lng: number };
   exclude: Set<string>;
-  founderExclude: Set<string>; // her places come back even if been or saved
   needsDiet: boolean;
   intents: Intent[];
 }): Promise<Curated> {
@@ -826,7 +824,7 @@ async function fetaCandidates(ctx: {
     return ctx.intents.length ? [...scored.filter((f) => f.fit > 0), ...scored.filter((f) => f.fit === 0).slice(0, UNSURE)].map((f) => f.id) : scored.map((f) => f.id);
   };
   const lookups = [
-    ...byFit(founder.filter((f) => !ctx.founderExclude.has(f.placeId))).slice(0, FETA_LOOKUPS),
+    ...byFit(founder.filter((f) => !ctx.exclude.has(f.placeId))).slice(0, FETA_LOOKUPS),
     ...byFit(locals.filter((f) => !ctx.exclude.has(f.placeId))).slice(0, LOCAL_LOOKUPS),
     ...featuredToCheck([...featured.entries()].filter(([id]) => !ctx.exclude.has(id)).map(([id, f]) => ({ id, name: f.name, tags: f.tags })), ctx.intents),
     ...(ctx.body.search ? [] : [...loved.values()].filter((c) => c.similar > 0 && !ctx.exclude.has(c.place_id)).slice(0, COMMUNITY_LOOKUPS).map((c) => c.place_id)),
