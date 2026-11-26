@@ -186,6 +186,23 @@ ok("F: My style scrolls", sm.scrolls ? sm.moved : true);
 await click(/^Wear it again/);
 ok("F: Wear it again opens it in Today, no new looks", await until(/You're wearing this/, 10000) && looksCalls === calls);
 
+// G · Inspiration photos are kept on the account (founder, 26 Nov 2026:
+// "I think we should keep the photos"): a photo hung up comes back after the
+// phone's copy is wiped, as after signing out and in.
+await p.goto(`${BASE}/style/setup?step=1`, { waitUntil: "networkidle0" });
+await until(/Hang up looks/, 10000);
+const input = await p.$('input[type="file"]');
+const tiny = Buffer.from("/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=", "base64");
+const { writeFileSync } = await import("node:fs");
+writeFileSync(`${prefix}-photo.jpg`, tiny);
+await input?.uploadFile(`${prefix}-photo.jpg`);
+const hung = await p.waitForSelector('img[alt="Inspiration photo 1"]', { timeout: 8000 }).then(() => true).catch(() => false);
+await wait(2500);
+await p.evaluate(() => new Promise((r) => { const q = indexedDB.deleteDatabase("feta-style"); q.onsuccess = q.onerror = r; setTimeout(r, 3000); }));
+await p.goto(`${BASE}/style/setup?step=1`, { waitUntil: "networkidle0" });
+const back = await p.waitForSelector('img[alt="Inspiration photo 1"]', { timeout: 10000 }).then(() => true).catch(() => false);
+ok("G: a photo hung up comes back from the account once the phone's copy is gone", hung && back);
+
 ok("No page errors", errors.length === 0);
 // Its test account is deleted at the end, as the journey's is (24 Nov 2026).
 await deleteAccount(p);
