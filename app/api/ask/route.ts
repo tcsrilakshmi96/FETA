@@ -130,7 +130,9 @@ export async function POST(request: Request) {
   const { data: currentTrip } = currentTripId ? await db.from("trips").select("*").eq("id", currentTripId).maybeSingle<Trip>() : { data: null };
   // A follow-up while a one-city trip is on screen searches that city when
   // no place is named (tester, 26 Nov 2026: Varkala got Bangalore tips).
-  const tripRecent = !!currentTripId && (history ?? []).slice(0, 4).some((m) => m.extras?.trip_id === currentTripId);
+  // `past` is oldest first (reverse() above turned `history` round too), so
+  // the last 4 messages are its end.
+  const tripRecent = !!currentTripId && past.slice(-4).some((m) => m.extras?.trip_id === currentTripId);
   const onTrip = tripRecent && currentTrip?.cities.length === 1 ? currentTrip.cities[0].name : null;
 
   const today = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: homeCity?.timeZone ?? "UTC" }).format(new Date());
