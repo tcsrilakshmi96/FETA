@@ -48,7 +48,11 @@ export default function Privacy() {
           <li>
             If you ask for the weekend plan: your WhatsApp number, the saved places you tick for the weekend and what
             you say you want to do. Srilakshmi reads these to write your plan and sends it from her own WhatsApp.
-            Remove your number any time in My lists or You.
+            Remove your number any time in Saved or You.
+          </li>
+          <li>
+            If you use Style: the inspiration photos you hang up and what Feta saw in them, your styles, wardrobe,
+            clothes budget, the brands you shop from, and the outfit pictures made for you. Seen only by you.
           </li>
           <li>Feedback you send, and a screenshot of that screen if you leave the box ticked.</li>
           <li>If you sign in with Google: your name and email address from Google.</li>

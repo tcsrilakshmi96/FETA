@@ -408,7 +408,7 @@ export default function Lists() {
                               {fresh > 0 && <span className={styles.fresh}>{fresh} new</span>}
                             </span>
                           ) : c.past ? (
-                            <span className={styles.howWent}>{howItWent(c) || "How was it? Rate the places in Been"}</span>
+                            <span className={styles.howWent}>{howItWent(c) || "How was it? Tap to rate"}</span>
                           ) : (
                             <span className={styles.notShared}>{c.shares.length ? "Shared · no replies yet" : "Not shared yet"}</span>
                           )}
@@ -528,7 +528,7 @@ export default function Lists() {
                 className={styles.emptyBtn}
                 onClick={() => router.push("/home")}
               >
-                See tonight&apos;s picks
+                See your picks
               </button>
             )}
           </div>

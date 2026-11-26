@@ -323,7 +323,7 @@ export default function StyleSetup() {
                 Hang up looks <i>you love</i>
               </h2>
               <p className={s.sub} style={{ marginTop: 6 }}>
-                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI is asked to read only the clothes. Your photos are kept on your account for you alone, so they come back on any phone, and are deleted with it.
+                Up to 8 photos: Pinterest or Instagram screenshots, or your own. Even one works. Feta&apos;s AI is asked to read only the clothes. Your photos are kept on your account, seen only by you; sign in with Google and they come back on any phone. Deleting your data deletes them.
               </p>
             </div>
             <Line height={300} rows={[0, 150]}>

@@ -157,7 +157,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
             <h2 className={styles.title}>
               Did it work for your <strong>{dietName} diet?</strong>
             </h2>
-            <p className={styles.sub}>Counted to help others who eat like you. Never a promise.</p>
+            <p className={styles.sub}>Feta keeps this to help people who eat like you. Never a promise.</p>
             <div className={own.grid}>
               <button type="button" onClick={() => (saveBeen(ask.placeId, { dietOk: true }), done("Thanks. That helps others who eat like you."))}>
                 <span aria-hidden="true">👍</span>Yes

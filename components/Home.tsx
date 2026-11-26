@@ -295,7 +295,7 @@ export default function Home() {
           </div>
 
           {/* One search bar (founder, 24 Nov 2026), in place of the round button. */}
-          <button type="button" className={styles.searchBar} onClick={() => router.push("/search")} aria-label="Search a place, an activity or a piece">
+          <button type="button" className={styles.searchBar} onClick={() => router.push("/search")} aria-label="Search a place, a class or a piece">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M20 20l-4-4" />
