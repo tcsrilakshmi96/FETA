@@ -196,7 +196,8 @@ export default function Style() {
   const country = origin.city.countryName;
 
   function next() {
-    if (!set || li >= set.looks.length || anim === "out") return;
+    // Not while Wear this is still saving (it moves on once saved).
+    if (!set || li >= set.looks.length || anim === "out" || anim === "wear") return;
     setAnim("out");
     setTimeout(() => {
       setLi((i) => i + 1);
@@ -204,7 +205,7 @@ export default function Style() {
     }, 280);
   }
   function prev() {
-    if (li <= 0) return;
+    if (li <= 0 || anim === "wear") return;
     setLi((i) => i - 1);
     setAnim("back");
   }
