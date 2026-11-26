@@ -85,6 +85,9 @@ await shot("b-where");
 await click(/^Tonight$/);
 await click(/^Dinner$/);
 await click(/^Show my looks/);
+// While the looks load, never a "couldn't" first (founder, 26 Nov 2026).
+const flashed = await p.evaluate(() => new Promise((done) => { const t0 = Date.now(); const tick = () => { const s = document.body.innerText; if (/couldn't put looks together/i.test(s)) return done(true); if (/1 of 3/.test(s) || Date.now() - t0 > 20000) return done(false); setTimeout(tick, 30); }; tick(); }));
+ok("C: no \"couldn't put looks together\" while the looks load", !flashed);
 ok("C: 3 looks, the first one on screen", await until(/1 of 3/, 20000));
 await shot("c-look1");
 const pieces = await p.evaluate(() => document.querySelectorAll("[class*=pieceRow] button").length);

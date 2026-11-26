@@ -88,19 +88,23 @@ export default function Style() {
     setNotice(null);
     setLi(0);
     setAnim("in");
+    // Waiting from the start, so the check for today's kept looks never
+    // flashes "couldn't put looks together" (founder, 26 Nov 2026).
+    setSet(null);
+    setBusy(true);
     const day = next.tomorrow ? cityDay(1) : cityDay();
-    const kept = await loadSet(day, next.key);
+    const kept = await loadSet(day, next.key).catch(() => null);
     if (kept?.looks.length) {
       setSet(kept);
       setLi(keptIndex(kept));
+      setBusy(false);
       return;
     }
-    setSet(null);
     await make(next, day, 0, []);
   }
 
   async function make(next: LookFor, day: string, setNo: number, avoidLooks: string[]) {
-    if (!origin) return;
+    if (!origin) return setBusy(false);
     setBusy(true);
     let r = await newSet(next, day, origin.city.id, setNo, avoidLooks, origin.city);
     // One quiet retry before saying anything went wrong (founder, 23 Nov
