@@ -7,6 +7,7 @@ import { isSignedIn } from "@/lib/auth";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Sheet.module.css";
 import { popUpSlot } from "@/lib/popups";
+import { VISIT } from "@/lib/visit";
 
 // The tester form (founder, 18 Nov 2026): once someone has really tried
 // Feta (their second visit), a card asks them to fill in the Google Form.
@@ -16,6 +17,8 @@ import { popUpSlot } from "@/lib/popups";
 const FORM = TESTER_FORM;
 const VISITS_KEY = "feta.visits";
 const OPENED_KEY = "feta.formOpened";
+const COUNTED = `${VISIT}counted`;
+const LATER = `${VISIT}formLater`;
 
 export default function TesterForm() {
   const [open, setOpen] = useState(false);
@@ -24,12 +27,12 @@ export default function TesterForm() {
     let due = false;
     try {
       if (localStorage.getItem(OPENED_KEY)) return;
-      // One visit per tab session; asks from the second.
-      if (!sessionStorage.getItem(VISITS_KEY)) {
-        sessionStorage.setItem(VISITS_KEY, "1");
+      // Counted once a visit (lib/visit.ts); asks from the second.
+      if (!sessionStorage.getItem(COUNTED)) {
+        sessionStorage.setItem(COUNTED, "1");
         localStorage.setItem(VISITS_KEY, String(Number(localStorage.getItem(VISITS_KEY) ?? 0) + 1));
       }
-      due = Number(localStorage.getItem(VISITS_KEY)) >= 2 && !sessionStorage.getItem(`${OPENED_KEY}.later`);
+      due = Number(localStorage.getItem(VISITS_KEY)) >= 2 && !sessionStorage.getItem(LATER);
     } catch {
       return;
     }
@@ -71,7 +74,7 @@ export default function TesterForm() {
   function later() {
     setOpen(false);
     try {
-      sessionStorage.setItem(`${OPENED_KEY}.later`, "1");
+      sessionStorage.setItem(LATER, "1");
     } catch {
       // Fine.
     }

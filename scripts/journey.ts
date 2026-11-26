@@ -285,6 +285,24 @@ async function main() {
       }
       check(asked, "Coming back asks how a plan went once it started hours ago");
       check(most <= 1, "Coming back, pop-ups open one at a time", `${most} at once`);
+      // Left open in the background for 30 minutes is a new visit (founder,
+      // 26 Nov 2026): back on Home, it reloads and the visit's pop-up is free again.
+      await again.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Ask me later/.test(b.textContent ?? ""))?.click());
+      await wait(500);
+      const used = await again.evaluate(() => !!sessionStorage.getItem("feta.visit.popupShown"));
+      const reloaded = again.waitForNavigation({ timeout: 8000 }).then(() => true).catch(() => false);
+      // As a string, so the test runner adds nothing to it.
+      await again.evaluate(`(() => {
+        let state = "hidden";
+        Object.defineProperty(document, "visibilityState", { get: () => state, configurable: true });
+        document.dispatchEvent(new Event("visibilitychange"));
+        const real = Date.prototype.getTime;
+        Date.prototype.getTime = function () { return real.call(this) + 31 * 60000; };
+        state = "visible";
+        document.dispatchEvent(new Event("visibilitychange"));
+      })()`);
+      const fresh = (await reloaded) && !(await again.evaluate(() => sessionStorage.getItem("feta.visit.popupShown")));
+      check(used && fresh, "30 minutes away starts a new visit", JSON.stringify({ used, fresh }));
       await again.close();
     }
 

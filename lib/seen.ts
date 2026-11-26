@@ -1,10 +1,12 @@
 // Which picks this phone has shown before, so a return visit can mark what's
 // new (founder, 26 Nov 2026, return-visit walk-through: "Home looks the same
 // as last time"). Place IDs only, on this phone, for 14 days. What counts as
-// seen is fixed at the start of each visit (a tab session), so a place stays
+// seen is fixed at the start of each visit (lib/visit.ts), so a place stays
 // "New" for the whole visit it first appears in. The first visit marks nothing.
+import { VISIT } from "@/lib/visit";
+
 const SEEN = "feta.seenPicks";
-const BEFORE = "feta.seenBefore";
+const BEFORE = `${VISIT}seenBefore`;
 const KEEP = 14 * 86400 * 1000;
 
 let before: Set<string> | null = null;

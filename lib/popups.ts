@@ -1,3 +1,5 @@
+import { VISIT } from "@/lib/visit";
+
 // At most one pop-up a visit (founder, 26 Nov 2026, from the return-visit
 // walk-through: visit 3 opened with "How was tonight?" and then "Help shape
 // Feta"; the first minute was answering questions). Every pop-up that opens
@@ -5,10 +7,10 @@
 // its own checks, then says `ready(open)` or `none()`. Once every slot has
 // answered (or 6 s have passed) the most important ready one opens, never
 // over another sheet; the rest wait for the next visit (each keeps its own
-// "already asked" mark, so it asks again then). A visit is one tab session.
+// "already asked" mark, so it asks again then). What a visit is: lib/visit.ts.
 // Ranks: 0 How was <day>? · 1 How was <place>? · 2 Save your taste ·
 // 3 Help shape Feta · 4 How's Feta so far?
-const SHOWN = "feta.popupShown";
+const SHOWN = `${VISIT}popupShown`;
 const MAX_WAIT = 6000;
 
 // open says whether it really opened (a lookup may fail, or they left the
