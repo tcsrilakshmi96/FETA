@@ -58,14 +58,16 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   const food = category === "food_drinks";
   const sober = taste.answers.drinks === "no_alcohol";
   const veg = isVegDiet(taste.answers.diet);
-  // Abroad, vegetarians only see places Google confirms serve vegetarian
-  // food, so the search asks for them; in India most places do.
-  // What they ask for right now (a chat note, a tweak) always carries their
-  // diet (tester, 23 Nov 2026: a vegetarian's "dinner near Alfama" was
-  // searched as "local food" and found meat-led taverns).
+  // Vegetarians get every place with good veg food, mixed menus included,
+  // never only veg-only places (founder, 26 Nov 2026: "can you not show
+  // restaurants that have both?"; "vegetarian thai" brought back mostly
+  // veg-only places). The diet is a hard filter (dietOk), so the search
+  // never says "vegetarian" in India, where most places serve veg food.
+  // Abroad, where fewer do, it asks for places "with vegetarian options"
+  // (tester, 23 Nov 2026: a vegetarian's "dinner near Alfama" found
+  // meat-led taverns).
   const saysDiet = (q: string) => /\b(veg|vegan|vegetarian|veggie|plant[- ]based|jain)\b/i.test(q);
-  const vegWord = (q: string) => (veg && food && !saysDiet(q) ? `vegetarian ${q}` : q);
-  const cuisineVeg = (q: string) => (veg && city.country !== "IN" ? `vegetarian ${q}` : q);
+  const vegWord = (q: string) => (veg && food && city.country !== "IN" && !saysDiet(q) ? `${q} with vegetarian options` : q);
   const out: Intent[] = [];
   const note = (opts.note ?? "").trim();
   const askedQuery = opts.typed ? note : vegWord(note);
@@ -104,7 +106,7 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
       if (!def) continue;
       const label = sideById(id, taste.answers)?.label ?? key;
       const searches = key === "local" ? [`traditional ${city.countryName} food`] : key === "indo_chinese" && city.country !== "IN" ? ["chinese restaurant"] : def.searches;
-      out.push({ id, label, reason: `Because you love ${label}${key === "bakery" || key === "healthy" || /\bfood$/i.test(label) ? "" : " food"}.`, query: cuisineVeg(variant(searches, rotation)), def, explicit: true, source: "cuisine", food });
+      out.push({ id, label, reason: `Because you love ${label}${key === "bakery" || key === "healthy" || /\bfood$/i.test(label) ? "" : " food"}.`, query: vegWord(variant(searches, rotation)), def, explicit: true, source: "cuisine", food });
     }
   }
   for (const x of opts.extra ?? []) if (x.food === food) out.push(x);

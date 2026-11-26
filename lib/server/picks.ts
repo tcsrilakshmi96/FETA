@@ -712,7 +712,7 @@ ${wanted.length ? `What they want most (id in brackets): ${wanted.map((i) => `[$
 Places:
 ${candidates.map((c, i) => describe(c, i, category)).join("\n")}
 
-${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. Rank places known for good vegetarian food first. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}${
+${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are vegetarian. A place with good vegetarian dishes on a mixed menu fits them as well as a vegetarian-only one: never favour a place just for being vegetarian-only. Never rank a place that is mainly about meat or fish (a biryani house, a kebab or grill place, a steakhouse, a seafood place, a fried-chicken chain). A place with real vegetarian choices (most burger, pizza and café places) is fine. List every mainly meat or fish place's number in "nonVeg".\n\n` : ""}${
     {
       new: `They love trying new things: favour ${category === "food_drinks" ? "places and cuisines" : "places and kinds of thing to do"} that would be new to them, and lesser-known finds over the obvious.\n\n`,
       familiar: `They like their usual done really well: favour excellent, well-loved versions of ${category === "food_drinks" ? "their favourite cuisines" : "what they're into"} over novelty.\n\n`,

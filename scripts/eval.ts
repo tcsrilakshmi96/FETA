@@ -811,8 +811,8 @@ async function main() {
   // Ask Feta (two persona testers, 23 Nov 2026): what code checks in a chat answer.
   // What they ask for carries their diet: [diet, what they asked, where, how it's searched].
   const diet: [string, string, string, RegExp][] = [
-    ["vegetarian", "local food", "PT", /^vegetarian local food$/],
-    ["vegan", "dinner near Indiranagar", "IN", /^vegetarian dinner near Indiranagar$/],
+    ["vegetarian", "local food", "PT", /^local food with vegetarian options$/],
+    ["vegan", "dinner near Indiranagar", "IN", /^dinner near Indiranagar$/],
     ["vegetarian", "vegan brunch", "PT", /^vegan brunch$/],
     ["everything", "local food", "PT", /^local food$/],
   ];
@@ -839,6 +839,9 @@ async function main() {
       const q = allIntents({ answers: { ...base, diet: d }, lines: [], own: [], yes: [], no: [] }, { category: "food_drinks", city: c, tweaks: [], note, rotation: 0 }).find((i) => i.id === "asked")?.query ?? "";
       return !want.test(q) && `a ${d} asking for "${note}" in ${c.name} is searched as "${q}"`;
     }),
+    // Founder, 26 Nov 2026: vegetarians saw only veg-only places, as every
+    // cuisine was searched as "vegetarian <cuisine>".
+    allIntents({ answers: { ...base, diet: "vegetarian" }, lines: [], own: [], yes: ["cuisine_north_indian", "cuisine_chinese"], no: [] }, { category: "food_drinks", city: searchCities("Bengaluru", 1)[0], tweaks: [], rotation: 0 }).filter((i) => i.source === "cuisine").some((i) => /vegetarian/i.test(i.query ?? "")) || !allIntents({ answers: { ...base, diet: "vegetarian" }, lines: [], own: [], yes: ["cuisine_north_indian"], no: [] }, { category: "food_drinks", city: searchCities("Bengaluru", 1)[0], tweaks: [], rotation: 0 }).some((i) => i.source === "cuisine") && "a vegetarian in India has \"vegetarian\" in their searches, so only veg-only places come back",
   ].filter(Boolean);
   if (askFails.length) {
     failed++;
