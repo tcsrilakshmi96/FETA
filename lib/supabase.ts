@@ -52,7 +52,7 @@ async function markTest() {
 // keepSignIn: only Feta's own things go (the sign-in, the theme, the test
 // mark and a pending 18+ re-check stay), for a phone changing accounts.
 export async function forgetPhone(opts: { keepSignIn?: boolean } = {}) {
-  const KEEP = ["feta.theme", QA_KEY, "feta.reconfirmAge"];
+  const KEEP = ["feta.theme", QA_KEY, "feta.reconfirmAge", "feta.carry"];
   try {
     if (!opts.keepSignIn) {
       localStorage.clear();
@@ -65,6 +65,14 @@ export async function forgetPhone(opts: { keepSignIn?: boolean } = {}) {
   } catch {
     // Nothing more to clear.
   }
+  // Photos on their way to the Google account (lib/carry.ts) stay through a
+  // change of account, never through sign-out or delete.
+  if (!opts.keepSignIn)
+    try {
+      indexedDB.deleteDatabase("feta-carry");
+    } catch {
+      // No IndexedDB here.
+    }
   try {
     await new Promise<void>((done) => {
       // Wait for it to finish (photos live here), up to 3 s if something holds it open.
@@ -108,6 +116,14 @@ async function claimPhone(userId: string, opts: { brandNew?: boolean } = {}) {
   await new Promise(() => {}); // the page is going; nothing else runs as the old copy
 }
 
+const carrying = () => {
+  try {
+    return !!localStorage.getItem("feta.carry");
+  } catch {
+    return false;
+  }
+};
+
 // Every visitor gets a private anonymous account the first time they need
 // one, so answers are saved even before (or without) Google sign-in.
 let pending: Promise<string | null> | null = null;
@@ -119,6 +135,8 @@ export function currentUserId(): Promise<string | null> {
       const existing = data.session?.user.id;
       if (existing) {
         await claimPhone(existing);
+        // Inspiration photos brought from this phone's anonymous account (lib/carry.ts).
+        if (!data.session?.user.is_anonymous && carrying()) await import("@/lib/carry").then((m) => m.adoptCarried(existing)).catch(() => null);
         if (isQa()) await markTest();
         return existing;
       }

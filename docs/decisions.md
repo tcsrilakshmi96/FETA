@@ -367,3 +367,6 @@ Three rounds kept finding the same kinds of problem, so they were fixed as kinds
 - The phone's clock for "tonight" and check-ins is fine for now.
 - The rose NEW tag beside the tiles' colours is fine.
 - Inspiration photos are kept on the account, so they come back after signing out and in or on another phone ("I think we should keep the photos").
+
+## 26 Nov 2026: Style photos follow the person to their Google account
+Someone who added inspiration photos on the phone's anonymous account and then signed in to a Google account that already had Feta left the photos behind on an account nobody can open or delete. Now, just before going to Google, the photos are taken off the anonymous account and kept on the phone for up to 30 minutes; back on the Google account, they are kept there if it has none of its own (its own always win), and the phone's copy goes either way (`lib/carry.ts`). Deleting long-unused anonymous accounts nightly was left for later (founder: part 1 only).

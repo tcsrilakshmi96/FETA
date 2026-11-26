@@ -117,6 +117,10 @@ try {
   const { error: again } = await db.from("style_inspiration").upsert({ photos: [photo], reads: [], updated_at: new Date().toISOString() });
   const { data: one } = await db.from("style_inspiration").select("photos").maybeSingle();
   ok("Changing the inspiration photos replaces them", !again && one?.photos?.length === 1, again?.message);
+  // Photos carried from the phone's anonymous account never replace the account's own (lib/carry.ts).
+  const { error: carried } = await db.from("style_inspiration").upsert({ user_id: me, photos: [photo, photo, photo], reads: [], updated_at: new Date().toISOString() }, { onConflict: "user_id", ignoreDuplicates: true });
+  const { data: kept } = await db.from("style_inspiration").select("photos").maybeSingle();
+  ok("Photos brought from the anonymous account never replace the account's own", !carried && kept?.photos?.length === 1, carried?.message);
   const { error: tooMany } = await db.from("style_inspiration").upsert({ photos: Array(9).fill("data:image/jpeg;base64,AAAA"), reads: [] });
   ok("More than 8 inspiration photos are refused", !!tooMany);
   const { error: notPhoto } = await db.from("style_inspiration").upsert({ photos: ["<script>hello</script>"], reads: [] });
