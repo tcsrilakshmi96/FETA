@@ -139,7 +139,37 @@ export function fetchPhoto(ref: string): Promise<string | null> {
 // "Feta Picks near you": the founder's places and Feta users' favourites in
 // their city, nearest first. Kept for an hour on the phone (each opening
 // checks places live, about ₹2 each).
-const fetaKept = new Map<string, { at: number; reply: PicksReply }>();
+// In this tab's storage, so the reload for a new visit doesn't pay again
+// (cost audit, 26 Nov 2026); gone when Feta is closed.
+const FETA_KEPT = "feta.fetaPicks.kept";
+type FetaKept = { at: number; reply: PicksReply };
+const fetaKept = {
+  all(): Record<string, FetaKept> {
+    try {
+      return JSON.parse(sessionStorage.getItem(FETA_KEPT) ?? "{}") as Record<string, FetaKept>;
+    } catch {
+      return {};
+    }
+  },
+  get(key: string): FetaKept | undefined {
+    return this.all()[key];
+  },
+  set(key: string, v: FetaKept) {
+    try {
+      const fresh = Object.fromEntries(Object.entries(this.all()).filter(([, x]) => Date.now() - x.at < 3600000));
+      sessionStorage.setItem(FETA_KEPT, JSON.stringify({ ...fresh, [key]: v }));
+    } catch {
+      // Checked again next time.
+    }
+  },
+  clear() {
+    try {
+      sessionStorage.removeItem(FETA_KEPT);
+    } catch {
+      // Nothing kept.
+    }
+  },
+};
 
 // Their taste changed: the sheet checks again with the new diet, budget and distance.
 export function forgetFetaPicks() {
