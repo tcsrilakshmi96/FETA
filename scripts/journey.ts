@@ -301,8 +301,13 @@ async function main() {
         state = "visible";
         document.dispatchEvent(new Event("visibilitychange"));
       })()`);
+      let picksAsked = 0;
+      again.on("request", (r) => r.url().includes("/api/picks") && r.method() === "POST" && picksAsked++);
       const fresh = (await reloaded) && !(await again.evaluate(() => sessionStorage.getItem("feta.visit.popupShown")));
+      await wait(3000);
       check(used && fresh, "30 minutes away starts a new visit", JSON.stringify({ used, fresh }));
+      // Lists under an hour old come back from the phone: the reload searches nothing (tech audit, 26 Nov 2026).
+      check(picksAsked === 0, "A new visit after 30 minutes searches nothing again", `${picksAsked} searches`);
       await again.close();
     }
 

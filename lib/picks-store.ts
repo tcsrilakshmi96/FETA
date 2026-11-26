@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { firstSlotName } from "@/lib/slot-label";
+import { awayLongEnough } from "@/lib/visit";
 import type { Origin } from "@/lib/origin";
 import { originKey } from "@/lib/origin";
 import { fetchPicks, forgetFetaPicks, savingTaste, type Ask, type Category, type Pick, type When } from "@/lib/picks-client";
@@ -135,7 +136,8 @@ export function outOfDate(s: Slot) {
 }
 const told = new WeakSet<Slot>();
 function sweep() {
-  if (document.visibilityState !== "visible") return;
+  // Back after 30 minutes the page reloads for a new visit; nothing is looked up before it.
+  if (document.visibilityState !== "visible" || awayLongEnough()) return;
   const lists = Object.fromEntries(Object.entries(state.lists).filter(([, s]) => !outOfDate(s)));
   // A tweaked list out of date is looked up again with its tweak only by a
   // screen showing it (openList), never in the background (cost audit, 25
