@@ -181,8 +181,9 @@ export function NightCheckIn({ plan, names, onDone, onLater }: { plan: SavedPlan
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
   const [saving, setSaving] = useState(false);
 
+  // Done needs an answer, so a stray tap never loses the check-in (design audit, 26 Nov 2026).
   async function done() {
-    if (saving) return;
+    if (saving || !Object.keys(answers).length) return;
     setSaving(true);
     const been = Object.entries(answers).filter((a): a is [string, Verdict] => a[1] !== "no");
     for (const [placeId] of been) logEvent("checkin", placeId);
@@ -219,7 +220,7 @@ export function NightCheckIn({ plan, names, onDone, onLater }: { plan: SavedPlan
           ))}
         </ul>
         <p className={styles.sub}>Feta remembers this for your next picks.</p>
-        <button type="button" className={`btn-primary ${styles.go}`} onClick={done} disabled={saving}>
+        <button type="button" className={`btn-primary ${styles.go}`} onClick={done} disabled={saving || !Object.keys(answers).length}>
           {saving ? "Saving…" : "Done"}
         </button>
         <button type="button" className={styles.ghost} onClick={() => !saving && (onLater?.(), onDone())}>
