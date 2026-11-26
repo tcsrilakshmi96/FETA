@@ -6,7 +6,7 @@ import { useToast } from "@/components/Toast";
 import { loadCity } from "@/lib/cities";
 import { logEvent } from "@/lib/db";
 import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } from "@/lib/my-places";
-import { popUpSlot, shownThisVisit } from "@/lib/popups";
+import { askLater, laterToday, popUpSlot, shownThisVisit } from "@/lib/popups";
 import { dayName, duePlan, localDay, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
 import styles from "./Sheet.module.css";
@@ -15,7 +15,7 @@ import own from "./CheckIn.module.css";
 // "How was it?" a day or more after saving a place, as a pop-up on Home
 // (founder, 14 Nov 2026), so Home itself stays clean. Any answer but "Didn't
 // go" moves it to Been. Jain, vegan and halal users also get "Did it work for
-// your diet?" (counted, never a promise). "Ask me later" asks next visit.
+// your diet?" (counted, never a promise). "Ask me later" asks the next day.
 // After a night planned from Saved, "How was Saturday?" asks about every
 // stop at once, the first visit after that day (founder, 17 Nov 2026).
 const ANSWERS: { id: Verdict | "no"; face: string; label: string }[] = [
@@ -43,7 +43,8 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     const slot = popUpSlot(0);
     const placeSlot = popUpSlot(1);
     const t = setTimeout(async () => {
-      const plan = await duePlan(loadCity()?.id);
+      const due = await duePlan(loadCity()?.id);
+      const plan = due && !laterToday(`plan:${due.id}`) ? due : null;
       if (!live) return;
       if (plan) {
         placeSlot.none();
@@ -56,7 +57,8 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
         return;
       }
       slot.none();
-      const next = await nextCheckin(loadCity()?.id);
+      const found = await nextCheckin(loadCity()?.id);
+      const next = found && !laterToday(`place:${found.placeId}`) ? found : null;
       if (!live) return;
       if (!next) return placeSlot.none();
       placeSlot.ready(async () => {
@@ -74,7 +76,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     };
   }, []);
 
-  if (night) return <NightCheckIn plan={night.plan} names={night.names} onDone={(message) => (setNight(null), message && toast(message), onDone?.())} />;
+  if (night) return <NightCheckIn plan={night.plan} names={night.names} onLater={() => askLater(`plan:${night.plan.id}`)} onDone={(message) => (setNight(null), message && toast(message), onDone?.())} />;
   if (!ask) return null;
   const answers = loadAnswers();
   const dietName = answers.diet === "jain" ? "Jain" : answers.diet === "vegan" ? "vegan" : answers.halal ? "halal" : null;
@@ -92,6 +94,12 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     else done("Added to Been. That makes your next picks better.");
   }
 
+  // Not today: asked again tomorrow.
+  function later() {
+    if (step === "how") askLater(`place:${ask!.placeId}`);
+    done();
+  }
+
   function done(message?: string) {
     setAsk(null);
     if (message) toast(message);
@@ -100,7 +108,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
 
   return (
     <>
-      <div className={styles.dim} onClick={() => done()} />
+      <div className={styles.dim} onClick={() => later()} />
       <div className={styles.sheet} role="dialog" aria-label={`How was ${ask.name}?`}>
         {/* Thinks while asking; takes a bite when they loved it. */}
         <Mascot key={step} pose={step === "loved" ? "bite" : "think"} size={84} pop={step === "loved"} />
@@ -118,7 +126,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
                 </button>
               ))}
             </div>
-            <button type="button" className={styles.ghost} onClick={() => done()}>
+            <button type="button" className={styles.ghost} onClick={() => later()}>
               Ask me later
             </button>
           </>
@@ -168,7 +176,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
   );
 }
 
-export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void }) {
+export function NightCheckIn({ plan, names, onDone, onLater }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void; onLater?: () => void }) {
   const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
   const [saving, setSaving] = useState(false);
@@ -189,7 +197,7 @@ export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: 
 
   return (
     <>
-      <div className={styles.dim} onClick={() => !saving && onDone()} />
+      <div className={styles.dim} onClick={() => !saving && (onLater?.(), onDone())} />
       <div className={styles.sheet} role="dialog" aria-label={`How was ${howWas(plan)}?`}>
         <Mascot pose={pose} size={84} />
         <p className={styles.kick}>Your plan</p>
@@ -214,7 +222,7 @@ export function NightCheckIn({ plan, names, onDone }: { plan: SavedPlan; names: 
         <button type="button" className={`btn-primary ${styles.go}`} onClick={done} disabled={saving}>
           {saving ? "Saving…" : "Done"}
         </button>
-        <button type="button" className={styles.ghost} onClick={() => !saving && onDone()}>
+        <button type="button" className={styles.ghost} onClick={() => !saving && (onLater?.(), onDone())}>
           Ask me later
         </button>
       </div>

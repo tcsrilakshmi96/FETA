@@ -114,3 +114,26 @@ export function popUpSlot(rank: number) {
     },
   };
 }
+
+// "Ask me later" / "Later" means not today (founder, 26 Nov 2026: a visit is
+// now 30 minutes, so "next visit" could be the same evening, and each ask
+// looks names up again; cost and design audits). Kept on the phone.
+const LATER = "feta.laterToday";
+const today = () => new Date().toDateString();
+export function askLater(key: string) {
+  try {
+    const kept = JSON.parse(localStorage.getItem(LATER) ?? "null") as { day: string; keys: string[] } | null;
+    const keys = kept?.day === today() ? kept.keys : [];
+    localStorage.setItem(LATER, JSON.stringify({ day: today(), keys: [...new Set([...keys, key])].slice(-50) }));
+  } catch {
+    // Then it may ask next visit; that's all.
+  }
+}
+export function laterToday(key: string) {
+  try {
+    const kept = JSON.parse(localStorage.getItem(LATER) ?? "null") as { day: string; keys: string[] } | null;
+    return kept?.day === today() && kept.keys.includes(key);
+  } catch {
+    return false;
+  }
+}

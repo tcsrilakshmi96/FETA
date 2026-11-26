@@ -6,7 +6,7 @@ import Mascot from "@/components/Mascot";
 import { isSignedIn } from "@/lib/auth";
 import { currentUserId, supabase } from "@/lib/supabase";
 import styles from "./Sheet.module.css";
-import { popUpSlot } from "@/lib/popups";
+import { askLater, laterToday, popUpSlot } from "@/lib/popups";
 import { VISIT } from "@/lib/visit";
 
 // The tester form (founder, 18 Nov 2026): once someone has really tried
@@ -18,7 +18,6 @@ const FORM = TESTER_FORM;
 const VISITS_KEY = "feta.visits";
 const OPENED_KEY = "feta.formOpened";
 const COUNTED = `${VISIT}counted`;
-const LATER = `${VISIT}formLater`;
 
 export default function TesterForm() {
   const [open, setOpen] = useState(false);
@@ -32,7 +31,7 @@ export default function TesterForm() {
         sessionStorage.setItem(COUNTED, "1");
         localStorage.setItem(VISITS_KEY, String(Number(localStorage.getItem(VISITS_KEY) ?? 0) + 1));
       }
-      due = Number(localStorage.getItem(VISITS_KEY)) >= 2 && !sessionStorage.getItem(LATER);
+      due = Number(localStorage.getItem(VISITS_KEY)) >= 2 && !laterToday("tester-form");
     } catch {
       return;
     }
@@ -73,17 +72,13 @@ export default function TesterForm() {
 
   function later() {
     setOpen(false);
-    try {
-      sessionStorage.setItem(LATER, "1");
-    } catch {
-      // Fine.
-    }
+    askLater("tester-form");
   }
 
   if (!open) return null;
   return (
     <>
-      <div className={styles.dim} />
+      <div className={styles.dim} onClick={later} />
       <div className={styles.sheet} role="dialog" aria-label="Help shape Feta">
         <Mascot pose="wave" size={96} pop />
         <p className={styles.kick}>You&apos;re one of the first</p>
