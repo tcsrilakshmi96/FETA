@@ -121,6 +121,12 @@ try {
   const { error: carried } = await db.from("style_inspiration").upsert({ user_id: me, photos: [photo, photo, photo], reads: [], updated_at: new Date().toISOString() }, { onConflict: "user_id", ignoreDuplicates: true });
   const { data: kept } = await db.from("style_inspiration").select("photos").maybeSingle();
   ok("Photos brought from the anonymous account never replace the account's own", !carried && kept?.photos?.length === 1, carried?.message);
+  // The styles that come with them: the whole Style setup when the account has none, else added after its own.
+  const { error: setUp } = await db.from("style_profiles").insert({ user_id: me, wears: "women", styles: ["minimal"], budget: ["c2"], cues: ["linen shirt"], updated_at: new Date().toISOString() });
+  ok("A Style setup brought from the anonymous account can be kept", !setUp, setUp?.message);
+  const { error: added } = await db.from("style_profiles").update({ styles: ["minimal", "streetwear"], updated_at: new Date().toISOString() }).eq("user_id", me);
+  const { data: both } = await db.from("style_profiles").select("styles").maybeSingle();
+  ok("Styles brought along are added to the account's own", !added && both?.styles?.join() === "minimal,streetwear", added?.message);
   const { error: tooMany } = await db.from("style_inspiration").upsert({ photos: Array(9).fill("data:image/jpeg;base64,AAAA"), reads: [] });
   ok("More than 8 inspiration photos are refused", !!tooMany);
   const { error: notPhoto } = await db.from("style_inspiration").upsert({ photos: ["<script>hello</script>"], reads: [] });
