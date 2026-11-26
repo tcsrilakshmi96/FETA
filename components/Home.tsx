@@ -21,7 +21,7 @@ import TabBar from "@/components/TabBar";
 import TesterForm from "@/components/TesterForm";
 import WearCard from "@/components/WearCard";
 import type { PillPart } from "@/components/TopPill";
-import { formatDistance } from "@/lib/cities";
+import { distanceKm, formatDistance } from "@/lib/cities";
 import { nearMeIfAllowed } from "@/lib/near-me";
 import { loadOrigin, type Origin } from "@/lib/origin";
 import type { Category, Pick, When } from "@/lib/picks-client";
@@ -163,6 +163,13 @@ export default function Home() {
   // On a Saturday or Sunday morning the weekend tab is about today.
   // Just arrived in a new city: the first evening there.
   const where = (p: Pick) => [p.rating ? `★ ${p.rating.toFixed(1)}` : null, p.area, p.distanceKm > 0 && formatDistance(p.distanceKm, city.country)].filter(Boolean).join(" · ");
+  // How far the thing to do is from the place to eat, so the two read as
+  // one outing (tester, 26 Nov 2026).
+  const eatTop = wantsFood && wantsDo && food && !food.loading ? food.picks[0] : undefined;
+  const apart = (p: Pick) =>
+    eatTop && eatTop.lat !== undefined && eatTop.lng !== undefined && p.lat !== undefined && p.lng !== undefined
+      ? `${formatDistance(distanceKm({ lat: eatTop.lat, lng: eatTop.lng }, { lat: p.lat, lng: p.lng }), city.country)} from ${eatTop.name}`
+      : null;
   const leadSlot = lead === "food_drinks" ? food : exp;
   const nothingYet = !leadSlot || leadSlot.loading;
   // Only Style (or a trip) chosen: Style leads, places wait until asked for.
@@ -245,7 +252,7 @@ export default function Home() {
                 {isNew(top.placeId) && <span className={styles.kNew}> · NEW</span>}
               </span>
               <span className={styles.coverName}>{top.name}</span>
-              <span className={styles.coverSub}>{top.fetaNote !== undefined ? "★ Feta Pick" : top.event ? top.chips[0] ?? where(top) : where(top)}</span>
+              <span className={styles.coverSub}>{top.fetaNote !== undefined ? "★ Feta Pick" : (c === "experiences" && apart(top)) || (top.event ? top.chips[0] ?? where(top) : where(top))}</span>
             </span>
           </>
         )}

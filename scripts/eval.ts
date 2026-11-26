@@ -18,6 +18,7 @@ import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, planSearches, type Intent } from "@/lib/server/intents";
+import { nearestFirst } from "@/lib/nearest";
 import { applyHardFilters, somewhereToGo, trustedRating, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { planIsOver, planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
@@ -910,6 +911,9 @@ async function main() {
     !rulesBroken({ ...(pl("Kebab Corner") as object), location: { latitude: 12.97, longitude: 77.6 } } as never, { taste: { answers: withDiet("vegetarian"), lines: [], yes: [], no: [] } as unknown as Taste, category: "experiences", when: "weekend", origin: { lat: 12.97, lng: 77.6 }, exclude: new Set(), city: searchCities("Bengaluru", 1)[0], anyHours: true, foodDrinkOk: () => true }).some((b) => b.why === "diet") && "a meat place under things to do skips the diet",
     !dietOk(pl("Udupi Grand", "south_indian_restaurant", null), withDiet("vegetarian"), "IN") && "vegetarian in India: a place with no answer is dropped",
     dietOk(pl("Trattoria Roma", "italian_restaurant", null), withDiet("vegetarian"), "GB") && "vegetarian abroad: a place with no answer passes",
+    // Home's Eat and Do read as one outing (tester, 26 Nov 2026: 18 km apart)
+    nearestFirst([{ placeId: "far", lat: 13.1, lng: 77.6 }, { placeId: "near", lat: 12.971, lng: 77.601 }] as never, { placeId: "eat", lat: 12.97, lng: 77.6 } as never)[0].placeId !== "near" && "the thing to do nearest the dinner isn't first",
+    nearestFirst([{ placeId: "best", lat: 12.98, lng: 77.6 }, { placeId: "nearer", lat: 12.9701, lng: 77.6 }] as never, { placeId: "eat", lat: 12.97, lng: 77.6 } as never)[0].placeId !== "best" && "the best thing to do loses its place though it's already close",
     // Rooftops chosen under things to do are searched there (founder, 26 Nov 2026)
     !allIntents({ answers: { ...EMPTY_ANSWERS, interests: ["live_music", "rooftops"] }, lines: [], yes: [], no: [] } as Taste, { category: "experiences", city: searchCities("Bengaluru", 1)[0], tweaks: [], rotation: 0 }).some((i) => i.id === "interest_rooftops") && "Rooftops chosen under things to do isn't searched there",
     !somewhereToGo({ ...(pl("Skyline Rooftop", "bar") as object), types: ["bar"] } as never, "experiences", { drinkOk: () => true }) && "a rooftop bar found for Rooftops is dropped from things to do",

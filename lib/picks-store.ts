@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { nearestFirst } from "@/lib/nearest";
 import { firstSlotName } from "@/lib/slot-label";
 import { awayLongEnough } from "@/lib/visit";
 import type { Origin } from "@/lib/origin";
@@ -119,7 +120,13 @@ export function shown(s: State, key: string): Slot | undefined {
   if (hit && hit.food === food) return hit.out;
   const inFood = new Set([...(food?.picks ?? []), ...(food?.spares ?? [])].map((p) => p.placeId));
   const keep = (p: Pick) => p.kind === "DO" || p.kind === "EVENT" || !inFood.has(p.placeId);
-  const out = inFood.size && slot.picks.some((p) => !keep(p)) ? { ...slot, picks: slot.picks.filter(keep), spares: slot.spares.filter(keep) } : slot;
+  let out = inFood.size && slot.picks.some((p) => !keep(p)) ? { ...slot, picks: slot.picks.filter(keep), spares: slot.spares.filter(keep) } : slot;
+  // Home's Eat and Do read as one outing (tester, 26 Nov 2026: a pizza class
+  // and a dinner 18 km apart, "technically valid, practically useless"):
+  // of the best 3 things to do, the one nearest the first place to eat comes
+  // first, here and on the list alike.
+  const near = nearestFirst(out.picks, food?.picks[0]);
+  if (near !== out.picks) out = { ...out, picks: near };
   deduped.set(slot, { food, out });
   return out;
 }
