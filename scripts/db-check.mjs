@@ -114,8 +114,16 @@ try {
   ok("Inspiration photos can be kept on the account", !inspo, inspo?.message);
   const { data: back, error: inspoRead } = await db.from("style_inspiration").select("photos, reads").maybeSingle();
   ok("Inspiration photos come back", !inspoRead && back?.photos?.length === 2, inspoRead?.message);
-  const { error: tooMany } = await db.from("style_inspiration").upsert({ photos: Array(9).fill("data:x"), reads: [] });
+  const { error: again } = await db.from("style_inspiration").upsert({ photos: [photo], reads: [], updated_at: new Date().toISOString() });
+  const { data: one } = await db.from("style_inspiration").select("photos").maybeSingle();
+  ok("Changing the inspiration photos replaces them", !again && one?.photos?.length === 1, again?.message);
+  const { error: tooMany } = await db.from("style_inspiration").upsert({ photos: Array(9).fill("data:image/jpeg;base64,AAAA"), reads: [] });
   ok("More than 8 inspiration photos are refused", !!tooMany);
+  const { error: notPhoto } = await db.from("style_inspiration").upsert({ photos: ["<script>hello</script>"], reads: [] });
+  ok("Inspiration photos that aren't pictures are refused", !!notPhoto);
+  const { error: gone } = await db.from("style_inspiration").delete().not("user_id", "is", null);
+  const { data: none } = await db.from("style_inspiration").select("photos").maybeSingle();
+  ok("Removing every inspiration photo deletes them from the account", !gone && !none, gone?.message);
 
   // Server-only things stay server-only.
   const { error: cache } = await db.from("events_cache").insert({ key: "db-check", events: [], search_html: "", expires_at: new Date().toISOString() });

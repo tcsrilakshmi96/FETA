@@ -638,5 +638,15 @@
   "kind": "table",
   "name": "style_inspiration",
   "file": "20261126120000_style_inspiration.sql"
+ },
+ {
+  "kind": "function",
+  "name": "all_image_urls",
+  "file": "20261126150000_style_photo_checks.sql"
+ },
+ {
+  "kind": "function",
+  "name": "cap_look_pictures",
+  "file": "20261126150000_style_photo_checks.sql"
  }
 ]
