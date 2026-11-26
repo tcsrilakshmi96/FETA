@@ -43,7 +43,14 @@ export async function saveBeen(
   // Feta Favourites: recommended to others with a similar taste (only the
   // place and a count are shared, never who).
   if (fields.recommend !== undefined) row.recommend = fields.recommend;
-  const { error } = await supabase().from("pick_actions").upsert(row, { onConflict: "user_id,place_id,action" });
+  let { error } = await supabase().from("pick_actions").upsert(row, { onConflict: "user_id,place_id,action" }).abortSignal(AbortSignal.timeout(12000));
+  // The answer can be lost on a weak connection though the save went
+  // through (tester, 26 Nov 2026: "couldn't add", then it was added): looked
+  // up before saying it failed.
+  if (error) {
+    const { data } = await supabase().from("pick_actions").select("verdict, recommend").eq("place_id", placeId).eq("action", "been").maybeSingle();
+    if (data && (fields.verdict === undefined || data.verdict === fields.verdict) && (fields.recommend === undefined || data.recommend === fields.recommend)) error = null;
+  }
   if (error) console.error("Saving place failed", error.message);
   else {
     // Saved shows it straight away (round 3 audit, 26 Nov 2026).
