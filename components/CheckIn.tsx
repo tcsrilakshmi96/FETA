@@ -9,6 +9,7 @@ import { markAsked, nextCheckin, placeName, saveBeen, VERDICTS, type Verdict } f
 import { askLater, laterToday, popUpSlot, shownThisVisit } from "@/lib/popups";
 import { dayName, duePlan, localDay, markPlanChecked, type SavedPlan } from "@/lib/night-client";
 import { loadAnswers } from "@/lib/onboarding";
+import { learnNotForMe } from "@/lib/taste-client";
 import styles from "./Sheet.module.css";
 import own from "./CheckIn.module.css";
 
@@ -89,6 +90,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
     }
     saveBeen(ask!.placeId, { verdict: id, visits: "once", category: ask!.category ?? undefined });
     logEvent("checkin", ask!.placeId);
+    if (id === "not_for_me") learnNotForMe(ask!.placeId).then((l) => l && toast(l.said, { label: "Undo", run: l.undo }));
     if (dietName && id !== "not_for_me" && ask!.category === "food_drinks") setStep("diet");
     else if (id === "loved") setStep("loved");
     else done("Added to Been. That makes your next picks better.");
@@ -177,6 +179,7 @@ export default function CheckIn({ onDone }: { onDone?: () => void }) {
 }
 
 export function NightCheckIn({ plan, names, onDone, onLater }: { plan: SavedPlan; names: string[]; onDone: (message?: string) => void; onLater?: () => void }) {
+  const toast = useToast();
   const [answers, setAnswers] = useState<Record<string, Verdict | "no">>({});
   const choices: { id: Verdict | "no"; label: string }[] = [...VERDICTS, { id: "no", label: "Didn't go" }];
   const [saving, setSaving] = useState(false);
@@ -190,6 +193,11 @@ export function NightCheckIn({ plan, names, onDone, onLater }: { plan: SavedPlan
     // Saved before closing, so a screen that reloads after shows the answers.
     await Promise.all([...been.map(([placeId, verdict]) => saveBeen(placeId, { verdict, visits: "once" })), markPlanChecked(plan.id)]);
     onDone(been.length ? "Added to Been. That makes your next picks better." : undefined);
+    // Each "Not for me" teaches its kind; the last is said, with Undo.
+    Promise.all(been.filter(([, v]) => v === "not_for_me").map(([placeId]) => learnNotForMe(placeId))).then((ls) => {
+      const l = ls.filter(Boolean).pop();
+      if (l) toast(l.said, { label: "Undo", run: l.undo });
+    });
   }
 
   // The cheese reacts to the answers: a cheer for a loved stop, sorry for one that wasn't.

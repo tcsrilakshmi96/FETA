@@ -6,6 +6,7 @@ import { isSignedIn } from "@/lib/auth";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
 import type { City } from "@/lib/cities";
 import { categoryOf, saveBeen, VERDICTS, VISITS, type Verdict, type Visits } from "@/lib/my-places";
+import { learnNotForMe } from "@/lib/taste-client";
 import styles from "./AddPlace.module.css";
 
 // "Add a place you've been": find it (Google suggestions near the city),
@@ -61,7 +62,10 @@ export default function AddPlace({ city, onClose, onAdded, recommending = false 
     setSaving(false);
     // Never fail quietly (a missing database column once dropped these without a word).
     if (!ok) toast("Couldn't save that just now. Try again in a minute.");
-    else onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
+    else {
+      if (verdict === "not_for_me") learnNotForMe(chosen.placeId).then((l) => l && toast(l.said, { label: "Undo", run: l.undo }));
+      onAdded({ placeId: chosen.placeId, name: chosen.name, detail: chosen.detail, visits: visits ?? "once", verdict, note: note.trim() });
+    }
   }
 
   return (

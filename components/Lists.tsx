@@ -8,6 +8,7 @@ import SavedBrands from "@/components/SavedBrands";
 import NightPlan, { type NightStart } from "@/components/NightPlan";
 import TabBar from "@/components/TabBar";
 import { useToast } from "@/components/Toast";
+import { learnNotForMe } from "@/lib/taste-client";
 import { markBeen, removeFromList, saveListNote } from "@/lib/db";
 import { fetchLists, type ListItem } from "@/lib/lists-client";
 import { distanceKm, formatDistance } from "@/lib/cities";
@@ -703,6 +704,7 @@ export default function Lists() {
                       className={open.verdict === v.id ? styles.rateOn : ""}
                       onClick={() => {
                         saveBeen(open.placeId, { verdict: v.id as Verdict });
+                        if (v.id === "not_for_me" && open.verdict !== "not_for_me") learnNotForMe(open.placeId).then((l) => l && toast(l.said, { label: "Undo", run: l.undo }));
                         update(open.placeId, "been", { verdict: v.id });
                         setOpen({ ...open, verdict: v.id });
                       }}

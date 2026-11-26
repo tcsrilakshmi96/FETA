@@ -99,7 +99,7 @@ export async function markAsked(placeId: string) {
 // (nothing stored). Signed in, the lookup is counted as theirs; the same
 // place isn't asked for twice within the hour on this phone (audit, 20 Nov
 // 2026: Saved and trips looked the same places up on every open).
-export type LivePlace = { name: string; area: string; mapsUri: string; photo?: string | null; credit?: string | null };
+export type LivePlace = { name: string; area: string; mapsUri: string; type?: string | null; photo?: string | null; credit?: string | null };
 const placeCache = new Map<string, { at: number; place: Promise<LivePlace | null> }>();
 export function livePlace(placeId: string, lite = true): Promise<LivePlace | null> {
   const key = `${placeId}:${lite}`;

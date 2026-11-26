@@ -6,6 +6,7 @@ import { saveAnswersToDb, saveProfileLinesToDb } from "@/lib/db";
 import { saveAnswers, type Answers } from "@/lib/onboarding";
 import { changingTaste, forgetPicks } from "@/lib/picks-store";
 import { pickedUpLines, saveProfileLines, type ProfileLine, type Swipe } from "@/lib/swipes";
+import { removeLine } from "@/lib/profile-client";
 import { currentUserId, supabase } from "@/lib/supabase";
 
 // One way to change what Feta knows (founder, 18 Nov 2026: one path): You,
@@ -38,13 +39,13 @@ async function save(answers: Answers, swipes: Swipe[]): Promise<boolean> {
 
 // What a skip taught Feta, as a line in You ("Not into brewpubs"), keyed so
 // the search can act on it (notinto:<Google type>). Returns the line's id for Undo.
-export async function learnFromSkip(key: string, text: string): Promise<string | null> {
+export async function learnFromSkip(key: string, text: string, source: "skips" | "checkin" = "skips"): Promise<string | null> {
   const userId = await currentUserId();
   if (!userId) return null;
   const { data, error } = await changingTaste(
     supabase()
       .from("profile_lines")
-      .upsert({ user_id: userId, line_key: key, text, source: "skips", removed_at: null }, { onConflict: "user_id,line_key" })
+      .upsert({ user_id: userId, line_key: key, text, source, removed_at: null }, { onConflict: "user_id,line_key" })
       .select("id")
       .single(),
   );
@@ -53,3 +54,17 @@ export async function learnFromSkip(key: string, text: string): Promise<string |
   return data?.id ?? null;
 }
 
+// "Not for me" on a place they've been (founder, 26 Nov 2026: food a
+// tester disliked kept coming back): its kind is learned as a skip's "Not
+// into" is, shown in You as "From an outing" with ✕, and never picked again.
+// Kinds too broad to say no to ("restaurant") teach nothing. Returns what
+// was learned, with Undo, for the message.
+export async function learnNotForMe(placeId: string): Promise<{ said: string; undo: () => void } | null> {
+  const { livePlace } = await import("@/lib/my-places");
+  const { kindOfPlace } = await import("@/lib/place-words");
+  const type = (await livePlace(placeId))?.type ?? null;
+  const kind = kindOfPlace(type ?? undefined);
+  if (!type || !kind) return null;
+  const id = await learnFromSkip(`notinto:${type}`, `Not into ${kind}`, "checkin");
+  return id ? { said: `Got it: no more ${kind}.`, undo: () => void removeLine(id) } : null;
+}

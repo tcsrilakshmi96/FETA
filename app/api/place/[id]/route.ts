@@ -40,6 +40,8 @@ async function live(request: Request, id: string) {
   const photo = lite ? undefined : bestPhoto(place);
   return Response.json({
     name: place.displayName?.text ?? "A place",
+    // The kind of place, so "Not for me" can learn it (never stored but as the kind).
+    type: place.primaryType ?? null,
     area: [pick("sublocality_level_1") ?? pick("neighborhood"), pick("locality")].filter(Boolean).join(", "),
     mapsUri: place.googleMapsUri ?? `https://www.google.com/maps/place/?q=place_id:${id}`,
     photo: photo?.name ? await photoUri(photo.name) : null,
