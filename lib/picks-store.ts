@@ -106,8 +106,22 @@ function fromPhone() {
 }
 
 // What a screen shows for a list: the tweaked one when there is one.
+// A place in both lists (a café found for board games and for food) shows
+// once, in the list it's mainly for (tester, 26 Nov 2026: the same place
+// twice, once under Experiences).
+const deduped = new WeakMap<Slot, { food: Slot | undefined; out: Slot }>();
 export function shown(s: State, key: string): Slot | undefined {
-  return s.tweaked[key]?.slot ?? s.lists[key];
+  const slot = s.tweaked[key]?.slot ?? s.lists[key];
+  if (!slot || !key.endsWith(":experiences")) return slot;
+  const foodKey = key.replace(/:experiences$/, ":food_drinks");
+  const food = s.tweaked[foodKey]?.slot ?? s.lists[foodKey];
+  const hit = deduped.get(slot);
+  if (hit && hit.food === food) return hit.out;
+  const inFood = new Set([...(food?.picks ?? []), ...(food?.spares ?? [])].map((p) => p.placeId));
+  const keep = (p: Pick) => p.kind === "DO" || p.kind === "EVENT" || !inFood.has(p.placeId);
+  const out = inFood.size && slot.picks.some((p) => !keep(p)) ? { ...slot, picks: slot.picks.filter(keep), spares: slot.spares.filter(keep) } : slot;
+  deduped.set(slot, { food, out });
+  return out;
 }
 
 let sweeping = false;
