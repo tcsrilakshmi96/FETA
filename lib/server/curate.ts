@@ -152,6 +152,7 @@ export async function curate(input: CurateInput): Promise<CurateResult> {
     at: input.at,
     evening: input.evening,
     foodDrinkOk: (p) => matched(p).some((id) => looked.find((i) => i.id === id)?.def.foodDrink),
+    drinkOk: (p) => category === "experiences" && matched(p).some((id) => looked.find((i) => i.id === id)?.def.drinkPlace),
     untypedOk: (p) => matched(p).length > 0,
     reachKm: (p) => Math.max(limit, ...looked.filter((i) => matched(p).includes(i.id)).map(reach)),
   };

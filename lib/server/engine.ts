@@ -535,7 +535,7 @@ async function showStored(
   // changes is whether it's open and still there (backend audit, 23 Nov
   // 2026: re-checking with their everyday distance dropped a whole-city set
   // and paid for a new search; a trip out at the weekend vanished).
-  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan, evening: !!ctx.body.evening, fullHour: ctx.fullHour });
+  const passed = applyHardFilters(places, { taste: ctx.taste, category: ctx.body.category, when: ctx.body.when, origin: ctx.origin, exclude: ctx.exclude, city: ctx.city, foodDrinkOk: () => true, drinkOk: () => true, untypedOk: () => true, reachKm: () => Infinity, anyHours: ctx.body.dayPlan, evening: !!ctx.body.evening, fullHour: ctx.fullHour });
   const byId = new Map<string, Candidate>(passed.map((c) => [c.place.id, c]));
   const placePicks = await Promise.all(
     placeStored

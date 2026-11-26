@@ -81,7 +81,8 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
     out.push({ id: `tweak_${t}`, label: q, reason: `Because you asked for somewhere ${t === "groups" ? "good for groups" : t === "kids" ? "good with kids" : t}.`, query: vegWord(q), def: { searches: [q] }, explicit: true, source: "tweak", food });
   }
   // Hidden bars and rooftops are places to drink: Food & drinks searches
-  // them, Things to do doesn't.
+  // them, and so does Things to do when they chose them there (founder,
+  // 26 Nov 2026: Live music + Rooftops brought only live music).
   // A group with specifics chosen inside it ("Pottery" in "Classes and
   // workshops") is searched as those, not as any kind.
   const options = QUESTIONS.find((q) => q.id === "interests")?.options ?? [];
@@ -89,7 +90,7 @@ export function allIntents(taste: Taste, opts: { category: Category; city: City;
   for (const id of taste.answers.interests) {
     if (narrowed.has(id)) continue;
     const def = INTEREST_SEARCH[id];
-    if (!def || !!def.drinkPlace !== food || (def.alcohol && sober)) continue;
+    if (!def || (food && !def.drinkPlace) || (def.alcohol && sober)) continue;
     const label = interestLabel(id);
     // Tastings in general: the city's own speciality first (beer in Prague).
     const local = id === "tastings" && !sober ? LOCAL_TASTING[city.country] : undefined;

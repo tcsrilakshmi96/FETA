@@ -352,11 +352,13 @@ export const neverAPickType = (type: string) => NEVER_PICKS.includes(type);
 // to do, never a shop, a bar, a café or restaurant unless something they're
 // into happens there (foodDrinkOk), and a place Google can't type only when
 // it's what they chose (untypedOk).
-export function somewhereToGo(place: Place, category: Category, ok: { foodDrinkOk?: (p: Place) => boolean; untypedOk?: (p: Place) => boolean } = {}) {
+// drinkOk: a rooftop or hidden bar they chose under things to do, found
+// for that choice (founder, 26 Nov 2026: "search them in both").
+export function somewhereToGo(place: Place, category: Category, ok: { foodDrinkOk?: (p: Place) => boolean; drinkOk?: (p: Place) => boolean; untypedOk?: (p: Place) => boolean } = {}) {
   if (neverAPickType(place.primaryType ?? "") || NOT_A_NIGHT_OUT.test(place.displayName?.text ?? "")) return false;
   if (category !== "experiences") return true;
   if (/_store$/.test(place.primaryType ?? "")) return false;
-  if (isMainlyFoodOrDrink(place) && (isMainlyBar(place) || !ok.foodDrinkOk?.(place))) return false;
+  if (isMainlyFoodOrDrink(place) && !ok.drinkOk?.(place) && (isMainlyBar(place) || !ok.foodDrinkOk?.(place))) return false;
   if (!place.primaryType && !ok.untypedOk?.(place)) return false;
   return true;
 }
@@ -416,7 +418,7 @@ export function emptyDrops(): DropCounts {
 // Google are usually cheap (founder's decision). Diet: dietOk. Unknown hours
 // fail. foodDrinkOk: a bar or café that Experiences keeps because it is the
 // thing to do (karaoke, a rooftop, board games).
-export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; evening?: boolean; fullHour?: boolean; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
+export type FilterOpts = { taste: Taste; category: Category; when: When; origin: { lat: number; lng: number }; exclude: Set<string>; city: City; foodDrinkOk?: (place: Place) => boolean; drinkOk?: (place: Place) => boolean; anyHours?: boolean; at?: At; evening?: boolean; fullHour?: boolean; reachKm?: (place: Place) => number; untypedOk?: (place: Place) => boolean };
 
 export function applyHardFilters(places: Place[], opts: FilterOpts, drops: DropCounts = emptyDrops()): Candidate[] {
   const out: Candidate[] = [];
