@@ -451,8 +451,10 @@ export function rulesBroken(place: Place, opts: FilterOpts): Broken[] {
   const km = placeKm(place, opts.origin);
   if (opts.reachKm ? km > opts.reachKm(place) : tooFar(km, answers)) out.push({ why: "far", line: "Further than you usually go" });
   if (priceFit(place, answers, opts.city) === "over") out.push({ why: "price", line: "Above your usual budget" });
-  // Diet applies to food and drinks only (Google has no diet data for, say, a park).
-  if (opts.category === "food_drinks" && !dietOk(place, answers, opts.city.country)) out.push({ why: "diet", line: "May not suit how you eat · check with staff" });
+  // Diet applies to every place to eat or drink, also one kept under things
+  // to do or in a day plan (testers, 26 Nov 2026: a vegetarian got food
+  // places that way); a park has no diet data and isn't checked.
+  if ((opts.category === "food_drinks" || isMainlyFoodOrDrink(place)) && !dietOk(place, answers, opts.city.country)) out.push({ why: "diet", line: "May not suit how you eat · check with staff" });
   // A restaurant that also has a bar is fine for someone who doesn't drink.
   if (answers.drinks === "no_alcohol" && ALCOHOL_TYPES.includes(place.primaryType ?? "")) out.push({ why: "alcohol", line: "Mainly a bar" });
   // A day plan checks each stop's hours for its own day and time (itinerary.ts).
