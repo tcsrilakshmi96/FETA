@@ -1,11 +1,10 @@
-import { after } from "next/server";
 import { FAKE } from "@/lib/server/fake-places";
-import { askIs, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
+import { askIs, later, limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { findSpots, lookPicture } from "@/lib/server/style";
 import { userDb, userIdFor } from "@/lib/server/taste";
 import { SLOTS, styleById, type Look, type Slot, type Wears } from "@/lib/style";
 
-// The picture (up to 60 s) and then where its pieces are (up to 15 s).
+// The picture (up to 60 s), then where its pieces are (up to 15 s, after the reply).
 export const maxDuration = 90;
 
 // A look's realistic picture, made when that look comes on screen (founder,
@@ -34,14 +33,18 @@ export async function POST(request: Request) {
     askIs({ key: [look.id, wears], label: `picture · ${look.style}` });
     try {
       const image = await lookPicture(look, wears);
-      const spots = await findSpots(image, look.pieces).catch(() => null);
-      after(async () => {
-          const { error } = await db.from("look_pictures").upsert({ user_id: userId, look_id: look.id, style_id: look.style, image, spots });
-          if (error) return console.error("look picture", error.message);
-          const { data: old } = await db.from("look_pictures").select("look_id").order("created_at", { ascending: false }).range(60, 200);
-          if (old?.length) await db.from("look_pictures").delete().in("look_id", old.map((r) => r.look_id));
-        });
-      return Response.json({ image, spots });
+      // The picture goes to the phone at once; where its pieces are (up to
+      // 15 s more) is found after and kept with it, and the phone picks the
+      // dots up from there (testers, 26 Nov 2026: Style too slow).
+      const { error } = await db.from("look_pictures").upsert({ user_id: userId, look_id: look.id, style_id: look.style, image, spots: null });
+      if (error) console.error("look picture", error.message);
+      later(async () => {
+        const spots = await findSpots(image, look.pieces).catch(() => null);
+        if (spots) await db.from("look_pictures").update({ spots }).eq("look_id", look.id);
+        const { data: old } = await db.from("look_pictures").select("look_id").order("created_at", { ascending: false }).range(60, 200);
+        if (old?.length) await db.from("look_pictures").delete().in("look_id", old.map((r) => r.look_id));
+      });
+      return Response.json({ image });
     } catch (error) {
       console.error(error);
       return Response.json({ notice: "Couldn't make this picture." });

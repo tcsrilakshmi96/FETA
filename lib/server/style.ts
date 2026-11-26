@@ -243,15 +243,23 @@ Reply with only JSON: {"looks": [{"style": the style id it is from (one of their
   // Redone once, only with time left before the request's 60 s limit; with
   // little left, the good looks from the first answer are shown.
   const left = 52000 - (Date.now() - started);
-  if ((looks.length < n || bad.some(Boolean)) && left > 10000) {
-    // Once more, saying what was wrong (never cut to fit).
+  const good = looks.filter((_, i) => !bad[i]).slice(0, n);
+  if (good.length < n && left > 10000) {
+    // Only the missing looks are asked for again, saying what was wrong and
+    // keeping the good ones (testers, 26 Nov 2026: Style too slow; a whole
+    // new set took as long again). Never cut to fit.
     const why = bad.map((b, i) => (b ? `look ${i + 1}: ${b}` : "")).filter(Boolean).join("; ") || `only ${looks.length} came back`;
-    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, Math.min(25000, left));
+    const need = n - good.length;
+    const keep = good.length ? ` Keep these, they're fine: ${good.map((l) => `${l.style}: ${l.pieces.map((x) => x.name).join(", ")}`).join(" | ")}. Give only ${need} new look${need > 1 ? "s" : ""}, clearly different from them, using their styles not used yet when there are any.` : "";
+    const ask2 = await gemini("gemini_rank", "gemini-3.5-flash", [{ text: `${base}\n\nYour last answer had problems (${why}). Answer again, fixing them.${keep}` }], { responseMimeType: "application/json", thinkingConfig: { thinkingLevel: "low" } }, Math.min(25000, left));
     const again = parseLooks(textOf(ask2), ask);
-    const againBad = problems(again);
-    const good = (ls: Look[], b: (string | null)[]) => ls.filter((_, i) => !b[i]);
-    looks = good(again, againBad).length >= good(looks, bad).length ? again : looks;
-    bad = problems(looks);
+    const all = [...good, ...again];
+    const allBad = problems(all);
+    const fixed = all.filter((_, i) => !allBad[i]);
+    if (fixed.length > good.length) {
+      looks = all;
+      bad = allBad;
+    }
   }
   const ok = looks.filter((_, i) => !bad[i]).slice(0, n);
   if (!ok.length) throw new Error(`No complete look: ${bad.join("; ")}`);

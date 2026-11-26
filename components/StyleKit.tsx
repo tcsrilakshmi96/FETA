@@ -114,11 +114,20 @@ export function LookCard({ look, wears, pic, making, waiting, owned, onPiece, pi
     return () => ro.disconnect();
   }, []);
   // Where the pieces are in their picture (found when it was made).
+  // A new picture's dots come a few seconds after it, so asked again a few times.
   useEffect(() => {
     let live = true;
-    if (pic) keptSpots(look).then((x) => live && setFound({ id: look.id, spots: x }));
+    const timers: number[] = [];
+    const ask = (n: number) =>
+      keptSpots(look).then((x) => {
+        if (!live) return;
+        if (x || n >= 4) return setFound({ id: look.id, spots: x });
+        timers.push(window.setTimeout(() => ask(n + 1), 5000));
+      });
+    if (pic) ask(0);
     return () => {
       live = false;
+      timers.forEach((t) => window.clearTimeout(t));
     };
   }, [look, pic]);
   // Each dot in % of the card: the picture is shown whole (contain), centred.

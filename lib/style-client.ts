@@ -38,8 +38,10 @@ async function post<T>(path: string, body: unknown): Promise<T | null> {
   try {
     // A stuck request gives up instead of leaving "Picking a look…" forever,
     // but never before the server would have answered: a look's picture
-    // takes up to 75 s there (picture and dots), reading photos up to 40 s.
-    const wait = path.endsWith("/picture") ? 85000 : path.endsWith("/read") ? 45000 : 35000;
+    // takes up to 75 s there (picture and dots), reading photos up to 40 s,
+    // looks up to 60 s (a first try and a redo; testers, 26 Nov 2026: cut off
+    // at 35 s, the phone started again and the wait doubled).
+    const wait = path.endsWith("/picture") ? 85000 : path.endsWith("/read") ? 45000 : 62000;
     const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(wait) });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
@@ -451,9 +453,8 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
         return data.image as string;
       }
     }
-    const r = await post<{ image?: string; spots?: ([number, number] | null)[] | null; notice?: string }>("/api/style/picture", { look, wears });
+    const r = await post<{ image?: string; notice?: string }>("/api/style/picture", { look, wears });
     if (r?.image) await keepOnPhone(key, r.image);
-    if (r?.image && r.spots) await keepOnPhone(spotsKey(look), JSON.stringify(r.spots));
     if (!r?.image) {
       picturesAsked.delete(key);
       pictureNotice = r?.notice ?? "Couldn't make the picture just now. Try again in a minute.";
@@ -465,10 +466,18 @@ export function lookPicture(look: Look, wears: Wears): Promise<string | null> {
 }
 // Where each piece sits in the look's picture (x, y as fractions), when known.
 // pic: the picture on screen, so the dots are that picture's.
+// Not on the phone yet: from their account, where the picture's spots are
+// kept once found (a few seconds after the picture arrives).
 export async function keptSpots(look: Look): Promise<([number, number] | null)[] | null> {
+  const fits = (v: unknown) => (Array.isArray(v) && v.length === look.pieces.length ? (v as ([number, number] | null)[]) : null);
   try {
-    const v = JSON.parse((await fromPhone(spotsKey(look))) ?? "null");
-    return Array.isArray(v) && v.length === look.pieces.length ? v : null;
+    const v = fits(JSON.parse((await fromPhone(spotsKey(look))) ?? "null"));
+    if (v) return v;
+    if (!(await currentUserId())) return null;
+    const { data } = await supabase().from("look_pictures").select("spots").eq("look_id", look.id.slice(0, 40)).maybeSingle();
+    const found = fits(data?.spots);
+    if (found) await keepOnPhone(spotsKey(look), JSON.stringify(found));
+    return found;
   } catch {
     return null;
   }
