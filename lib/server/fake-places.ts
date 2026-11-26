@@ -1,6 +1,7 @@
 import "server-only";
 import type { Intent } from "@/lib/server/intents";
 import type { Candidate, Ranked } from "@/lib/server/picks";
+import { trustedRating } from "@/lib/server/rating";
 import type { Place } from "@/lib/server/places";
 
 // Test mode (FAKE_PLACES=1, only on the founder's Mac, and the quality
@@ -218,7 +219,7 @@ export function fakeRank(candidates: Candidate[], wanted: Intent[]): Ranked[] {
   return candidates
     .map((c, index) => {
       const serves = (c.intents ?? []).filter((id) => ids.includes(id));
-      const score = (serves.length ? 3 : 0) + (c.place.rating ?? 4) - ((c.place.userRatingCount ?? 0) >= 3000 ? 0.3 : 0);
+      const score = (serves.length ? 3 : 0) + (trustedRating(c.place) ?? 4) - ((c.place.userRatingCount ?? 0) >= 3000 ? 0.3 : 0);
       const first = wanted.find((w) => serves.includes(w.id));
       return { index, score, serves, because: first?.reason ?? "" };
     })

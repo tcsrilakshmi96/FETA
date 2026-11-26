@@ -1,5 +1,6 @@
 import "server-only";
 
+import { trustedRating } from "@/lib/server/rating";
 import { eventLinkLabel } from "@/lib/event-links";
 
 import { distanceKm, formatDistance, type City } from "@/lib/cities";
@@ -385,6 +386,8 @@ export function brandOf(name: string) {
 // A live run (Bengaluru, 18 Nov 2026) offered a ★1.8 dessert shop and "257,
 // Sri Lakshmi Nrusimha" as a thing to do; a ★3.7 Taco Bell with few reviews
 // got through the old "20 or more reviews" exception (founder, 21 Nov 2026).
+export { trustedRating };
+
 export function poorlyKnown(place: Place) {
   const count = place.userRatingCount ?? 0;
   return count < 5 || (place.rating !== undefined && place.rating < 3.8);
@@ -668,7 +671,7 @@ function describe(c: Candidate, i: number, category: Category) {
     p.primaryType && `type ${p.primaryType.replace(/_/g, " ")}`,
     `${c.km.toFixed(1)} km`,
     p.priceLevel && `price ${p.priceLevel.replace("PRICE_LEVEL_", "").toLowerCase()}`,
-    p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews`,
+    p.rating && `rating ${p.rating} from ${p.userRatingCount ?? 0} reviews (weighed: ${trustedRating(p)})`,
     (p.userRatingCount ?? 0) >= POPULAR_REVIEWS && "VERY POPULAR",
     c.fetaNote !== undefined && `FETA PICK, the founder's own favourite${c.fetaNote ? `: "${c.fetaNote}"` : ""}`,
     c.lovedBy && `FETA FAVOURITE, loved by ${c.lovedBy} Feta ${c.lovedBy === 1 ? "user" : "users"} with a similar taste`,
@@ -716,6 +719,7 @@ ${category === "food_drinks" && needsDietCheck(opts.taste.answers) ? `They are v
   }Places marked FETA PICK are the founder's own favourites, FETA FAVOURITE ones were loved by other Feta users with a similar taste, LOCAL FAVOURITE ones are recommended by locals, and FEATURED ones by a city guide: rank the ones that suit this person highly, any that don't as you would any other place, and a "because" may mention it.
 
 Rank the best ${SHOW + 6} for them (fewer if fewer genuinely suit them), best first. Rules:
+- Judge how good a place is by its weighed rating, never its raw stars: a few perfect reviews mean less than thousands of good ones.
 - Prefer finds over the obvious: at most ${popularCap(opts.taste)} places marked VERY POPULAR in the top ${SHOW}, and not first.
 ${wanted.length ? `- Cover what they want most: the best place for each id above near the top, and most of the top ${SHOW} for those things, mixed rather than one kind.\n- "serves": the ids above that this place genuinely is (a Thai restaurant is [cuisine_thai]; a karaoke bar is [interest_karaoke]). [] if none.` : "- Mix kinds of place rather than several of one kind."}
 - "because": one line, at most 110 characters, starting "Because you", naming the one thing they chose, said or love that THIS place serves (one of those in "serves"; never a this-or-that card pick, never something under "Said no to"; if it serves none, leave "because" empty) that genuinely fits THIS place and ${when === "weekend" ? "the weekend" : slotWord(when, city) === "today" ? "going out today" : "an evening out tonight"} (never cite breakfast for dinner, or a bar for someone who doesn't drink). Never say a place is safe for a diet or allergy.

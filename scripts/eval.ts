@@ -18,7 +18,7 @@ import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
 import { allIntents, planSearches, type Intent } from "@/lib/server/intents";
-import { applyHardFilters, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
+import { applyHardFilters, trustedRating, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
 import { planIsOver, planNight, roomForOne, type NightPlace } from "@/lib/night-plan";
 import { CATALOGUE, fakeDetails } from "@/lib/server/fake-places";
@@ -907,6 +907,8 @@ async function main() {
     !rulesBroken({ ...(pl("Kebab Corner") as object), location: { latitude: 12.97, longitude: 77.6 } } as never, { taste: { answers: withDiet("vegetarian"), lines: [], yes: [], no: [] } as unknown as Taste, category: "experiences", when: "weekend", origin: { lat: 12.97, lng: 77.6 }, exclude: new Set(), city: searchCities("Bengaluru", 1)[0], anyHours: true, foodDrinkOk: () => true }).some((b) => b.why === "diet") && "a meat place under things to do skips the diet",
     !dietOk(pl("Udupi Grand", "south_indian_restaurant", null), withDiet("vegetarian"), "IN") && "vegetarian in India: a place with no answer is dropped",
     dietOk(pl("Trattoria Roma", "italian_restaurant", null), withDiet("vegetarian"), "GB") && "vegetarian abroad: a place with no answer passes",
+    // Ratings weighed by how many gave them (founder, 26 Nov 2026)
+    !((trustedRating({ rating: 4.3, userRatingCount: 37900 }) ?? 0) > (trustedRating({ rating: 5, userRatingCount: 28 }) ?? 9)) && "5.0 from 28 reviews beats 4.3 from 37,900",
     // One loved place never takes every search (testers, 26 Nov 2026)
     (() => {
       const mk = (id: string, source: "loved" | "cuisine"): Intent => ({ id, label: id, reason: "", query: id, def: { searches: [id] }, explicit: true, source, food: true });
