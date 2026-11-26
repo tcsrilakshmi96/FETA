@@ -316,6 +316,14 @@ async function main() {
     await wait(2000);
     const you = await p.evaluate(() => document.body.innerText);
     check(new RegExp(typedKnown).test(you) && /Burmese/.test(you), `You shows "${typedKnown}" and "Burmese"`, you.slice(0, 400));
+    // The form from "Send feedback" (founder, 26 Nov 2026): once opened there,
+    // neither "How's Feta so far?" nor the form card asks again.
+    await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => /Send feedback/.test(b.textContent ?? ""))?.click());
+    await wait(600);
+    const formLink = await p.evaluate(() => { const a = [...document.querySelectorAll("a")].find((x) => /short form/.test(x.textContent ?? "")); a?.addEventListener("click", (e) => e.preventDefault()); a?.click(); return !!a; });
+    const marks = await p.evaluate(() => ({ asked: !!localStorage.getItem("feta.feedbackAsked"), form: localStorage.getItem("feta.formOpened") }));
+    check(formLink && marks.asked && marks.form === "1", "Opening the form from Send feedback stops both feedback pop-ups asking", JSON.stringify({ formLink, ...marks }));
+    await p.keyboard.press("Escape");
 
     // A change in You changes the picks (founder, 19 Nov 2026: "if the
     // choices in You are changed, is it impacting the choices given?").

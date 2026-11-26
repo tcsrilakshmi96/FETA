@@ -1,6 +1,6 @@
 "use client";
 
-import { TESTER_FORM } from "@/components/Feedback";
+import { FORM_OPENED, TESTER_FORM } from "@/components/Feedback";
 import { useEffect, useState } from "react";
 import Mascot from "@/components/Mascot";
 import { isSignedIn } from "@/lib/auth";
@@ -16,7 +16,7 @@ import { VISIT } from "@/lib/visit";
 // tap-to-answer questions, so testers get one ask, not two.
 const FORM = TESTER_FORM;
 const VISITS_KEY = "feta.visits";
-const OPENED_KEY = "feta.formOpened";
+const OPENED_KEY = FORM_OPENED;
 const COUNTED = `${VISIT}counted`;
 
 export default function TesterForm() {
@@ -85,7 +85,7 @@ export default function TesterForm() {
         <h2 className={styles.title}>
           Help shape <strong>Feta</strong>
         </h2>
-        <p className={styles.sub}>A short form, about 2 minutes. What you say decides what we build next.</p>
+        <p className={styles.sub}>A short form, under a minute. What you say decides what we build next.</p>
         <button type="button" className={`btn-primary ${styles.go}`} onClick={fill}>
           Fill it in
         </button>

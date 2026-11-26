@@ -25,6 +25,19 @@ const WEEK = 7 * 24 * 3600 * 1000;
 const ASK_ON = /^\/(home|picks|lists|style|you|trip)/;
 const FACES = ["😞", "😕", "🙂", "😀", "🤩"];
 export const TESTER_FORM = "https://docs.google.com/forms/d/e/1FAIpQLScYVziHCVl-bIVIfBGzbNV31FTNj7AN1zU58kF05k2SFw1uQQ/viewform";
+// They opened the testers' form (from its card or from here): the card never asks again.
+export const FORM_OPENED = "feta.formOpened";
+// Feedback they gave on their own (founder, 26 Nov 2026: someone who sent
+// it from You shouldn't then be asked "How's Feta so far?"): counts as asked
+// for the week, and opening the form here ends the form card's asking.
+function gaveFeedback({ form = false } = {}) {
+  try {
+    localStorage.setItem(ASKED, String(Date.now()));
+    if (form) localStorage.setItem(FORM_OPENED, "1");
+  } catch {
+    // Asked again another time; that's all.
+  }
+}
 
 export default function Feedback() {
   const pathname = usePathname();
@@ -110,6 +123,7 @@ export default function Feedback() {
       setState("failed");
       return;
     }
+    gaveFeedback();
     setMessage("");
     setState("sent");
     setTimeout(close, 1800);
@@ -168,8 +182,8 @@ export default function Feedback() {
                   </button>
                 )}
                 {/* The testers' form, for more than a line (founder, 24 Nov 2026). */}
-                <a className={styles.form} href={TESTER_FORM} target="_blank" rel="noopener noreferrer">
-                  Got 2 minutes? Fill in our short form ›
+                <a className={styles.form} href={TESTER_FORM} target="_blank" rel="noopener noreferrer" onClick={() => gaveFeedback({ form: true })}>
+                  Got a minute? Fill in our short form ›
                 </a>
                 {state === "failed" && <p className={styles.error}>Couldn&apos;t send just now. Try again in a moment.</p>}
                 <button type="button" className={styles.send} disabled={(!message.trim() && rating === null) || state === "sending"} onClick={send}>
