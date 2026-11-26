@@ -27,6 +27,16 @@ type Mode = "loading" | "where" | "looks" | "wearing" | "worn" | "limit";
 const OFF = ["Colours", "Fit or shape", "Too dressy", "Too casual", "Costs too much", "Just not me"];
 const SETTINGS = ["Outdoors", "Indoors", "Walking there", "Standing a lot"];
 
+const SETTLED = "feta.style.settled";
+const settleKey = (look: { id: string }) => `${new Date().toDateString()}|${look.id}`;
+function settledFor() {
+  try {
+    return localStorage.getItem(SETTLED);
+  } catch {
+    return null;
+  }
+}
+
 export default function Style() {
   const router = useRouter();
   const toast = useToast();
@@ -52,7 +62,9 @@ export default function Style() {
   const [avoid, setAvoid] = useState("");
   const [own, setOwn] = useState("");
   const swipeX = useRef<number | null>(null);
-  const [settled, setSettled] = useState(false); // said "No, I'm set" to changing the outfit
+  // Said "No, I'm set" to changing today's outfit: not asked again today
+  // for that look (design audit, 26 Nov 2026), kept on the phone.
+  const [settledNow, setSettledNow] = useState(false);
 
   const wears = profile?.wears ?? "women";
   const look = set && mode !== "where" ? (set.looks[mode === "wearing" || mode === "worn" ? (set.chosen ?? li) : Math.min(li, set.looks.length - 1)] ?? null) : null;
@@ -248,10 +260,18 @@ export default function Style() {
     if (from && f?.where === "plan") router.back();
     else router.push("/home");
   }
-  async function pickDifferent() {
+  function settle(l: { id: string }) {
+    setSettledNow(true);
+    try {
+      localStorage.setItem(SETTLED, settleKey(l));
+    } catch {
+      // Asked again next time; that's all.
+    }
+  }
+  // Browsing the others keeps today's look on until another is worn
+  // (design audit, 26 Nov 2026: it came off at once, with no way back).
+  function pickDifferent() {
     if (!set) return;
-    await chooseLook(set, null);
-    setSet({ ...set, chosen: null });
     setLi(0);
     setAnim("in");
     setMode("looks");
@@ -427,6 +447,11 @@ export default function Style() {
                 <span>Swipe to wear →</span>
               </div>
               <p className={k.why}>{look.why}</p>
+              {set.chosen !== null && (
+                <button type="button" className={k.ghost} onClick={() => setMode("wearing")}>
+                  Keep what I&apos;m wearing
+                </button>
+              )}
             </>
           )}
 
@@ -476,15 +501,15 @@ export default function Style() {
               {/* Coming back, Feta asks before changing anything (founder, 25 Nov
                   2026: "it should ideally ask me if i wanna change my outfit"). */}
               {/* "No, I'm set" says so out loud (founder, 26 Nov 2026). */}
-              {settled ? (
-                <p className={k.why} style={{ textAlign: "center" }}>Have a great day in it.</p>
+              {settledNow || settledFor() === settleKey(look) ? (
+                <p className={k.why} style={{ textAlign: "center" }}>Enjoy it.</p>
               ) : (
                 <>
                   <p className={k.why} style={{ textAlign: "center" }}>Changing your outfit?</p>
                   <button type="button" className={k.primary} onClick={changeWhere}>
                     Yes, where are you going?
                   </button>
-                  <button type="button" className={k.ghost} onClick={() => setSettled(true)}>
+                  <button type="button" className={k.ghost} onClick={() => settle(look)}>
                     No, I&apos;m set
                   </button>
                   <button type="button" className={k.ghost} onClick={pickDifferent}>

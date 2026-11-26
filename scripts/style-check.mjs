@@ -142,11 +142,19 @@ ok("D: yes asks where they're going again", await until(/Where are you going/, 5
 await click(/^Keep what I'm wearing/);
 ok("D: keeping it goes back to the look", await until(/You're wearing this/, 5000));
 await click(/^No, I'm set/);
-ok("D: No, I'm set keeps the look and stops asking", (await until(/Have a great day in it/, 3000)) && !/Changing your outfit\?/.test(await text()));
+ok("D: No, I'm set keeps the look and stops asking", (await until(/Enjoy it/, 3000)) && !/Changing your outfit\?/.test(await text()));
+await p.goto(`${BASE}/style`, { waitUntil: "networkidle0" });
+await until(/You're wearing this/, 10000);
+ok("D: No, I'm set holds for the day", /Enjoy it/.test(await text()) && !/Changing your outfit\?/.test(await text()));
+await p.evaluate(() => localStorage.removeItem("feta.style.settled"));
 await p.goto(`${BASE}/style`, { waitUntil: "networkidle0" });
 await until(/Changing your outfit\?/, 10000);
 await click(/^Or pick another of today/);
 ok("D: Pick a different look goes back to the 3", await until(/of 3/, 5000) && looksCalls === calls);
+await click(/^Keep what I'm wearing/);
+ok("D: browsing the others keeps today's look on", await until(/You're wearing this/, 5000));
+await click(/^Or pick another of today/);
+await until(/of 3/, 5000);
 // Where to buy keeps the look.
 await swipe(-120);
 await until(/2 of 3/, 3000);
