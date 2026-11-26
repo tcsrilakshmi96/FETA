@@ -52,8 +52,10 @@ import {
 const REUSE_HOURS: Record<When, number> = { tonight: 3, weekend: 12 };
 // How long places wait for what's on. Things to do are led by events now
 // (founder, 19 Nov 2026), so the first search of the day waits for them
-// (one web search, about 11 s, then the venues); testers found 20 s too slow.
-const EVENTS_WAIT_MS = 15000;
+// (one web search, about 11 s, then the venues); testers found 20 s too
+// slow, and 15 s still too slow (26 Nov 2026). Events that come later join
+// the list from the phone's second ask, so the places don't wait long.
+const EVENTS_WAIT_MS = 8000;
 const EVENT_SEARCHES = 2;
 
 type Body = {
