@@ -30,11 +30,26 @@ export function originFromCity(city: City): Origin {
   return { lat: city.lat, lng: city.lng, label: `Anywhere in ${city.name}`, source: "city", city };
 }
 
+// They chose "Near me" (founder, 26 Nov 2026: "it shows me near me that
+// time but when I reopen it goes back to all of Bangalore"): the choice is
+// remembered on the phone, never where they were, so reopening finds them
+// again (lib/near-me.ts). Choosing an area or anywhere forgets it.
+export const NEAR_ME_KEY = "feta.nearMe";
+export function choseNearMe() {
+  try {
+    return localStorage.getItem(NEAR_ME_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function saveOrigin(origin: Origin) {
   try {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(origin));
+    if (origin.source === "gps") localStorage.setItem(NEAR_ME_KEY, "1");
+    else localStorage.removeItem(NEAR_ME_KEY);
     if (origin.source === "area") localStorage.setItem(AREA_KEY, JSON.stringify({ origin, at: Date.now() }));
-    if (origin.source === "city") localStorage.removeItem(AREA_KEY);
+    if (origin.source !== "area") localStorage.removeItem(AREA_KEY);
   } catch {
     // Without storage the origin still works for this screen.
   }

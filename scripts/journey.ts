@@ -399,6 +399,9 @@ async function main() {
     await g.waitForFunction(() => location.pathname !== "/location", { timeout: 20000 }).catch(() => null);
     const gpsPath = await g.evaluate(() => location.pathname);
     check(gpsPath === "/questions", "Use my location in setup leads to the questions, not Home", gpsPath);
+    // Reopening finds them again (founder, 26 Nov 2026: back to "All of Bangalore"): the choice is kept, never the place.
+    const kept = await g.evaluate(() => ({ choice: localStorage.getItem("feta.nearMe"), where: Object.keys(localStorage).filter((k) => /origin|area/.test(k)) }));
+    check(kept.choice === "1" && !kept.where.length, "Near me is remembered as a choice, with no location kept on the phone", JSON.stringify(kept));
     await gps.close();
 
     // Someone who chose only Style (user test, 24 Nov 2026): setup skips the

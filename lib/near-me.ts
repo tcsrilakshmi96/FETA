@@ -2,7 +2,7 @@
 
 import { cityAt, saveCity } from "@/lib/cities";
 import { saveCityToDb } from "@/lib/db";
-import { originFromGps, saveOrigin, type Origin } from "@/lib/origin";
+import { choseNearMe, originFromGps, saveOrigin, type Origin } from "@/lib/origin";
 
 // Arrived somewhere new (the phone is in a different city from the one Feta
 // knew): Home greets the first evening there. Kept for the visit only.
@@ -28,13 +28,16 @@ export function newCityName(): string | null {
 // WhatsApp) fell back to the whole city and measured from its centre. If
 // this phone already allows Feta its location, use it again quietly, once
 // per visit; nothing is stored beyond the visit and no prompt appears.
+// Someone who chose "Near me" is found again even when the phone doesn't
+// say the location is allowed (an installed Feta on an iPhone answers "ask"
+// every time); only a "no" stops it.
 export async function nearMeIfAllowed(current: Origin): Promise<Origin | null> {
   if (current.source !== "city" || !navigator.geolocation) return null;
   try {
     const status = await navigator.permissions?.query({ name: "geolocation" as PermissionName });
-    if (status?.state !== "granted") return null;
+    if (status?.state === "denied" || (status?.state !== "granted" && !choseNearMe())) return null;
   } catch {
-    return null;
+    if (!choseNearMe()) return null;
   }
   const pos = await new Promise<GeolocationPosition | null>((resolve) =>
     navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 }),
