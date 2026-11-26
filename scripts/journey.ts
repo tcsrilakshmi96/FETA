@@ -382,6 +382,18 @@ async function main() {
         return Object.entries(kept.slots ?? {}).filter(([k]) => !k.endsWith("tonight:food_drinks")).some(([, s]) => s.picks.some((x) => x.placeId === id));
       }, first);
       check(!!first && !elsewhere, "A place saved on the list leaves the other lists kept on the phone", String(first));
+      // Let's go saves nothing and takes nothing off the list unless Save is
+      // tapped (testers, 26 Nov 2026: the suggestion disappeared).
+      const hero = await p.evaluate(() => (document.querySelector("button[aria-label$=': details']") as HTMLButtonElement | null)?.getAttribute("aria-label")?.replace(/: details$/, "") ?? null);
+      await p.evaluate(() => (document.querySelector("button[aria-label$=': details']") as HTMLButtonElement | null)?.click());
+      await wait(600);
+      await click(p, /^Let.s go$/);
+      await wait(600);
+      const sheetSave = await p.evaluate(() => document.body.innerText.includes("Save to Want to try"));
+      await click(p, /^Done$/);
+      await wait(600);
+      const stillThere = !!hero && (await p.evaluate((n) => document.body.innerText.includes(n), hero));
+      check(sheetSave && stillThere, "Let's go keeps the pick on the list and offers Save to Want to try", `${hero} · save offered: ${sheetSave} · still there: ${stillThere}`);
     }
 
     // Another account's things left on the phone (founder, 21 Nov 2026: "in
