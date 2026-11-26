@@ -192,6 +192,19 @@ export function forgetPicks() {
 export function slotKey(origin: Origin, when: When, category: Category) {
   return `${originKey(origin)}|${when}:${category}`;
 }
+// What Home shows right now, first 4 of each, for Ask Feta (tester, 26 Nov
+// 2026: "Ask Feta should already know what Feta suggested"): today's lists,
+// else the weekend's.
+export function onHome(origin: Origin): { eat: Pick[]; do: Pick[] } {
+  const top = (c: Category) => {
+    for (const w of ["tonight", "weekend"] as When[]) {
+      const s = shown(state, slotKey(origin, w, c));
+      if (s && !s.loading && s.picks.length) return s.picks.slice(0, 4);
+    }
+    return [];
+  };
+  return { eat: top("food_drinks"), do: top("experiences") };
+}
 export function searchKey(origin: Origin, when: When, category: Category, typed: string) {
   return `${slotKey(origin, when, category)}|search:${typed.trim().toLowerCase()}`;
 }

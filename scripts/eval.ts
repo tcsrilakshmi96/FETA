@@ -8,7 +8,7 @@
 // for a final check before release (about ₹50; ask the founder first). In
 // live mode the expectations that name test places are skipped.
 
-import { asksQuestion, plainReply, tripDays, withDinner } from "@/lib/ask-rules";
+import { asksQuestion, homePicks, kmApart, plainReply, tripDays, withDinner } from "@/lib/ask-rules";
 import { kindOfPlace } from "@/lib/place-words";
 import { buildItinerary } from "@/lib/server/itinerary";
 import { hotelBudgets } from "@/lib/trip-client";
@@ -17,7 +17,7 @@ import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catal
 import { searchCities } from "@/lib/server/cities";
 import { becauseFor, curate, eventsFirst, KIND_MAX, namedPlace, pickFrom, selectPicks } from "@/lib/server/curate";
 import { cityCalendar, eventOver, eventPasses, landsOnSame, searchChip } from "@/lib/server/events";
-import { allIntents, planSearches, type Intent } from "@/lib/server/intents";
+import { allIntents, planSearches, servesLabels, type Intent } from "@/lib/server/intents";
 import { nearestFirst } from "@/lib/nearest";
 import { applyHardFilters, somewhereToGo, trustedRating, rulesBroken, dietOk, mainlyAvoided, notANightOut, distanceLimitKm, TRIP_OUT_KM, kindOf, mainlyMeat, mainlyNonVeg, popularCap, POPULAR_REVIEWS, weeklyHours, openTonight, type Candidate, type Category, type Pick, type Taste, type Tweak, type When } from "@/lib/server/picks";
 import { planEvenings } from "@/lib/plan";
@@ -914,6 +914,11 @@ async function main() {
     // Home's Eat and Do read as one outing (tester, 26 Nov 2026: 18 km apart)
     nearestFirst([{ placeId: "far", lat: 13.1, lng: 77.6 }, { placeId: "near", lat: 12.971, lng: 77.601 }] as never, { placeId: "eat", lat: 12.97, lng: 77.6 } as never)[0].placeId !== "near" && "the thing to do nearest the dinner isn't first",
     nearestFirst([{ placeId: "best", lat: 12.98, lng: 77.6 }, { placeId: "nearer", lat: 12.9701, lng: 77.6 }] as never, { placeId: "eat", lat: 12.97, lng: 77.6 } as never)[0].placeId !== "best" && "the best thing to do loses its place though it's already close",
+    // Ask Feta knows Home's picks (tester, 26 Nov 2026), by ref and Feta's own words only
+    homePicks([{ ref: "eat1", placeId: "a", kind: "EAT", serves: ["cuisine_thai"], lat: 12.97, lng: 77.6 }, { ref: "x9", placeId: "b" }, { ref: "do1", placeId: "c", kind: "EVENT", name: "Pizza class", lat: 13.1, lng: 77.6 }]).map((p) => p.ref).join() !== "eat1,do1" && "Ask takes a Home pick with a made-up ref",
+    "name" in (homePicks([{ ref: "do1", placeId: "c", name: "Pizza class" }])[0] ?? {}) && "a Home pick's name reaches Ask's chat model",
+    kmApart(homePicks([{ ref: "eat1", placeId: "a", lat: 12.97, lng: 77.6 }])[0], homePicks([{ ref: "do1", placeId: "c", lat: 13.13, lng: 77.6 }])[0]) !== 17.8 && "Ask isn't told how far the thing to do is from dinner",
+    servesLabels({ answers: { ...EMPTY_ANSWERS }, lines: [], own: [], yes: ["cuisine_thai"], no: [] } as unknown as Taste, searchCities("Bengaluru", 1)[0])("cuisine_thai") === null && "Ask can't say what a Home pick was for",
     // Rooftops chosen under things to do are searched there (founder, 26 Nov 2026)
     !allIntents({ answers: { ...EMPTY_ANSWERS, interests: ["live_music", "rooftops"] }, lines: [], yes: [], no: [] } as Taste, { category: "experiences", city: searchCities("Bengaluru", 1)[0], tweaks: [], rotation: 0 }).some((i) => i.id === "interest_rooftops") && "Rooftops chosen under things to do isn't searched there",
     !somewhereToGo({ ...(pl("Skyline Rooftop", "bar") as object), types: ["bar"] } as never, "experiences", { drinkOk: () => true }) && "a rooftop bar found for Rooftops is dropped from things to do",

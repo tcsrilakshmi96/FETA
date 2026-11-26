@@ -222,3 +222,12 @@ export function kindKey(place: Place, matched: string[], explicit: Intent[]): st
   for (const [id, def] of Object.entries(CUISINE_SEARCH)) if (def.types?.test(primary)) return `cuisine_${id}`;
   return primary;
 }
+
+// What a pick was for, in Feta's own words ("Thai & SE Asian", "Classes and
+// workshops"), from what it serves: for Ask Feta, which never gets a place's
+// name or Google's words (app/api/ask/route.ts).
+export function servesLabels(taste: Taste, city: City): (id: string) => string | null {
+  const labels = new Map<string, string>();
+  for (const category of ["food_drinks", "experiences"] as Category[]) for (const i of allIntents(taste, { category, city, tweaks: [], rotation: 0 })) labels.set(i.id, i.label);
+  return (id) => labels.get(id) ?? (id.startsWith("interest_") ? interestLabel(id.slice(9)) : null);
+}

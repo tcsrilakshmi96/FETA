@@ -1,3 +1,4 @@
+import { distanceKm } from "@/lib/cities";
 // What code checks in Ask Feta's answers (app/api/ask/route.ts): only the
 // things the chat model kept getting wrong. Kept apart so the quality check
 // (npm run eval) can test them without calling the model.
@@ -56,4 +57,30 @@ export function tripDays(message: string): number {
     most = Math.max(most, m[2].startsWith("week") ? n * 7 : n);
   }
   return most;
+}
+
+// Home's picks as Ask Feta gets them (ask-client.ts onScreen): checked, at
+// most 4 of each, refs "eat1"–"eat4" and "do1"–"do4" only.
+export type HomePick = { ref: string; placeId: string; kind: string; serves: string[]; fetaPick: boolean; lat?: number; lng?: number; priceLevel?: number };
+export function homePicks(raw: unknown): HomePick[] {
+  if (!Array.isArray(raw)) return [];
+  const num = (n: unknown) => (typeof n === "number" && Number.isFinite(n) ? n : undefined);
+  return raw
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === "object" && /^(eat|do)[1-4]$/.test(String((p as { ref?: unknown }).ref)) && typeof (p as { placeId?: unknown }).placeId === "string")
+    .slice(0, 8)
+    .map((p) => ({
+      ref: String(p.ref),
+      placeId: String(p.placeId).slice(0, 300),
+      kind: ["EAT", "DRINK", "DO", "EVENT"].includes(String(p.kind)) ? String(p.kind) : "EAT",
+      serves: (Array.isArray(p.serves) ? p.serves : []).filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 60)).slice(0, 6),
+      fetaPick: p.fetaPick === true,
+      lat: num(p.lat),
+      lng: num(p.lng),
+      priceLevel: [1, 2, 3, 4].includes(num(p.priceLevel) ?? 0) ? num(p.priceLevel) : undefined,
+    }));
+}
+
+export function kmApart(a: HomePick, b: HomePick): number | null {
+  if (a.lat === undefined || a.lng === undefined || b.lat === undefined || b.lng === undefined) return null;
+  return Math.round(distanceKm({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng }) * 10) / 10;
 }

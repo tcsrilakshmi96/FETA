@@ -6,12 +6,24 @@ import { currentUserId, supabase } from "@/lib/supabase";
 import { loadName } from "@/lib/profile";
 import { loadOrigin } from "@/lib/origin";
 import { firstSlotName } from "@/lib/slot-label";
+import { onHome } from "@/lib/picks-store";
+import type { Pick as PlacePick } from "@/lib/server/picks";
 
 export type { AskReply };
 
 // What went wrong is said as it is (tester, 26 Nov 2026: "no internet"
 // showed while online, for a slow day plan): offline only when the phone
 // is; a sign-in that didn't refresh is tried once more first.
+// Home's picks, by reference ("eat1", "do2"), so a follow-up ("what's close
+// to the class?", "something cheaper than that") starts from them. Only
+// place IDs, what each was picked for and where it is: the chat model gets
+// Feta's own words about them, never Google's (app/api/ask/route.ts).
+function onScreen(origin: Origin) {
+  const home = onHome(origin);
+  const brief = (p: PlacePick, ref: string) => ({ ref, placeId: p.placeId, kind: p.kind, serves: p.serves ?? [], fetaPick: p.fetaNote !== undefined, lat: p.lat, lng: p.lng, priceLevel: p.priceLevel });
+  return [...home.eat.map((p, i) => brief(p, `eat${i + 1}`)), ...home.do.map((p, i) => brief(p, `do${i + 1}`))];
+}
+
 export async function askFeta(message: string, origin: Origin | null): Promise<AskReply> {
   const say = (reply: string): AskReply => ({ reply, picks: [], added: [], trip: null });
   const offline = () => typeof navigator !== "undefined" && navigator.onLine === false;
@@ -25,7 +37,7 @@ export async function askFeta(message: string, origin: Origin | null): Promise<A
     const res = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ message, origin }),
+      body: JSON.stringify({ message, origin, onScreen: origin ? onScreen(origin) : undefined }),
     });
     // Took too long (the server stopped it): say so, not "no internet".
     if (res.status === 504) return say("That took me too long. Try asking again?");
