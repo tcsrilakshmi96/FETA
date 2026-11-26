@@ -86,9 +86,10 @@ export default function Lists() {
   const [rating, setRating] = useState<{ plan: SavedPlan; names: string[] } | null>(null);
 
   // Names for plans' stops that aren't in their lists, saved or shared (read
-  // live, once per open of the app; a Plan my evening's places often aren't).
+  // live, once per open of the app; a Plan my evening's places often aren't),
+  // only once Plans is open (cost audit, 26 Nov 2026: any tab paid for them).
   useEffect(() => {
-    if (items === null) return;
+    if (items === null || tab !== "plans") return;
     const known = new Set(items.map((i) => i.placeId));
     // Each name is a paid lookup (about ₹1.5), so only plans still to come
     // and the latest two that are done (cost audit, 26 Nov 2026); older Done
@@ -111,7 +112,7 @@ export default function Lists() {
     return () => {
       live = false;
     };
-  }, [items, shares, plans]);
+  }, [items, shares, plans, tab]);
 
   // Lists refresh each time the screen is shown.
   useEffect(() => {
