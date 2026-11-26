@@ -898,6 +898,7 @@ async function main() {
     !mainlyAvoided(pl("Hawksmoor", "steak_house"), ["beef"]) && "no beef: a steak house passes",
     dietOk(pl("Smokehouse BBQ", "barbecue_restaurant"), withDiet("vegan"), "GB") && "vegan: a barbecue place passes",
     dietOk(pl("Kebab Corner"), withDiet("jain"), "IN") && "Jain: a kebab place passes",
+    !rulesBroken({ ...(pl("Kebab Corner") as object), location: { latitude: 12.97, longitude: 77.6 } } as never, { taste: { answers: withDiet("vegetarian"), lines: [], yes: [], no: [] } as unknown as Taste, category: "experiences", when: "weekend", origin: { lat: 12.97, lng: 77.6 }, exclude: new Set(), city: searchCities("Bengaluru", 1)[0], anyHours: true, foodDrinkOk: () => true }).some((b) => b.why === "diet") && "a meat place under things to do skips the diet",
     !dietOk(pl("Udupi Grand", "south_indian_restaurant", null), withDiet("vegetarian"), "IN") && "vegetarian in India: a place with no answer is dropped",
     dietOk(pl("Trattoria Roma", "italian_restaurant", null), withDiet("vegetarian"), "GB") && "vegetarian abroad: a place with no answer passes",
     // Limits never mention money
@@ -969,6 +970,8 @@ async function main() {
       namedPlace([pl("Rooftop Bar Prague", "bar")], "rooftop bar") && "\"rooftop bar\" names a place called Rooftop Bar",
       !namedPlace([pl("Bar Leone", "bar")], "bar leone") && "\"bar leone\" doesn't find Bar Leone",
       !namedPlace([pl("Café de Flore", "cafe")], "cafe de flore") && "accents stop a name matching",
+      namedPlace([pl("Cubbon Park", "park")], "unique things happening in cubbon park") && "a search about what's on at a place is taken as its name",
+      !namedPlace([pl("Hawksmoor", "steak_house")], "hawksmoor seven dials") && "a name with its area isn't found",
       kindPicks.chosen.slice(0, kindPicks.shown).some((c) => (c.candidate.place.priceLevel ?? "").includes("EXPENSIVE")) && "a kind search breaks their budget",
       kindPicks.chosen.slice(0, kindPicks.shown).some((c) => !c.candidate.intents?.includes("asked")) && "a search shows a place that isn't what was typed",
       // The rules a place breaks, in the filter's order: the first is what the filter counts.

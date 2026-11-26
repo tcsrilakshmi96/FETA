@@ -218,6 +218,8 @@ const KIND_WORDS = new Set(
   "a an and at for in of on with near me best good cheap new live late night tonight weekend open bar bars pub pubs club clubs cafe cafes coffee tea restaurant restaurants food eat drinks drink cocktail cocktails wine beer craft brewery rooftop roof terrace garden brunch breakfast lunch dinner dessert desserts bakery ice cream pizza sushi ramen burger burgers tapas noodles dumplings thai indian italian chinese japanese korean mexican vietnamese french spanish greek turkish lebanese burmese local street vegan vegetarian veg music jazz comedy karaoke dance dancing salsa pottery class classes workshop workshops painting art gallery galleries museum museums theatre theater cinema movie movies market markets park parks hike hikes hiking trail trails walk walks yoga spa sauna climbing bowling games board escape room rooms tasting tastings horse riding kayak cycling bike tour tours show shows gig gigs concert concerts festival festivals popup pop up stand".split(" "),
 );
 
+const STOP = new Set("a an the and at in on of near by around to for".split(" "));
+
 export function namedPlace(places: Place[], typed: string): Place | null {
   const q = fold(typed);
   if (q.length < 3 || q.split(" ").every((w) => KIND_WORDS.has(w))) return null;
@@ -227,7 +229,11 @@ export function namedPlace(places: Place[], typed: string): Place | null {
       if (!name) return false;
       // Whole words only: "bar" alone doesn't name "Bar Leone".
       const within = (a: string, b: string) => ` ${b} `.includes(` ${a} `);
-      return name === q || (within(q, name) && q.length >= Math.min(6, name.length)) || (within(name, q) && name.length >= 4);
+      // A name inside a longer search names it only when little else is
+      // asked ("hawksmoor seven dials"); "unique things happening in cubbon
+      // park" is about what's there, not the park (tester, 26 Nov 2026).
+      const rest = ` ${q} `.replace(` ${name} `, " ").trim().split(" ").filter((w) => w && !STOP.has(w));
+      return name === q || (within(q, name) && q.length >= Math.min(6, name.length)) || (within(name, q) && name.length >= 4 && rest.length <= 2);
     }) ?? null
   );
 }
