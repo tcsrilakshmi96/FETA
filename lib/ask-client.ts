@@ -9,12 +9,18 @@ import { firstSlotName } from "@/lib/slot-label";
 
 export type { AskReply };
 
+// What went wrong is said as it is (tester, 26 Nov 2026: "no internet"
+// showed while online, for a slow day plan): offline only when the phone
+// is; a sign-in that didn't refresh is tried once more first.
 export async function askFeta(message: string, origin: Origin | null): Promise<AskReply> {
-  await currentUserId();
-  const { data } = await supabase().auth.getSession();
-  const token = data.session?.access_token;
-  const offline: AskReply = { reply: "I can't reach the internet just now. Try again in a moment.", picks: [], added: [], trip: null };
-  if (!token) return offline;
+  const say = (reply: string): AskReply => ({ reply, picks: [], added: [], trip: null });
+  const offline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+  const getToken = async () => {
+    await currentUserId();
+    return (await supabase().auth.getSession()).data.session?.access_token ?? null;
+  };
+  const token = (await getToken().catch(() => null)) ?? (await new Promise((r) => setTimeout(r, 1500)).then(() => getToken().catch(() => null)));
+  if (!token) return say(offline() ? "You're offline just now. Ask again once you're connected." : "Couldn't sign you in just now. Try again in a moment.");
   try {
     const res = await fetch("/api/ask", {
       method: "POST",
@@ -22,10 +28,13 @@ export async function askFeta(message: string, origin: Origin | null): Promise<A
       body: JSON.stringify({ message, origin }),
     });
     // Took too long (the server stopped it): say so, not "no internet".
-    if (res.status === 504) return { ...offline, reply: "That took me too long. Try asking again?" };
-    return (await res.json()) as AskReply;
+    if (res.status === 504) return say("That took me too long. Try asking again?");
+    if (res.status === 401) return say("Couldn't sign you in just now. Try again in a moment.");
+    const reply = (await res.json().catch(() => null)) as AskReply | null;
+    if (!reply || typeof reply.reply !== "string") return say("Something went wrong on my side. Try asking again?");
+    return reply;
   } catch {
-    return offline;
+    return say(offline() ? "You're offline just now. Ask again once you're connected." : "The connection dropped before my answer came. Try asking again?");
   }
 }
 
