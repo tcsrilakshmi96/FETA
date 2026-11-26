@@ -400,6 +400,7 @@ export default function Home() {
         <LetsGo
           pick={going}
           cityId={city.id}
+          listKey={going.kind === "EAT" || going.kind === "DRINK" ? foodKey : expKey}
           onClose={() => setGoing(null)}
           onWhatsAfter={() => {
             setGoing(null);

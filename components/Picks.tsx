@@ -547,6 +547,8 @@ export default function Picks() {
         <LetsGo
           pick={sheet.pick}
           cityId={city.id}
+          listKey={key}
+          saved={slot?.saved.includes(sheet.pick.placeId)}
           onClose={() => setSheet(null)}
         />
       )}

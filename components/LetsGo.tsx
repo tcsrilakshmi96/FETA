@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import SendToGroup from "@/components/SendToGroup";
+import { useToast } from "@/components/Toast";
 import { logEvent, savePickAction } from "@/lib/db";
-import { leaveLists } from "@/lib/picks-store";
+import { savedOn } from "@/lib/picks-store";
 import type { Pick } from "@/lib/picks-client";
 import styles from "./Sheet.module.css";
 
-// "Let's go": everything needed to actually go, in one place. The place is
-// saved, so a day later Home asks "How was it?" and moves it to Been.
-export default function LetsGo({ pick, cityId, onClose, onWhatsAfter }: { pick: Pick; cityId: string; onClose: () => void; onWhatsAfter?: () => void }) {
-  useEffect(() => {
-    if (pick.event) return;
+// "Let's go": everything needed to actually go, in one place. Nothing is
+// saved or taken off the list unless they tap Save (testers, 26 Nov 2026:
+// opening it made the suggestion disappear); saved, a day later Home asks
+// "How was it?" and moves it to Been. listKey: the list it was opened from,
+// where it's ticked as saved.
+export default function LetsGo({ pick, cityId, listKey, saved: savedBefore, onClose, onWhatsAfter }: { pick: Pick; cityId: string; listKey?: string; saved?: boolean; onClose: () => void; onWhatsAfter?: () => void }) {
+  const toast = useToast();
+  const [saved, setSaved] = useState(!!savedBefore);
+  function save() {
+    if (saved) return;
+    setSaved(true);
     savePickAction(pick.placeId, "saved", { because: pick.because, category: pick.kind === "EAT" || pick.kind === "DRINK" ? "food_drinks" : "experiences", cityId });
-    leaveLists(pick.placeId);
-  }, [pick, cityId]);
+    savedOn(listKey ?? "", pick.placeId);
+    toast("Saved to Want to try");
+  }
 
   return (
     <>
@@ -40,6 +48,15 @@ export default function LetsGo({ pick, cityId, onClose, onWhatsAfter }: { pick: 
                 <small>{pick.event ? "The ticket page" : "Book a table"}</small>
               </span>
             </a>
+          )}
+          {!pick.event && (
+            <button type="button" onClick={save} aria-pressed={saved}>
+              <span className={styles.icon}>{saved ? "✓" : "♡"}</span>
+              <span>
+                {saved ? "Saved to Want to try" : "Save to Want to try"}
+                <small>Tomorrow Feta asks how it was</small>
+              </span>
+            </button>
           )}
           {onWhatsAfter && (
             <button type="button" onClick={onWhatsAfter}>
@@ -70,7 +87,6 @@ export default function LetsGo({ pick, cityId, onClose, onWhatsAfter }: { pick: 
             }}
           />
         </div>
-        {!pick.event && <p className={styles.note}>Added to Want to try. Tomorrow Feta asks how it was, and adds it to Been if you went.</p>}
         <button type="button" className={`btn-primary ${styles.go}`} onClick={onClose}>
           Done
         </button>
