@@ -6,10 +6,11 @@ import Cheese from "@/components/Cheese";
 import { recordVisit } from "@/lib/db";
 import styles from "./TabBar.module.css";
 
-// Three tabs (Anj's flow, 14 Nov 2026): Picks + Style (Home), Saved and Ask
+// Three tabs (Anj's flow, 14 Nov 2026; named Home since 26 Nov 2026, testers
+// didn't find their way back): Home, Saved and Ask
 // Feta. You (preferences and account) opens from the round button on Home.
 const TABS = [
-  { id: "home", label: "Picks + Style", href: "/home" },
+  { id: "home", label: "Home", href: "/home" },
   { id: "lists", label: "Saved", href: "/lists" },
   { id: "ask", label: "Ask", href: "/ask" },
 ] as const;
