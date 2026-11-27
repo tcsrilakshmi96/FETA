@@ -137,6 +137,30 @@
   width: 100%;
 }
 
+.miniWrap {
+  position: relative;
+}
+
+.miniSave {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(26, 22, 22, 0.55);
+  color: #fff;
+  font-size: 16px;
+  line-height: 30px;
+  text-align: center;
+  padding: 0;
+}
+
+.miniSaved {
+  color: #ff6b8a;
+}
+
 .mini {
   position: relative;
   display: block;

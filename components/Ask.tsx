@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import Cheese from "@/components/Cheese";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
-import PickDetails, { kindLabel } from "@/components/PickDetails";
+import PickDetails, { kindLabel, stars } from "@/components/PickDetails";
 import ItineraryView from "@/components/ItineraryView";
 import OutfitCard from "@/components/OutfitCard";
 import PickPhoto from "@/components/PickPhoto";
@@ -33,6 +33,9 @@ function notedLabel(noted: NonNullable<AskReply["noted"]>) {
   return `NOTED ABOUT ${names.length === 1 ? names[0] : names.slice(0, -1).join(", ") + " and " + names[names.length - 1]}`.toUpperCase();
 }
 
+// Rating with its count and when it closes, from Google's live data.
+const miniFacts = (p: Pick) => (p.event ? null : [stars(p), p.googleLine.match(/closes \d\d:\d\d/)?.[0]].filter(Boolean).join(" · ") || null);
+
 export default function Ask() {
   const router = useRouter();
   // The conversation is kept outside the screen (lib/ask-client.ts), so
@@ -42,6 +45,7 @@ export default function Ask() {
   const [origin, setOrigin] = useState<Origin | null>(null);
   const [detail, setDetail] = useState<Pick | null>(null);
   const [going, setGoing] = useState<Pick | null>(null);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
   const toast = useToast();
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -80,6 +84,18 @@ export default function Ask() {
     else router.push("/home");
   }
 
+  function save(p: Pick) {
+    if (saved.has(p.placeId)) return;
+    savePickAction(p.placeId, "saved", {
+      category: p.kind === "DO" || p.kind === "EVENT" ? "experiences" : "food_drinks",
+      cityId: origin?.city.id ?? "",
+      because: p.because,
+    });
+    leaveLists(p.placeId);
+    setSaved((s) => new Set(s).add(p.placeId));
+    toast("Saved to Want to try");
+  }
+
   return (
     <main className={styles.screen}>
       <div className={styles.head}>
@@ -115,15 +131,23 @@ export default function Ask() {
               <>
                 <div className={styles.minis}>
                   {m.reply.picks.slice(0, 3).map((p) => (
-                    <button key={p.placeId} type="button" className={styles.mini} onClick={() => setDetail(p)}>
-                      <PickPhoto photo={p.photo} />
-                      <span className={styles.miniScrim} />
-                      <span className={styles.miniText}>
-                        <span className={styles.miniKind} style={{ display: "block" }}>{kindLabel(p.kind)}</span>
-                        <span className={styles.miniName}>{p.name}</span>
-                        <span className={styles.miniArea} style={{ display: "block" }}>{p.area}</span>
-                      </span>
-                    </button>
+                    <div key={p.placeId} className={styles.miniWrap}>
+                      <button type="button" className={styles.mini} onClick={() => setDetail(p)}>
+                        <PickPhoto photo={p.photo} />
+                        <span className={styles.miniScrim} />
+                        <span className={styles.miniText}>
+                          <span className={styles.miniKind} style={{ display: "block" }}>{kindLabel(p.kind)}</span>
+                          <span className={styles.miniName}>{p.name}</span>
+                          <span className={styles.miniArea} style={{ display: "block" }}>{p.area}</span>
+                          {/* The facts, as on the picks list (testers, 26 Nov 2026). */}
+                          {miniFacts(p) && <span className={styles.miniArea} style={{ display: "block" }}>{miniFacts(p)}</span>}
+                        </span>
+                      </button>
+                      {/* Saved straight from chat (tester, 26 Nov 2026: "couldn't save from Ask Feta"). */}
+                      <button type="button" aria-label={saved.has(p.placeId) ? `${p.name} saved` : `Save ${p.name}`} className={`${styles.miniSave} ${saved.has(p.placeId) ? styles.miniSaved : ""}`} onClick={() => save(p)}>
+                        {saved.has(p.placeId) ? "♥" : "♡"}
+                      </button>
+                    </div>
                   ))}
                 </div>
                 {m.reply.picks.some((p) => !p.event) && (
@@ -295,15 +319,7 @@ export default function Ask() {
         <PickDetails
           pick={detail}
           onClose={() => setDetail(null)}
-          onSave={() => {
-            savePickAction(detail.placeId, "saved", {
-              category: detail.kind === "DO" || detail.kind === "EVENT" ? "experiences" : "food_drinks",
-              cityId: origin?.city.id ?? "",
-              because: detail.because,
-            });
-            leaveLists(detail.placeId);
-            toast("Saved to Want to try");
-          }}
+          onSave={() => save(detail)}
           onGo={() => {
             setGoing(detail);
             setDetail(null);
