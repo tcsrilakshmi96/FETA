@@ -734,6 +734,11 @@
   color: rgba(var(--inkRGB), 0.55);
 }
 
+.rowFacts {
+  font-size: 11.5px;
+  color: rgba(var(--inkRGB), 0.75);
+}
+
 .rowGoogle {
   font: 400 10px Roboto, Arial, sans-serif;
   color: rgba(var(--inkRGB), 0.5);

@@ -488,9 +488,14 @@ export default function Picks() {
                       {[where(p), p.event ? p.chips[0] : null].filter(Boolean).join(" · ")}
                       {p.verdict === "Worth a detour" && <span className={styles.rowDetour}>{verdictLabel(p)}</span>}
                     </span>
-                    {/* Google's credit, short; opening hours and the full verdict are in Details. */}
+                    {/* The facts behind it on every card (testers, 26 Nov 2026: "proof"): its hours
+                        with Google's credit, and whether it's in their budget; the full verdict is in Details. */}
+                    {!p.event && (
+                      <span className={styles.rowFacts}>{[p.chips.includes("In your budget ✓") ? "In your budget ✓" : null, p.googleLine.replace(/ · checked on Google Maps$/, "")].filter(Boolean).join(" · ")}</span>
+                    )}
                     {!p.event && (
                       <span className={styles.rowGoogle}>
+                        {p.googleLine.endsWith("checked on Google Maps") ? "checked on " : ""}
                         <a href={p.mapsUri} target="_blank" rel="noopener noreferrer" translate="no" onClick={(e) => e.stopPropagation()}>
                           Google Maps
                         </a>
