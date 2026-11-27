@@ -59,9 +59,12 @@ export async function nearMeIfAllowed(current: Origin): Promise<Origin | null> {
 // phone's location once, the city following them. Says what happened so the
 // screen can say it: found (and saved), the phone said no, couldn't tell
 // which city, or another failure; mainland China goes to chat.
-export type Located = { origin: Origin; movedTo?: string } | { china: City } | "denied" | "nocity" | "failed";
+// "off": the phone or browser has location switched off (Feta was refused,
+// or the phone can't give a position at all), so the screen shows how to
+// switch it on (founder, 27 Nov 2026: "the button doesn't respond").
+export type Located = { origin: Origin; movedTo?: string } | { china: City } | "off" | "nocity" | "failed";
 export function locateMe(current: City | null): Promise<Located> {
-  if (!navigator.geolocation) return Promise.resolve("denied");
+  if (!navigator.geolocation) return Promise.resolve("off");
   return new Promise((resolve) =>
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
@@ -80,8 +83,21 @@ export function locateMe(current: City | null): Promise<Located> {
         saveOrigin(origin);
         resolve(moved ? { origin, movedTo: here.name } : { origin });
       },
-      (error) => resolve(error.code === error.PERMISSION_DENIED ? "denied" : "failed"),
-      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
+      (error) => resolve(error.code === error.TIMEOUT ? "failed" : "off"),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 },
     ),
   );
+}
+
+// How to switch location on, for this phone and browser.
+export function locationSteps(): string {
+  const ua = navigator.userAgent;
+  const installed = window.matchMedia?.("(display-mode: standalone)").matches;
+  if (/iPhone|iPad|iPod/.test(ua)) {
+    return installed || !/CriOS/.test(ua)
+      ? "Open Settings → Privacy & Security → Location Services: switch it on, then tap Safari Websites and choose While Using the App."
+      : "Open Settings → Privacy & Security → Location Services: switch it on, then tap Chrome and choose While Using the App.";
+  }
+  if (/Android/.test(ua)) return "Swipe down from the top of the screen and switch Location on. Then in Chrome tap ⋮ → Settings → Site settings → Location, and allow askfeta.com.";
+  return "Switch location on in your computer's privacy settings, then click the icon at the left of the address bar and allow location for askfeta.com.";
 }

@@ -222,6 +222,13 @@ async function main() {
     }
     const whereText = await p.evaluate(() => document.querySelector("[role=dialog][aria-label='Where are you?']")?.textContent ?? "");
     check(/Near me/.test(whereText) && !!(await p.$("[role=dialog] input[type=search]")) && (await p.evaluate(() => location.pathname)) === "/home", "Home's area opens the Where sheet with Near me and a city search, staying on Home", whereText.slice(0, 200));
+    // Near me with location blocked says how to switch it on (founder, 27 Nov 2026: "the button doesn't respond").
+    await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent?.includes("Near me"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await p.waitForSelector("[role=dialog][aria-label='Location is off']", { timeout: 15000 }).catch(() => null);
+    const offText = await p.evaluate(() => document.querySelector("[role=dialog][aria-label='Location is off']")?.textContent ?? "");
+    check(/switch it on/.test(offText) && /Try again/.test(offText), "Near me with location off shows how to switch it on", offText.slice(0, 200));
+    await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent?.includes("Search an area instead"))?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await wait(300);
     await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent?.trim() === "Close")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     await wait(400);
 

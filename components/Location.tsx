@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import FirstWhere from "@/components/FirstWhere";
+import LocationOff from "@/components/LocationOff";
 import { useToast } from "@/components/Toast";
 import { loadCity, type City } from "@/lib/cities";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
@@ -24,6 +25,7 @@ export default function Location() {
   const [setup, setSetup] = useState(false);
   const [state, setState] = useState<State>("ask");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [off, setOff] = useState(false);
   const [typed, setTyped] = useState("");
   const [suggestions, setSuggestions] = useState<AreaSuggestion[]>([]);
   const [choosing, setChoosing] = useState<string | null>(null);
@@ -61,10 +63,13 @@ export default function Location() {
     };
   }, [typed, city]);
 
-  async function useMyLocation() {
+  async function findMe() {
     setState("finding");
     const found = await locateMe(city);
-    if (found === "denied") return setState("denied");
+    if (found === "off") {
+      setState("denied");
+      return setOff(true);
+    }
     if (found === "nocity" || found === "failed") {
       setState("ask");
       return toast(found === "nocity" ? "Couldn't work out which city you're in. Type an area instead." : "Couldn't find you just now. Try again, or type an area.");
@@ -146,13 +151,13 @@ export default function Location() {
             <button type="button" className="btn-primary" onClick={() => setSheetOpen(true)}>
               Type an area
             </button>
-            <button type="button" className={styles.secondary} onClick={useMyLocation}>
+            <button type="button" className={styles.secondary} onClick={findMe}>
               Try location again
             </button>
           </>
         ) : (
           <>
-            <button type="button" className="btn-primary" disabled={state === "finding"} onClick={useMyLocation}>
+            <button type="button" className="btn-primary" disabled={state === "finding"} onClick={findMe}>
               {state === "finding" ? "Finding you…" : "Use my location"}
             </button>
             <button type="button" className={styles.secondary} onClick={() => setSheetOpen(true)}>
@@ -210,6 +215,19 @@ export default function Location() {
             </div>
           </div>
         </>
+      )}
+      {off && (
+        <LocationOff
+          onClose={() => setOff(false)}
+          onRetry={() => {
+            setOff(false);
+            findMe();
+          }}
+          onArea={() => {
+            setOff(false);
+            setSheetOpen(true);
+          }}
+        />
       )}
     </main>
   );

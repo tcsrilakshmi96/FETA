@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import LocationOff from "@/components/LocationOff";
 import { useToast } from "@/components/Toast";
 import { findCities, isMainlandChina, saveCity, type City } from "@/lib/cities";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
@@ -47,6 +48,8 @@ export default function WhereSheet({ origin, onChange, onClose }: { origin: Orig
   const [busy, setBusy] = useState<string | null>(null);
   const [recent] = useState(() => recentCities().filter((c) => c.id !== origin.city.id).slice(0, 3));
   const session = useRef("");
+  const input = useRef<HTMLInputElement>(null);
+  const [off, setOff] = useState(false);
 
   // Cities anywhere in the world (Feta's own list, free) and, from 3
   // letters, areas in this city (Google's suggestions).
@@ -76,7 +79,7 @@ export default function WhereSheet({ origin, onChange, onClose }: { origin: Orig
     setBusy("near");
     const found = await locateMe(origin.city);
     setBusy(null);
-    if (found === "denied") return toast("Location is off for Feta on this phone. Search an area instead.");
+    if (found === "off") return setOff(true);
     if (found === "nocity" || found === "failed") return toast(found === "nocity" ? "Couldn't work out which city you're in. Search an area instead." : "Couldn't find you just now. Try again, or search an area.");
     if ("china" in found) return router.push(`/ask?q=${encodeURIComponent(`Ideas near me in ${found.china.name}`)}`);
     remember(found.origin.city);
@@ -146,6 +149,7 @@ export default function WhereSheet({ origin, onChange, onClose }: { origin: Orig
         )}
 
         <input
+          ref={input}
           className={styles.input}
           type="search"
           autoComplete="off"
@@ -218,6 +222,19 @@ export default function WhereSheet({ origin, onChange, onClose }: { origin: Orig
           </ul>
         )}
       </div>
+      {off && (
+        <LocationOff
+          onClose={() => setOff(false)}
+          onRetry={() => {
+            setOff(false);
+            nearMe();
+          }}
+          onArea={() => {
+            setOff(false);
+            input.current?.focus();
+          }}
+        />
+      )}
     </>
   );
 }
