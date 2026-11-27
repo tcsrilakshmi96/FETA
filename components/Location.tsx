@@ -4,11 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import FirstWhere from "@/components/FirstWhere";
 import { useToast } from "@/components/Toast";
-import { cityAt, isMainlandChina, loadCity, saveCity, type City } from "@/lib/cities";
+import { loadCity, type City } from "@/lib/cities";
 import { locateArea, newAreaSession, suggestAreas, type AreaSuggestion } from "@/lib/area-client";
-import { saveCityToDb, saveLocationConsent } from "@/lib/db";
-import { markNewCity } from "@/lib/near-me";
-import { originFromArea, originFromCity, originFromGps, saveOrigin } from "@/lib/origin";
+import { locateMe } from "@/lib/near-me";
+import { originFromArea, originFromCity, saveOrigin } from "@/lib/origin";
 import styles from "./Location.module.css";
 
 type State = "ask" | "finding" | "denied";
@@ -62,50 +61,20 @@ export default function Location() {
     };
   }, [typed, city]);
 
-  function switchCity(next: City) {
-    saveCity(next);
-    saveCityToDb(next);
-    setCity(next);
-  }
-
-  function useMyLocation() {
-    if (!navigator.geolocation) {
-      setState("denied");
-      return;
-    }
+  async function useMyLocation() {
     setState("finding");
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        saveLocationConsent(true);
-        const point = { lat: coords.latitude, lng: coords.longitude };
-        // Wherever you are, picks come from there; the city follows you.
-        const here = (await cityAt(point)) ?? city;
-        if (!here) {
-          setState("ask");
-          toast("Couldn't work out which city you're in. Type an area instead.");
-          return;
-        }
-        if (here.id !== city?.id) {
-          switchCity(here);
-          markNewCity(here.name);
-          toast(`You're in ${here.name}, so picks are from here.`);
-        }
-        if (isMainlandChina(here)) {
-          router.push(`/ask?q=${encodeURIComponent(`Ideas near me in ${here.name}`)}`);
-          return;
-        }
-        saveOrigin(originFromGps(point.lat, point.lng, here));
-        router.push(setup ? "/questions" : "/home");
-      },
-      (error) => {
-        if (error.code === error.PERMISSION_DENIED) setState("denied");
-        else {
-          setState("ask");
-          toast("Couldn't find you just now. Try again, or type an area.");
-        }
-      },
-      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
-    );
+    const found = await locateMe(city);
+    if (found === "denied") return setState("denied");
+    if (found === "nocity" || found === "failed") {
+      setState("ask");
+      return toast(found === "nocity" ? "Couldn't work out which city you're in. Type an area instead." : "Couldn't find you just now. Try again, or type an area.");
+    }
+    if ("china" in found) return router.push(`/ask?q=${encodeURIComponent(`Ideas near me in ${found.china.name}`)}`);
+    if (found.movedTo) {
+      setCity(found.origin.city);
+      toast(`You're in ${found.movedTo}, so picks are from here.`);
+    }
+    router.push(setup ? "/questions" : "/home");
   }
 
   async function chooseArea(s: AreaSuggestion) {

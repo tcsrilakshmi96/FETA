@@ -17,6 +17,8 @@ import {
   startGoogleSignIn,
 } from "@/lib/auth";
 import { loadCity } from "@/lib/cities";
+import { loadOrigin, type Origin } from "@/lib/origin";
+import WhereSheet from "@/components/WhereSheet";
 import { saveWhatsApp } from "@/lib/db";
 import { showNumber } from "@/lib/phone";
 import {
@@ -56,6 +58,7 @@ export default function You() {
   const [appearance, setAppearanceState] = useState<Appearance>("auto");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cityName, setCityName] = useState("");
+  const [where, setWhere] = useState<Origin | null>(null);
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [adding, setAdding] = useState<{ about: Person | null; text: string } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -307,7 +310,11 @@ export default function You() {
           <button
             type="button"
             className={styles.chipLink}
-            onClick={() => router.push("/city?from=you")}
+            onClick={() => {
+              const o = loadOrigin();
+              if (o) setWhere(o);
+              else router.push("/city?from=you");
+            }}
           >
             {cityName ? `City: ${cityName}` : "Choose a city"}
           </button>
@@ -568,6 +575,7 @@ export default function You() {
             )}
           </div>
         )}
+        {where && <WhereSheet origin={where} onChange={(o) => { setWhere(o); setCityName(o.city.name); }} onClose={() => setWhere(null)} />}
       </main>
       <TabBar active="you" />
     </>

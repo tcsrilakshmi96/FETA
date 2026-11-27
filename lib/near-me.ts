@@ -1,7 +1,7 @@
 "use client";
 
-import { cityAt, saveCity } from "@/lib/cities";
-import { saveCityToDb } from "@/lib/db";
+import { cityAt, isMainlandChina, saveCity, type City } from "@/lib/cities";
+import { saveCityToDb, saveLocationConsent } from "@/lib/db";
 import { choseNearMe, originFromGps, saveOrigin, type Origin } from "@/lib/origin";
 
 // Arrived somewhere new (the phone is in a different city from the one Feta
@@ -53,4 +53,35 @@ export async function nearMeIfAllowed(current: Origin): Promise<Origin | null> {
   const origin = originFromGps(point.lat, point.lng, city);
   saveOrigin(origin);
   return origin;
+}
+
+// "Near me" tapped (the location screen in setup, the Where sheet): the
+// phone's location once, the city following them. Says what happened so the
+// screen can say it: found (and saved), the phone said no, couldn't tell
+// which city, or another failure; mainland China goes to chat.
+export type Located = { origin: Origin; movedTo?: string } | { china: City } | "denied" | "nocity" | "failed";
+export function locateMe(current: City | null): Promise<Located> {
+  if (!navigator.geolocation) return Promise.resolve("denied");
+  return new Promise((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        saveLocationConsent(true);
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        const here = (await cityAt(point)) ?? current;
+        if (!here) return resolve("nocity");
+        const moved = here.id !== current?.id;
+        if (moved) {
+          saveCity(here);
+          saveCityToDb(here);
+          markNewCity(here.name);
+        }
+        if (isMainlandChina(here)) return resolve({ china: here });
+        const origin = originFromGps(point.lat, point.lng, here);
+        saveOrigin(origin);
+        resolve(moved ? { origin, movedTo: here.name } : { origin });
+      },
+      (error) => resolve(error.code === error.PERMISSION_DENIED ? "denied" : "failed"),
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 },
+    ),
+  );
 }

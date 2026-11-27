@@ -4,6 +4,7 @@ import { firstSlotName } from "@/lib/slot-label";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CheesePull, { whatsNew } from "@/components/CheesePull";
+import WhereSheet from "@/components/WhereSheet";
 import LetsGo from "@/components/LetsGo";
 import Mascot from "@/components/Mascot";
 import PickDetails, { curatedLabel, GoogleLine, kindLabel, SearchChip, stars, verdictLabel } from "@/components/PickDetails";
@@ -97,6 +98,7 @@ export default function Picks() {
   const router = useRouter();
   const toast = useToast();
   const [origin, setOrigin] = useState<Origin | null>(null);
+  const [whereOpen, setWhereOpen] = useState(false);
   const [when, setWhen] = useState<When>("tonight");
   const [category, setCategory] = useState<Category>("food_drinks");
   // A search from the Search screen (/picks?q=…): the same list, for just
@@ -305,7 +307,7 @@ export default function Picks() {
               This weekend
             </button>
           </div>
-          <button type="button" className={styles.cityPill} onClick={() => router.push("/location")}>
+          <button type="button" className={styles.cityPill} onClick={() => setWhereOpen(true)}>
             {origin.source === "area" ? origin.label : city.name} ▾
           </button>
         </div>
@@ -404,7 +406,7 @@ export default function Picks() {
               See Saved
             </button>
           ) : (
-            <button type="button" className={styles.panelBtn} onClick={() => router.push("/location")}>
+            <button type="button" className={styles.panelBtn} onClick={() => setWhereOpen(true)}>
               Try another area
             </button>
           )}
@@ -634,6 +636,7 @@ export default function Picks() {
           </div>
         </>
       )}
+      {whereOpen && origin && <WhereSheet origin={origin} onChange={setOrigin} onClose={() => setWhereOpen(false)} />}
     </main>
   );
 }

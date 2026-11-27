@@ -11,6 +11,7 @@ import FetaPicksSheet from "@/components/FetaPicksSheet";
 import FetaStar from "@/components/FetaStar";
 import RepliesPill from "@/components/RepliesPill";
 import FirstTime from "@/components/FirstTime";
+import WhereSheet from "@/components/WhereSheet";
 import IphoneInstall from "@/components/IphoneInstall";
 import PlanSheet from "@/components/PlanSheet";
 import LetsGo from "@/components/LetsGo";
@@ -70,6 +71,7 @@ function eventBadge(p: Pick, timeZone: string) {
 export default function Home() {
   const router = useRouter();
   const [origin, setOrigin] = useState<Origin | null>(null);
+  const [whereOpen, setWhereOpen] = useState(false);
   const [when, setWhen] = useState<When>("tonight");
   // The lists are held by the picks store, shared with the picks list
   // (founder, 25 Nov 2026: one owner, no copies to disagree); it also looks
@@ -286,7 +288,7 @@ export default function Home() {
               <span className={styles.left}>
                 <span>{day.label}</span>
                 <span aria-hidden="true">·</span>
-                <button type="button" className={styles.area} onClick={() => router.push("/location")}>
+                <button type="button" className={styles.area} onClick={() => setWhereOpen(true)}>
                   {areaLabel.toUpperCase()} ▾
                 </button>
               </span>
@@ -429,6 +431,7 @@ export default function Home() {
           }}
         />
       )}
+      {whereOpen && <WhereSheet origin={origin} onChange={setOrigin} onClose={() => setWhereOpen(false)} />}
       {firstTime && <FirstTime want={firstTime} onClose={() => setFirstTime(null)} onDone={() => firstTimeDone(firstTime)} />}
     </>
   );

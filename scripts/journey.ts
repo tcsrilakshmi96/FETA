@@ -213,6 +213,18 @@ async function main() {
     check(/EAT/.test(home) && /DO/.test(home) && /WEAR/.test(home) && /TRIP/.test(home), "Home shows Eat, Do, Wear and Trip side by side");
     check(!/Couldn't reach|didn't work/i.test(home), "Home has picks, not an error", home.slice(0, 300));
 
+    // One Where sheet from Home's area (tester, 26 Nov 2026: "couldn't find
+    // where to change location"): Near me and a search for any city, no setup screens.
+    const areaBtn = await p.$("button[class*=area]");
+    if (areaBtn) {
+      await areaBtn.click();
+      await p.waitForSelector("[role=dialog][aria-label='Where are you?']", { timeout: 5000 }).catch(() => null);
+    }
+    const whereText = await p.evaluate(() => document.querySelector("[role=dialog][aria-label='Where are you?']")?.textContent ?? "");
+    check(/Near me/.test(whereText) && !!(await p.$("[role=dialog] input[type=search]")) && (await p.evaluate(() => location.pathname)) === "/home", "Home's area opens the Where sheet with Near me and a city search, staying on Home", whereText.slice(0, 200));
+    await p.evaluate(() => [...document.querySelectorAll("[role=dialog] button")].find((b) => b.textContent?.trim() === "Close")?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await wait(400);
+
     // Search (founder, 23 Nov 2026): the round button on Home moves nothing,
     // a search shows its own list, and a search never changes their taste.
     const homeBefore = await p.evaluate(() => Math.round([...document.querySelectorAll("[class*=quad] > *")].at(-1)?.getBoundingClientRect().bottom ?? -1));
