@@ -11,7 +11,8 @@
 import { asksQuestion, homePicks, kmApart, plainReply, tripDays, withDinner } from "@/lib/ask-rules";
 import { kindOfPlace } from "@/lib/place-words";
 import { buildItinerary } from "@/lib/server/itinerary";
-import { hotelBudgets } from "@/lib/trip-client";
+import { parseRange, stayKind, stayRange } from "@/lib/stay-budget";
+import { cleanRoute, tripStart } from "@/lib/server/trip";
 import { EMPTY_ANSWERS, QUESTIONS, type Answers } from "@/lib/onboarding";
 import { CUISINE_SEARCH, INTEREST_SEARCH, SIDE_SEARCH } from "@/lib/server/catalog";
 import { searchCities } from "@/lib/server/cities";
@@ -884,14 +885,16 @@ async function main() {
     chainNames > 1 && "two branches of one chain",
     !plan.days[0].stops.some((s) => /Castelo/.test(s.pick.name)) && "the castle (a top sight) left out of the first day",
     plan.days.some((d) => d.stops.length && !d.back) && "a day doesn't end back at the hotel",
-    ...["EUR", "INR", "USD", "GBP", "JPY"].flatMap((cur) =>
-      hotelBudgets(cur)
-        .flatMap((b) => b.label.match(/[\d,.]+/g) ?? [])
-        .map((n) => Number(n.replace(/,/g, "")))
-        // Round: its first two digits are a multiple of 5 (75, 150, 6,500).
-        .filter((n) => (n / 10 ** Math.max(0, Math.floor(Math.log10(n)) - 1)) % 5 !== 0)
-        .map((n) => `an odd hotel budget (${cur} ${n})`),
-    ),
+    // Trips (testers, 26 Nov 2026): a stay budget from ₹500 a night, as a range;
+    // no dates means a typical week from next week, never today.
+    stayRange("INR").floor !== 500 && "a night's stay can't be set from ₹500",
+    ...["EUR", "USD", "GBP", "JPY"].map((cur) => !/^[125]0*$/.test(String(stayRange(cur).floor)) && `an odd lowest stay budget (${cur} ${stayRange(cur).floor})`),
+    !/hostel|guesthouse/.test(stayKind(1500, "INR")) && "₹1,500 a night searches for more than a hostel or guesthouse",
+    !/luxury/.test(stayKind(40000, "INR")) && "₹40,000 a night doesn't search for luxury",
+    parseRange("500-3000", "INR")?.max !== 3000 && "a range kept on the trip isn't read back",
+    tripStart(null, "Asia/Kolkata", new Date("2026-11-27T10:00:00Z")) !== "2026-12-04" && "a trip with no dates starts today, not a typical week from next week",
+    tripStart("2027-01-10", "Asia/Kolkata", new Date("2026-11-27T10:00:00Z")) !== "2027-01-10" && "a trip's own start date isn't kept",
+    cleanRoute({ cities: [{ name: "Goa", nights: 4, areas: [{ name: "North Goa", why: "beaches and nightlife" }, { name: "South Goa", why: "quiet" }], base: "Anjuna" }] }).cities[0].base !== "Anjuna" && "the area chosen to stay in is lost from the route",
   ].filter(Boolean);
   if (dayFails.length) {
     failed++;

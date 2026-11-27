@@ -405,3 +405,77 @@
   font-weight: 500;
   color: var(--roseText);
 }
+
+/* Where to stay in a big place or a region, and the budget a night (27 Nov 2026). */
+.areaAsk {
+  margin-top: 6px;
+}
+
+.chips button:has(.areaWhy) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6px 13px;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.areaWhy {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.ownArea {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ownArea input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 99px;
+  background: var(--field);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.ownArea button {
+  padding: 0 14px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 13px;
+}
+
+.range {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 99px;
+  background: rgba(var(--inkRGB), 0.07);
+  font-weight: 600;
+}
+
+.stepper button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg);
+  font-size: 16px;
+}

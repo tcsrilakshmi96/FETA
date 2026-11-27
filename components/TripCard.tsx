@@ -11,7 +11,8 @@ import { livePlace } from "@/lib/my-places";
 import type { Pick } from "@/lib/picks-client";
 import type { Itinerary } from "@/lib/server/itinerary";
 import type { SavedDay } from "@/lib/server/trip";
-import { hotelBudgets, loadTrip, tripAction, type DaysReply, type Stay, type Trip, type TripTransport } from "@/lib/trip-client";
+import { parseRange, stayRange } from "@/lib/stay-budget";
+import { loadTrip, tripAction, type DaysReply, type Stay, type Trip, type TripTransport } from "@/lib/trip-client";
 import styles from "./TripCard.module.css";
 
 // The trip planner, as one card in Ask Feta (founder, 14 Nov 2026):
@@ -49,6 +50,9 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
   const [busy, setBusy] = useState<string | null>(null);
   const [stays, setStays] = useState<Stay[][] | null>(null);
   const [days, setDays] = useState<Record<number, Itinerary[]>>({});
+  // The budget a night, a range from ₹500 (or about the same in their money).
+  const [range, setRange] = useState<{ min: number; max: number } | null>(null);
+  const [ownArea, setOwnArea] = useState<{ index: number; text: string } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -64,6 +68,10 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
 
   if (!trip) return null;
   const currency = trip.home_currency ?? home?.currency ?? "USD";
+  const limits = stayRange(currency);
+  const shownRange = range ?? parseRange(trip.hotel_budget, limits.currency) ?? { min: limits.min, max: limits.max };
+  const setMin = (n: number) => setRange({ min: Math.max(limits.floor, Math.min(n, shownRange.max)), max: shownRange.max });
+  const setMax = (n: number) => setRange({ min: shownRange.min, max: Math.max(n, shownRange.min) });
   const nights = cities.reduce((n, c) => n + c.nights, 0);
   const start = trip.start_date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${trip.start_date}T12:00:00Z`)) : null;
 
@@ -93,13 +101,26 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
     setTrip((t) => t && { ...t, transport: r.transport });
   }
 
-  async function findStays(budget: string) {
+  async function findStays(want: { min: number; max: number }) {
     setBusy("stays");
-    const r = await tripAction<{ stays: Stay[][] }>({ id, action: "stays", budget });
+    const r = await tripAction<{ stays: Stay[][]; budget: string }>({ id, action: "stays", budget: `${want.min}-${want.max}`, home: home?.id ?? null });
     setBusy(null);
     if (!r?.stays) return toast("Couldn't find hotels just now. Try again.");
     setStays(r.stays);
-    setTrip((t) => t && { ...t, hotel_budget: budget, stays: Object.fromEntries(r.stays.map((s, i) => [String(i), { shown: s.map((x) => x.placeId), chosen: null }])) });
+    setTrip((t) => t && { ...t, hotel_budget: r.budget, stays: Object.fromEntries(r.stays.map((s, i) => [String(i), { shown: s.map((x) => x.placeId), chosen: null }])) });
+  }
+
+  // Where in a big place or a region they'll stay (founder, 27 Nov 2026):
+  // its hotels and day plans are searched there.
+  async function chooseBase(index: number, base: string | null) {
+    setBusy(`base-${index}`);
+    const r = await tripAction<{ trip: Trip }>({ id, action: "base", index, base });
+    setBusy(null);
+    if (!r?.trip) return toast("Couldn't save that just now. Try again.");
+    setTrip(r.trip);
+    setCities(r.trip.cities);
+    setOwnArea(null);
+    setStays(null);
   }
 
   function choose(index: number, stay: Stay) {
@@ -222,21 +243,76 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
                 const chosen = trip.stays[String(i)]?.chosen;
                 return chosen ? <ChosenHotel key={`${c.name}-hotel`} city={c.name} placeId={chosen} /> : null;
               })}
-              <p className={styles.ask}>{trip.hotel_budget ? "Show hotels again for your budget?" : "Hotel budget per night?"}</p>
-              <div className={styles.chips}>
-                {hotelBudgets(currency).map((b) => (
-                  <button key={b.id} type="button" className={trip.hotel_budget === b.id ? styles.on : ""} disabled={!!busy} onClick={() => findStays(b.id)}>
-                    {b.label}
+              {/* Which area, for each place where it matters (Goa: North, South, Panjim). */}
+              {cities.map((c, i) =>
+                c.areas?.length ? (
+                  <div key={`${c.name}-area`} className={styles.areaAsk}>
+                    <p className={styles.ask}>{c.base ? `Staying near ${c.base} in ${c.name}` : `Where in ${c.name} do you want to stay?`}</p>
+                    <div className={styles.chips}>
+                      {c.areas.map((a) => (
+                        <button key={a.name} type="button" className={c.base === a.name ? styles.on : ""} disabled={!!busy} onClick={() => chooseBase(i, c.base === a.name ? null : a.name)}>
+                          {a.name}
+                          {a.why && <small className={styles.areaWhy}>{a.why}</small>}
+                        </button>
+                      ))}
+                      {c.base && !c.areas.some((a) => a.name === c.base) && (
+                        <button type="button" className={styles.on} disabled={!!busy} onClick={() => chooseBase(i, null)}>
+                          {c.base}
+                        </button>
+                      )}
+                      <button type="button" disabled={!!busy} onClick={() => setOwnArea({ index: i, text: "" })}>
+                        Somewhere else
+                      </button>
+                    </div>
+                    {ownArea?.index === i && (
+                      <form
+                        className={styles.ownArea}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (ownArea.text.trim()) chooseBase(i, ownArea.text);
+                        }}
+                      >
+                        <input autoFocus value={ownArea.text} maxLength={40} placeholder={`An area or town in ${c.name}`} aria-label={`Where in ${c.name}`} onChange={(e) => setOwnArea({ index: i, text: e.target.value })} />
+                        <button type="submit" disabled={!ownArea.text.trim() || !!busy}>
+                          Stay here
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                ) : null,
+              )}
+              <p className={styles.ask}>Budget a night</p>
+              <div className={styles.range}>
+                <span className={styles.stepper}>
+                  <button type="button" aria-label="Lower the lowest" disabled={shownRange.min <= limits.floor} onClick={() => setMin(shownRange.min - limits.step)}>
+                    −
                   </button>
-                ))}
+                  {formatMoney(shownRange.min, limits.currency)}
+                  <button type="button" aria-label="Raise the lowest" onClick={() => setMin(shownRange.min + limits.step)}>
+                    ＋
+                  </button>
+                </span>
+                <span aria-hidden="true">to</span>
+                <span className={styles.stepper}>
+                  <button type="button" aria-label="Lower the highest" disabled={shownRange.max <= shownRange.min} onClick={() => setMax(shownRange.max - limits.step)}>
+                    −
+                  </button>
+                  {formatMoney(shownRange.max, limits.currency)}
+                  <button type="button" aria-label="Raise the highest" onClick={() => setMax(shownRange.max + limits.step)}>
+                    ＋
+                  </button>
+                </span>
               </div>
+              <button type="button" className={styles.primary} disabled={!!busy} onClick={() => findStays(shownRange)}>
+                {busy === "stays" ? "Finding stays…" : trip.hotel_budget ? "Show stays again" : "Find stays"}
+              </button>
               {busy === "stays" && <p className={styles.hint}>Finding hotels in every city…</p>}
             </>
           ) : (
             <>
               {cities.map((c, i) => (
                 <div key={`${c.name}-stay`} className={styles.stayCity}>
-                  <p className={styles.stayCityName}>{c.name}</p>
+                  <p className={styles.stayCityName}>{c.base ? `${c.name} · near ${c.base}` : c.name}</p>
                   {(stays[i] ?? []).length === 0 && <p className={styles.hint}>No well-reviewed stays found here. Try another budget.</p>}
                   {(stays[i] ?? []).map((s) => {
                     const chosen = trip.stays[String(i)]?.chosen === s.placeId;
@@ -271,7 +347,7 @@ export default function TripCard({ id, home, onStop, page = false }: { id: strin
                 </div>
               ))}
               <button type="button" className={styles.link} onClick={() => setStays(null)}>
-                Different budget
+                Different area or budget
               </button>
             </>
           )}

@@ -1,6 +1,7 @@
 import { cityById } from "@/lib/server/cities";
 import { limitNoticeHere, overBudget, withCosts } from "@/lib/server/costs";
 import { userDb, userIdFor } from "@/lib/server/taste";
+import { parseRange, stayRange } from "@/lib/stay-budget";
 import { cleanRoute, estimateTransport, tripTitle, findStays, planCityDays, type SavedDay, type Stay, type Trip } from "@/lib/server/trip";
 
 // Search, AI and photos can take a while; the default cut-off is shorter.
@@ -11,9 +12,10 @@ export const maxDuration = 300; // background work started here (a city's guide 
 // for a budget), choose (a hotel), days (day plans for one city).
 type Body = {
   id?: string;
-  action?: "save" | "transport" | "stays" | "choose" | "days";
+  action?: "save" | "transport" | "stays" | "choose" | "days" | "base";
   cities?: Trip["cities"];
-  budget?: string;
+  budget?: string; // "500-3000" a night, in the trip's currency
+  base?: string | null; // the area they'll stay in, for one city
   index?: number;
   placeId?: string | null;
   fromDay?: number;
@@ -40,7 +42,7 @@ export async function POST(request: Request) {
   if (body.action === "save") {
     // Edited on the phone: the cities they kept, in their order, with their
     // nights. Getting around and hotels are worked out again after a change.
-    const kept = cleanRoute({ cities: (body.cities ?? []).map((c) => ({ name: c.name, country: c.country, nights: c.nights, story: c.story, focus: c.focus })) }).cities;
+    const kept = cleanRoute({ cities: (body.cities ?? []).map((c) => ({ name: c.name, country: c.country, nights: c.nights, story: c.story, focus: c.focus, areas: c.areas, base: c.base })) }).cities;
     // "7 nights in Japan" follows the nights they kept.
     const title = tripTitle(trip.title, kept);
     await save({ title, cities: kept, transport: null, stays: {}, days: {} });
@@ -62,11 +64,28 @@ export async function POST(request: Request) {
   }
 
   if (body.action === "stays") {
-    const budget = ["1", "2", "3", "4"].includes(body.budget ?? "") ? body.budget! : "2";
-    const found = await withCosts(db, "trip_stays", () => Promise.all(trip.cities.map((c) => findStays(c, budget, trip.who).catch(() => [] as Stay[]))));
+    const currency = trip.home_currency ?? cityById(body.home ?? null)?.currency ?? "USD";
+    const { floor, currency: cur } = stayRange(currency);
+    const asked = parseRange(body.budget, cur);
+    if (!asked) return Response.json({ error: "Bad request" }, { status: 400 });
+    const min = Math.max(floor, Math.round(asked.min));
+    const max = Math.max(min, Math.round(asked.max));
+    const budget = `${min}-${max}`;
+    const found = await withCosts(db, "trip_stays", () => Promise.all(trip.cities.map((c) => findStays(c, { min, max, currency: cur }, trip.who).catch(() => [] as Stay[]))));
     const stays = Object.fromEntries(found.map((list, i) => [String(i), { shown: list.map((s) => s.placeId), chosen: null }]));
     await save({ hotel_budget: budget, stays });
-    return Response.json({ stays: found });
+    return Response.json({ stays: found, budget });
+  }
+
+  // Where in a city or region they'll stay: one of the areas suggested with
+  // the route, or their own words. Its hotels are found again after.
+  if (body.action === "base" && city) {
+    const base = typeof body.base === "string" && body.base.trim() ? body.base.trim().slice(0, 40) : null;
+    const cities = trip.cities.map((c, i) => (i === index ? { ...c, base } : c));
+    const stays = { ...trip.stays };
+    delete stays[String(index)];
+    await save({ cities, stays });
+    return Response.json({ trip: { ...trip, cities, stays } });
   }
 
   if (body.action === "choose" && city) {

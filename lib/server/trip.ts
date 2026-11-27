@@ -7,6 +7,7 @@ import { bestPhoto, findDestination, searchPlaces, type Place } from "@/lib/serv
 import { photoRef } from "@/lib/server/photo-ref";
 import { brandOf, type Pick } from "@/lib/server/picks";
 import { askGemini } from "@/lib/server/taste-reader";
+import { stayKind } from "@/lib/stay-budget";
 
 // The trip planner in Ask Feta (founder, 14 Nov 2026): 1) a route of cities,
 // nights and a two-line story for each (Venice, from general knowledge, no
@@ -14,7 +15,12 @@ import { askGemini } from "@/lib/server/taste-reader";
 // estimates), 3) hotels per city (Google Maps, place IDs stored), 4) day
 // plans per city, built live with the picks engine, 3 days at a time.
 
-export type TripCity = { name: string; country: string; cityId: string | null; nights: number; story: string; focus: string };
+// areas: where to stay in a big place or a region (North Goa, South Goa),
+// suggested with the route; base: the one they chose, so stays and day
+// plans are searched there, not at the map's centre of "Goa" (tester, 26 Nov
+// 2026: North Goa plans landed in Panjim). Names only, Feta's own words.
+export type TripArea = { name: string; why: string };
+export type TripCity = { name: string; country: string; cityId: string | null; nights: number; story: string; focus: string; areas?: TripArea[]; base?: string | null };
 export type TripLeg = { from: string; to: string; mode: "train" | "flight" | "bus" | "ferry" | "car"; minutes: number; cost: number; note?: string };
 export type TripTransport = { legs: TripLeg[]; trains: number; flights: number; tip: string; currency: string };
 export type Stay = {
@@ -46,7 +52,7 @@ export type Trip = {
 };
 
 // What Venice returns for a route.
-export type RouteIn = { title?: string; start?: string | null; who?: string; cities?: { name?: string; country?: string; nights?: number; story?: string; focus?: string }[] };
+export type RouteIn = { title?: string; start?: string | null; who?: string; cities?: { name?: string; country?: string; nights?: number; story?: string; focus?: string; areas?: { name?: string; why?: string }[]; base?: string | null }[] };
 
 // Cities as Feta knows them (its own GeoNames list), so stays and day plans
 // can find them. A city Feta doesn't know keeps its name and is chat-only.
@@ -63,6 +69,11 @@ export function cleanRoute(route: RouteIn) {
         nights: Math.max(1, Math.min(30, Math.round(c.nights ?? 1))),
         story: (c.story ?? "").slice(0, 280),
         focus: (c.focus ?? "").slice(0, 80),
+        areas: (Array.isArray(c.areas) ? c.areas : [])
+          .filter((a) => a && typeof a.name === "string" && a.name.trim())
+          .slice(0, 4)
+          .map((a) => ({ name: String(a.name).trim().slice(0, 40), why: String(a.why ?? "").trim().slice(0, 80) })),
+        base: typeof c.base === "string" && c.base.trim() ? c.base.trim().slice(0, 40) : null,
       };
     });
   const start = /^\d{4}-\d{2}-\d{2}$/.test(route.start ?? "") ? route.start! : null;
@@ -126,8 +137,6 @@ Route: ${route}.`, 20000);
   };
 }
 
-// Words for each hotel budget, so the search finds the right kind of stay.
-const STAY_WORDS: Record<string, string> = { "1": "budget hotel", "2": "hotel", "3": "boutique hotel", "4": "luxury hotel" };
 
 // A city on the route as a place to search from: Feta's list first, else
 // Google Maps (an island, a small town), placed in its nearest city.
@@ -157,14 +166,16 @@ function toStay(p: Place, city: City): Stay {
   };
 }
 
-// Three well-reviewed stays in a city for their budget (one search per city).
-// A couple in Japan might like a ryokan; the budget words decide the kind.
-export async function findStays(c: TripCity, budget: string, who: string | null): Promise<Stay[]> {
+// Three well-reviewed stays in a city for the top of their range (one search
+// per city), in the area they chose when they chose one ("budget hotel or
+// guesthouse in Anjuna, Goa"): the search itself finds the area, no lookup.
+export async function findStays(c: TripCity, budget: { min: number; max: number; currency: string }, who: string | null): Promise<Stay[]> {
   const at = await cityPoint(c);
   if (!at || isMainlandChina(at.city)) return [];
-  const kind = STAY_WORDS[budget] ?? "hotel";
+  const kind = stayKind(budget.max, budget.currency);
+  const romantic = who === "partner" && !/hostel|budget/.test(kind);
   const places = await searchPlaces({
-    query: `${who === "partner" && budget !== "1" ? `romantic ${kind}` : kind} in ${c.name}`,
+    query: `${romantic ? `romantic ${kind}` : kind} in ${c.base ? `${c.base}, ` : ""}${c.name}`,
     lat: at.lat,
     lng: at.lng,
     radiusKm: 20,
@@ -197,12 +208,14 @@ export async function planCityDays(opts: {
   const at = await cityPoint(c);
   if (!at) return { itinerary: null, notice: `I couldn't find ${c.name} on the map.` };
   if (isMainlandChina(at.city)) return { itinerary: null, notice: `Feta can't check places in mainland China yet, so I can't plan days in ${c.name}.` };
-  const point = opts.hotel ?? at;
-  const origin = { lat: point.lat, lng: point.lng, label: `Anywhere in ${c.name}`, source: "city" as const, city: at.city };
+  // From their hotel, else the area they chose to stay in (looked up once,
+  // about ₹3), else the place itself.
+  const base = !opts.hotel && c.base ? await findDestination(`${c.base}, ${c.name}, ${c.country}`) : null;
+  const point = opts.hotel ?? base ?? at;
+  const origin = { lat: point.lat, lng: point.lng, label: c.base ? `Near ${c.base}` : `Anywhere in ${c.name}`, source: "city" as const, city: at.city };
   // The first day in this city: the trip's start plus the nights before it.
   const before = opts.trip.cities.slice(0, opts.index).reduce((n, x) => n + x.nights, 0) + opts.fromDay;
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: at.city.timeZone }).format(new Date());
-  const startDate = new Date(`${opts.trip.start_date && opts.trip.start_date >= today ? opts.trip.start_date : today}T12:00:00Z`);
+  const startDate = new Date(`${tripStart(opts.trip.start_date, at.city.timeZone)}T12:00:00Z`);
   startDate.setUTCDate(startDate.getUTCDate() + before);
   const days = Math.min(3, c.nights - opts.fromDay);
   const { itinerary, limited } = await planDays(opts.token, {
@@ -217,4 +230,16 @@ export async function planCityDays(opts: {
   });
   if (!itinerary) return { itinerary: null, notice: limited ?? `I couldn't find enough open places to plan those days in ${c.name}.` };
   return { itinerary };
+}
+
+// The first day of the trip: the date they gave; with none ("Not sure yet"),
+// a typical week from a week today, never quietly today (tester, 26 Nov
+// 2026: a Goa trip with no dates started the same afternoon).
+export function tripStart(start: string | null, timeZone: string, now = new Date()): string {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
+  if (start && start >= today) return start;
+  if (start) return today;
+  const later = new Date(`${today}T12:00:00Z`);
+  later.setUTCDate(later.getUTCDate() + 7);
+  return later.toISOString().slice(0, 10);
 }
