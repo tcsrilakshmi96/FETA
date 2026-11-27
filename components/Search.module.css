@@ -39,11 +39,6 @@
   padding: 0;
 }
 
-.cancel {
-  min-height: 44px;
-  font-size: 15px;
-}
-
 .mast {
   font-family: var(--font-fraunces), serif;
   font-size: 28px;

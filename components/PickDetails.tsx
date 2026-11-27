@@ -1,5 +1,6 @@
 "use client";
 
+import BackArrow from "@/components/BackArrow";
 import PickPhoto from "@/components/PickPhoto";
 import { logEvent } from "@/lib/db";
 import { useEffect, useState } from "react";
@@ -76,6 +77,7 @@ export default function PickDetails({
       <div className={styles.dim} onClick={onClose} />
       <div className={styles.sheet} role="dialog" aria-label={pick.name}>
         <div className={styles.hero}>
+          <BackArrow onBack={onClose} floating />
           {/* Swipe for more of the place's photos (tester, 19 Nov 2026: "to understand the ambience and food", and the menu when it's there). */}
           <div className={styles.photos}>
             {[pick.photo, ...(pick.morePhotos ?? [])].map(

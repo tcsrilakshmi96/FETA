@@ -69,6 +69,25 @@
   from { transform: translateX(60px) scale(0.96); opacity: 0; }
 }
 
+/* The first time, the card shows it can be swiped (founder, 27 Nov 2026):
+   a nudge left, then down, and the hint stands out. */
+.showSwipe {
+  animation: in 0.4s var(--ease-enter), nudge 1.8s 0.7s var(--ease-enter);
+}
+
+.showSwipe .hint {
+  opacity: 1;
+  font-weight: 600;
+}
+
+@keyframes nudge {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-56px) rotate(-3deg); }
+  40% { transform: none; }
+  60% { transform: translateY(44px); }
+  80% { transform: none; }
+}
+
 .outLeft { transform: translateX(-120%) rotate(-8deg) !important; opacity: 0; }
 .outDown { transform: translateY(100%) !important; }
 
@@ -90,7 +109,7 @@
 .tag {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 52px);
-  left: 18px;
+  left: 60px;
   padding: 5px 10px;
   border-radius: 99px;
   background: rgba(0, 0, 0, 0.45);
@@ -102,13 +121,15 @@
 .x {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 48px);
-  right: 16px;
+  left: 16px;
   width: 34px;
   height: 34px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.45);
   color: #fff;
-  font-size: 14px;
+  font-size: 22px;
+  line-height: 1;
+  padding: 0 0 3px;
 }
 
 .text {
@@ -173,7 +194,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .die,
-  .cover { animation: none; }
+  .cover,
+  .showSwipe { animation: none; }
 }
 
 .photo img {

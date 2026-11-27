@@ -222,6 +222,15 @@ async function main() {
     if (searchBtn) {
       await searchBtn.click();
       await p.waitForFunction(() => location.pathname === "/search", { timeout: 10000 }).catch(() => null);
+      // One back arrow, top left (testers, 26 Nov 2026: "going back is poor").
+      const arrow = await p.$("main button[aria-label='Back']");
+      if (arrow) {
+        await arrow.click();
+        await p.waitForFunction(() => location.pathname === "/home", { timeout: 10000 }).catch(() => null);
+      }
+      check(!!arrow && (await p.evaluate(() => location.pathname)) === "/home", "Search's back arrow goes back to Home");
+      await (await p.$("button[aria-label^='Search a place']"))?.click();
+      await p.waitForFunction(() => location.pathname === "/search", { timeout: 10000 }).catch(() => null);
       await p.type("input[type=search]", "pottery");
       await p.keyboard.press("Enter");
       await p.waitForFunction(() => location.pathname === "/picks" && /pottery/.test(document.querySelector("h1")?.textContent ?? ""), { timeout: 15000 }).catch(() => null);

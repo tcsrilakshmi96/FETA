@@ -1,5 +1,6 @@
 "use client";
 
+import BackArrow from "@/components/BackArrow";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { loadOrigin, type Origin } from "@/lib/origin";
@@ -79,6 +80,7 @@ export default function Search() {
           if (q) go(q);
         }}
       >
+        <BackArrow />
         <label className={styles.field}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -86,9 +88,6 @@ export default function Search() {
           </svg>
           <input autoFocus type="search" enterKeyHint="search" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="A place, an activity or a piece" aria-label="Search" maxLength={80} />
         </label>
-        <button type="button" className={styles.cancel} onClick={() => router.back()}>
-          Cancel
-        </button>
       </form>
 
       <h1 className={styles.mast}>

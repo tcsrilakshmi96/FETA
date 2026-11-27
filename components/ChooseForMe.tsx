@@ -53,11 +53,24 @@ function inOrder(slot: Slot | undefined, mood: Mood) {
     .slice(0, 6);
 }
 
+const SWIPE_SHOWN = "feta.swipeShown";
+
 export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onClose }: { mood: Mood; origin: Origin; when: When; lead: Category; lists: { category: Category; slot: Slot | undefined }[]; onGo: (p: Pick) => void; onClose: () => void }) {
   const [pick, setPick] = useState<Pick | null>(null);
   const [notice, setNotice] = useState("");
   const [leaving, setLeaving] = useState<"" | "left" | "down">("");
   const [drag, setDrag] = useState({ x: 0, y: 0 });
+  // The first card ever shows that it can be swiped, once per phone.
+  const [showSwipe] = useState(() => {
+    try {
+      if (localStorage.getItem(SWIPE_SHOWN)) return false;
+      localStorage.setItem(SWIPE_SHOWN, "1");
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  const [firstCard, setFirstCard] = useState<string | null>(null);
   const seen = useRef<string[]>([]);
   const tried = useRef<string[]>([]);
   const turn = useRef(0);
@@ -86,6 +99,7 @@ export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onC
     setLeaving("");
     setDrag({ x: 0, y: 0 });
     setPick(found);
+    if (found) setFirstCard((f) => f ?? found.placeId);
   }
 
   useEffect(() => {
@@ -151,7 +165,7 @@ export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onC
       {pick && (
         <div
           key={pick.placeId}
-          className={`${styles.cover} ${leaving === "left" ? styles.outLeft : leaving === "down" ? styles.outDown : ""}`}
+          className={`${styles.cover} ${showSwipe && firstCard === pick.placeId ? styles.showSwipe : ""} ${leaving === "left" ? styles.outLeft : leaving === "down" ? styles.outDown : ""}`}
           style={moving}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
@@ -162,7 +176,7 @@ export default function ChooseForMe({ mood, origin, when, lead, lists, onGo, onC
           <span className={styles.shade} />
           <span className={styles.tag}>FETA&apos;S CHOICE · {KICK[mood]}</span>
           <button type="button" className={styles.x} onClick={close} aria-label="Back to Home">
-            ✕
+            ‹
           </button>
           <div className={styles.text}>
             <h2>{pick.name}</h2>

@@ -73,7 +73,7 @@
 
 .kind {
   position: absolute;
-  left: 14px;
+  left: 60px;
   top: 14px;
   padding: 6px 11px;
   border-radius: 99px;
@@ -256,7 +256,7 @@
 
 .fetaBadge {
   position: absolute;
-  left: 14px;
+  left: 60px;
   top: 48px;
   padding: 6px 11px;
   border-radius: 99px;
