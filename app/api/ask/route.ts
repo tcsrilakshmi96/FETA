@@ -403,8 +403,9 @@ Write only plain words in "reply": never tags, code or tool calls; to look somet
   const results = await Promise.all(searches.map(async (s): Promise<{ found: Pick[]; notice?: string }> => searchFor(s).catch(noGoogle({ found: [], notice: "Couldn't reach Google Maps just now. Ask me again in a minute?" }))));
   async function searchFor(s: (typeof searches)[number]): Promise<{ found: Pick[]; notice?: string }> {
     // Close to one of their Home picks: from where it is, a walk away.
+    // Kept by its place ID, never its coordinates (as Plan my evening does).
     const nearPick = onScreen.find((p) => p.ref === s.near && p.lat !== undefined && p.lng !== undefined);
-    const origin = nearPick && here ? { lat: nearPick.lat!, lng: nearPick.lng!, label: "near it", source: "area" as const, city: here.city } : await withCosts(db, "ask_place", () => (askIs({ key: s.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(s.place ?? parsed.trip?.place ?? onTrip, here, homeCity)));
+    const origin = nearPick && here ? { lat: nearPick.lat!, lng: nearPick.lng!, label: "near it", source: "area" as const, areaId: `near:${nearPick.placeId}`, city: here.city } : await withCosts(db, "ask_place", () => (askIs({ key: s.place ?? parsed.trip?.place ?? "", label: "find a place" }), resolvePlace(s.place ?? parsed.trip?.place ?? onTrip, here, homeCity)));
     if (origin && isMainlandChina(origin.city)) {
       return { found: [], notice: `Feta can't check places in mainland China yet, so ideas for ${origin.city.name} come from general knowledge and are less reliable. Check before you go.` };
     }
